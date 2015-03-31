@@ -1,0 +1,21 @@
+{
+	"ImportPath": "linksmart.eu/services/historical-datastore",
+	"GoVersion": "go1.3.2",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/gorilla/context",
+			"Rev": "14f550f51af52180c2eefed15e5fd18d63c0a64a"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Rev": "e444e69cbd2e2e3e0749a2f3c717cec491552bbf"
+		},
+		{
+			"ImportPath": "github.com/justinas/alice",
+			"Rev": "47a3f031f021c067f64de2af914c5822e44d4f52"
+		}
+	]
+}
