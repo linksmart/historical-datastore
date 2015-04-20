@@ -2,34 +2,34 @@ package registry
 
 import "testing"
 
-func TestAdd(t *testing.T) {
+func TestMemstorageAdd(t *testing.T) {
 	t.Error("TODO: Memstorage add test")
 }
 
-func TestUpdate(t *testing.T) {
+func TestMemstorageUpdate(t *testing.T) {
 	t.Error("TODO: Memstorage update test")
 }
 
-func TestDelete(t *testing.T) {
+func TestMemstorageDelete(t *testing.T) {
 	t.Error("TODO: Memstorage delete test")
 }
 
-func TestGet(t *testing.T) {
+func TestMemstorageGet(t *testing.T) {
 	t.Error("TODO: Memstorage get test")
 }
 
-func TestGetMany(t *testing.T) {
+func TestMemstorageGetMany(t *testing.T) {
 	t.Error("TODO: Memstorage getMany test")
 }
 
-func TestGetCount(t *testing.T) {
+func TestMemstorageGetCount(t *testing.T) {
 	t.Error("TODO: Memstorage getCount test")
 }
 
-func TestPathFilterOne(t *testing.T) {
+func TestMemstoragePathFilterOne(t *testing.T) {
 	t.Error("TODO: Memstorage pathFilterOne test")
 }
 
-func TestPathFilter(t *testing.T) {
+func TestMemstoragePathFilter(t *testing.T) {
 	t.Error("TODO: Memstorage pathFilterMany test")
 }

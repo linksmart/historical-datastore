@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func TestIndex(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(RegistryIndex))
+func TestHttpIndex(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(Index))
 	defer ts.Close()
 
 	res, err := http.Get(ts.URL)
@@ -28,18 +28,18 @@ func TestIndex(t *testing.T) {
 	t.Error("TODO: check response body")
 }
 
-func TestCreate(t *testing.T) {
+func TestHttpCreate(t *testing.T) {
 	t.Error("TODO: API handler test")
 }
 
-func TestRetrieve(t *testing.T) {
+func TestHttpRetrieve(t *testing.T) {
 	t.Error("TODO: API handler test")
 }
 
-func TestUpdate(t *testing.T) {
+func TestHttpUpdate(t *testing.T) {
 	t.Error("TODO: API handler test")
 }
 
-func TestDelete(t *testing.T) {
+func TestHttpDelete(t *testing.T) {
 	t.Error("TODO: API handler test")
 }
