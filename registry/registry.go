@@ -82,3 +82,23 @@ type Storage interface {
 	pathFilterOne(path, op, value string) (DataSource, error)
 	pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error)
 }
+
+// Client is an interface of a Registry client
+type Client interface {
+	// CRUD
+	Get(id string) (*DataSource, error)
+	Add(d *DataSource) error
+	Update(id string, d *DataSource) error
+	Delete(id string) error
+
+	// Returns a slice of DataSources given:
+	// page - page in the collection
+	// perPage - number of entries per page
+	GetDataSources(page, perPage int) ([]DataSource, int, error)
+
+	// Returns a single DataSource given: path, operation, value
+	FindDataSource(path, op, value string) (*DataSource, error)
+
+	// Returns a slice of DataSources given: path, operation, value, page, perPage
+	FindDataSources(path, op, value string, page, perPage int) ([]DataSource, int, error)
+}
