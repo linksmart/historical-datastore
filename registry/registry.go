@@ -1,6 +1,8 @@
 // Package registry implements Registry API
 package registry
 
+import "net/url"
+
 // Registry describes a registry of registered Data Sources
 type Registry struct {
 	// URL is the URL of the Registry API
@@ -25,7 +27,7 @@ type DataSource struct {
 	Data string `json:"data"`
 	// Resource is the URL identifying the corresponding
 	// LinkSmart Resource (e.g., @id in the Resource Catalog)
-	Resource string `json:"resource"`
+	Resource url.URL `json:"resource"`
 	// Meta is a hash-map with optional meta-information
 	Meta map[string]interface{} `json:"meta"`
 	// Retention is the retention policy for data
