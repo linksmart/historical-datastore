@@ -7,12 +7,12 @@ type LocalClient struct {
 
 // Add creates a DataSource
 func (c *LocalClient) Add(r *DataSource) error {
-	return c.storage.add(*r)
+	return c.storage.add(r)
 }
 
 // Update updates a DataSource
 func (c *LocalClient) Update(id string, r *DataSource) error {
-	return c.storage.update(id, *r)
+	return c.storage.update(id, r)
 }
 
 // Delete deletes a DataSource

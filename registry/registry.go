@@ -27,7 +27,7 @@ type DataSource struct {
 	Data string `json:"data"`
 	// Resource is the URL identifying the corresponding
 	// LinkSmart Resource (e.g., @id in the Resource Catalog)
-	// < Unmarshall seperately and parse into url.URL >
+	// < Unmarshall seperately and then parse into url.URL >
 	Resource url.URL `json:"-"`
 	// Meta is a hash-map with optional meta-information
 	Meta map[string]interface{} `json:"meta"`
@@ -73,7 +73,7 @@ type RetentionPolicy struct {
 type Storage interface {
 	// CRUD
 	add(ds *DataSource) error
-	update(id string, ds DataSource) error
+	update(id string, ds *DataSource) error
 	delete(id string) error
 	get(id string) (DataSource, error)
 
