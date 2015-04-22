@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	influx "github.com/influxdb/influxdb/client"
+	influx "linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/influxdb/influxdb/client"
 	"linksmart.eu/services/historical-datastore/registry"
 )
 

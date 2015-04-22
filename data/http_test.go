@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gorilla/mux"
-	senml "github.com/krylovsk/gosenml"
+	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
+	senml "linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/krylovsk/gosenml"
 	"linksmart.eu/services/historical-datastore/registry"
 )
 

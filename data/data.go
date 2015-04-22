@@ -4,7 +4,7 @@ package data
 import (
 	"time"
 
-	senml "github.com/krylovsk/gosenml"
+	senml "linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/krylovsk/gosenml"
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
