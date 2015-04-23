@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
 	"linksmart.eu/services/historical-datastore/common"
@@ -13,22 +14,51 @@ import (
 
 // Registry api
 type RegistryAPI struct {
-	storage         MemoryStorage
-	host            string
-	apiLocation     string
-	dataAPILocation string
+	storage *MemoryStorage
 }
 
-func NewRegistryAPI(host, apiLocation, dataAPILocation string) *RegistryAPI {
-	return &RegistryAPI{host: host, apiLocation: apiLocation, dataAPILocation: dataAPILocation}
+func NewRegistryAPI() *RegistryAPI {
+
+	return &RegistryAPI{
+		storage: NewMemoryStorage(),
+	}
 }
+
+const (
+	GetParamPage    = "page"
+	GetParamPerPage = "per_page"
+	// Max DataSources displayed in each page of registry
+	MaxPerPage = 100
+)
 
 // Handlers ///////////////////////////////////////////////////////////////////////
 
 // Index is a handler for the registry index
 func (regAPI *RegistryAPI) Index(w http.ResponseWriter, r *http.Request) {
-	// TODO
-	fmt.Fprintf(w, "TODO registry index")
+	r.ParseForm()
+	page, _ := strconv.Atoi(r.Form.Get(GetParamPage))
+	perPage, _ := strconv.Atoi(r.Form.Get(GetParamPerPage))
+
+	datasources, total, err := regAPI.storage.getMany(page, perPage)
+	if err != nil {
+		common.ErrorResponse(http.StatusInternalServerError, err.Error(), w)
+		return
+	}
+
+	// Create a registry catalog
+	registry := Registry{
+		URL:     common.RegistryAPILoc,
+		Entries: datasources,
+		Page:    page,
+		PerPage: perPage,
+		Total:   total,
+	}
+
+	b, _ := json.Marshal(registry)
+	w.Header().Set("Content-Type", "application/senml+json;version="+common.APIVersion)
+	w.Write(b)
+
+	return
 }
 
 // Create is a handler for creating a new DataSource
@@ -43,8 +73,13 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 		common.ErrorResponse(http.StatusBadRequest, fmt.Sprint("Error processing input: ", err.Error()), w)
 		return
 	}
-	ds.URL = regAPI.apiLocation      // append id after generation
-	ds.Data = regAPI.dataAPILocation // append id after generation
+
+	// Validate the unmarshalled DataSource
+	err = validateWritableDataSource(&ds)
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, fmt.Sprint("Invalid input: ", err.Error()), w)
+		return
+	}
 
 	err = regAPI.storage.add(&ds)
 	if err != nil {
@@ -53,10 +88,8 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("%+v\n", ds)
-	fmt.Println(regAPI.host)
 
-	//w.Header().Set("Content-Type", "application/json;version="+common.APIVersion)
-	w.Header().Set("Location", fmt.Sprintf("%s/%s", regAPI.host, ds.URL))
+	w.Header().Set("Location", ds.URL)
 	w.WriteHeader(http.StatusCreated)
 	return
 }
@@ -66,10 +99,6 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 func (regAPI *RegistryAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
-
-	w.Header().Set("Content-Type", "application/senml+json;version="+common.APIVersion)
-	//w.Header().Set("Location", fmt.Sprintf("%s/%s", self.apiLocation, s.Id))
-	w.WriteHeader(http.StatusCreated)
 
 	ds, err := regAPI.storage.get(id)
 	if err == ErrorNotFound {
@@ -93,8 +122,32 @@ func (regAPI *RegistryAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
-	// TODO
-	fmt.Fprintf(w, "TODO registry update %v", id)
+
+	body, err := ioutil.ReadAll(r.Body)
+	r.Body.Close()
+
+	var ds DataSource
+	err = unmarshalDataSource(body, &ds)
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, fmt.Sprint("Error processing input: ", err.Error()), w)
+		return
+	}
+
+	// Validate the unmarshalled DataSource
+	err = validateWritableDataSource(&ds)
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, fmt.Sprint("Invalid input: ", err.Error()), w)
+		return
+	}
+
+	err = regAPI.storage.update(id, &ds)
+	if err != nil {
+		common.ErrorResponse(404 /* NotFound */, err.Error(), w)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	return
 }
 
 // Delete is a handler for deleting the given DataSource
@@ -102,8 +155,14 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 func (regAPI *RegistryAPI) Delete(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
-	// TODO
-	fmt.Fprintf(w, "TODO registry delete %v", id)
+
+	err := regAPI.storage.delete(id)
+	if err != nil {
+		common.ErrorResponse(404 /* NotFound */, err.Error(), w)
+		return
+	}
+
+	return
 }
 
 // Filter is a handler for registry filtering API
@@ -147,5 +206,12 @@ func unmarshalDataSource(body []byte, ds *DataSource) error {
 	// Add it to DataSource
 	ds.Resource = *resourceURL
 
+	return nil
+}
+
+// Validate that only writable DataSource elements are provided and are valid
+func validateWritableDataSource(ds *DataSource) error {
+	// implement validator
+	// https://github.com/gima/govalid
 	return nil
 }

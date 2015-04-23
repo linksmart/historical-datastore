@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	var addr = flag.String("addr", "localhost:8080", "HTTP bind address")
+	var addr = flag.String("addr", ":8080", "HTTP bind address")
 
 	flag.Parse()
 
@@ -27,7 +27,7 @@ func main() {
 	router.get("/", commonHandlers.ThenFunc(indexHandler))
 
 	// registry api
-	regAPI := registry.NewRegistryAPI(*addr, "/registry", "/data")
+	regAPI := registry.NewRegistryAPI( /* no configurations */ )
 	router.get("/registry", commonHandlers.ThenFunc(regAPI.Index))
 	router.post("/registry/", commonHandlers.ThenFunc(regAPI.Create))
 	router.get("/registry/{id}", commonHandlers.ThenFunc(regAPI.Retrieve))
