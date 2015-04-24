@@ -31,3 +31,15 @@ func ErrorResponse(code int, msg string, w http.ResponseWriter) {
 	w.WriteHeader(code)
 	w.Write(b)
 }
+
+func ValidatePagingParams(page, perPage, maxPerPage int) (int, int) {
+	// use defaults if not specified
+	if page == 0 {
+		page = 1
+	}
+	if perPage == 0 || perPage > maxPerPage {
+		perPage = maxPerPage
+	}
+
+	return page, perPage
+}
