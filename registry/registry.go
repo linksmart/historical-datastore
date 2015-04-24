@@ -27,7 +27,8 @@ type DataSource struct {
 	Data string `json:"data"`
 	// Resource is the URL identifying the corresponding
 	// LinkSmart Resource (e.g., @id in the Resource Catalog)
-	Resource url.URL `json:"resource"`
+	// < Unmarshall seperately and then parse into url.URL >
+	Resource url.URL `json:"-"`
 	// Meta is a hash-map with optional meta-information
 	Meta map[string]interface{} `json:"meta"`
 	// Retention is the retention policy for data
@@ -71,8 +72,8 @@ type RetentionPolicy struct {
 // Storage is an interface of a Registry storage backend
 type Storage interface {
 	// CRUD
-	add(ds DataSource) error
-	update(id string, ds DataSource) error
+	add(ds *DataSource) error
+	update(id string, ds *DataSource) error
 	delete(id string) error
 	get(id string) (DataSource, error)
 

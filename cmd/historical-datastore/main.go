@@ -27,12 +27,13 @@ func main() {
 	router.get("/", commonHandlers.ThenFunc(indexHandler))
 
 	// registry api
-	router.get("/registry", commonHandlers.ThenFunc(registry.Index))
-	router.post("/registry/", commonHandlers.ThenFunc(registry.Create))
-	router.get("/registry/{id}", commonHandlers.ThenFunc(registry.Retrieve))
-	router.put("/registry/{id}", commonHandlers.ThenFunc(registry.Update))
-	router.delete("/registry/{id}", commonHandlers.ThenFunc(registry.Delete))
-	router.get("/registry/{path}/{type}/{op}/{value}", commonHandlers.ThenFunc(registry.Filter))
+	regAPI := registry.NewRegistryAPI( /* no configurations */ )
+	router.get("/registry", commonHandlers.ThenFunc(regAPI.Index))
+	router.post("/registry/", commonHandlers.ThenFunc(regAPI.Create))
+	router.get("/registry/{id}", commonHandlers.ThenFunc(regAPI.Retrieve))
+	router.put("/registry/{id}", commonHandlers.ThenFunc(regAPI.Update))
+	router.delete("/registry/{id}", commonHandlers.ThenFunc(regAPI.Delete))
+	router.get("/registry/{path}/{type}/{op}/{value}", commonHandlers.ThenFunc(regAPI.Filter))
 
 	// data api
 

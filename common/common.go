@@ -10,6 +10,11 @@ const (
 	IDSeparator = ","
 	// APIVersion defines the API version
 	APIVersion = "0.0.1"
+
+	// Location of APIs
+	RegistryAPILoc = "/registry"
+	DataAPILoc     = "/data"
+	AggrAPILoc     = "/aggr"
 )
 
 // Error describes an API error (serializable in JSON)
