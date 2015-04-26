@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"net/http"
+	"net/url"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/context"
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/justinas/alice"
+	"linksmart.eu/services/historical-datastore/data"
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
@@ -14,12 +16,30 @@ func main() {
 
 	flag.Parse()
 
+	// Configuration (config file later)
+	// registry
+	// FIXME: regisrty API should be configured with a storage backend
+	// (also used directly by the local client, see below)
+	regAPI := registry.NewRegistryAPI( /* no configurations */ )
+
+	// data
+	u, _ := url.Parse("http://localhost:8086")
+	dataStorageCfg := data.InfluxStorageConfig{
+		URL:      *u,
+		Database: "test",
+	}
+	dataStorage, _ := data.NewInfluxStorage(&dataStorageCfg)
+	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
+
+	dataAPI := data.NewDataAPI(registryClient, dataStorage)
+
 	commonHandlers := alice.New(
 		context.ClearHandler,
 		loggingHandler,
 		recoverHandler,
 	)
 
+	// http api
 	router := newRouter()
 
 	// generic handlers
@@ -27,7 +47,6 @@ func main() {
 	router.get("/", commonHandlers.ThenFunc(indexHandler))
 
 	// registry api
-	regAPI := registry.NewRegistryAPI( /* no configurations */ )
 	router.get("/registry", commonHandlers.ThenFunc(regAPI.Index))
 	router.post("/registry/", commonHandlers.ThenFunc(regAPI.Create))
 	router.get("/registry/{id}", commonHandlers.ThenFunc(regAPI.Retrieve))
@@ -36,6 +55,8 @@ func main() {
 	router.get("/registry/{path}/{type}/{op}/{value}", commonHandlers.ThenFunc(regAPI.Filter))
 
 	// data api
+	router.post("/data/{id}", commonHandlers.ThenFunc(dataAPI.Submit))
+	router.get("/data/{id}", commonHandlers.ThenFunc(dataAPI.Query))
 
 	// aggregation api
 

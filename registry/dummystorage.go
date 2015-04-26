@@ -5,12 +5,12 @@ import "net/url"
 // TODO: remove when memstorage is implemented (and rewrite data api tests)
 type DummyRegistryStorage struct{}
 
-func (s *DummyRegistryStorage) add(ds DataSource) error {
+func (s *DummyRegistryStorage) add(ds *DataSource) error {
 	// TODO
 	return nil
 }
 
-func (s *DummyRegistryStorage) update(id string, ds DataSource) error {
+func (s *DummyRegistryStorage) update(id string, ds *DataSource) error {
 	// TODO
 	return nil
 }
@@ -31,6 +31,12 @@ func (s *DummyRegistryStorage) get(id string) (DataSource, error) {
 		u, _ := url.Parse("http://example.com/sensor2")
 		return DataSource{
 			ID:       "67890",
+			Resource: *u,
+		}, nil
+	} else if id == "1337" {
+		u, _ := url.Parse("http://example.com/sensor3")
+		return DataSource{
+			ID:       "1337",
 			Resource: *u,
 		}, nil
 	}

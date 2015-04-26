@@ -20,19 +20,32 @@ type DataPoint struct {
 	*senml.Entry
 }
 
+// NewDataPoint returns a DataPoint given an SenML Entry
+func NewDataPoint() DataPoint {
+	return DataPoint{&senml.Entry{}}
+}
+
+// FromEntry returns a DataPoint given an SenML Entry
+func (p *DataPoint) FromEntry(e senml.Entry) DataPoint {
+	p.Entry = &e
+	return *p
+}
+
 // DataSet is a set of DataPoints embedding a SenML Message
 type DataSet struct {
 	*senml.Message
-}
-
-// NewDataPoint returns a DataPoint given an SenML Entry
-func NewDataPoint(e senml.Entry) DataPoint {
-	return DataPoint{&e}
+	Entries []DataPoint `json:"e"`
 }
 
 // NewDataSet returns a DataSet given an SenML Message
-func NewDataSet(m senml.Message) DataSet {
-	return DataSet{&m}
+func NewDataSet() DataSet {
+	return DataSet{&senml.Message{}, []DataPoint{}}
+}
+
+// FromMessage returns a DataSet given a SenML Message
+func (s *DataSet) FromMessage(m senml.Message) DataSet {
+	s.Message = &m
+	return *s
 }
 
 // RecordSet describes the recordset returned on querying the Data API
@@ -43,7 +56,7 @@ type RecordSet struct {
 	// Name (bn and n) constitute the resource URL of the corresponding Data Source(s)
 	Data DataSet `json:"data"`
 	// Time is the time of query in milliseconds
-	Time int `json:"time"`
+	Time float64 `json:"time"`
 	// Error is the query error (or null)
 	Error string `json:"error"`
 	// Page is the current page in Data pagination
@@ -55,11 +68,29 @@ type RecordSet struct {
 }
 
 type query struct {
-	start                time.Time
-	end                  time.Time
-	sort                 string
-	limit, page, perPage int
+	start time.Time
+	end   time.Time
+	sort  string
+	limit int
 }
+
+// func (q *query) isValid() bool {
+// 	// time
+// 	if q.end.Before(q.start) {
+// 		return false
+// 	}
+
+// 	// sort
+// 	validSort := map[string]bool{
+// 		ASC:  true,
+// 		DESC: true,
+// 	}
+// 	_, ok := validSort[q.sort]
+// 	if !ok {
+// 		return false
+// 	}
+// 	return true
+// }
 
 // Storage is an interface of a Data storage backend
 type Storage interface {
@@ -69,7 +100,7 @@ type Storage interface {
 	submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error
 
 	// Retrieves last data point of every data source
-	getLast(ds ...registry.DataSource) (int, DataSet, error)
+	getLast(sources ...registry.DataSource) (DataSet, error)
 	// Queries data for specified data sources
-	query(q query, ds ...registry.DataSource) (int, DataSet, error)
+	query(q query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error)
 }
