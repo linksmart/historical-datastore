@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	//"strings"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
 	"linksmart.eu/services/historical-datastore/common"
@@ -64,30 +65,36 @@ func (regAPI *RegistryAPI) Index(w http.ResponseWriter, r *http.Request) {
 // Create is a handler for creating a new DataSource
 func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		common.ErrorResponse(http.StatusUnsupportedMediaType, "Unsupported content type: "+contentType, w)
+		return
+	}
+
 	body, err := ioutil.ReadAll(r.Body)
 	r.Body.Close()
 
 	var ds DataSource
 	err = unmarshalDataSource(body, &ds)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, fmt.Sprint("Error processing input: ", err.Error()), w)
+		common.ErrorResponse(http.StatusBadRequest, "Error processing input: "+err.Error(), w)
 		return
 	}
 
 	// Validate the unmarshalled DataSource
 	err = validateWritableDataSource(&ds)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, fmt.Sprint("Invalid input: ", err.Error()), w)
+		common.ErrorResponse(http.StatusBadRequest, "Invalid input: "+err.Error(), w)
 		return
 	}
 
 	err = regAPI.storage.add(&ds)
 	if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, fmt.Sprint("Error storing the datasource: ", err.Error()), w)
+		common.ErrorResponse(http.StatusInternalServerError, "Error storing the datasource: "+err.Error(), w)
 		return
 	}
 
-	fmt.Printf("%+v\n", ds)
+	//fmt.Printf("%+v\n", ds)
 
 	w.Header().Set("Location", ds.URL)
 	w.WriteHeader(http.StatusCreated)
@@ -102,10 +109,10 @@ func (regAPI *RegistryAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 
 	ds, err := regAPI.storage.get(id)
 	if err == ErrorNotFound {
-		common.ErrorResponse(http.StatusNotFound, fmt.Sprint("DataSource not found: ", err.Error()), w)
+		common.ErrorResponse(http.StatusNotFound, "Error: "+err.Error(), w)
 		return
 	} else if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, fmt.Sprint("Error requesting registry: ", err.Error()), w)
+		common.ErrorResponse(http.StatusInternalServerError, "Error requesting registry: "+err.Error(), w)
 		return
 	}
 
@@ -123,20 +130,26 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		common.ErrorResponse(http.StatusUnsupportedMediaType, "Unsupported content type: "+contentType, w)
+		return
+	}
+
 	body, err := ioutil.ReadAll(r.Body)
 	r.Body.Close()
 
 	var ds DataSource
 	err = unmarshalDataSource(body, &ds)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, fmt.Sprint("Error processing input: ", err.Error()), w)
+		common.ErrorResponse(http.StatusBadRequest, "Error processing input: "+err.Error(), w)
 		return
 	}
 
 	// Validate the unmarshalled DataSource
 	err = validateWritableDataSource(&ds)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, fmt.Sprint("Invalid input: ", err.Error()), w)
+		common.ErrorResponse(http.StatusBadRequest, "Invalid input: "+err.Error(), w)
 		return
 	}
 
