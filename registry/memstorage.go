@@ -38,7 +38,7 @@ func (ms *MemoryStorage) add(ds *DataSource) error {
 	ds.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, ds.ID)
 
 	ms.data[newUUID] = *ds
-	fmt.Println("Added DS: ", ms.data[newUUID])
+	//fmt.Println("Added DS: ", ms.data[newUUID])
 
 	return nil
 }
