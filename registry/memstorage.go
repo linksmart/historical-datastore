@@ -54,18 +54,38 @@ func (ms *MemoryStorage) update(id string, ds *DataSource) error {
 
 	tempDS := ms.data[id]
 
-	// Update writable elements
-	ms.data[id] = DataSource{
-		ID:          tempDS.ID,
-		URL:         tempDS.URL,
-		Data:        tempDS.Data,
-		Resource:    ds.Resource,
-		Meta:        ds.Meta,
-		Retention:   ds.Retention,
-		Aggregation: ds.Aggregation,
-		Type:        ds.Type,
-		Format:      ds.Format,
-	}
+	// Modify writable elements
+	tempDS.Resource = ds.Resource
+	tempDS.Meta = ds.Meta
+	tempDS.Retention = ds.Retention
+	tempDS.Aggregation = ds.Aggregation
+	tempDS.Type = ds.Type
+	tempDS.Format = ds.Format
+
+	//	// Modify "provided" elements
+	//	if ds.Resource.Path != "" {
+	//		tempDS.Resource = ds.Resource
+	//		fmt.Printf("\n%+v", ds.Resource)
+	//	}
+	//	if len(ds.Meta) != 0 {
+	//		tempDS.Meta = ds.Meta
+	//		fmt.Printf("\n%+v", ds.Meta)
+	//	}
+	//	if ds.Retention.Policy != "" {
+	//		tempDS.Retention.Policy = ds.Retention.Policy
+	//		fmt.Printf("\n%+v", ds.Retention)
+	//	}
+	//	if ds.Retention.Duration != "" {
+	//		tempDS.Retention.Duration = ds.Retention.Duration
+	//		fmt.Printf("\n%+v", ds.Retention)
+	//	}
+	//	if len(ds.Aggregation) != len(tempDS.Aggregation) {
+	//		tempDS.Aggregation = ds.Aggregation
+	//		fmt.Printf("\n%+v", ds.Aggregation)
+	//	}
+
+	// Store the modified DS
+	ms.data[id] = tempDS
 
 	ms.mutex.Unlock()
 
@@ -88,8 +108,8 @@ func (ms *MemoryStorage) delete(id string) error {
 }
 
 func (ms *MemoryStorage) get(id string) (DataSource, error) {
-	fmt.Println("Getting ds with id: ", id)
-	fmt.Println("Content: ", ms.data[id])
+	//fmt.Println("Getting ds with id: ", id)
+	//fmt.Println("Content: ", ms.data[id])
 
 	ms.mutex.RLock()
 	ds, ok := ms.data[id]
@@ -152,7 +172,7 @@ func pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, e
 // Returns a 'slice' of the given slice based on the requested 'page'
 func getPageOfSlice(slice []string, page, perPage, maxPerPage int) []string {
 	keys := []string{}
-	page, perPage = validatePagingParams(page, perPage, maxPerPage)
+	page, perPage = common.ValidatePagingParams(page, perPage, maxPerPage)
 
 	// Never return more than the defined maximum
 	if perPage > maxPerPage || perPage == 0 {
@@ -178,16 +198,4 @@ func getPageOfSlice(slice []string, page, perPage, maxPerPage int) []string {
 		keys = slice[l:r]
 	}
 	return keys
-}
-
-func validatePagingParams(page, perPage, maxPerPage int) (int, int) {
-	// use defaults if not specified
-	if page == 0 {
-		page = 1
-	}
-	if perPage == 0 || perPage > maxPerPage {
-		perPage = maxPerPage
-	}
-
-	return page, perPage
 }

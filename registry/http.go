@@ -2,12 +2,13 @@ package registry
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
-	//"strings"
+	"strings"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
 	"linksmart.eu/services/historical-datastore/common"
@@ -30,6 +31,7 @@ const (
 	GetParamPerPage = "per_page"
 	// Max DataSources displayed in each page of registry
 	MaxPerPage = 100
+	//DefaultMIMEType = "application/vnd.eu.linksmart.hds+json;version=" + common.APIVersion
 )
 
 // Handlers ///////////////////////////////////////////////////////////////////////
@@ -56,7 +58,7 @@ func (regAPI *RegistryAPI) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	b, _ := json.Marshal(registry)
-	w.Header().Set("Content-Type", "application/senml+json;version="+common.APIVersion)
+	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.Write(b)
 
 	return
@@ -65,11 +67,11 @@ func (regAPI *RegistryAPI) Index(w http.ResponseWriter, r *http.Request) {
 // Create is a handler for creating a new DataSource
 func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		common.ErrorResponse(http.StatusUnsupportedMediaType, "Unsupported content type: "+contentType, w)
-		return
-	}
+	//	contentType := strings.Split(r.Header.Get("Content-Type"), ";")[0]
+	//	if contentType != "application/json" {
+	//		common.ErrorResponse(http.StatusUnsupportedMediaType, "Unsupported content type: "+contentType, w)
+	//		return
+	//	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	r.Body.Close()
@@ -84,7 +86,7 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 	// Validate the unmarshalled DataSource
 	err = validateWritableDataSource(&ds)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, "Invalid input: "+err.Error(), w)
+		common.ErrorResponse(http.StatusConflict, "Invalid input: "+err.Error(), w)
 		return
 	}
 
@@ -118,7 +120,7 @@ func (regAPI *RegistryAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 
 	b, _ := json.Marshal(ds)
 
-	w.Header().Set("Content-Type", "application/senml+json;version="+common.APIVersion)
+	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.Write(b)
 
 	return
@@ -129,12 +131,6 @@ func (regAPI *RegistryAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
-
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		common.ErrorResponse(http.StatusUnsupportedMediaType, "Unsupported content type: "+contentType, w)
-		return
-	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	r.Body.Close()
@@ -149,7 +145,7 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 	// Validate the unmarshalled DataSource
 	err = validateWritableDataSource(&ds)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, "Invalid input: "+err.Error(), w)
+		common.ErrorResponse(http.StatusConflict, "Invalid input: "+err.Error(), w)
 		return
 	}
 
@@ -222,9 +218,25 @@ func unmarshalDataSource(body []byte, ds *DataSource) error {
 	return nil
 }
 
-// Validate that only writable DataSource elements are provided and are valid
+// Validate that only writable DataSource elements are provided and that are valid
 func validateWritableDataSource(ds *DataSource) error {
-	// implement validator
-	// https://github.com/gima/govalid
+
+	// Make sure no read-only data is being added/modified
+	var illegal_entities []string
+	if ds.ID != "" {
+		illegal_entities = append(illegal_entities, "id")
+	}
+	if ds.URL != "" {
+		illegal_entities = append(illegal_entities, "url")
+	}
+	if ds.Data != "" {
+		illegal_entities = append(illegal_entities, "data")
+	}
+	if len(illegal_entities) > 0 {
+		return errors.New("Conflicting read-only entities: " + strings.Join(illegal_entities, ", "))
+	}
+
+	// todo: validate other entities
+
 	return nil
 }

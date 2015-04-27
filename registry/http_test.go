@@ -56,18 +56,18 @@ func TestHttpCreate(t *testing.T) {
 		}
 		`)
 
-	// try html - should be not supported
-	res, err := http.Post(ts.URL+"/registry", "text/plain", bytes.NewReader(b))
-	if err != nil {
-		t.Fatal(err)
-	}
+	//	// try html - should be not supported
+	//	res, err := http.Post(ts.URL+"/registry", "text/plain", bytes.NewReader(b))
+	//	if err != nil {
+	//		t.Fatal(err)
+	//	}
 
-	if res.StatusCode != http.StatusUnsupportedMediaType {
-		t.Errorf("Server response is not %v but %v", http.StatusUnsupportedMediaType, res.StatusCode)
-	}
+	//	if res.StatusCode != http.StatusUnsupportedMediaType {
+	//		t.Errorf("Server response is not %v but %v", http.StatusUnsupportedMediaType, res.StatusCode)
+	//	}
 
 	// try bad payload
-	res, err = http.Post(ts.URL+"/registry", "application/json", bytes.NewReader([]byte{0xde, 0xad}))
+	res, err := http.Post(ts.URL+"/registry", "unknown/unknown", bytes.NewReader([]byte{0xde, 0xad}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestHttpCreate(t *testing.T) {
 	}
 
 	// try a good one
-	res, err = http.Post(ts.URL+"/registry", "application/json", bytes.NewReader(b))
+	res, err = http.Post(ts.URL+"/registry", "unknown/unknown", bytes.NewReader(b))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestHttpRetrieve(t *testing.T) {
 		`)
 
 	// first, create a data source
-	res, err := http.Post(ts.URL+"/registry", "application/json", bytes.NewReader(b))
+	res, err := http.Post(ts.URL+"/registry", "unknown/unknown", bytes.NewReader(b))
 	if err != nil {
 		t.Fatal(err)
 	}
