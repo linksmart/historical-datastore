@@ -10,6 +10,8 @@ const (
 	IDSeparator = ","
 	// APIVersion defines the API version
 	APIVersion = "0.0.1"
+	// Default MIME type for all responses
+	DefaultMIMEType = "application/vnd.eu.linksmart.hds+json;version=" + APIVersion
 
 	// Location of APIs
 	RegistryAPILoc = "/registry"
