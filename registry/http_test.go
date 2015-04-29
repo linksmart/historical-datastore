@@ -14,8 +14,26 @@ import (
 	"linksmart.eu/services/historical-datastore/common"
 )
 
+func setupRouter() *mux.Router {
+	regStorage := NewMemoryStorage()
+	regAPI := NewRegistryAPI(regStorage)
+
+	r := mux.NewRouter().StrictSlash(true)
+	r.Methods("GET").Path("/registry").HandlerFunc(regAPI.Index)
+	r.Methods("POST").Path("/registry").HandlerFunc(regAPI.Create)
+	r.Methods("GET").Path("/registry/{id}").HandlerFunc(regAPI.Retrieve)
+	r.Methods("PUT").Path("/registry/{id}").HandlerFunc(regAPI.Update)
+	r.Methods("DELETE").Path("/registry/{id}").HandlerFunc(regAPI.Delete)
+	r.Methods("GET").Path("/registry/{path}/{type}/{op}/{value}").HandlerFunc(regAPI.Filter)
+	return r
+}
+
 func TestHttpIndex(t *testing.T) {
-	regAPI := NewRegistryAPI()
+	// for some reason, the setupTouter doesn't work on Index
+	//	ts := httptest.NewServer(setupRouter())
+	//	defer ts.Close()
+	regStorage := NewMemoryStorage()
+	regAPI := NewRegistryAPI(regStorage)
 	ts := httptest.NewServer(http.HandlerFunc(regAPI.Index))
 	defer ts.Close()
 
@@ -35,11 +53,12 @@ func TestHttpIndex(t *testing.T) {
 	}
 
 	t.Skip("TODO: test registry body")
+
+	return
 }
 
 func TestHttpCreate(t *testing.T) {
-	regAPI := NewRegistryAPI()
-	ts := httptest.NewServer(http.HandlerFunc(regAPI.Create))
+	ts := httptest.NewServer(setupRouter())
 	defer ts.Close()
 
 	b := []byte(`
@@ -51,7 +70,7 @@ func TestHttpCreate(t *testing.T) {
 			    "duration": "any_duration"
 			},
 			"aggregation": [],
-			"type": "any_type",
+			"type": "string",
 			"format": "any_format"
 		}
 		`)
@@ -94,18 +113,8 @@ func TestHttpCreate(t *testing.T) {
 	t.Log(string(body))
 }
 
-func setupRouter() *mux.Router {
-	regAPI := NewRegistryAPI()
-
-	r := mux.NewRouter().StrictSlash(true)
-	r.Methods("POST").Path("/registry").HandlerFunc(regAPI.Create)
-	r.Methods("GET").Path("/registry/{id}").HandlerFunc(regAPI.Retrieve)
-	return r
-}
-
 // Create a data source and retrieve it back
 func TestHttpRetrieve(t *testing.T) {
-
 	ts := httptest.NewServer(setupRouter())
 	defer ts.Close()
 
@@ -118,7 +127,7 @@ func TestHttpRetrieve(t *testing.T) {
 			    "duration": "any_duration"
 			},
 			"aggregation": [],
-			"type": "any_type",
+			"type": "string",
 			"format": "any_format"
 		}
 		`)

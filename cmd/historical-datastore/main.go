@@ -17,10 +17,10 @@ func main() {
 	flag.Parse()
 
 	// Configuration (config file later)
+
 	// registry
-	// FIXME: regisrty API should be configured with a storage backend
-	// (also used directly by the local client, see below)
-	regAPI := registry.NewRegistryAPI( /* no configurations */ )
+	regStorage := registry.NewMemoryStorage()
+	regAPI := registry.NewRegistryAPI(regStorage)
 
 	// data
 	u, _ := url.Parse("http://localhost:8086")

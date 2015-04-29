@@ -6,8 +6,10 @@ import (
 	//"time"
 	"errors"
 	"sort"
+	"strings"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/code.google.com/p/go-uuid/uuid"
+	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/linksmart.eu/lc/core/catalog"
 	"linksmart.eu/services/historical-datastore/common"
 )
 
@@ -20,13 +22,13 @@ type MemoryStorage struct {
 	mutex sync.RWMutex
 }
 
-func NewMemoryStorage() *MemoryStorage {
-	return &MemoryStorage{
+func NewMemoryStorage() Storage {
+	return MemoryStorage{
 		data: make(map[string]DataSource),
 	}
 }
 
-func (ms *MemoryStorage) add(ds *DataSource) error {
+func (ms MemoryStorage) add(ds *DataSource) error {
 
 	// Get a new UUID and convert it to string (UUID type can't be used as map-key)
 	newUUID := fmt.Sprint(uuid.NewRandom())
@@ -43,7 +45,7 @@ func (ms *MemoryStorage) add(ds *DataSource) error {
 	return nil
 }
 
-func (ms *MemoryStorage) update(id string, ds *DataSource) error {
+func (ms MemoryStorage) update(id string, ds *DataSource) error {
 	ms.mutex.Lock()
 
 	_, ok := ms.data[id]
@@ -55,34 +57,12 @@ func (ms *MemoryStorage) update(id string, ds *DataSource) error {
 	tempDS := ms.data[id]
 
 	// Modify writable elements
-	tempDS.Resource = ds.Resource
+	//tempDS.Resource = ds.Resource
 	tempDS.Meta = ds.Meta
 	tempDS.Retention = ds.Retention
 	tempDS.Aggregation = ds.Aggregation
-	tempDS.Type = ds.Type
+	//tempDS.Type = ds.Type
 	tempDS.Format = ds.Format
-
-	//	// Modify "provided" elements
-	//	if ds.Resource.Path != "" {
-	//		tempDS.Resource = ds.Resource
-	//		fmt.Printf("\n%+v", ds.Resource)
-	//	}
-	//	if len(ds.Meta) != 0 {
-	//		tempDS.Meta = ds.Meta
-	//		fmt.Printf("\n%+v", ds.Meta)
-	//	}
-	//	if ds.Retention.Policy != "" {
-	//		tempDS.Retention.Policy = ds.Retention.Policy
-	//		fmt.Printf("\n%+v", ds.Retention)
-	//	}
-	//	if ds.Retention.Duration != "" {
-	//		tempDS.Retention.Duration = ds.Retention.Duration
-	//		fmt.Printf("\n%+v", ds.Retention)
-	//	}
-	//	if len(ds.Aggregation) != len(tempDS.Aggregation) {
-	//		tempDS.Aggregation = ds.Aggregation
-	//		fmt.Printf("\n%+v", ds.Aggregation)
-	//	}
 
 	// Store the modified DS
 	ms.data[id] = tempDS
@@ -92,7 +72,7 @@ func (ms *MemoryStorage) update(id string, ds *DataSource) error {
 	return nil
 }
 
-func (ms *MemoryStorage) delete(id string) error {
+func (ms MemoryStorage) delete(id string) error {
 	ms.mutex.Lock()
 
 	_, ok := ms.data[id]
@@ -107,7 +87,7 @@ func (ms *MemoryStorage) delete(id string) error {
 	return nil
 }
 
-func (ms *MemoryStorage) get(id string) (DataSource, error) {
+func (ms MemoryStorage) get(id string) (DataSource, error) {
 	//fmt.Println("Getting ds with id: ", id)
 	//fmt.Println("Content: ", ms.data[id])
 
@@ -122,9 +102,9 @@ func (ms *MemoryStorage) get(id string) (DataSource, error) {
 	return ds, nil
 }
 
-func (ms *MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
+func (ms MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	ms.mutex.RLock()
-	total := len(ms.data)
+	total := ms.getCount()
 
 	// Extract keys out of maps
 	allKeys := make([]string, 0, total)
@@ -152,19 +132,61 @@ func (ms *MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	return datasources, total, nil
 }
 
-func getCount() int {
-	// TODO
-	return 0
+func (ms MemoryStorage) getCount() int {
+	return len(ms.data)
 }
 
-func pathFilterOne(path, op, value string) (DataSource, error) {
-	// TODO
+// Path filtering
+// Filter one registration
+func (ms MemoryStorage) pathFilterOne(path, op, value string) (DataSource, error) {
+	pathTknz := strings.Split(path, ".")
+
+	ms.mutex.RLock()
+	// return the first one found
+	for _, ds := range ms.data {
+		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
+		if err != nil {
+			ms.mutex.RUnlock()
+			return DataSource{}, err
+		}
+		if matched {
+			ms.mutex.RUnlock()
+			return ds, nil
+		}
+	}
+	ms.mutex.RUnlock()
 	return DataSource{}, nil
 }
 
-func pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
-	// TODO
-	return []DataSource{}, 0, nil
+// Filter multiple registrations
+func (ms MemoryStorage) pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
+	matchedIDs := []string{}
+	pathTknz := strings.Split(path, ".")
+
+	ms.mutex.RLock()
+	for _, ds := range ms.data {
+		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
+		if err != nil {
+			ms.mutex.RUnlock()
+			return []DataSource{}, 0, err
+		}
+		if matched {
+			matchedIDs = append(matchedIDs, ds.ID)
+		}
+	}
+
+	keys := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
+	if len(keys) == 0 {
+		ms.mutex.RUnlock()
+		return []DataSource{}, len(matchedIDs), nil
+	}
+
+	dss := make([]DataSource, 0, len(keys))
+	for _, k := range keys {
+		dss = append(dss, ms.data[k])
+	}
+	ms.mutex.RUnlock()
+	return dss, len(matchedIDs), nil
 }
 
 // Utilities from LSLC

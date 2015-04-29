@@ -16,13 +16,12 @@ import (
 
 // Registry api
 type RegistryAPI struct {
-	storage *MemoryStorage
+	storage Storage
 }
 
-func NewRegistryAPI() *RegistryAPI {
-
+func NewRegistryAPI(storage Storage) *RegistryAPI {
 	return &RegistryAPI{
-		storage: NewMemoryStorage(),
+		storage,
 	}
 }
 
@@ -31,7 +30,8 @@ const (
 	GetParamPerPage = "per_page"
 	// Max DataSources displayed in each page of registry
 	MaxPerPage = 100
-	//DefaultMIMEType = "application/vnd.eu.linksmart.hds+json;version=" + common.APIVersion
+	FTypeOne   = "one"
+	FTypeMany  = "many"
 )
 
 // Handlers ///////////////////////////////////////////////////////////////////////
@@ -84,7 +84,7 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the unmarshalled DataSource
-	err = validateWritableDataSource(&ds)
+	err = validateWritableDataSource(&ds, CREATE)
 	if err != nil {
 		common.ErrorResponse(http.StatusConflict, "Invalid input: "+err.Error(), w)
 		return
@@ -143,7 +143,7 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the unmarshalled DataSource
-	err = validateWritableDataSource(&ds)
+	err = validateWritableDataSource(&ds, UPDATE)
 	if err != nil {
 		common.ErrorResponse(http.StatusConflict, "Invalid input: "+err.Error(), w)
 		return
@@ -182,8 +182,70 @@ func (regAPI *RegistryAPI) Filter(w http.ResponseWriter, r *http.Request) {
 	ftype := params["type"]
 	fop := params["op"]
 	fvalue := params["value"]
-	// TODO
-	fmt.Fprintf(w, "TODO registry filter %v/%v/%v/%v", fpath, ftype, fop, fvalue)
+
+	fmt.Printf("path: %s, type: %s, op: %s, value: %s", fpath, ftype, fop, fvalue)
+
+	r.ParseForm()
+	page, _ := strconv.Atoi(r.Form.Get(GetParamPage))
+	perPage, _ := strconv.Atoi(r.Form.Get(GetParamPerPage))
+	page, perPage = common.ValidatePagingParams(page, perPage, MaxPerPage)
+
+	var data interface{}
+
+	switch ftype {
+	case FTypeOne:
+		datasource, err := regAPI.storage.pathFilterOne(fpath, fop, fvalue)
+		if err != nil {
+			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
+			return
+		}
+
+		if datasource.ID != "" {
+			//			ds := data.(DataSource)
+			//			data = fmt.Sprintf("%s/%s",common.RegistryAPILoc,
+			data = datasource
+		} else {
+			data = nil
+		}
+
+	case FTypeMany:
+		//var total int
+		datasources, total, err := regAPI.storage.pathFilter(fpath, fop, fvalue, page, perPage)
+		if err != nil {
+			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
+			return
+		}
+
+		datasources, total, err = regAPI.storage.getMany(page, perPage)
+		if err != nil {
+			common.ErrorResponse(http.StatusInternalServerError, err.Error(), w)
+			return
+		}
+
+		// Create a registry catalog
+		registry := Registry{
+			URL:     common.RegistryAPILoc,
+			Entries: datasources,
+			Page:    page,
+			PerPage: perPage,
+			Total:   total,
+		}
+
+		if registry.Total == 0 {
+			data = nil
+		} else {
+			data = registry
+		}
+	}
+
+	if data == nil {
+		common.ErrorResponse(http.StatusNotFound, "No matched entries found.", w)
+		return
+	}
+
+	b, _ := json.Marshal(data)
+	w.Header().Set("Content-Type", common.DefaultMIMEType)
+	w.Write(b)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -218,25 +280,83 @@ func unmarshalDataSource(body []byte, ds *DataSource) error {
 	return nil
 }
 
-// Validate that only writable DataSource elements are provided and that are valid
-func validateWritableDataSource(ds *DataSource) error {
+////
+const (
+	CREATE uint8 = iota
+	UPDATE
+)
 
-	// Make sure no read-only data is being added/modified
-	var illegal_entities []string
+// Validate the DataSource for:
+// 	Create:
+//	- Not provided: id, url, data
+//	- Provided: resource, type, format
+//	Update:
+//	- Not provided: id, url, data, resource, type
+//	- Provided: format
+//
+func validateWritableDataSource(ds *DataSource, context uint8) error {
+	var _errors []string
+
+	//// System generated (Read-only)
+	var readOnlyKeys []string
 	if ds.ID != "" {
-		illegal_entities = append(illegal_entities, "id")
+		readOnlyKeys = append(readOnlyKeys, "id")
 	}
 	if ds.URL != "" {
-		illegal_entities = append(illegal_entities, "url")
+		readOnlyKeys = append(readOnlyKeys, "url")
 	}
 	if ds.Data != "" {
-		illegal_entities = append(illegal_entities, "data")
-	}
-	if len(illegal_entities) > 0 {
-		return errors.New("Conflicting read-only entities: " + strings.Join(illegal_entities, ", "))
+		readOnlyKeys = append(readOnlyKeys, "data")
 	}
 
-	// todo: validate other entities
+	///// Fixed (Read-only once created)
+	if context == UPDATE {
+		if ds.Resource.String() != "" {
+			readOnlyKeys = append(readOnlyKeys, "resource")
+		}
+		if ds.Type != "" {
+			readOnlyKeys = append(readOnlyKeys, "type")
+		}
+	}
+
+	if len(readOnlyKeys) > 0 {
+		_errors = append(_errors, "Conflicting read-only value(s) of: "+strings.Join(readOnlyKeys, ", "))
+	}
+
+	///// Mandatory
+	var mandatoryKeys []string
+	if context == CREATE {
+		if ds.Resource.String() == "" {
+			mandatoryKeys = append(mandatoryKeys, "resource")
+		}
+		if !stringInSlice(ds.Type, common.GetSupportedTypes()) {
+			mandatoryKeys = append(mandatoryKeys, "type("+strings.Join(common.GetSupportedTypes(), ",")+")")
+		}
+	}
+	if ds.Format == "" {
+		mandatoryKeys = append(mandatoryKeys, "format")
+	}
+	// Todo: Validate ds.Aggregation
+	// common.GetSupportedAggregates()
+	// only if format=float
+
+	if len(mandatoryKeys) > 0 {
+		_errors = append(_errors, "Missing mandatory value(s) of: "+strings.Join(mandatoryKeys, ", "))
+	}
+
+	///// return if any errors
+	if len(_errors) > 0 {
+		return errors.New(strings.Join(_errors, ". "))
+	}
 
 	return nil
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
