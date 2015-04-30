@@ -19,18 +19,21 @@ const (
 	AggrAPILoc     = "/aggr"
 )
 
-// It's a mess, but that's the only safe way of having them in 'common' package
-// can also have them in a map[string]bool, but still not constants
+// It's a mess, but i think that's the only SAFE way of having them in 'common' package
 var (
 	supportedTypes      = []string{"string", "bool", "float"}
 	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}
+	retentionPeriods    = []string{"h", "d", "w", "m"}
 )
 
-func GetSupportedTypes() []string {
+func SupportedTypes() []string {
 	return supportedTypes
 }
-func GetSupportedAggregates() []string {
+func SupportedAggregates() []string {
 	return supportedAggregates
+}
+func RetentionPeriods() []string {
+	return retentionPeriods
 }
 
 // Error describes an API error (serializable in JSON)

@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -77,16 +78,16 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 
 	var ds DataSource
-	err = unmarshalDataSource(body, &ds)
+	err = json.Unmarshal(body, &ds)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, "Error processing input: "+err.Error(), w)
 		return
 	}
 
 	// Validate the unmarshalled DataSource
-	err = validateWritableDataSource(&ds, CREATE)
+	err = validateDataSource(&ds, CREATE)
 	if err != nil {
-		common.ErrorResponse(http.StatusConflict, "Invalid input: "+err.Error(), w)
+		common.ErrorResponse(http.StatusConflict, err.Error(), w)
 		return
 	}
 
@@ -95,8 +96,6 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 		common.ErrorResponse(http.StatusInternalServerError, "Error storing the datasource: "+err.Error(), w)
 		return
 	}
-
-	//fmt.Printf("%+v\n", ds)
 
 	w.Header().Set("Location", ds.URL)
 	w.WriteHeader(http.StatusCreated)
@@ -136,16 +135,16 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 
 	var ds DataSource
-	err = unmarshalDataSource(body, &ds)
+	err = json.Unmarshal(body, &ds)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, "Error processing input: "+err.Error(), w)
 		return
 	}
 
 	// Validate the unmarshalled DataSource
-	err = validateWritableDataSource(&ds, UPDATE)
+	err = validateDataSource(&ds, UPDATE)
 	if err != nil {
-		common.ErrorResponse(http.StatusConflict, "Invalid input: "+err.Error(), w)
+		common.ErrorResponse(http.StatusConflict, err.Error(), w)
 		return
 	}
 
@@ -183,15 +182,12 @@ func (regAPI *RegistryAPI) Filter(w http.ResponseWriter, r *http.Request) {
 	fop := params["op"]
 	fvalue := params["value"]
 
-	fmt.Printf("path: %s, type: %s, op: %s, value: %s", fpath, ftype, fop, fvalue)
-
 	r.ParseForm()
 	page, _ := strconv.Atoi(r.Form.Get(GetParamPage))
 	perPage, _ := strconv.Atoi(r.Form.Get(GetParamPerPage))
 	page, perPage = common.ValidatePagingParams(page, perPage, MaxPerPage)
 
-	var data interface{}
-
+	var body []byte
 	switch ftype {
 	case FTypeOne:
 		datasource, err := regAPI.storage.pathFilterOne(fpath, fop, fvalue)
@@ -201,24 +197,16 @@ func (regAPI *RegistryAPI) Filter(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if datasource.ID != "" {
-			//			ds := data.(DataSource)
-			//			data = fmt.Sprintf("%s/%s",common.RegistryAPILoc,
-			data = datasource
+			body, _ = json.Marshal(datasource)
 		} else {
-			data = nil
-		}
-
-	case FTypeMany:
-		//var total int
-		datasources, total, err := regAPI.storage.pathFilter(fpath, fop, fvalue, page, perPage)
-		if err != nil {
-			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
+			common.ErrorResponse(http.StatusNotFound, "No matched entries found.", w)
 			return
 		}
 
-		datasources, total, err = regAPI.storage.getMany(page, perPage)
+	case FTypeMany:
+		datasources, total, err := regAPI.storage.pathFilter(fpath, fop, fvalue, page, perPage)
 		if err != nil {
-			common.ErrorResponse(http.StatusInternalServerError, err.Error(), w)
+			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
 			return
 		}
 
@@ -231,54 +219,19 @@ func (regAPI *RegistryAPI) Filter(w http.ResponseWriter, r *http.Request) {
 			Total:   total,
 		}
 
-		if registry.Total == 0 {
-			data = nil
+		if registry.Total != 0 {
+			body, _ = json.Marshal(registry)
 		} else {
-			data = registry
+			common.ErrorResponse(http.StatusNotFound, "No matched entries found.", w)
+			return
 		}
 	}
 
-	if data == nil {
-		common.ErrorResponse(http.StatusNotFound, "No matched entries found.", w)
-		return
-	}
-
-	b, _ := json.Marshal(data)
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
-	w.Write(b)
+	w.Write(body)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
-
-// Unmarshalls json and parses the string of resource url
-func unmarshalDataSource(body []byte, ds *DataSource) error {
-	// Unmarshal body
-	err := json.Unmarshal(body, ds)
-	if err != nil {
-		return err
-	}
-
-	// Unmarshal the resource string seperately
-	type RawDataSource struct {
-		Resource string `json:"resource"`
-	}
-	var rds RawDataSource
-	err = json.Unmarshal(body, &rds)
-	if err != nil {
-		return err
-	}
-
-	// Parse it into URL
-	resourceURL, err := url.Parse(rds.Resource)
-	if err != nil {
-		return err
-	}
-
-	// Add it to DataSource
-	ds.Resource = *resourceURL
-
-	return nil
-}
 
 ////
 const (
@@ -290,14 +243,16 @@ const (
 // 	Create:
 //	- Not provided: id, url, data
 //	- Provided: resource, type, format
+//	- Valid: type, retention.policy, retention.duration, aggregates
 //	Update:
 //	- Not provided: id, url, data, resource, type
 //	- Provided: format
+//	- Valid: retention.policy, retention.duration, aggregates
 //
-func validateWritableDataSource(ds *DataSource, context uint8) error {
+func validateDataSource(ds *DataSource, context uint8) error {
 	var _errors []string
 
-	//// System generated (Read-only)
+	//// System generated (Read-only) ////////////////////////////////////////////
 	var readOnlyKeys []string
 	if ds.ID != "" {
 		readOnlyKeys = append(readOnlyKeys, "id")
@@ -309,9 +264,9 @@ func validateWritableDataSource(ds *DataSource, context uint8) error {
 		readOnlyKeys = append(readOnlyKeys, "data")
 	}
 
-	///// Fixed (Read-only once created)
+	///// Fixed (Read-only once created) /////////////////////////////////////////
 	if context == UPDATE {
-		if ds.Resource.String() != "" {
+		if ds.Resource != "" {
 			readOnlyKeys = append(readOnlyKeys, "resource")
 		}
 		if ds.Type != "" {
@@ -320,36 +275,73 @@ func validateWritableDataSource(ds *DataSource, context uint8) error {
 	}
 
 	if len(readOnlyKeys) > 0 {
-		_errors = append(_errors, "Conflicting read-only value(s) of: "+strings.Join(readOnlyKeys, ", "))
+		_errors = append(_errors, "Ambitious assignment to read-only key(s): "+strings.Join(readOnlyKeys, ", "))
 	}
 
-	///// Mandatory
+	///// Mandatory ///////////////////////////////////////////////////////////////
 	var mandatoryKeys []string
 	if context == CREATE {
-		if ds.Resource.String() == "" {
+		if ds.Resource == "" {
 			mandatoryKeys = append(mandatoryKeys, "resource")
 		}
-		if !stringInSlice(ds.Type, common.GetSupportedTypes()) {
-			mandatoryKeys = append(mandatoryKeys, "type("+strings.Join(common.GetSupportedTypes(), ",")+")")
+		if ds.Type == "" {
+			mandatoryKeys = append(mandatoryKeys, "type")
 		}
 	}
 	if ds.Format == "" {
 		mandatoryKeys = append(mandatoryKeys, "format")
 	}
-	// Todo: Validate ds.Aggregation
-	// common.GetSupportedAggregates()
-	// only if format=float
 
 	if len(mandatoryKeys) > 0 {
 		_errors = append(_errors, "Missing mandatory value(s) of: "+strings.Join(mandatoryKeys, ", "))
 	}
 
-	///// return if any errors
+	//// Invalid //////////////////////////////////////////////////////////////////
+	var invalidKeys []string
+	if ds.Resource != "" {
+		_, err := url.Parse(ds.Resource)
+		if err != nil {
+			invalidKeys = append(invalidKeys, "resource")
+		}
+	}
+	if ds.Retention.Policy != "" {
+		if !validateRetention(ds.Retention.Policy) {
+			invalidKeys = append(invalidKeys, fmt.Sprintf("retention.policy<[0-9]*(%s)>", strings.Join(common.RetentionPeriods(), "|")))
+		}
+	}
+	if ds.Retention.Duration != "" {
+		if !validateRetention(ds.Retention.Duration) {
+			invalidKeys = append(invalidKeys, fmt.Sprintf("retention.duration<[0-9]*(%s)>", strings.Join(common.RetentionPeriods(), "|")))
+		}
+	}
+	if ds.Type != "" {
+		if !stringInSlice(ds.Type, common.SupportedTypes()) {
+			invalidKeys = append(invalidKeys, fmt.Sprintf("type<%s>", strings.Join(common.SupportedTypes(), ",")))
+		}
+	}
+	// Todo: Validate ds.Aggregation
+	// common.SupportedAggregates()
+	// only if format=float
+
+	if len(invalidKeys) > 0 {
+		_errors = append(_errors, "Invalid value(s) for: "+strings.Join(invalidKeys, ", "))
+	}
+
+	///// return if any errors ////////////////////////////////////////////////////
 	if len(_errors) > 0 {
 		return errors.New(strings.Join(_errors, ". "))
 	}
 
 	return nil
+}
+
+func validateRetention(retention string) bool {
+	// Create regexp: h|d|w|m
+	retPeriods := strings.Join(common.RetentionPeriods(), "|")
+	// Create regexp: ^[0-9]*(h|d|w|m)$
+	re := regexp.MustCompile("^[0-9]*(" + retPeriods + ")$")
+
+	return re.MatchString(retention)
 }
 
 func stringInSlice(a string, list []string) bool {

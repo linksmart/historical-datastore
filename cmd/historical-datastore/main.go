@@ -29,7 +29,8 @@ func main() {
 		Database: "test",
 	}
 	dataStorage, _ := data.NewInfluxStorage(&dataStorageCfg)
-	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
+	registryClient := registry.NewLocalClient(regStorage)
+	registryClient.GenerateDummyData(5000)
 
 	dataAPI := data.NewDataAPI(registryClient, dataStorage)
 

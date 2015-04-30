@@ -27,8 +27,7 @@ type DataSource struct {
 	Data string `json:"data"`
 	// Resource is the URL identifying the corresponding
 	// LinkSmart Resource (e.g., @id in the Resource Catalog)
-	// < Unmarshall seperately and then parse into url.URL >
-	Resource url.URL `json:"-"`
+	Resource string `json:"resource"`
 	// Meta is a hash-map with optional meta-information
 	Meta map[string]interface{} `json:"meta"`
 	// Retention is the retention policy for data
@@ -39,6 +38,11 @@ type DataSource struct {
 	Type string `json:"type"`
 	// Format is the MIME type of the payload
 	Format string `json:"format"`
+}
+
+func (ds *DataSource) ParsedResource() *url.URL {
+	parsedResource, _ := url.Parse(ds.Resource)
+	return parsedResource
 }
 
 // AggregatedDataSource describes a data aggregatoin for a Data Source

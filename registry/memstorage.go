@@ -29,18 +29,19 @@ func NewMemoryStorage() Storage {
 }
 
 func (ms MemoryStorage) add(ds *DataSource) error {
-
 	// Get a new UUID and convert it to string (UUID type can't be used as map-key)
 	newUUID := fmt.Sprint(uuid.NewRandom())
-	fmt.Println("New unique id: ", newUUID)
 
 	// Initialize read-only fields
 	ds.ID = newUUID
 	ds.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, ds.ID)
 	ds.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, ds.ID)
 
+	// Add the new DataSource to the map
+	ms.mutex.RLock()
 	ms.data[newUUID] = *ds
-	//fmt.Println("Added DS: ", ms.data[newUUID])
+	ms.mutex.RUnlock()
+	//fmt.Println("New DS: ", ms.data[newUUID])
 
 	return nil
 }
@@ -57,12 +58,12 @@ func (ms MemoryStorage) update(id string, ds *DataSource) error {
 	tempDS := ms.data[id]
 
 	// Modify writable elements
-	//tempDS.Resource = ds.Resource
 	tempDS.Meta = ds.Meta
 	tempDS.Retention = ds.Retention
 	tempDS.Aggregation = ds.Aggregation
-	//tempDS.Type = ds.Type
 	tempDS.Format = ds.Format
+	//tempDS.Resource = ds.Resource
+	//tempDS.Type = ds.Type
 
 	// Store the modified DS
 	ms.data[id] = tempDS
@@ -88,9 +89,6 @@ func (ms MemoryStorage) delete(id string) error {
 }
 
 func (ms MemoryStorage) get(id string) (DataSource, error) {
-	//fmt.Println("Getting ds with id: ", id)
-	//fmt.Println("Content: ", ms.data[id])
-
 	ms.mutex.RLock()
 	ds, ok := ms.data[id]
 	if !ok {
@@ -115,9 +113,9 @@ func (ms MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	sort.Strings(allKeys)
 
 	// Get the queried page
-	pagedKeys := getPageOfSlice(allKeys, page, perPage, MaxPerPage)
+	pagedKeys := catalog.GetPageOfSlice(allKeys, page, perPage, MaxPerPage)
 
-	// Empty registry
+	// Registry is empty
 	if len(pagedKeys) == 0 {
 		ms.mutex.RUnlock()
 		return []DataSource{}, total, nil
@@ -182,42 +180,10 @@ func (ms MemoryStorage) pathFilter(path, op, value string, page, perPage int) ([
 	}
 
 	dss := make([]DataSource, 0, len(keys))
+	//var dss []DataSource
 	for _, k := range keys {
 		dss = append(dss, ms.data[k])
 	}
 	ms.mutex.RUnlock()
 	return dss, len(matchedIDs), nil
-}
-
-// Utilities from LSLC
-
-// Returns a 'slice' of the given slice based on the requested 'page'
-func getPageOfSlice(slice []string, page, perPage, maxPerPage int) []string {
-	keys := []string{}
-	page, perPage = common.ValidatePagingParams(page, perPage, maxPerPage)
-
-	// Never return more than the defined maximum
-	if perPage > maxPerPage || perPage == 0 {
-		perPage = maxPerPage
-	}
-
-	// if 1, not specified or negative - return the first page
-	if page < 2 {
-		// first page
-		if perPage > len(slice) {
-			keys = slice
-		} else {
-			keys = slice[:perPage]
-		}
-	} else if page == int(len(slice)/perPage)+1 {
-		// last page
-		keys = slice[perPage*(page-1):]
-
-	} else if page <= len(slice)/perPage && page*perPage <= len(slice) {
-		// slice
-		r := page * perPage
-		l := r - perPage
-		keys = slice[l:r]
-	}
-	return keys
 }

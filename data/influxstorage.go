@@ -30,8 +30,8 @@ type InfluxStorageConfig struct {
 
 // Returns the influxdb measurement for a given data source
 func msrmtBySource(ds registry.DataSource) string {
-	h := strings.Replace(ds.Resource.Host, ".", "_", -1)
-	p := strings.Replace(ds.Resource.Path, "/", "_", -1)
+	h := strings.Replace(ds.ParsedResource().Host, ".", "_", -1)
+	p := strings.Replace(ds.ParsedResource().Path, "/", "_", -1)
 	return fmt.Sprintf("hds_data_%s%s", h, p)
 }
 
@@ -213,11 +213,11 @@ func (s *influxStorage) getLast(sources ...registry.DataSource) (DataSet, error)
 	for _, ds := range sources {
 		pds, err := s.getLastPoints(ds, 1)
 		if err != nil {
-			log.Printf("Error retrieving a data point for source %v: %v", ds.Resource.String(), err.Error())
+			log.Printf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
 			continue
 		}
 		if len(pds) < 1 {
-			log.Printf("There is no data for source %v", ds.Resource.String())
+			log.Printf("There is no data for source %v", ds.Resource)
 			continue
 		}
 		points = append(points, pds[0])
@@ -244,11 +244,11 @@ func (s *influxStorage) query(q query, page, perPage int, sources ...registry.Da
 
 		res, err := s.client.Query(q)
 		if err != nil {
-			log.Printf("Error retrieving a data point for source %v: %v", ds.Resource.String(), err.Error())
+			log.Printf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
 			continue
 		}
 		if res.Error() != nil || len(res.Results) < 1 || len(res.Results[0].Series) < 1 {
-			log.Printf("There is no data for source %v", ds.Resource.String())
+			log.Printf("There is no data for source %v", ds.Resource)
 			continue
 		}
 
@@ -256,7 +256,7 @@ func (s *influxStorage) query(q query, page, perPage int, sources ...registry.Da
 		// e.g., if someone messed with the data outside of the HDS API
 		pds, err := pointsFromRow(res.Results[0].Series[0])
 		if err != nil {
-			log.Printf("Error parsing points for source %v: %v", ds.Resource.String(), err.Error())
+			log.Printf("Error parsing points for source %v: %v", ds.Resource, err.Error())
 			continue
 		}
 		points = append(points, pds...)

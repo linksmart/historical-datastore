@@ -1,7 +1,5 @@
 package registry
 
-import "net/url"
-
 // TODO: remove when memstorage is implemented (and rewrite data api tests)
 type DummyRegistryStorage struct{}
 
@@ -22,22 +20,19 @@ func (s *DummyRegistryStorage) delete(id string) error {
 
 func (s *DummyRegistryStorage) get(id string) (DataSource, error) {
 	if id == "12345" {
-		u, _ := url.Parse("http://example.com/sensor1")
 		return DataSource{
 			ID:       "12345",
-			Resource: *u,
+			Resource: "http://example.com/sensor1",
 		}, nil
 	} else if id == "67890" {
-		u, _ := url.Parse("http://example.com/sensor2")
 		return DataSource{
 			ID:       "67890",
-			Resource: *u,
+			Resource: "http://example.com/sensor2",
 		}, nil
 	} else if id == "1337" {
-		u, _ := url.Parse("http://example.com/sensor3")
 		return DataSource{
 			ID:       "1337",
-			Resource: *u,
+			Resource: "http://example.com/sensor3",
 		}, nil
 	}
 	return DataSource{}, nil

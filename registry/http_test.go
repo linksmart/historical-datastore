@@ -39,17 +39,17 @@ func TestHttpIndex(t *testing.T) {
 
 	res, err := http.Get(ts.URL)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 
 	if res.StatusCode != http.StatusOK {
-		t.Errorf("Server response is not %v but %v", http.StatusOK, res.StatusCode)
+		t.Fatalf("Server response is not %v but %v", http.StatusOK, res.StatusCode)
 	}
 
 	_, err = ioutil.ReadAll(res.Body)
 	defer res.Body.Close()
 	if err != nil {
-		t.Fatal(err)
+		t.Errorf(err.Error())
 	}
 
 	t.Skip("TODO: test registry body")
@@ -66,8 +66,8 @@ func TestHttpCreate(t *testing.T) {
 			"resource": "http://any-domain:8080/1234",
 			"meta": {},
 			"retention": {
-			    "policy": "any_policy",
-			    "duration": "any_duration"
+			    "policy": "2h",
+			    "duration": "3d"
 			},
 			"aggregation": [],
 			"type": "string",
@@ -88,7 +88,7 @@ func TestHttpCreate(t *testing.T) {
 	// try bad payload
 	res, err := http.Post(ts.URL+"/registry", "unknown/unknown", bytes.NewReader([]byte{0xde, 0xad}))
 	if err != nil {
-		t.Fatal(err)
+		t.Errorf(err.Error())
 	}
 
 	if res.StatusCode != http.StatusBadRequest {
@@ -98,19 +98,19 @@ func TestHttpCreate(t *testing.T) {
 	// try a good one
 	res, err = http.Post(ts.URL+"/registry", "unknown/unknown", bytes.NewReader(b))
 	if err != nil {
-		t.Fatal(err)
+		t.Errorf(err.Error())
 	}
 
 	if res.StatusCode != http.StatusCreated {
 		t.Errorf("Server response is not %v but %v", http.StatusCreated, res.StatusCode)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
-	defer res.Body.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(string(body))
+	//	body, err := ioutil.ReadAll(res.Body)
+	//	defer res.Body.Close()
+	//	if err != nil {
+	//		t.Errorf(err.Error())
+	//	}
+	//t.Log(string(body))
 }
 
 // Create a data source and retrieve it back
@@ -123,8 +123,8 @@ func TestHttpRetrieve(t *testing.T) {
 			"resource": "http://any-domain:8080/1234",
 			"meta": {},
 			"retention": {
-			    "policy": "any_policy",
-			    "duration": "any_duration"
+			    "policy": "1w",
+			    "duration": "1m"
 			},
 			"aggregation": [],
 			"type": "string",
@@ -135,7 +135,7 @@ func TestHttpRetrieve(t *testing.T) {
 	// first, create a data source
 	res, err := http.Post(ts.URL+"/registry", "unknown/unknown", bytes.NewReader(b))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 
 	// Get response's url (including new uuid)
@@ -145,13 +145,13 @@ func TestHttpRetrieve(t *testing.T) {
 	// Retrieve what it was created
 	res, err = http.Get(ts.URL + url.Path)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	defer res.Body.Close()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 
 	// get id from url
@@ -159,11 +159,17 @@ func TestHttpRetrieve(t *testing.T) {
 
 	// Add generated uuid to the data source
 	var ds DataSource
-	unmarshalDataSource(body, &ds)
+	err = json.Unmarshal(body, &ds)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 	ds.ID = uuid
 	ds.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, ds.ID)
 	ds.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, ds.ID)
-	get_b, _ := json.Marshal(ds)
+	get_b, err := json.Marshal(&ds)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 
 	// compare created data with the source
 	if string(body) != string(get_b) {

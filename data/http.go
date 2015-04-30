@@ -100,7 +100,7 @@ func (d *DataAPI) Submit(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error retrieving data source %v from the registry: %v **data will be discarded**", id, err.Error())
 			continue
 		}
-		dsResources[ds.Resource.String()] = *ds
+		dsResources[ds.Resource] = *ds
 	}
 
 	// Fill the data map with provided data points
