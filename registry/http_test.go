@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
 	"linksmart.eu/services/historical-datastore/common"
@@ -29,14 +32,21 @@ func setupRouter() *mux.Router {
 }
 
 func TestHttpIndex(t *testing.T) {
-	// for some reason, the setupTouter doesn't work on Index
+	// for some reason, setupRouter() doesn't work on Index
 	//	ts := httptest.NewServer(setupRouter())
 	//	defer ts.Close()
 	regStorage := NewMemoryStorage()
 	regAPI := NewRegistryAPI(regStorage)
+	registryClient := NewLocalClient(regStorage)
+
+	// Create some dummy data
+	totalDummy := 555
+	GenerateDummyData(totalDummy, registryClient)
+
 	ts := httptest.NewServer(http.HandlerFunc(regAPI.Index))
 	defer ts.Close()
 
+	// Get the registry with default query parameters
 	res, err := http.Get(ts.URL)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -46,13 +56,74 @@ func TestHttpIndex(t *testing.T) {
 		t.Fatalf("Server response is not %v but %v", http.StatusOK, res.StatusCode)
 	}
 
-	_, err = ioutil.ReadAll(res.Body)
+	// Get the body and unmarshal it
+	body, err := ioutil.ReadAll(res.Body)
 	defer res.Body.Close()
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
+	}
+	var reg Registry
+	err = json.Unmarshal(body, &reg)
+	if err != nil {
+		t.Fatalf(err.Error())
 	}
 
-	t.Skip("TODO: test registry body")
+	// Compare total created with total variable in returned registry
+	if reg.Total != totalDummy {
+		t.Errorf("Mismatched total created(%d) and accounted(%d) data sources!", totalDummy, reg.Total)
+	}
+
+	//// Now, check body of the registry for each page
+
+	// Compare created and returned data sources
+	var returnedDSs []DataSource
+	perPage := 100
+	pages := int(math.Ceil(float64(totalDummy) / float64(perPage)))
+	for page := 1; page <= pages; page++ {
+		// Get the specific page
+		res, err := http.Get(fmt.Sprintf("%s?page=%d&per_page=%d", ts.URL, page, perPage))
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+
+		// Get the body and unmarshal it
+		body, err := ioutil.ReadAll(res.Body)
+		defer res.Body.Close()
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+		var reg Registry
+		err = json.Unmarshal(body, &reg)
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+
+		// Query the local data for comparison
+		dummyDSs, _, _ := registryClient.GetDataSources(page, perPage)
+
+		// Number of expected items in this page
+		inThisPage := len(dummyDSs)
+		//		inThisPage := perPage
+		//		if (totalDummy - (page-1)*perPage) < perPage {
+		//			inThisPage = int(math.Mod(float64(totalDummy), float64(perPage)))
+		//		}
+
+		// Check for each data source in this page
+		for i := 0; i < inThisPage; i++ {
+			dummyDS := dummyDSs[i]
+			returnedDS := reg.Entries[i]
+			if dummyDS.ID != returnedDS.ID {
+				t.Errorf("Mismatched datasource: \n%v \n%v\n", dummyDSs[i], reg.Entries[i])
+			}
+		}
+
+		returnedDSs = append(returnedDSs, reg.Entries...)
+	}
+
+	// Compare total created with total datasources in all pages of registry
+	if len(returnedDSs) != totalDummy {
+		t.Errorf("Mismatched total created(%d) and returned(%d) data sources!", totalDummy, len(returnedDSs))
+	}
 
 	return
 }
@@ -74,16 +145,6 @@ func TestHttpCreate(t *testing.T) {
 			"format": "any_format"
 		}
 		`)
-
-	//	// try html - should be not supported
-	//	res, err := http.Post(ts.URL+"/registry", "text/plain", bytes.NewReader(b))
-	//	if err != nil {
-	//		t.Fatal(err)
-	//	}
-
-	//	if res.StatusCode != http.StatusUnsupportedMediaType {
-	//		t.Errorf("Server response is not %v but %v", http.StatusUnsupportedMediaType, res.StatusCode)
-	//	}
 
 	// try bad payload
 	res, err := http.Post(ts.URL+"/registry", "unknown/unknown", bytes.NewReader([]byte{0xde, 0xad}))
@@ -183,4 +244,28 @@ func TestHttpUpdate(t *testing.T) {
 
 func TestHttpDelete(t *testing.T) {
 	t.Skip("TODO: API handler test")
+}
+
+// Generate dummy data sources
+func GenerateDummyData(quantity int, c *LocalClient) {
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	fmt.Printf(">>> NOTE: GENERATING %d DUMMY DATASOURCES <<<\n", quantity)
+	for i := 1; i <= quantity; i++ {
+		var ds DataSource
+		ds.Resource = fmt.Sprintf("http://example.com/sensor%d", i)
+		ds.Meta = make(map[string]interface{})
+		ds.Meta["SerialNumber"] = randInt(10000, 99999)
+		ds.Retention.Policy = fmt.Sprintf("%d%s", randInt(1, 20), common.RetentionPeriods()[randInt(0, 3)])
+		ds.Retention.Duration = fmt.Sprintf("%d%s", randInt(1, 20), common.RetentionPeriods()[randInt(0, 3)])
+		//ds.Aggregation TODO
+		ds.Type = common.SupportedTypes()[randInt(0, 2)]
+		ds.Format = "application/senml+json"
+
+		c.storage.add(&ds)
+	}
+}
+
+func randInt(min int, max int) int {
+	return min + rand.Intn(max-min)
 }
