@@ -17,10 +17,7 @@ import (
 	"linksmart.eu/services/historical-datastore/common"
 )
 
-func setupRouter() *mux.Router {
-	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage)
-
+func setupRouter(regAPI *RegistryAPI) *mux.Router {
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("GET").Path("/registry").HandlerFunc(regAPI.Index)
 	r.Methods("POST").Path("/registry").HandlerFunc(regAPI.Create)
@@ -76,7 +73,7 @@ func TestHttpIndex(t *testing.T) {
 	//// Now, check body of the registry for each page
 
 	// Compare created and returned data sources
-	var returnedDSs []DataSource
+	totalReturnedDS := 0
 	perPage := 100
 	pages := int(math.Ceil(float64(totalDummy) / float64(perPage)))
 	for page := 1; page <= pages; page++ {
@@ -117,19 +114,22 @@ func TestHttpIndex(t *testing.T) {
 			}
 		}
 
-		returnedDSs = append(returnedDSs, reg.Entries...)
+		totalReturnedDS += len(reg.Entries)
 	}
 
 	// Compare total created with total datasources in all pages of registry
-	if len(returnedDSs) != totalDummy {
-		t.Errorf("Mismatched total created(%d) and returned(%d) data sources!", totalDummy, len(returnedDSs))
+	if totalReturnedDS != totalDummy {
+		t.Errorf("Mismatched total created(%d) and returned(%d) data sources!", totalDummy, totalReturnedDS)
 	}
 
 	return
 }
 
 func TestHttpCreate(t *testing.T) {
-	ts := httptest.NewServer(setupRouter())
+	regStorage := NewMemoryStorage()
+	regAPI := NewRegistryAPI(regStorage)
+
+	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
 
 	b := []byte(`
@@ -176,7 +176,9 @@ func TestHttpCreate(t *testing.T) {
 
 // Create a data source and retrieve it back
 func TestHttpRetrieve(t *testing.T) {
-	ts := httptest.NewServer(setupRouter())
+	regStorage := NewMemoryStorage()
+	regAPI := NewRegistryAPI(regStorage)
+	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
 
 	b := []byte(`
@@ -243,14 +245,59 @@ func TestHttpUpdate(t *testing.T) {
 }
 
 func TestHttpDelete(t *testing.T) {
-	t.Skip("TODO: API handler test")
+	regStorage := NewMemoryStorage()
+	regAPI := NewRegistryAPI(regStorage)
+
+	registryClient := NewLocalClient(regStorage)
+
+	// Create some dummy data
+	IDs := GenerateDummyData(5, registryClient)
+	//aDataSource := registryClient.Get(IDs[0])
+
+	ts := httptest.NewServer(setupRouter(regAPI))
+	defer ts.Close()
+
+	// Try an existing item
+	url := ts.URL + "/registry/" + IDs[0]
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("Server response is %v instead of %v", res.StatusCode, http.StatusOK)
+	}
+
+	// TODO check whether it is deleted?
+
+	// Try a non-existing item
+	url = ts.URL + "/registry/" + "f5e0a314-0c8c-4938-9961-74625c6614da"
+	req, err = http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if res.StatusCode != httpNotFound {
+		t.Fatalf("Server response is %v instead of %v", res.StatusCode, httpNotFound)
+	}
+
 }
 
 // Generate dummy data sources
-func GenerateDummyData(quantity int, c *LocalClient) {
+func GenerateDummyData(quantity int, c *LocalClient) []string {
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	fmt.Printf(">>> NOTE: GENERATING %d DUMMY DATASOURCES <<<\n", quantity)
+	randInt := func(min int, max int) int {
+		return min + rand.Intn(max-min)
+	}
+
+	var IDs []string
 	for i := 1; i <= quantity; i++ {
 		var ds DataSource
 		ds.Resource = fmt.Sprintf("http://example.com/sensor%d", i)
@@ -262,10 +309,9 @@ func GenerateDummyData(quantity int, c *LocalClient) {
 		ds.Type = common.SupportedTypes()[randInt(0, 2)]
 		ds.Format = "application/senml+json"
 
-		c.storage.add(&ds)
+		c.Add(&ds)
+		IDs = append(IDs, ds.ID) // add the generated id
 	}
-}
 
-func randInt(min int, max int) int {
-	return min + rand.Intn(max-min)
+	return IDs
 }
