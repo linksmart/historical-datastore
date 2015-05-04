@@ -30,9 +30,10 @@ const (
 	GetParamPage    = "page"
 	GetParamPerPage = "per_page"
 	// Max DataSources displayed in each page of registry
-	MaxPerPage = 100
-	FTypeOne   = "one"
-	FTypeMany  = "many"
+	MaxPerPage   = 100
+	FTypeOne     = "one"
+	FTypeMany    = "many"
+	httpNotFound = 404
 )
 
 // Handlers ///////////////////////////////////////////////////////////////////////
@@ -150,7 +151,7 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 
 	err = regAPI.storage.update(id, &ds)
 	if err != nil {
-		common.ErrorResponse(404 /* NotFound */, err.Error(), w)
+		common.ErrorResponse(httpNotFound, err.Error(), w)
 		return
 	}
 
@@ -166,7 +167,7 @@ func (regAPI *RegistryAPI) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err := regAPI.storage.delete(id)
 	if err != nil {
-		common.ErrorResponse(404 /* NotFound */, err.Error(), w)
+		common.ErrorResponse(httpNotFound, err.Error(), w)
 		return
 	}
 
@@ -248,7 +249,8 @@ const (
 //	- Not provided: id, url, data, resource, type
 //	- Provided: format
 //	- Valid: retention.policy, retention.duration, aggregates
-//
+///////////////////////////////////////////////////////////////////////////////////////
+// TODO refactor the validations based on attributes rather than the type of validation
 func validateDataSource(ds *DataSource, context uint8) error {
 	var _errors []string
 
