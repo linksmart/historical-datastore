@@ -25,14 +25,21 @@ const (
 type DataAPI struct {
 	registryClient registry.Client
 	storage        Storage
+	notifier       common.Notifier
 }
 
 // NewDataAPI returns the configured Data API
-func NewDataAPI(registryClient registry.Client, storage Storage) *DataAPI {
-	return &DataAPI{
+func NewDataAPI(registryClient registry.Client, storage Storage, notifier common.Notifier) *DataAPI {
+	d := &DataAPI{
 		registryClient,
 		storage,
+		notifier,
 	}
+
+	// Run the notification listener
+	go d.ntListener()
+
+	return d
 }
 
 func parseQueryParameters(form url.Values) query {

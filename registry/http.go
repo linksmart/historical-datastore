@@ -17,12 +17,14 @@ import (
 
 // Registry api
 type RegistryAPI struct {
-	storage Storage
+	storage  Storage
+	notifier common.Notifier
 }
 
-func NewRegistryAPI(storage Storage) *RegistryAPI {
+func NewRegistryAPI(storage Storage, notifier common.Notifier) *RegistryAPI {
 	return &RegistryAPI{
 		storage,
+		notifier,
 	}
 }
 
@@ -98,6 +100,9 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Send a create notification
+	regAPI.notifier.Send(common.Notification{ds.ID, common.CREATED})
+
 	w.Header().Set("Location", ds.URL)
 	w.WriteHeader(http.StatusCreated)
 	return
@@ -155,6 +160,9 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Send an update notification
+	regAPI.notifier.Send(common.Notification{id, common.UPDATED})
+
 	w.WriteHeader(http.StatusOK)
 	return
 }
@@ -170,6 +178,9 @@ func (regAPI *RegistryAPI) Delete(w http.ResponseWriter, r *http.Request) {
 		common.ErrorResponse(httpNotFound, err.Error(), w)
 		return
 	}
+
+	// Send a delete notification
+	regAPI.notifier.Send(common.Notification{id, common.DELETED})
 
 	return
 }

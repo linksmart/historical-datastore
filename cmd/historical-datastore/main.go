@@ -7,6 +7,7 @@ import (
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/context"
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/justinas/alice"
+	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/data"
 	"linksmart.eu/services/historical-datastore/registry"
 )
@@ -18,9 +19,13 @@ func main() {
 
 	// Configuration (config file later)
 
+	// Notifications
+	ntChan := common.NewNotifier()
+	// can have ntRPC, ntSocket, etc in case of other backends
+
 	// registry
 	regStorage := registry.NewMemoryStorage()
-	regAPI := registry.NewRegistryAPI(regStorage)
+	regAPI := registry.NewRegistryAPI(regStorage, ntChan)
 
 	// data
 	u, _ := url.Parse("http://localhost:8086")
@@ -31,7 +36,7 @@ func main() {
 	dataStorage, _ := data.NewInfluxStorage(&dataStorageCfg)
 	registryClient := registry.NewLocalClient(regStorage)
 
-	dataAPI := data.NewDataAPI(registryClient, dataStorage)
+	dataAPI := data.NewDataAPI(registryClient, dataStorage, ntChan)
 
 	commonHandlers := alice.New(
 		context.ClearHandler,
