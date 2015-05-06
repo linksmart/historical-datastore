@@ -18,8 +18,6 @@ const (
 	DataAPILoc     = "/data"
 	AggrAPILoc     = "/aggr"
 )
-
-// It's a mess, but i think that's the only SAFE way of having them in 'common' package
 var (
 	supportedTypes      = []string{"string", "bool", "float"}
 	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}

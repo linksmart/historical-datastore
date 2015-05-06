@@ -1,7 +1,16 @@
 // Package registry implements Registry API
 package registry
 
-import "net/url"
+import (
+	"errors"
+	"fmt"
+	"net/url"
+	"regexp"
+	"strings"
+	//"time"
+
+	"linksmart.eu/services/historical-datastore/common"
+)
 
 // Registry describes a registry of registered Data Sources
 type Registry struct {
@@ -97,7 +106,6 @@ type Client interface {
 	Update(id string, d DataSource) (DataSource, error)
 	Get(id string) (DataSource, error)
 	Delete(id string) error
-	
 
 	// Returns a slice of DataSources given:
 	// page - page in the collection
@@ -110,7 +118,6 @@ type Client interface {
 	// Returns a slice of DataSources given: path, operation, value, page, perPage
 	FindDataSources(path, op, value string, page, perPage int) ([]DataSource, int, error)
 }
-
 
 // Validation /////////////////////////////////////////////////////////////////////
 
@@ -224,16 +231,16 @@ func validRetention(duration string) bool {
 
 	return re.MatchString(duration)
 
-//	_, err := time.ParseDuration(duration)
-//	if err == nil{
-//		for _,suffix := range common.RetentionPeriods(){
-//			return strings.HasSuffix(duration, suffix)	
-//		}
-//	}
-//	if err != nil{
-//		fmt.Println(err.Error())
-//	}
-//	return false
+	//	_, err := time.ParseDuration(duration)
+	//	if err == nil{
+	//		for _,suffix := range common.RetentionPeriods(){
+	//			return strings.HasSuffix(duration, suffix)
+	//		}
+	//	}
+	//	if err != nil{
+	//		fmt.Println(err.Error())
+	//	}
+	//	return false
 }
 
 func stringInSlice(a string, list []string) bool {

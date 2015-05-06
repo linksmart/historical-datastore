@@ -1,8 +1,9 @@
 package common
 
 // Supported notification types
+type NotificationTYPE uint8
 const (
-	CREATE uint8 = iota
+	CREATE NotificationTYPE = iota
 	DELETE
 	UPDATE_DATA
 	UPDATE_AGGR
@@ -10,7 +11,7 @@ const (
 
 // A notification message
 type Notification struct {
-	TYPE uint8
+	TYPE NotificationTYPE
 	DS interface{}
 }
 

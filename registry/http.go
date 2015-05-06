@@ -2,15 +2,9 @@ package registry
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
-	"regexp"
 	"strconv"
-	"strings"
-	//"time"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
 	"linksmart.eu/services/historical-datastore/common"
@@ -102,7 +96,7 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send a create notification
-	regAPI.ntChan <- common.Notification{DS: addedDS, TYPE: common.CREATE}
+	regAPI.sendNotification(&addedDS, common.CREATE)
 
 	w.Header().Set("Location", addedDS.URL)
 	w.WriteHeader(http.StatusCreated)
@@ -155,14 +149,23 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updatedDS, err := regAPI.storage.update(id, ds)
+	oldDS, err := regAPI.storage.get(id)
 	if err != nil {
 		common.ErrorResponse(httpNotFound, err.Error(), w)
 		return
 	}
+	updatedDS, err := regAPI.storage.update(id, ds)
 
-	// Send an update notification
-	regAPI.ntChan <- common.Notification{DS: updatedDS, TYPE: common.UPDATE_DATA}
+	// Compare DataAPI-related changes
+	if oldDS.Retention != updatedDS.Retention { // anything else?
+		// Send an update notification
+		regAPI.sendNotification(&updatedDS, common.UPDATE_DATA)
+	}
+	// Compare AggrAPI-related changes
+	//	if(oldDS.Aggregation != updatedDS.Aggregation){
+	//		// Send an update notification
+	//		regAPI.sendNotification(&updatedDS, common.UPDATE_AGGR)
+	//	}
 
 	w.WriteHeader(http.StatusOK)
 	return
@@ -181,7 +184,7 @@ func (regAPI *RegistryAPI) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send a delete notification
-	regAPI.ntChan <- common.Notification{DS: DataSource{ID: id}, TYPE: common.DELETE}
+	regAPI.sendNotification(&DataSource{ID: id}, common.DELETE)
 
 	return
 }
@@ -242,4 +245,9 @@ func (regAPI *RegistryAPI) Filter(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.Write(body)
+}
+
+// Sends a Notification{} to channel
+func (regAPI *RegistryAPI) sendNotification(ds *DataSource, _type common.NotificationTYPE) {
+	regAPI.ntChan <- common.Notification{DS: *ds, TYPE: _type}
 }
