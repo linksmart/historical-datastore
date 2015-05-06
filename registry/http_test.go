@@ -32,8 +32,9 @@ func TestHttpIndex(t *testing.T) {
 	// for some reason, setupRouter() doesn't work on Index
 	//	ts := httptest.NewServer(setupRouter())
 	//	defer ts.Close()
+	nt := common.SetupNotifier()
 	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage)
+	regAPI := NewRegistryAPI(regStorage, nt.Sender)
 	registryClient := NewLocalClient(regStorage)
 
 	// Create some dummy data
@@ -126,8 +127,9 @@ func TestHttpIndex(t *testing.T) {
 }
 
 func TestHttpCreate(t *testing.T) {
+	nt := common.SetupNotifier()
 	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage)
+	regAPI := NewRegistryAPI(regStorage, nt.Sender)
 
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
@@ -176,8 +178,9 @@ func TestHttpCreate(t *testing.T) {
 
 // Create a data source and retrieve it back
 func TestHttpRetrieve(t *testing.T) {
+	nt := common.SetupNotifier()
 	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage)
+	regAPI := NewRegistryAPI(regStorage, nt.Sender)
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
 
@@ -245,8 +248,9 @@ func TestHttpUpdate(t *testing.T) {
 }
 
 func TestHttpDelete(t *testing.T) {
+	nt := common.SetupNotifier()
 	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage)
+	regAPI := NewRegistryAPI(regStorage, nt.Sender)
 
 	registryClient := NewLocalClient(regStorage)
 
@@ -290,7 +294,7 @@ func TestHttpDelete(t *testing.T) {
 }
 
 // Generate dummy data sources
-func GenerateDummyData(quantity int, c *LocalClient) []string {
+func GenerateDummyData(quantity int, c Client) []string {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	randInt := func(min int, max int) int {
@@ -309,8 +313,8 @@ func GenerateDummyData(quantity int, c *LocalClient) []string {
 		ds.Type = common.SupportedTypes()[randInt(0, 2)]
 		ds.Format = "application/senml+json"
 
-		c.Add(&ds)
-		IDs = append(IDs, ds.ID) // add the generated id
+		newDS, _ := c.Add(ds)
+		IDs = append(IDs, newDS.ID) // add the generated id
 	}
 
 	return IDs

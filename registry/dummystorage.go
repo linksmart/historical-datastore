@@ -3,14 +3,14 @@ package registry
 // TODO: remove when memstorage is implemented (and rewrite data api tests)
 type DummyRegistryStorage struct{}
 
-func (s *DummyRegistryStorage) add(ds *DataSource) error {
+func (s *DummyRegistryStorage) add(ds DataSource) (DataSource, error) {
 	// TODO
-	return nil
+	return DataSource{}, nil
 }
 
-func (s *DummyRegistryStorage) update(id string, ds *DataSource) error {
+func (s *DummyRegistryStorage) update(id string, ds DataSource) (DataSource, error) {
 	// TODO
-	return nil
+	return DataSource{}, nil
 }
 
 func (s *DummyRegistryStorage) delete(id string) error {

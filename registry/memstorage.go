@@ -23,12 +23,12 @@ type MemoryStorage struct {
 }
 
 func NewMemoryStorage() Storage {
-	return MemoryStorage{
+	return &MemoryStorage{
 		data: make(map[string]DataSource),
 	}
 }
 
-func (ms MemoryStorage) add(ds *DataSource) error {
+func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
 	// Get a new UUID and convert it to string (UUID type can't be used as map-key)
 	newUUID := fmt.Sprint(uuid.NewRandom())
 
@@ -39,20 +39,20 @@ func (ms MemoryStorage) add(ds *DataSource) error {
 
 	// Add the new DataSource to the map
 	ms.mutex.RLock()
-	ms.data[newUUID] = *ds
+	ms.data[newUUID] = ds
 	ms.mutex.RUnlock()
 	//fmt.Println("New DS: ", ms.data[newUUID])
 
-	return nil
+	return ms.data[newUUID], nil
 }
 
-func (ms MemoryStorage) update(id string, ds *DataSource) error {
+func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 	ms.mutex.Lock()
 
 	_, ok := ms.data[id]
 	if !ok {
 		ms.mutex.Unlock()
-		return ErrorNotFound
+		return DataSource{}, ErrorNotFound
 	}
 
 	tempDS := ms.data[id]
@@ -70,10 +70,10 @@ func (ms MemoryStorage) update(id string, ds *DataSource) error {
 
 	ms.mutex.Unlock()
 
-	return nil
+	return ms.data[id], nil
 }
 
-func (ms MemoryStorage) delete(id string) error {
+func (ms *MemoryStorage) delete(id string) error {
 	ms.mutex.Lock()
 
 	_, ok := ms.data[id]
@@ -88,7 +88,7 @@ func (ms MemoryStorage) delete(id string) error {
 	return nil
 }
 
-func (ms MemoryStorage) get(id string) (DataSource, error) {
+func (ms *MemoryStorage) get(id string) (DataSource, error) {
 	ms.mutex.RLock()
 	ds, ok := ms.data[id]
 	if !ok {
@@ -100,7 +100,7 @@ func (ms MemoryStorage) get(id string) (DataSource, error) {
 	return ds, nil
 }
 
-func (ms MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
+func (ms *MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	ms.mutex.RLock()
 	total := ms.getCount()
 
@@ -130,13 +130,13 @@ func (ms MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	return datasources, total, nil
 }
 
-func (ms MemoryStorage) getCount() int {
+func (ms *MemoryStorage) getCount() int {
 	return len(ms.data)
 }
 
 // Path filtering
 // Filter one registration
-func (ms MemoryStorage) pathFilterOne(path, op, value string) (DataSource, error) {
+func (ms *MemoryStorage) pathFilterOne(path, op, value string) (DataSource, error) {
 	pathTknz := strings.Split(path, ".")
 
 	ms.mutex.RLock()
@@ -157,7 +157,7 @@ func (ms MemoryStorage) pathFilterOne(path, op, value string) (DataSource, error
 }
 
 // Filter multiple registrations
-func (ms MemoryStorage) pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
+func (ms *MemoryStorage) pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
 	matchedIDs := []string{}
 	pathTknz := strings.Split(path, ".")
 

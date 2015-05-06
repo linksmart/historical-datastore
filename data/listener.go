@@ -6,36 +6,38 @@ import (
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
+// Handles an incoming notification
 func (d *DataAPI) ntListener(ntChan chan common.Notification) {
-	for ntf := range ntChan { // blocks unless there is a notification
+	for ntf := range ntChan {
+		ds, ok := ntf.DS.(registry.DataSource)
+		if !ok {
+			fmt.Println("ntListener(): Bad notification!", ds)
+			continue
+		}
 		switch ntf.TYPE {
 		case common.CREATE:
-			d.ntfCreated(ntf.DS.(*registry.DataSource))
-
+			d.ntfCreated(&ds)
 		case common.UPDATE_DATA:
-			d.ntfUpdated(ntf.DS.(*registry.DataSource))
-
+			d.ntfUpdated(&ds)
 		case common.DELETE:
-			d.ntfDeleted(ntf.DS.(*string))
-
+			d.ntfDeleted(&ds)
 		default:
-			fmt.Println("ntListener(): Invalid nt operation!")
-
+			// other notifications
 		}
 	}
 }
 
 // Handles the creation of a new data source
-func (d *DataAPI) ntfCreated(DS *registry.DataSource) {
-	fmt.Println("ds created...")
+func (d *DataAPI) ntfCreated(ds *registry.DataSource) {
+	fmt.Println("created: ", ds.ID)
 }
 
 // Handles updates of a data source
-func (d *DataAPI) ntfUpdated(DS *registry.DataSource) {
-	fmt.Println("ds updated...")
+func (d *DataAPI) ntfUpdated(ds *registry.DataSource) {
+	fmt.Println("updated: ", ds.ID)
 }
 
 // Handles deletion of a data source
-func (d *DataAPI) ntfDeleted(ID *string) {
-	fmt.Println("ds deleted...")
+func (d *DataAPI) ntfDeleted(ds *registry.DataSource) {
+	fmt.Println("deleted: ", ds.ID)
 }

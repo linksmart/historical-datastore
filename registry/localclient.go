@@ -6,19 +6,19 @@ type LocalClient struct {
 }
 
 // NewLocalClient returns a new LocalClient given a storage
-func NewLocalClient(storage Storage) *LocalClient {
+func NewLocalClient(storage Storage) Client {
 	return &LocalClient{
 		storage,
 	}
 }
 
 // Add creates a DataSource
-func (c *LocalClient) Add(r *DataSource) error {
+func (c *LocalClient) Add(r DataSource) (DataSource, error) {
 	return c.storage.add(r)
 }
 
 // Update updates a DataSource
-func (c *LocalClient) Update(id string, r *DataSource) error {
+func (c *LocalClient) Update(id string, r DataSource) (DataSource, error) {
 	return c.storage.update(id, r)
 }
 
@@ -28,9 +28,8 @@ func (c *LocalClient) Delete(id string) error {
 }
 
 // Get retrieves a DataSource
-func (c *LocalClient) Get(id string) (*DataSource, error) {
-	ds, err := c.storage.get(id)
-	return &ds, err
+func (c *LocalClient) Get(id string) (DataSource, error) {
+	return c.storage.get(id)
 }
 
 // GetDataSources returns a slice of DataSources given:

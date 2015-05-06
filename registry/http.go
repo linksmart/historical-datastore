@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	//"time"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
 	"linksmart.eu/services/historical-datastore/common"
@@ -94,17 +95,16 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = regAPI.storage.add(&ds)
+	addedDS, err := regAPI.storage.add(ds)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error storing the datasource: "+err.Error(), w)
 		return
 	}
 
 	// Send a create notification
-	//regAPI.notifier.Send(common.Notification{ds.ID, common.CREATED})
-	regAPI.ntChan <- common.Notification{DS: ds.ID, TYPE: common.CREATE}
+	regAPI.ntChan <- common.Notification{DS: addedDS, TYPE: common.CREATE}
 
-	w.Header().Set("Location", ds.URL)
+	w.Header().Set("Location", addedDS.URL)
 	w.WriteHeader(http.StatusCreated)
 	return
 }
@@ -155,15 +155,14 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = regAPI.storage.update(id, &ds)
+	updatedDS, err := regAPI.storage.update(id, ds)
 	if err != nil {
 		common.ErrorResponse(httpNotFound, err.Error(), w)
 		return
 	}
 
 	// Send an update notification
-	//regAPI.notifier.Send(common.Notification{id, common.UPDATED})
-	regAPI.ntChan <- common.Notification{DS: ds.ID, TYPE: common.UPDATE_DATA}
+	regAPI.ntChan <- common.Notification{DS: updatedDS, TYPE: common.UPDATE_DATA}
 
 	w.WriteHeader(http.StatusOK)
 	return
@@ -182,8 +181,7 @@ func (regAPI *RegistryAPI) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send a delete notification
-	//regAPI.notifier.Send(common.Notification{id, common.DELETED})
-	regAPI.ntChan <- common.Notification{DS: id, TYPE: common.DELETE}
+	regAPI.ntChan <- common.Notification{DS: DataSource{ID: id}, TYPE: common.DELETE}
 
 	return
 }
@@ -244,127 +242,4 @@ func (regAPI *RegistryAPI) Filter(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.Write(body)
-}
-
-///////////////////////////////////////////////////////////////////////////////////
-
-////
-const (
-	CREATE uint8 = iota
-	UPDATE
-)
-
-// Validate the DataSource for:
-// 	Create:
-//	- Not provided: id, url, data
-//	- Provided: resource, type, format
-//	- Valid: type, retention.policy, retention.duration, aggregates
-//	Update:
-//	- Not provided: id, url, data, resource, type
-//	- Provided: format
-//	- Valid: retention.policy, retention.duration, aggregates
-///////////////////////////////////////////////////////////////////////////////////////
-// TODO refactor the validations based on attributes rather than the type of validation
-func validateDataSource(ds *DataSource, context uint8) error {
-	var _errors []string
-
-	//// System generated (Read-only) ////////////////////////////////////////////
-	var readOnlyKeys []string
-	if ds.ID != "" {
-		readOnlyKeys = append(readOnlyKeys, "id")
-	}
-	if ds.URL != "" {
-		readOnlyKeys = append(readOnlyKeys, "url")
-	}
-	if ds.Data != "" {
-		readOnlyKeys = append(readOnlyKeys, "data")
-	}
-
-	///// Fixed (Read-only once created) /////////////////////////////////////////
-	if context == UPDATE {
-		if ds.Resource != "" {
-			readOnlyKeys = append(readOnlyKeys, "resource")
-		}
-		if ds.Type != "" {
-			readOnlyKeys = append(readOnlyKeys, "type")
-		}
-	}
-
-	if len(readOnlyKeys) > 0 {
-		_errors = append(_errors, "Ambitious assignment to read-only key(s): "+strings.Join(readOnlyKeys, ", "))
-	}
-
-	///// Mandatory ///////////////////////////////////////////////////////////////
-	var mandatoryKeys []string
-	if context == CREATE {
-		if ds.Resource == "" {
-			mandatoryKeys = append(mandatoryKeys, "resource")
-		}
-		if ds.Type == "" {
-			mandatoryKeys = append(mandatoryKeys, "type")
-		}
-	}
-	if ds.Format == "" {
-		mandatoryKeys = append(mandatoryKeys, "format")
-	}
-
-	if len(mandatoryKeys) > 0 {
-		_errors = append(_errors, "Missing mandatory value(s) of: "+strings.Join(mandatoryKeys, ", "))
-	}
-
-	//// Invalid //////////////////////////////////////////////////////////////////
-	var invalidKeys []string
-	if ds.Resource != "" {
-		_, err := url.Parse(ds.Resource)
-		if err != nil {
-			invalidKeys = append(invalidKeys, "resource")
-		}
-	}
-	if ds.Retention.Policy != "" {
-		if !validateRetention(ds.Retention.Policy) {
-			invalidKeys = append(invalidKeys, fmt.Sprintf("retention.policy<[0-9]*(%s)>", strings.Join(common.RetentionPeriods(), "|")))
-		}
-	}
-	if ds.Retention.Duration != "" {
-		if !validateRetention(ds.Retention.Duration) {
-			invalidKeys = append(invalidKeys, fmt.Sprintf("retention.duration<[0-9]*(%s)>", strings.Join(common.RetentionPeriods(), "|")))
-		}
-	}
-	if ds.Type != "" {
-		if !stringInSlice(ds.Type, common.SupportedTypes()) {
-			invalidKeys = append(invalidKeys, fmt.Sprintf("type<%s>", strings.Join(common.SupportedTypes(), ",")))
-		}
-	}
-	// Todo: Validate ds.Aggregation
-	// common.SupportedAggregates()
-	// only if format=float
-
-	if len(invalidKeys) > 0 {
-		_errors = append(_errors, "Invalid value(s) for: "+strings.Join(invalidKeys, ", "))
-	}
-
-	///// return if any errors ////////////////////////////////////////////////////
-	if len(_errors) > 0 {
-		return errors.New(strings.Join(_errors, ". "))
-	}
-
-	return nil
-}
-
-func validateRetention(retention string) bool {
-	// Create regexp: h|d|w|m
-	retPeriods := strings.Join(common.RetentionPeriods(), "|")
-	// Create regexp: ^[0-9]*(h|d|w|m)$
-	re := regexp.MustCompile("^[0-9]*(" + retPeriods + ")$")
-
-	return re.MatchString(retention)
-}
-
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
 }

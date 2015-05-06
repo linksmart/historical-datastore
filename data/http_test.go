@@ -10,6 +10,7 @@ import (
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
 	senml "linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/krylovsk/gosenml"
 	"linksmart.eu/services/historical-datastore/registry"
+	"linksmart.eu/services/historical-datastore/common"
 )
 
 type dummyDataStorage struct{}
@@ -29,8 +30,9 @@ func (s *dummyDataStorage) query(q query, page, perPage int, ds ...registry.Data
 }
 
 func setupAPI() *DataAPI {
+	nt := common.SetupNotifier()
 	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
-	return NewDataAPI(registryClient, &dummyDataStorage{})
+	return NewDataAPI(registryClient, &dummyDataStorage{}, nt.NewReader())
 }
 
 // func setupAPI() *DataAPI {

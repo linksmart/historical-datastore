@@ -11,7 +11,7 @@ const (
 // A notification message
 type Notification struct {
 	TYPE uint8
-	DS   interface{}
+	DS interface{}
 }
 
 type Notifier struct {
