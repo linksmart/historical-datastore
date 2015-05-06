@@ -36,8 +36,6 @@ func main() {
 
 	dataAPI := data.NewDataAPI(registryClient, dataStorage, nt.NewReader())
 
-	//go nt.Multicaster()
-
 	commonHandlers := alice.New(
 		context.ClearHandler,
 		loggingHandler,
