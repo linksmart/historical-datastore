@@ -13,10 +13,10 @@ import (
 // Registry api
 type RegistryAPI struct {
 	storage Storage
-	ntChan  chan common.Notification
+	ntChan  chan<- common.Notification // write-only channel
 }
 
-func NewRegistryAPI(storage Storage, ntChan chan common.Notification) *RegistryAPI {
+func NewRegistryAPI(storage Storage, ntChan chan<- common.Notification) *RegistryAPI {
 	return &RegistryAPI{
 		storage,
 		ntChan,

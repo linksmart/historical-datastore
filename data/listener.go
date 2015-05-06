@@ -7,7 +7,7 @@ import (
 )
 
 // Handles an incoming notification
-func (d *DataAPI) ntListener(ntChan chan common.Notification) {
+func (d *DataAPI) ntListener(ntChan <-chan common.Notification) {
 	for ntf := range ntChan {
 		ds, ok := ntf.DS.(registry.DataSource)
 		if !ok {

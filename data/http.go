@@ -28,7 +28,7 @@ type DataAPI struct {
 }
 
 // NewDataAPI returns the configured Data API
-func NewDataAPI(registryClient registry.Client, storage Storage, ntChan chan common.Notification) *DataAPI {
+func NewDataAPI(registryClient registry.Client, storage Storage, ntChan <-chan common.Notification) *DataAPI {
 	d := &DataAPI{
 		registryClient,
 		storage,

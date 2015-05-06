@@ -34,7 +34,7 @@ func TestHttpIndex(t *testing.T) {
 	//	defer ts.Close()
 	nt := common.SetupNotifier()
 	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage, nt.Sender)
+	regAPI := NewRegistryAPI(regStorage, nt.Sender())
 	registryClient := NewLocalClient(regStorage)
 
 	// Create some dummy data
@@ -129,7 +129,7 @@ func TestHttpIndex(t *testing.T) {
 func TestHttpCreate(t *testing.T) {
 	nt := common.SetupNotifier()
 	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage, nt.Sender)
+	regAPI := NewRegistryAPI(regStorage, nt.Sender())
 
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
@@ -180,7 +180,7 @@ func TestHttpCreate(t *testing.T) {
 func TestHttpRetrieve(t *testing.T) {
 	nt := common.SetupNotifier()
 	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage, nt.Sender)
+	regAPI := NewRegistryAPI(regStorage, nt.Sender())
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
 
@@ -250,7 +250,7 @@ func TestHttpUpdate(t *testing.T) {
 func TestHttpDelete(t *testing.T) {
 	nt := common.SetupNotifier()
 	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage, nt.Sender)
+	regAPI := NewRegistryAPI(regStorage, nt.Sender())
 
 	registryClient := NewLocalClient(regStorage)
 

@@ -23,7 +23,7 @@ func main() {
 
 	// registry
 	regStorage := registry.NewMemoryStorage()
-	regAPI := registry.NewRegistryAPI(regStorage, nt.Sender)
+	regAPI := registry.NewRegistryAPI(regStorage, nt.Sender())
 
 	// data
 	u, _ := url.Parse("http://localhost:8086")
