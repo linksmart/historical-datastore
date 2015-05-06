@@ -25,19 +25,17 @@ const (
 type DataAPI struct {
 	registryClient registry.Client
 	storage        Storage
-	notifier       common.Notifier
 }
 
 // NewDataAPI returns the configured Data API
-func NewDataAPI(registryClient registry.Client, storage Storage, notifier common.Notifier) *DataAPI {
+func NewDataAPI(registryClient registry.Client, storage Storage, ntChan chan common.Notification) *DataAPI {
 	d := &DataAPI{
 		registryClient,
 		storage,
-		notifier,
 	}
 
 	// Run the notification listener
-	go d.ntListener()
+	go d.ntListener(ntChan)
 
 	return d
 }

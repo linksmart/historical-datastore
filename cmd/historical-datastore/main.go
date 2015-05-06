@@ -16,16 +16,14 @@ func main() {
 	var addr = flag.String("addr", ":8080", "HTTP bind address")
 
 	flag.Parse()
+	// TODO config file
 
-	// Configuration (config file later)
-
-	// Notifications
-	ntChan := common.NewNotifier()
-	// can have ntRPC, ntSocket, etc in case of other backends
+	// Setup and run the notifier
+	nt := common.SetupNotifier()
 
 	// registry
 	regStorage := registry.NewMemoryStorage()
-	regAPI := registry.NewRegistryAPI(regStorage, ntChan)
+	regAPI := registry.NewRegistryAPI(regStorage, nt.Sender)
 
 	// data
 	u, _ := url.Parse("http://localhost:8086")
@@ -36,7 +34,9 @@ func main() {
 	dataStorage, _ := data.NewInfluxStorage(&dataStorageCfg)
 	registryClient := registry.NewLocalClient(regStorage)
 
-	dataAPI := data.NewDataAPI(registryClient, dataStorage, ntChan)
+	dataAPI := data.NewDataAPI(registryClient, dataStorage, nt.NewReader())
+
+	//go nt.Multicaster()
 
 	commonHandlers := alice.New(
 		context.ClearHandler,

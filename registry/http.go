@@ -17,14 +17,14 @@ import (
 
 // Registry api
 type RegistryAPI struct {
-	storage  Storage
-	notifier common.Notifier
+	storage Storage
+	ntChan  chan common.Notification
 }
 
-func NewRegistryAPI(storage Storage, notifier common.Notifier) *RegistryAPI {
+func NewRegistryAPI(storage Storage, ntChan chan common.Notification) *RegistryAPI {
 	return &RegistryAPI{
 		storage,
-		notifier,
+		ntChan,
 	}
 }
 
@@ -101,7 +101,8 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send a create notification
-	regAPI.notifier.Send(common.Notification{ds.ID, common.CREATED})
+	//regAPI.notifier.Send(common.Notification{ds.ID, common.CREATED})
+	regAPI.ntChan <- common.Notification{DS: ds.ID, TYPE: common.CREATE}
 
 	w.Header().Set("Location", ds.URL)
 	w.WriteHeader(http.StatusCreated)
@@ -161,7 +162,8 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send an update notification
-	regAPI.notifier.Send(common.Notification{id, common.UPDATED})
+	//regAPI.notifier.Send(common.Notification{id, common.UPDATED})
+	regAPI.ntChan <- common.Notification{DS: ds.ID, TYPE: common.UPDATE_DATA}
 
 	w.WriteHeader(http.StatusOK)
 	return
@@ -180,7 +182,8 @@ func (regAPI *RegistryAPI) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send a delete notification
-	regAPI.notifier.Send(common.Notification{id, common.DELETED})
+	//regAPI.notifier.Send(common.Notification{id, common.DELETED})
+	regAPI.ntChan <- common.Notification{DS: id, TYPE: common.DELETE}
 
 	return
 }
