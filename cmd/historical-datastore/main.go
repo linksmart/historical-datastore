@@ -19,11 +19,15 @@ func main() {
 	// TODO config file
 
 	// Setup and run the notifier
-	nt := common.SetupNotifier()
+	// nt := common.SetupNotifier()
+	ntSndRegCh := make(chan common.Notification)
+	ntRcvDataCh := make(chan common.Notification)
+	// nrAggrCh := make(chan int)
+	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
 
 	// registry
 	regStorage := registry.NewMemoryStorage()
-	regAPI := registry.NewRegistryAPI(regStorage, nt.Sender())
+	regAPI := registry.NewRegistryAPI(regStorage, ntSndRegCh)
 
 	// data
 	u, _ := url.Parse("http://localhost:8086")
@@ -34,7 +38,7 @@ func main() {
 	dataStorage, _ := data.NewInfluxStorage(&dataStorageCfg)
 	registryClient := registry.NewLocalClient(regStorage)
 
-	dataAPI := data.NewDataAPI(registryClient, dataStorage, nt.NewReader())
+	dataAPI := data.NewDataAPI(registryClient, dataStorage, ntRcvDataCh)
 
 	commonHandlers := alice.New(
 		context.ClearHandler,

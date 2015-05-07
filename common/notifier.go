@@ -22,9 +22,10 @@ type Notifier struct {
 }
 
 // Constructs notifier and starts multicasting
-func SetupNotifier() *Notifier {
+func NewNotifier(in chan Notification, out ...chan Notification) *Notifier {
 	nt := &Notifier{
-		sender: make(chan Notification), // unbuffered channel
+		sender:  in,
+		readers: out,
 	}
 	go nt.multicaster()
 	return nt
@@ -40,14 +41,14 @@ func (nt *Notifier) multicaster() {
 	}
 }
 
-// Get sender channel as write only
-func (nt *Notifier) Sender() chan<- Notification {
-	return nt.sender
-}
+// // Get sender channel as write only
+// func (nt *Notifier) Sender() chan<- Notification {
+// 	return nt.sender
+// }
 
-// Create a new reader channel as receive-only
-func (nt *Notifier) NewReader() <-chan Notification {
-	newReader := make(chan Notification) // unbuffered channel
-	nt.readers = append(nt.readers, newReader)
-	return newReader
-}
+// // Create a new reader channel as receive-only
+// func (nt *Notifier) NewReader() <-chan Notification {
+// 	newReader := make(chan Notification) // unbuffered channel
+// 	nt.readers = append(nt.readers, newReader)
+// 	return newReader
+// }
