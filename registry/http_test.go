@@ -28,14 +28,24 @@ func setupRouter(regAPI *RegistryAPI) *mux.Router {
 	return r
 }
 
+func setupAPI() (*RegistryAPI, Client) {
+	// Setup and run the notifier
+	ntSndRegCh := make(chan common.Notification)
+	ntRcvDataCh := make(chan common.Notification)
+	// nrAggrCh := make(chan int)
+	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
+	regStorage := NewMemoryStorage()
+	regAPI := NewRegistryAPI(regStorage, ntSndRegCh)
+	registryClient := NewLocalClient(regStorage)
+
+	return regAPI, registryClient
+}
+
 func TestHttpIndex(t *testing.T) {
 	// for some reason, setupRouter() doesn't work on Index
 	//	ts := httptest.NewServer(setupRouter())
 	//	defer ts.Close()
-	nt := common.SetupNotifier()
-	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage, nt.Sender())
-	registryClient := NewLocalClient(regStorage)
+	regAPI, registryClient := setupAPI()
 
 	// Create some dummy data
 	totalDummy := 555
@@ -127,9 +137,7 @@ func TestHttpIndex(t *testing.T) {
 }
 
 func TestHttpCreate(t *testing.T) {
-	nt := common.SetupNotifier()
-	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage, nt.Sender())
+	regAPI, _ := setupAPI()
 
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
@@ -178,9 +186,7 @@ func TestHttpCreate(t *testing.T) {
 
 // Create a data source and retrieve it back
 func TestHttpRetrieve(t *testing.T) {
-	nt := common.SetupNotifier()
-	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage, nt.Sender())
+	regAPI, _ := setupAPI()
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
 
@@ -248,11 +254,7 @@ func TestHttpUpdate(t *testing.T) {
 }
 
 func TestHttpDelete(t *testing.T) {
-	nt := common.SetupNotifier()
-	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage, nt.Sender())
-
-	registryClient := NewLocalClient(regStorage)
+	regAPI, registryClient := setupAPI()
 
 	// Create some dummy data
 	IDs := GenerateDummyData(5, registryClient)
