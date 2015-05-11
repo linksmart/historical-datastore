@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -135,13 +136,16 @@ func TestHttpIndex(t *testing.T) {
 		for i := 0; i < inThisPage; i++ {
 			dummyDS := dummyDSs[i]
 			returnedDS := reg.Entries[i]
+
+			// compare them
 			dummyDS_b, _ := json.Marshal(dummyDS)
 			returnedDS_b, _ := json.Marshal(returnedDS)
-			
-			// compare them
 			if string(dummyDS_b) != string(returnedDS_b) {
 				t.Errorf("Mismatch retrieved:\n%s\n and stored:\n%s\n", string(dummyDS_b), string(returnedDS_b))
 			}
+			//	if !reflect.DeepEqual(dummyDS,returnedDS){
+			//		t.Fatalf("Mismatch retrieved:\n%+v\n and stored:\n%+v\n", dummyDS, returnedDS)
+			//	}
 		}
 
 		totalReturnedDS += len(reg.Entries)
@@ -230,15 +234,13 @@ func TestHttpCreate(t *testing.T) {
 	postedDS.ID = id
 	postedDS.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, postedDS.ID)
 	postedDS.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, postedDS.ID)
-	postedDS_b, _ := json.Marshal(&postedDS)
 
 	// Retrieve the added data source
 	addedDS, _ := registryClient.Get(id)
-	addedDS_b, _ := json.Marshal(&addedDS)
 
 	// compare posted and added data sources
-	if string(postedDS_b) != string(addedDS_b) {
-		t.Errorf("Mismatch POSTed:\n%s\n and added data:\n%s\n", string(postedDS_b), string(addedDS_b))
+	if !reflect.DeepEqual(postedDS, addedDS) {
+		t.Fatalf("Mismatch POSTed:\n%+v\n and added data:\n%+v\n", postedDS, addedDS)
 	}
 
 	return
@@ -265,15 +267,23 @@ func TestHttpRetrieve(t *testing.T) {
 	}
 
 	// marshal the stored data source for comparison
-	storedDS_b, err := json.Marshal(&aDataSource)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
+	storedDS_b, _ := json.Marshal(&aDataSource)
 
 	// compare stored and retrieved(GET) data sources
 	if string(storedDS_b) != string(b) {
 		t.Errorf("Mismatch retrieved(GET):\n%s\n and stored data:\n%s\n", string(b), string(storedDS_b))
 	}
+
+	//	var retrievedDS DataSource
+	//	err = json.Unmarshal(b, &retrievedDS)
+	//	if err != nil{
+	//		t.Fatalf("Retrieved invalid json format: %v\n", err.Error())
+	//	}
+
+	//	// compare stored and retrieved(GET) data sources
+	//	if !reflect.DeepEqual(retrievedDS,aDataSource){
+	//		t.Fatalf("Mismatch retrieved(GET):\n%+v\n and stored data:\n%+v\n", retrievedDS, aDataSource)
+	//	}
 }
 
 func TestHttpUpdate(t *testing.T) {
@@ -333,7 +343,6 @@ func TestHttpUpdate(t *testing.T) {
 
 	// Retrieve the updated data source
 	updatedDS, _ := registryClient.Get(ID)
-	updatedDS_b, _ := json.Marshal(&updatedDS)
 
 	// Manually construct the expected updated(PUT) data source
 	var putDS DataSource
@@ -346,11 +355,10 @@ func TestHttpUpdate(t *testing.T) {
 	putDS.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, putDS.ID)
 	putDS.Resource = updatedDS.Resource
 	putDS.Type = updatedDS.Type
-	putDS_b, _ := json.Marshal(&putDS)
 
 	// compare updated(PUT) data source with the one in memory
-	if string(putDS_b) != string(updatedDS_b) {
-		t.Errorf("Mismatch PUT:\n%s\n and updated data:\n%s\n", string(putDS_b), string(updatedDS_b))
+	if !reflect.DeepEqual(putDS, updatedDS) {
+		t.Fatalf("Mismatch PUT:\n%+v\n and updated data:\n%+v\n", putDS, updatedDS)
 	}
 }
 
