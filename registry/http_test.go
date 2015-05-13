@@ -215,7 +215,7 @@ func TestHttpCreate(t *testing.T) {
 	}
 	res.Body.Close()
 
-	// Extract id from url
+	// Extract id of new data source from url
 	splitURL := strings.Split(url.Path, "/")
 	if len(splitURL) != 3 {
 		t.Fatal("Invalid url in Location header-entry")
@@ -234,6 +234,15 @@ func TestHttpCreate(t *testing.T) {
 
 	// Retrieve the added data source
 	addedDS, _ := registryClient.Get(id)
+
+	//	// marshal the stored data source for comparison
+	//	postedDS_b, _ := json.Marshal(&postedDS)
+	//	addedDS_b, _ := json.Marshal(&addedDS)
+
+	//	// compare updated(PUT) data source with the one in memory
+	//	if string(postedDS_b) != string(addedDS_b) {
+	//		t.Errorf("Mismatch POSTed:\n%s\n and added data:\n%s\n", string(postedDS_b), string(addedDS_b))
+	//	}
 
 	// compare posted and added data sources
 	if !reflect.DeepEqual(postedDS, addedDS) {
@@ -355,6 +364,15 @@ func TestHttpUpdate(t *testing.T) {
 	putDS.Resource = updatedDS.Resource
 	putDS.Type = updatedDS.Type
 
+	//	// marshal the stored data source for comparison
+	//	putDS_b, _ := json.Marshal(&putDS)
+	//	updatedDS_b, _ := json.Marshal(&updatedDS)
+
+	//	// compare updated(PUT) data source with the one in memory
+	//	if string(putDS_b) != string(updatedDS_b) {
+	//		t.Errorf("Mismatch PUT:\n%s\n and updated data:\n%s\n", string(putDS_b), string(updatedDS_b))
+	//	}
+
 	// compare updated(PUT) data source with the one in memory
 	if !reflect.DeepEqual(putDS, updatedDS) {
 		t.Fatalf("Mismatch PUT:\n%+v\n and updated data:\n%+v\n", putDS, updatedDS)
@@ -445,7 +463,7 @@ func TestHttpFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	// Check it was queried correctly
+	// Check if it was queried correctly
 	var ds DataSource
 	err = json.Unmarshal(b, &ds)
 	if err != nil {

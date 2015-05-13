@@ -131,13 +131,13 @@ func TestMemstorageGetCount(t *testing.T) {
 func TestMemstoragePathFilterOne(t *testing.T) {
 	storage := NewMemoryStorage()
 	ID := generateDummyData(10, storage)[0]
-	
+
 	targetDS, _ := storage.get(ID)
 	matchedDS, err := storage.pathFilterOne("id", "equals", targetDS.ID)
-	if err!=nil{
+	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	
+
 	// check if target is returned
 	if !reflect.DeepEqual(targetDS, matchedDS) {
 		t.Fatalf("Looking for:\n%v\n but matched:\n%v\n", targetDS, matchedDS)
@@ -148,24 +148,24 @@ func TestMemstoragePathFilter(t *testing.T) {
 	storage := NewMemoryStorage()
 	IDs := generateDummyData(10, storage)
 	expected := 3
-	
+
 	// Modify some of them
-	if(len(IDs)<expected){
+	if len(IDs) < expected {
 		t.Fatalf("Need more dummies!")
 	}
-	for i:=0;i<expected;i++{
-		ds , _:= storage.get(IDs[i])
+	for i := 0; i < expected; i++ {
+		ds, _ := storage.get(IDs[i])
 		ds.Format = "newtype/newsubtype"
 		storage.update(ds.ID, ds)
 	}
-	
+
 	// Query for format with prefix "newtype"
 	_, total, err := storage.pathFilter("format", "prefix", "newtype", 1, 100)
-	if err!=nil{
+	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	
-	if total != expected{
+
+	if total != expected {
 		t.Fatalf("Returned %d matches instead of %d", total, expected)
 	}
 }
