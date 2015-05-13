@@ -26,7 +26,7 @@ func setupRouter(regAPI *RegistryAPI) *mux.Router {
 	r.Methods("GET").Path("/registry/{id}").HandlerFunc(regAPI.Retrieve)
 	r.Methods("PUT").Path("/registry/{id}").HandlerFunc(regAPI.Update)
 	r.Methods("DELETE").Path("/registry/{id}").HandlerFunc(regAPI.Delete)
-	r.Methods("GET").Path("/registry/{path}/{type}/{op}/{value}").HandlerFunc(regAPI.Filter)
+	r.Methods("GET").Path("/registry/{path}/{type}/{op}/{value:.*}").HandlerFunc(regAPI.Filter)
 	return r
 }
 
@@ -281,14 +281,26 @@ func TestHttpRetrieve(t *testing.T) {
 		t.Errorf("Mismatch retrieved(GET):\n%s\n and stored data:\n%s\n", string(b), string(storedDS_b))
 	}
 
+	var storedDS_c DataSource
+	_ = json.Unmarshal(storedDS_b, &storedDS_c)
+
 	//	var retrievedDS DataSource
 	//	err = json.Unmarshal(b, &retrievedDS)
-	//	if err != nil{
+	//	if err != nil {
 	//		t.Fatalf("Retrieved invalid json format: %v\n", err.Error())
 	//	}
+	////	retrievedDS.ID = aDataSource.ID
+	////	retrievedDS.URL = aDataSource.URL
+	////	retrievedDS.Data = aDataSource.Data
+	////	retrievedDS.Resource = aDataSource.Resource
+	////	retrievedDS.Format = aDataSource.Format
+	////	retrievedDS.Type = aDataSource.Type
+	////	retrievedDS.Retention = aDataSource.Retention
+	////	retrievedDS.Aggregation = aDataSource.Aggregation
+	////	retrievedDS.Meta = aDataSource.Meta
 
 	//	// compare stored and retrieved(GET) data sources
-	//	if !reflect.DeepEqual(retrievedDS,aDataSource){
+	//	if !reflect.DeepEqual(retrievedDS, aDataSource) {
 	//		t.Fatalf("Mismatch retrieved(GET):\n%+v\n and stored data:\n%+v\n", retrievedDS, aDataSource)
 	//	}
 }
@@ -413,8 +425,8 @@ func TestHttpDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if res.StatusCode != httpNotFound {
-		t.Fatalf("Server response is %v instead of %v", res.StatusCode, httpNotFound)
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("Server response is %v instead of %v", res.StatusCode, http.StatusNotFound)
 	}
 
 }
@@ -474,7 +486,7 @@ func TestHttpFilter(t *testing.T) {
 	}
 
 	// Search for data sources that contains "sensor" in Resource
-	res, err = http.Get(filterURL("resource/" + FTypeMany + "/contains/sensor"))
+	res, err = http.Get(filterURL("resource/" + FTypeMany + "/contains/dimmer.eu/sensor"))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -504,8 +516,8 @@ func TestHttpFilter(t *testing.T) {
 func GenerateDummyData(quantity int, c Client) []string {
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	randInt := func(min int, max int) int {
-		return min + rand.Intn(max-min)
+	randInt := func(min int, max int) int64 {
+		return int64(min + rand.Intn(max-min))
 	}
 
 	var IDs []string

@@ -17,7 +17,14 @@ const (
 	RegistryAPILoc = "/registry"
 	DataAPILoc     = "/data"
 	AggrAPILoc     = "/aggr"
+
+	// Pagination parameters
+	GetParamPage    = "page"
+	GetParamPerPage = "per_page"
+	// Max DataSources displayed in each page of registry
+	MaxPerPage = 100
 )
+
 var (
 	supportedTypes      = []string{"string", "bool", "float"}
 	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}

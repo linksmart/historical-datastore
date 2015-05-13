@@ -2,6 +2,7 @@ package registry
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -24,13 +25,18 @@ func NewRegistryAPI(storage Storage, ntChan chan<- common.Notification) *Registr
 }
 
 const (
+	FTypeOne  = "one"
+	FTypeMany = "many"
+
 	GetParamPage    = "page"
 	GetParamPerPage = "per_page"
 	// Max DataSources displayed in each page of registry
-	MaxPerPage   = 100
-	FTypeOne     = "one"
-	FTypeMany    = "many"
-	httpNotFound = 404
+	MaxPerPage = 100
+
+//	FOpEquals   = "equals"
+//	FOpPrefix   = "prefix"
+//	FOpSuffix   = "suffix"
+//	FOpContains = "contains"
 )
 
 // Handlers ///////////////////////////////////////////////////////////////////////
@@ -155,7 +161,7 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 
 	oldDS, err := regAPI.storage.get(id)
 	if err != nil {
-		common.ErrorResponse(httpNotFound, err.Error(), w)
+		common.ErrorResponse(http.StatusNotFound, err.Error(), w)
 		return
 	}
 	updatedDS, err := regAPI.storage.update(id, ds)
@@ -183,7 +189,7 @@ func (regAPI *RegistryAPI) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err := regAPI.storage.delete(id)
 	if err != nil {
-		common.ErrorResponse(httpNotFound, err.Error(), w)
+		common.ErrorResponse(http.StatusNotFound, err.Error(), w)
 		return
 	}
 
@@ -201,6 +207,8 @@ func (regAPI *RegistryAPI) Filter(w http.ResponseWriter, r *http.Request) {
 	ftype := params["type"]
 	fop := params["op"]
 	fvalue := params["value"]
+
+	fmt.Println(fvalue)
 
 	r.ParseForm()
 	page, _ := strconv.Atoi(r.Form.Get(GetParamPage))
