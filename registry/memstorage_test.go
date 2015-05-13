@@ -45,7 +45,7 @@ func TestMemstorageGet(t *testing.T) {
 
 func TestMemstorageUpdate(t *testing.T) {
 	storage := NewMemoryStorage()
-	ID := generateDummyData(1, storage)[0]
+	ID := generateDummyData(1, NewLocalClient(storage))[0]
 
 	ds, err := storage.get(ID)
 	if err != nil {
@@ -73,7 +73,7 @@ func TestMemstorageUpdate(t *testing.T) {
 
 func TestMemstorageDelete(t *testing.T) {
 	storage := NewMemoryStorage()
-	ID := generateDummyData(1, storage)[0]
+	ID := generateDummyData(1, NewLocalClient(storage))[0]
 
 	err := storage.delete(ID)
 	if err != nil {
@@ -90,7 +90,7 @@ func TestMemstorageGetMany(t *testing.T) {
 	// Check based on different inputs
 	subTest := func(TOTAL int, perPage int) {
 		storage := NewMemoryStorage()
-		generateDummyData(TOTAL, storage)
+		generateDummyData(TOTAL, NewLocalClient(storage))
 
 		_, total, _ := storage.getMany(1, perPage)
 		if total != TOTAL {
@@ -121,7 +121,7 @@ func TestMemstorageGetMany(t *testing.T) {
 func TestMemstorageGetCount(t *testing.T) {
 	storage := NewMemoryStorage()
 	total := 5
-	generateDummyData(total, storage)
+	generateDummyData(total, NewLocalClient(storage))
 
 	if storage.getCount() != total {
 		t.Errorf("Stored %d but counted %d", total, storage.getCount())
@@ -130,7 +130,7 @@ func TestMemstorageGetCount(t *testing.T) {
 
 func TestMemstoragePathFilterOne(t *testing.T) {
 	storage := NewMemoryStorage()
-	ID := generateDummyData(10, storage)[0]
+	ID := generateDummyData(10, NewLocalClient(storage))[0]
 
 	targetDS, _ := storage.get(ID)
 	matchedDS, err := storage.pathFilterOne("id", "equals", targetDS.ID)
@@ -146,7 +146,7 @@ func TestMemstoragePathFilterOne(t *testing.T) {
 
 func TestMemstoragePathFilter(t *testing.T) {
 	storage := NewMemoryStorage()
-	IDs := generateDummyData(10, storage)
+	IDs := generateDummyData(10, NewLocalClient(storage))
 	expected := 3
 
 	// Modify some of them
@@ -171,7 +171,7 @@ func TestMemstoragePathFilter(t *testing.T) {
 }
 
 // Generate dummy data sources
-func generateDummyData(quantity int, s Storage) []string {
+func generateDummyData(quantity int, c Client) []string {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	randInt := func(min int, max int) int {
@@ -190,7 +190,7 @@ func generateDummyData(quantity int, s Storage) []string {
 		ds.Type = common.SupportedTypes()[randInt(0, 2)]
 		ds.Format = "application/senml+json"
 
-		newDS, _ := s.add(ds)
+		newDS, _ := c.Add(ds)
 		IDs = append(IDs, newDS.ID) // add the generated id
 	}
 

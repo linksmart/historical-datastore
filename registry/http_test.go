@@ -7,13 +7,10 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
 	"linksmart.eu/services/historical-datastore/common"
@@ -26,7 +23,7 @@ func setupRouter(regAPI *RegistryAPI) *mux.Router {
 	r.Methods("GET").Path("/registry/{id}").HandlerFunc(regAPI.Retrieve)
 	r.Methods("PUT").Path("/registry/{id}").HandlerFunc(regAPI.Update)
 	r.Methods("DELETE").Path("/registry/{id}").HandlerFunc(regAPI.Delete)
-	r.Methods("GET").Path("/registry/{path}/{type}/{op}/{value:.*}").HandlerFunc(regAPI.Filter)
+	r.Methods("GET").Path("/registry/{type}/{path}/{op}/{value:.*}").HandlerFunc(regAPI.Filter)
 	return r
 }
 
@@ -62,7 +59,7 @@ func TestHttpIndex(t *testing.T) {
 
 	// Create some dummy data
 	totalDummy := 555
-	GenerateDummyData(totalDummy, registryClient)
+	generateDummyData(totalDummy, registryClient)
 
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
@@ -140,9 +137,6 @@ func TestHttpIndex(t *testing.T) {
 			if string(dummyDS_b) != string(returnedDS_b) {
 				t.Errorf("Mismatch retrieved:\n%s\n and stored:\n%s\n", string(dummyDS_b), string(returnedDS_b))
 			}
-			//	if !reflect.DeepEqual(dummyDS,returnedDS){
-			//		t.Fatalf("Mismatch retrieved:\n%+v\n and stored:\n%+v\n", dummyDS, returnedDS)
-			//	}
 		}
 
 		totalReturnedDS += len(reg.Entries)
@@ -235,18 +229,13 @@ func TestHttpCreate(t *testing.T) {
 	// Retrieve the added data source
 	addedDS, _ := registryClient.Get(id)
 
-	//	// marshal the stored data source for comparison
-	//	postedDS_b, _ := json.Marshal(&postedDS)
-	//	addedDS_b, _ := json.Marshal(&addedDS)
+	// marshal the stored data source for comparison
+	postedDS_b, _ := json.Marshal(&postedDS)
+	addedDS_b, _ := json.Marshal(&addedDS)
 
-	//	// compare updated(PUT) data source with the one in memory
-	//	if string(postedDS_b) != string(addedDS_b) {
-	//		t.Errorf("Mismatch POSTed:\n%s\n and added data:\n%s\n", string(postedDS_b), string(addedDS_b))
-	//	}
-
-	// compare posted and added data sources
-	if !reflect.DeepEqual(postedDS, addedDS) {
-		t.Fatalf("Mismatch POSTed:\n%+v\n and added data:\n%+v\n", postedDS, addedDS)
+	// compare updated(PUT) data source with the one in memory
+	if string(postedDS_b) != string(addedDS_b) {
+		t.Errorf("The POSTed data:\n%s\n mismatch the stored data:\n%s\n", string(postedDS_b), string(addedDS_b))
 	}
 
 	return
@@ -256,7 +245,7 @@ func TestHttpCreate(t *testing.T) {
 func TestHttpRetrieve(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
-	ID := GenerateDummyData(1, registryClient)[0]
+	ID := generateDummyData(1, registryClient)[0]
 	aDataSource, _ := registryClient.Get(ID)
 
 	ts := httptest.NewServer(setupRouter(regAPI))
@@ -278,38 +267,15 @@ func TestHttpRetrieve(t *testing.T) {
 
 	// compare stored and retrieved(GET) data sources
 	if string(storedDS_b) != string(b) {
-		t.Errorf("Mismatch retrieved(GET):\n%s\n and stored data:\n%s\n", string(b), string(storedDS_b))
+		t.Errorf("Retrieved(GET):\n%s\n mismatch the stored data:\n%s\n", string(b), string(storedDS_b))
 	}
-
-	var storedDS_c DataSource
-	_ = json.Unmarshal(storedDS_b, &storedDS_c)
-
-	//	var retrievedDS DataSource
-	//	err = json.Unmarshal(b, &retrievedDS)
-	//	if err != nil {
-	//		t.Fatalf("Retrieved invalid json format: %v\n", err.Error())
-	//	}
-	////	retrievedDS.ID = aDataSource.ID
-	////	retrievedDS.URL = aDataSource.URL
-	////	retrievedDS.Data = aDataSource.Data
-	////	retrievedDS.Resource = aDataSource.Resource
-	////	retrievedDS.Format = aDataSource.Format
-	////	retrievedDS.Type = aDataSource.Type
-	////	retrievedDS.Retention = aDataSource.Retention
-	////	retrievedDS.Aggregation = aDataSource.Aggregation
-	////	retrievedDS.Meta = aDataSource.Meta
-
-	//	// compare stored and retrieved(GET) data sources
-	//	if !reflect.DeepEqual(retrievedDS, aDataSource) {
-	//		t.Fatalf("Mismatch retrieved(GET):\n%+v\n and stored data:\n%+v\n", retrievedDS, aDataSource)
-	//	}
 }
 
 func TestHttpUpdate(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
 	// Create a dummy data source
-	ID := GenerateDummyData(1, registryClient)[0]
+	ID := generateDummyData(1, registryClient)[0]
 
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
@@ -376,18 +342,13 @@ func TestHttpUpdate(t *testing.T) {
 	putDS.Resource = updatedDS.Resource
 	putDS.Type = updatedDS.Type
 
-	//	// marshal the stored data source for comparison
-	//	putDS_b, _ := json.Marshal(&putDS)
-	//	updatedDS_b, _ := json.Marshal(&updatedDS)
-
-	//	// compare updated(PUT) data source with the one in memory
-	//	if string(putDS_b) != string(updatedDS_b) {
-	//		t.Errorf("Mismatch PUT:\n%s\n and updated data:\n%s\n", string(putDS_b), string(updatedDS_b))
-	//	}
+	// marshal the stored data source for comparison
+	putDS_b, _ := json.Marshal(&putDS)
+	updatedDS_b, _ := json.Marshal(&updatedDS)
 
 	// compare updated(PUT) data source with the one in memory
-	if !reflect.DeepEqual(putDS, updatedDS) {
-		t.Fatalf("Mismatch PUT:\n%+v\n and updated data:\n%+v\n", putDS, updatedDS)
+	if string(putDS_b) != string(updatedDS_b) {
+		t.Errorf("The submitted PUT:\n%s\n mismatch the stored data:\n%s\n", string(putDS_b), string(updatedDS_b))
 	}
 }
 
@@ -395,7 +356,7 @@ func TestHttpDelete(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
 	// Create a dummy data source
-	ID := GenerateDummyData(1, registryClient)[0]
+	ID := generateDummyData(1, registryClient)[0]
 
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
@@ -466,9 +427,12 @@ func TestHttpFilter(t *testing.T) {
 	}
 
 	// Search for the data source with Type: bool
-	res, err := http.Get(filterURL("type/" + FTypeOne + "/equals/bool"))
+	res, err := http.Get(filterURL(FTypeOne + "/type/equals/bool"))
 	if err != nil {
 		t.Fatalf(err.Error())
+	}
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("Server response is %v instead of %v", res.StatusCode, http.StatusOK)
 	}
 	b, err := ioutil.ReadAll(res.Body)
 	defer res.Body.Close()
@@ -486,7 +450,7 @@ func TestHttpFilter(t *testing.T) {
 	}
 
 	// Search for data sources that contains "sensor" in Resource
-	res, err = http.Get(filterURL("resource/" + FTypeMany + "/contains/dimmer.eu/sensor"))
+	res, err = http.Get(filterURL(FTypeMany + "/resource/contains/dimmer.eu/sensor"))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -510,33 +474,6 @@ func TestHttpFilter(t *testing.T) {
 			t.Errorf("Catalog entry resource contains something other than 'sensor': %+v", ds.Resource)
 		}
 	}
-}
-
-// Generate dummy data sources
-func GenerateDummyData(quantity int, c Client) []string {
-	rand.Seed(time.Now().UTC().UnixNano())
-
-	randInt := func(min int, max int) int64 {
-		return int64(min + rand.Intn(max-min))
-	}
-
-	var IDs []string
-	for i := 1; i <= quantity; i++ {
-		var ds DataSource
-		ds.Resource = fmt.Sprintf("http://example.com/sensor%d", i)
-		ds.Meta = make(map[string]interface{})
-		ds.Meta["SerialNumber"] = randInt(10000, 99999)
-		ds.Retention.Policy = fmt.Sprintf("%d%s", randInt(1, 20), common.RetentionPeriods()[randInt(0, 3)])
-		ds.Retention.Duration = fmt.Sprintf("%d%s", randInt(1, 20), common.RetentionPeriods()[randInt(0, 3)])
-		//ds.Aggregation TODO
-		ds.Type = common.SupportedTypes()[randInt(0, 2)]
-		ds.Format = "application/senml+json"
-
-		newDS, _ := c.Add(ds)
-		IDs = append(IDs, newDS.ID) // add the generated id
-	}
-
-	return IDs
 }
 
 // A pool of bad data sources

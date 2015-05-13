@@ -113,7 +113,7 @@ func (ms *MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	sort.Strings(allKeys)
 
 	// Get the queried page
-	pagedKeys := catalog.GetPageOfSlice(allKeys, page, perPage, MaxPerPage)
+	pagedKeys := catalog.GetPageOfSlice(allKeys, page, perPage, common.MaxPerPage)
 
 	// Registry is empty
 	if len(pagedKeys) == 0 {
@@ -173,7 +173,7 @@ func (ms *MemoryStorage) pathFilter(path, op, value string, page, perPage int) (
 		}
 	}
 
-	keys := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
+	keys := catalog.GetPageOfSlice(matchedIDs, page, perPage, common.MaxPerPage)
 	if len(keys) == 0 {
 		ms.mutex.RUnlock()
 		return []DataSource{}, len(matchedIDs), nil

@@ -19,7 +19,6 @@ func main() {
 	// TODO config file
 
 	// Setup and run the notifier
-	// nt := common.SetupNotifier()
 	ntSndRegCh := make(chan common.Notification)
 	ntRcvDataCh := make(chan common.Notification)
 	// nrAggrCh := make(chan int)
@@ -59,7 +58,7 @@ func main() {
 	router.get("/registry/{id}", commonHandlers.ThenFunc(regAPI.Retrieve))
 	router.put("/registry/{id}", commonHandlers.ThenFunc(regAPI.Update))
 	router.delete("/registry/{id}", commonHandlers.ThenFunc(regAPI.Delete))
-	router.get("/registry/{path}/{type}/{op}/{value}", commonHandlers.ThenFunc(regAPI.Filter))
+	router.get("/registry/{type}/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(regAPI.Filter))
 
 	// data api
 	router.post("/data/{id}", commonHandlers.ThenFunc(dataAPI.Submit))

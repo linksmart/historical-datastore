@@ -126,100 +126,119 @@ const (
 	UPDATE
 )
 
-// Validate the DataSource for:
-// 	Create:
-//	- Not provided: id, url, data
-//	- Provided: resource, type, format
-//	- Valid: type, retention.policy, retention.duration, aggregates
-//	Update:
-//	- Not provided: id, url, data, resource, type
-//	- Provided: format
-//	- Valid: retention.policy, retention.duration, aggregates
-///////////////////////////////////////////////////////////////////////////////////////
-// TODO refactor the validations based on attributes rather than the type of validation
+// Validate the DataSource items:
+// id: r-o
+// url: r-o
+// data: r-o
+// resource: mandatory, fixed, valid
+// meta: n/a
+// retention: valid
+// aggregation: tba
+// type: mandatory, fixed, valid
+// format: mandatory
 func validateDataSource(ds *DataSource, context uint8) error {
 	var _errors []string
+	var readOnlyKeys, mandatoryKeys, invalidKeys []string
 
-	//// System generated (Read-only) ////////////////////////////////////////////
-	var readOnlyKeys []string
+	//// VALIDATE `json:"id"` /////////////////////////////////////////////////////
+	// system-generated (read-only)
 	if ds.ID != "" {
 		readOnlyKeys = append(readOnlyKeys, "id")
 	}
+
+	// VALIDATE `json:"url"` //////////////////////////////////////////////////////
+	// system-generated (read-only)
 	if ds.URL != "" {
 		readOnlyKeys = append(readOnlyKeys, "url")
 	}
+
+	// VALIDATE `json:"data"` /////////////////////////////////////////////////////
+	// system-generated (read-only)
 	if ds.Data != "" {
 		readOnlyKeys = append(readOnlyKeys, "data")
 	}
 
-	///// Fixed (Read-only once created) /////////////////////////////////////////
-	if context == UPDATE {
-		if ds.Resource != "" {
-			readOnlyKeys = append(readOnlyKeys, "resource")
-		}
-		if ds.Type != "" {
-			readOnlyKeys = append(readOnlyKeys, "type")
-		}
+	// VALIDATE `json:"resource"` /////////////////////////////////////////////////
+	// mandatory for creation
+	if ds.Resource == "" && context == CREATE {
+		mandatoryKeys = append(mandatoryKeys, "resource")
 	}
-
-	if len(readOnlyKeys) > 0 {
-		_errors = append(_errors, "Ambitious assignment to read-only key(s): "+strings.Join(readOnlyKeys, ", "))
+	// fixed (read-only once created)
+	if ds.Resource != "" && context == UPDATE {
+		readOnlyKeys = append(readOnlyKeys, "resource")
 	}
-
-	///// Mandatory ///////////////////////////////////////////////////////////////
-	var mandatoryKeys []string
-	if context == CREATE {
-		if ds.Resource == "" {
-			mandatoryKeys = append(mandatoryKeys, "resource")
-		}
-		if ds.Type == "" {
-			mandatoryKeys = append(mandatoryKeys, "type")
-		}
-	}
-	if ds.Format == "" {
-		mandatoryKeys = append(mandatoryKeys, "format")
-	}
-
-	if len(mandatoryKeys) > 0 {
-		_errors = append(_errors, "Missing mandatory value(s) of: "+strings.Join(mandatoryKeys, ", "))
-	}
-
-	//// Invalid //////////////////////////////////////////////////////////////////
-	var invalidKeys []string
+	// valid
 	if ds.Resource != "" {
 		_, err := url.Parse(ds.Resource)
 		if err != nil {
 			invalidKeys = append(invalidKeys, "resource")
 		}
 	}
+
+	// VALIDATE `json:"meta"` /////////////////////////////////////////////////////
+
+	// VALIDATE `json:"retention"` ////////////////////////////////////////////////
+	// valid
 	if ds.Retention.Policy != "" {
 		if !validRetention(ds.Retention.Policy) {
-			invalidKeys = append(invalidKeys, fmt.Sprintf("retention.policy<[0-9]*(%s)>", strings.Join(common.RetentionPeriods(), "|")))
+			invalidKeys = append(invalidKeys, fmt.Sprintf("retention.policy<[0-9]*(%s)>",
+				strings.Join(common.RetentionPeriods(), "|")))
 		}
 	}
+	// valid
 	if ds.Retention.Duration != "" {
 		if !validRetention(ds.Retention.Duration) {
-			invalidKeys = append(invalidKeys, fmt.Sprintf("retention.duration<[0-9]*(%s)>", strings.Join(common.RetentionPeriods(), "|")))
+			invalidKeys = append(invalidKeys, fmt.Sprintf("retention.duration<[0-9]*(%s)>",
+				strings.Join(common.RetentionPeriods(), "|")))
 		}
 	}
-	if ds.Type != "" {
-		if !stringInSlice(ds.Type, common.SupportedTypes()) {
-			invalidKeys = append(invalidKeys, fmt.Sprintf("type<%s>", strings.Join(common.SupportedTypes(), ",")))
-		}
-	}
+
+	// VALIDATE `json:"aggregation"` //////////////////////////////////////////////
 	// Todo: Validate ds.Aggregation
 	// common.SupportedAggregates()
 	// only if format=float
 
-	if len(invalidKeys) > 0 {
-		_errors = append(_errors, "Invalid value(s) for: "+strings.Join(invalidKeys, ", "))
+	// VALIDATE `json:"type"` /////////////////////////////////////////////////////
+	// mandatory for creation
+	if ds.Type == "" && context == CREATE {
+		mandatoryKeys = append(mandatoryKeys, "type")
+	}
+	// fixed (read-only once created)
+	if ds.Type != "" && context == UPDATE {
+		readOnlyKeys = append(readOnlyKeys, "type")
+	}
+	// valid
+	if ds.Type != "" {
+		if !stringInSlice(ds.Type, common.SupportedTypes()) {
+			invalidKeys = append(invalidKeys, fmt.Sprintf("type<%s>",
+				strings.Join(common.SupportedTypes(), ",")))
+		}
 	}
 
-	///// return if any errors ////////////////////////////////////////////////////
+	// VALIDATE `json:"format"` ///////////////////////////////////////////////////
+	// mandatory
+	if ds.Format == "" {
+		mandatoryKeys = append(mandatoryKeys, "format")
+	}
+
+	///////////////////////////////////////////////////////////////////////////////
+	if len(readOnlyKeys) > 0 {
+		_errors = append(_errors, "Ambitious assignment to read-only key(s): "+
+			strings.Join(readOnlyKeys, ", "))
+	}
+	if len(mandatoryKeys) > 0 {
+		_errors = append(_errors, "Missing mandatory value(s) of: "+
+			strings.Join(mandatoryKeys, ", "))
+	}
+	if len(invalidKeys) > 0 {
+		_errors = append(_errors, "Invalid value(s) for: "+
+			strings.Join(invalidKeys, ", "))
+	}
+
+	///// return if any errors
 	if len(_errors) > 0 {
 		return errors.New(strings.Join(_errors, ". "))
 	}
-
 	return nil
 }
 

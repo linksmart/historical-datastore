@@ -28,11 +28,6 @@ const (
 	FTypeOne  = "one"
 	FTypeMany = "many"
 
-	GetParamPage    = "page"
-	GetParamPerPage = "per_page"
-	// Max DataSources displayed in each page of registry
-	MaxPerPage = 100
-
 //	FOpEquals   = "equals"
 //	FOpPrefix   = "prefix"
 //	FOpSuffix   = "suffix"
@@ -44,8 +39,8 @@ const (
 // Index is a handler for the registry index
 func (regAPI *RegistryAPI) Index(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	page, _ := strconv.Atoi(r.Form.Get(GetParamPage))
-	perPage, _ := strconv.Atoi(r.Form.Get(GetParamPerPage))
+	page, _ := strconv.Atoi(r.Form.Get(common.GetParamPage))
+	perPage, _ := strconv.Atoi(r.Form.Get(common.GetParamPerPage))
 
 	datasources, total, err := regAPI.storage.getMany(page, perPage)
 	if err != nil {
@@ -211,9 +206,9 @@ func (regAPI *RegistryAPI) Filter(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(fvalue)
 
 	r.ParseForm()
-	page, _ := strconv.Atoi(r.Form.Get(GetParamPage))
-	perPage, _ := strconv.Atoi(r.Form.Get(GetParamPerPage))
-	page, perPage = common.ValidatePagingParams(page, perPage, MaxPerPage)
+	page, _ := strconv.Atoi(r.Form.Get(common.GetParamPage))
+	perPage, _ := strconv.Atoi(r.Form.Get(common.GetParamPerPage))
+	page, perPage = common.ValidatePagingParams(page, perPage, common.MaxPerPage)
 
 	var body []byte
 	switch ftype {
