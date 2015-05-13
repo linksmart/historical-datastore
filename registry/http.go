@@ -11,19 +11,6 @@ import (
 	"linksmart.eu/services/historical-datastore/common"
 )
 
-// Registry api
-type RegistryAPI struct {
-	storage Storage
-	ntChan  chan<- common.Notification // write-only channel
-}
-
-func NewRegistryAPI(storage Storage, ntChan chan<- common.Notification) *RegistryAPI {
-	return &RegistryAPI{
-		storage,
-		ntChan,
-	}
-}
-
 const (
 	FTypeOne  = "one"
 	FTypeMany = "many"
@@ -34,10 +21,36 @@ const (
 //	FOpContains = "contains"
 )
 
+// Read-only HTTP Registry API
+type ReadableAPI struct {
+	storage Storage
+	ntChan  chan<- common.Notification // write-only channel
+}
+
+// Returns the configured read-only Registry API
+func NewReadableAPI(storage Storage, ntChan chan<- common.Notification) *ReadableAPI {
+	return &ReadableAPI{
+		storage,
+		ntChan,
+	}
+}
+
+// Full HTTP Registry API
+type WriteableAPI struct {
+	*ReadableAPI
+}
+
+// Returns the configured full Registry API
+func NewWriteableAPI(storage Storage, ntChan chan<- common.Notification) *WriteableAPI {
+	return &WriteableAPI{
+		NewReadableAPI(storage, ntChan),
+	}
+}
+
 // Handlers ///////////////////////////////////////////////////////////////////////
 
 // Index is a handler for the registry index
-func (regAPI *RegistryAPI) Index(w http.ResponseWriter, r *http.Request) {
+func (regAPI *ReadableAPI) Index(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	page, _ := strconv.Atoi(r.Form.Get(common.GetParamPage))
 	perPage, _ := strconv.Atoi(r.Form.Get(common.GetParamPerPage))
@@ -64,8 +77,13 @@ func (regAPI *RegistryAPI) Index(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// Create is a handler for creating a new DataSource: not supported by Readable API
+func (regAPI *ReadableAPI) Create(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusMethodNotAllowed)
+}
+
 // Create is a handler for creating a new DataSource
-func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
+func (regAPI *WriteableAPI) Create(w http.ResponseWriter, r *http.Request) {
 
 	//	contentType := strings.Split(r.Header.Get("Content-Type"), ";")[0]
 	//	if contentType != "application/json" {
@@ -110,7 +128,7 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 
 // Retrieve is a handler for retrieving a new DataSource
 // Expected parameters: id
-func (regAPI *RegistryAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
+func (regAPI *ReadableAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
@@ -131,9 +149,14 @@ func (regAPI *RegistryAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// Update is a handler for updating the given DataSource: not supported by Readable API
+func (regAPI *ReadableAPI) Update(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusMethodNotAllowed)
+}
+
 // Update is a handler for updating the given DataSource
 // Expected parameters: id
-func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
+func (regAPI *WriteableAPI) Update(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
@@ -176,9 +199,14 @@ func (regAPI *RegistryAPI) Update(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// Delete is a handler for deleting the given DataSource: not supported by Readable API
+func (regAPI *ReadableAPI) Delete(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusMethodNotAllowed)
+}
+
 // Delete is a handler for deleting the given DataSource
 // Expected parameters: id
-func (regAPI *RegistryAPI) Delete(w http.ResponseWriter, r *http.Request) {
+func (regAPI *WriteableAPI) Delete(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
@@ -196,7 +224,7 @@ func (regAPI *RegistryAPI) Delete(w http.ResponseWriter, r *http.Request) {
 
 // Filter is a handler for registry filtering API
 // Expected parameters: path, type, op, value
-func (regAPI *RegistryAPI) Filter(w http.ResponseWriter, r *http.Request) {
+func (regAPI *ReadableAPI) Filter(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	fpath := params["path"]
 	ftype := params["type"]
@@ -255,6 +283,6 @@ func (regAPI *RegistryAPI) Filter(w http.ResponseWriter, r *http.Request) {
 }
 
 // Sends a Notification{} to channel
-func (regAPI *RegistryAPI) sendNotification(ds *DataSource, _type common.NotificationTYPE) {
+func (regAPI *ReadableAPI) sendNotification(ds *DataSource, _type common.NotificationTYPE) {
 	regAPI.ntChan <- common.Notification{DS: *ds, TYPE: _type}
 }

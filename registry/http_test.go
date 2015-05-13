@@ -16,7 +16,7 @@ import (
 	"linksmart.eu/services/historical-datastore/common"
 )
 
-func setupRouter(regAPI *RegistryAPI) *mux.Router {
+func setupRouter(regAPI *WriteableAPI) *mux.Router {
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("GET").Path("/registry").HandlerFunc(regAPI.Index)
 	r.Methods("POST").Path("/registry").HandlerFunc(regAPI.Create)
@@ -27,14 +27,14 @@ func setupRouter(regAPI *RegistryAPI) *mux.Router {
 	return r
 }
 
-func setupAPI() (*RegistryAPI, Client) {
+func setupAPI() (*WriteableAPI, Client) {
 	// Setup and run the notifier
 	ntSndRegCh := make(chan common.Notification)
 	ntRcvDataCh := make(chan common.Notification)
 	// nrAggrCh := make(chan int)
 	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
 	regStorage := NewMemoryStorage()
-	regAPI := NewRegistryAPI(regStorage, ntSndRegCh)
+	regAPI := NewWriteableAPI(regStorage, ntSndRegCh)
 	registryClient := NewLocalClient(regStorage)
 
 	return regAPI, registryClient
