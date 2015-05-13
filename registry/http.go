@@ -98,8 +98,12 @@ func (regAPI *RegistryAPI) Create(w http.ResponseWriter, r *http.Request) {
 	// Send a create notification
 	regAPI.sendNotification(&addedDS, common.CREATE)
 
+	//b, _ := json.Marshal(addedDS)
 	w.Header().Set("Location", addedDS.URL)
+	//w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusCreated)
+	//w.Write(b)
+
 	return
 }
 
