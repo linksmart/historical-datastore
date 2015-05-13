@@ -58,20 +58,17 @@ func httpRequestClient(method string, url string, body io.Reader) (*http.Respons
 }
 
 func TestHttpIndex(t *testing.T) {
-	// for some reason, setupRouter() doesn't work on Index
-	//	ts := httptest.NewServer(setupRouter())
-	//	defer ts.Close()
 	regAPI, registryClient := setupAPI()
 
 	// Create some dummy data
 	totalDummy := 555
 	GenerateDummyData(totalDummy, registryClient)
 
-	ts := httptest.NewServer(http.HandlerFunc(regAPI.Index))
+	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
 
 	// Get the registry with default query parameters
-	res, err := http.Get(ts.URL)
+	res, err := http.Get(ts.URL + common.RegistryAPILoc)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -105,7 +102,7 @@ func TestHttpIndex(t *testing.T) {
 	pages := int(math.Ceil(float64(totalDummy) / float64(perPage)))
 	for page := 1; page <= pages; page++ {
 		// Get the specific page
-		res, err := http.Get(fmt.Sprintf("%s?page=%d&per_page=%d", ts.URL, page, perPage))
+		res, err := http.Get(fmt.Sprintf("%s%s?page=%d&per_page=%d", ts.URL, common.RegistryAPILoc, page, perPage))
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
@@ -167,7 +164,7 @@ func TestHttpCreate(t *testing.T) {
 	defer ts.Close()
 
 	// try bad payload
-	res, err := http.Post(ts.URL+"/registry", MIMEType, bytes.NewReader([]byte{0xde, 0xad}))
+	res, err := http.Post(ts.URL+common.RegistryAPILoc, MIMEType, bytes.NewReader([]byte{0xde, 0xad}))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -180,7 +177,7 @@ func TestHttpCreate(t *testing.T) {
 	for _, invalidBodyStr := range append(invalidBodies, invalidPostBodies...) {
 		invalidBody := []byte(invalidBodyStr)
 
-		res, err := http.Post(ts.URL+"/registry", MIMEType, bytes.NewReader(invalidBody))
+		res, err := http.Post(ts.URL+common.RegistryAPILoc, MIMEType, bytes.NewReader(invalidBody))
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
@@ -204,7 +201,7 @@ func TestHttpCreate(t *testing.T) {
 			"format": "any_format"
 		}
 		`)
-	res, err = http.Post(ts.URL+"/registry", MIMEType, bytes.NewReader(b))
+	res, err = http.Post(ts.URL+common.RegistryAPILoc, MIMEType, bytes.NewReader(b))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -249,11 +246,12 @@ func TestHttpCreate(t *testing.T) {
 // Create a data source and retrieve it back
 func TestHttpRetrieve(t *testing.T) {
 	regAPI, registryClient := setupAPI()
-	ts := httptest.NewServer(setupRouter(regAPI))
-	defer ts.Close()
 
 	ID := GenerateDummyData(1, registryClient)[0]
 	aDataSource, _ := registryClient.Get(ID)
+
+	ts := httptest.NewServer(setupRouter(regAPI))
+	defer ts.Close()
 
 	// Retrieve what it was created
 	res, err := http.Get(fmt.Sprintf("%v%s/%s", ts.URL, common.RegistryAPILoc, ID))
@@ -289,12 +287,13 @@ func TestHttpRetrieve(t *testing.T) {
 func TestHttpUpdate(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
+	// Create a dummy data source
+	ID := GenerateDummyData(1, registryClient)[0]
+
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
 
-	// Create a dummy data source
-	ID := GenerateDummyData(1, registryClient)[0]
-	url := ts.URL + "/registry/" + ID
+	url := fmt.Sprintf("%s%s/%s", ts.URL, common.RegistryAPILoc, ID)
 
 	// try bad payload
 	res, err := httpRequestClient("PUT", url, bytes.NewReader([]byte{0xde, 0xad}))
@@ -372,7 +371,7 @@ func TestHttpDelete(t *testing.T) {
 	defer ts.Close()
 
 	// Try deleting an existing item
-	url := ts.URL + "/registry/" + ID
+	url := fmt.Sprintf("%s%s/%s", ts.URL, common.RegistryAPILoc, ID)
 	res, err := httpRequestClient("DELETE", url, nil)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -400,6 +399,87 @@ func TestHttpDelete(t *testing.T) {
 		t.Fatalf("Server response is %v instead of %v", res.StatusCode, httpNotFound)
 	}
 
+}
+
+func TestHttpFilter(t *testing.T) {
+	regAPI, registryClient := setupAPI()
+
+	// Create some dummy data
+	dummyDSs := []DataSource{
+		DataSource{
+			Resource: "dimmer.eu/sensor1",
+			Type:     "string",
+			Format:   "application/json",
+		},
+		DataSource{
+			Resource: "dimmer.eu/sensor2",
+			Type:     "bool",
+			Format:   "application/json",
+		},
+		DataSource{
+			Resource: "dimmer.eu/actuator1",
+			Type:     "string",
+			Format:   "application/json",
+		},
+	}
+	for _, ds := range dummyDSs {
+		registryClient.Add(ds)
+	}
+
+	ts := httptest.NewServer(setupRouter(regAPI))
+	defer ts.Close()
+
+	// A function to generate filter url
+	filterURL := func(filterStr string) string {
+		// /registry/{path}/{type}/{op}/{value}
+		return fmt.Sprintf("%v%s/%s", ts.URL, common.RegistryAPILoc, filterStr)
+	}
+
+	// Search for the data source with Type: bool
+	res, err := http.Get(filterURL("type/" + FTypeOne + "/equals/bool"))
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	b, err := ioutil.ReadAll(res.Body)
+	defer res.Body.Close()
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	// Check it was queried correctly
+	var ds DataSource
+	err = json.Unmarshal(b, &ds)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if ds.Type != "bool" {
+		t.Errorf("Instead of the expected datasource (Type:bool), it returned:\n%+v", ds)
+	}
+
+	// Search for data sources that contains "sensor" in Resource
+	res, err = http.Get(filterURL("resource/" + FTypeMany + "/contains/sensor"))
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	b, err = ioutil.ReadAll(res.Body)
+	defer res.Body.Close()
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	var reg Registry
+	err = json.Unmarshal(b, &reg)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	// Check if the total is correct
+	if reg.Total != 2 || len(reg.Entries) != 2 {
+		t.Errorf("Catalog contains total %d(%d entries) instead of 2 data sources:\n %+v", reg.Total, len(reg.Entries), reg)
+	}
+	// Check if correct entries are queried
+	for _, ds := range reg.Entries {
+		if !strings.Contains(ds.Resource, "sensor") {
+			t.Errorf("Catalog entry resource contains something other than 'sensor': %+v", ds.Resource)
+		}
+	}
 }
 
 // Generate dummy data sources
