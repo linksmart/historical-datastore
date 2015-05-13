@@ -37,7 +37,7 @@ func main() {
 	dataStorage, _ := data.NewInfluxStorage(&dataStorageCfg)
 	registryClient := registry.NewLocalClient(regStorage)
 
-	dataAPI := data.NewDataAPI(registryClient, dataStorage, ntRcvDataCh)
+	dataAPI := data.NewWriteableAPI(registryClient, dataStorage, ntRcvDataCh)
 
 	commonHandlers := alice.New(
 		context.ClearHandler,

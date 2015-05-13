@@ -2,12 +2,13 @@ package data
 
 import (
 	"fmt"
+
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
 // Handles an incoming notification
-func (d *DataAPI) ntListener(ntChan <-chan common.Notification) {
+func (d *ReadableAPI) ntListener(ntChan <-chan common.Notification) {
 	for ntf := range ntChan {
 		ds, ok := ntf.DS.(registry.DataSource)
 		if !ok {
@@ -28,16 +29,16 @@ func (d *DataAPI) ntListener(ntChan <-chan common.Notification) {
 }
 
 // Handles the creation of a new data source
-func (d *DataAPI) ntfCreated(ds *registry.DataSource) {
+func (d *ReadableAPI) ntfCreated(ds *registry.DataSource) {
 	fmt.Println("created: ", ds.ID)
 }
 
 // Handles updates of a data source
-func (d *DataAPI) ntfUpdated(ds *registry.DataSource) {
+func (d *ReadableAPI) ntfUpdated(ds *registry.DataSource) {
 	fmt.Println("updated: ", ds.ID)
 }
 
 // Handles deletion of a data source
-func (d *DataAPI) ntfDeleted(ds *registry.DataSource) {
+func (d *ReadableAPI) ntfDeleted(ds *registry.DataSource) {
 	fmt.Println("deleted: ", ds.ID)
 }
