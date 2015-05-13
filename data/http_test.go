@@ -9,8 +9,8 @@ import (
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
 	senml "linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/krylovsk/gosenml"
-	"linksmart.eu/services/historical-datastore/registry"
 	"linksmart.eu/services/historical-datastore/common"
+	"linksmart.eu/services/historical-datastore/registry"
 )
 
 type dummyDataStorage struct{}
@@ -29,13 +29,11 @@ func (s *dummyDataStorage) query(q query, page, perPage int, ds ...registry.Data
 	return DataSet{}, 0, nil
 }
 
-func setupAPI() *DataAPI {
-	nt := common.SetupNotifier()
-	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
-	return NewDataAPI(registryClient, &dummyDataStorage{}, nt.NewReader())
-}
-
-// func setupAPI() *DataAPI {
+// func setupWritableAPI() *mux.Router {
+// 	ntSndRegCh := make(chan common.Notification)
+// 	ntRcvDataCh := make(chan common.Notification)
+// 	// nrAggrCh := make(chan int)
+// 	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
 // 	u, _ := url.Parse("http://localhost:8086")
 // 	storageCfg := InfluxStorageConfig{
 // 		URL:      *u,
@@ -44,11 +42,22 @@ func setupAPI() *DataAPI {
 // 	storage, _ := NewInfluxStorage(&storageCfg)
 // 	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
 
-// 	return NewDataAPI(registryClient, storage)
+// 	api := NewWriteableAPI(registryClient, Storage, ntRcvDataCh)
+
+// 	r := mux.NewRouter().StrictSlash(true)
+// 	r.Methods("POST").Path("/data/{id}").HandlerFunc(api.Submit)
+// 	r.Methods("GET").Path("/data/{id}").HandlerFunc(api.Query)
+// 	return r
 // }
 
-func setupRouter() *mux.Router {
-	api := setupAPI()
+func setupWritableAPI() *mux.Router {
+	ntSndRegCh := make(chan common.Notification)
+	ntRcvDataCh := make(chan common.Notification)
+	// nrAggrCh := make(chan int)
+	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
+
+	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
+	api := NewWriteableAPI(registryClient, &dummyDataStorage{}, ntRcvDataCh)
 
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("POST").Path("/data/{id}").HandlerFunc(api.Submit)
@@ -56,8 +65,38 @@ func setupRouter() *mux.Router {
 	return r
 }
 
+func setupReadableAPI() *mux.Router {
+	ntSndRegCh := make(chan common.Notification)
+	ntRcvDataCh := make(chan common.Notification)
+	// nrAggrCh := make(chan int)
+	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
+
+	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
+	api := NewReadableAPI(registryClient, &dummyDataStorage{}, ntRcvDataCh)
+
+	r := mux.NewRouter().StrictSlash(true)
+	r.Methods("POST").Path("/data/{id}").HandlerFunc(api.Submit)
+	r.Methods("GET").Path("/data/{id}").HandlerFunc(api.Query)
+	return r
+}
+
+func TestReadableAPI(t *testing.T) {
+	ts := httptest.NewServer(setupReadableAPI())
+	defer ts.Close()
+
+	// try POST - should be not supported
+	res, err := http.Post(ts.URL+"/data/12345,67890,1337", "application/json+senml", bytes.NewReader([]byte{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("Server response is not %v but %v", http.StatusMethodNotAllowed, res.StatusCode)
+	}
+}
+
 func TestHttpSubmit(t *testing.T) {
-	ts := httptest.NewServer(setupRouter())
+	ts := httptest.NewServer(setupWritableAPI())
 	defer ts.Close()
 
 	v1 := 42.0
@@ -117,7 +156,7 @@ func TestHttpSubmit(t *testing.T) {
 }
 
 func TestHttpQuery(t *testing.T) {
-	ts := httptest.NewServer(setupRouter())
+	ts := httptest.NewServer(setupWritableAPI())
 	defer ts.Close()
 
 	res, err := http.Get(ts.URL + "/data/12345,67890,1337?limit=3&start=2015-04-24T11:56:51Z&page=1&per_page=10")

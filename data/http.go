@@ -21,15 +21,27 @@ const (
 	MaxPerPage = 100
 )
 
-// DataAPI describes the HTTP data API
-type DataAPI struct {
+// ReadableAPI describes the read-only HTTP data API
+type ReadableAPI struct {
 	registryClient registry.Client
 	storage        Storage
 }
 
-// NewDataAPI returns the configured Data API
-func NewDataAPI(registryClient registry.Client, storage Storage, ntChan <-chan common.Notification) *DataAPI {
-	d := &DataAPI{
+// WriteableAPI describes the full HTTP data API
+type WriteableAPI struct {
+	*ReadableAPI
+}
+
+// NewWriteableAPI returns the configured Data API
+func NewWriteableAPI(registryClient registry.Client, storage Storage, ntChan <-chan common.Notification) *WriteableAPI {
+	return &WriteableAPI{
+		NewReadableAPI(registryClient, storage, ntChan),
+	}
+}
+
+// NewReadableAPI returns the configured Data API
+func NewReadableAPI(registryClient registry.Client, storage Storage, ntChan <-chan common.Notification) *ReadableAPI {
+	d := &ReadableAPI{
 		registryClient,
 		storage,
 	}
@@ -70,9 +82,14 @@ func parseQueryParameters(form url.Values) query {
 	return q
 }
 
+// Submit is a handler for submitting a new data point: not supported by Readable API
+func (d *ReadableAPI) Submit(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusMethodNotAllowed)
+}
+
 // Submit is a handler for submitting a new data point
 // Expected parameters: id(s)
-func (d *DataAPI) Submit(w http.ResponseWriter, r *http.Request) {
+func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	data := make(map[string][]DataPoint)
 	sources := make(map[string]registry.DataSource)
@@ -139,7 +156,7 @@ func (d *DataAPI) Submit(w http.ResponseWriter, r *http.Request) {
 
 // Query is a handler for querying data
 // Expected parameters: id(s), optional: pagination, query string
-func (d *DataAPI) Query(w http.ResponseWriter, r *http.Request) {
+func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	timeStart := time.Now()
 	params := mux.Vars(r)
