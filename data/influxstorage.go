@@ -11,6 +11,7 @@ import (
 
 	influx "linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/influxdb/influxdb/client"
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/influxdb/influxdb/influxql"
+	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
@@ -20,12 +21,25 @@ type influxStorage struct {
 	config *InfluxStorageConfig
 }
 
-// InfluxStorageConfig describes the influxdb storage configuration
-type InfluxStorageConfig struct {
-	URL      url.URL
-	Database string
-	Username string
-	Password string
+// NewInfluxStorage returns a new Storage given a configuration
+func NewInfluxStorage(cfg *InfluxStorageConfig, ntChan <-chan common.Notification) (Storage, error) {
+	c, err := influx.NewClient(influx.Config{
+		URL:      *cfg.ParsedURL(),
+		Username: cfg.Username,
+		Password: cfg.Password,
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("Error initializing influxdb client: %v", err.Error())
+	}
+
+	s := &influxStorage{
+		client: c,
+		config: cfg,
+	}
+	// Run the notification listener
+	go s.ntListener(ntChan)
+	return s, nil
 }
 
 // Returns the influxdb measurement for a given data source
@@ -81,39 +95,6 @@ func pointsFromRow(r influxql.Row) ([]DataPoint, error) {
 		points = append(points, p)
 	}
 	return points, nil
-}
-
-func (c *InfluxStorageConfig) isValid() error {
-	if c.URL.Host == "" {
-		return fmt.Errorf("host:port in the URL must be not empty")
-	}
-	if c.Database == "" {
-		return fmt.Errorf("db must be not empty")
-	}
-	return nil
-}
-
-// NewInfluxStorage returns a new Storage given a configuration
-func NewInfluxStorage(cfg *InfluxStorageConfig) (Storage, error) {
-	err := cfg.isValid()
-	if err != nil {
-		return nil, fmt.Errorf("Invalid config provided: %v", err.Error())
-	}
-
-	c, err := influx.NewClient(influx.Config{
-		URL:      cfg.URL,
-		Username: cfg.Username,
-		Password: cfg.Password,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("Error initializing influxdb client: %v", err.Error())
-	}
-
-	return &influxStorage{
-		client: c,
-		config: cfg,
-	}, nil
 }
 
 // Returns n last points for a given DataSource
@@ -264,4 +245,32 @@ func (s *influxStorage) query(q query, page, perPage int, sources ...registry.Da
 	dataset := NewDataSet()
 	dataset.Entries = points
 	return dataset, total, nil
+}
+
+// InfluxStorageConfig configuration
+
+type InfluxStorageConfig struct {
+	URL      string `json:"url"`
+	Database string `json:"dbname"`
+	Username string `json:"user"`
+	Password string `json:"pass"`
+}
+
+func (c *InfluxStorageConfig) ParsedURL() *url.URL {
+	url, _ := url.Parse("http://localhost:8086")
+	return url
+}
+
+func (c *InfluxStorageConfig) IsValid() error {
+	url, err := url.Parse(c.URL)
+	if err != nil {
+		return fmt.Errorf("Influxdb config: invalid url")
+	}
+	if url.Host == "" {
+		return fmt.Errorf("Influxdb config: host:port in the URL must be not empty")
+	}
+	if c.Database == "" {
+		return fmt.Errorf("Influxdb config: db must be not empty")
+	}
+	return nil
 }

@@ -8,7 +8,7 @@ import (
 )
 
 // Handles an incoming notification
-func (d *ReadableAPI) ntListener(ntChan <-chan common.Notification) {
+func (s *influxStorage) ntListener(ntChan <-chan common.Notification) {
 	for ntf := range ntChan {
 		ds, ok := ntf.DS.(registry.DataSource)
 		if !ok {
@@ -17,11 +17,11 @@ func (d *ReadableAPI) ntListener(ntChan <-chan common.Notification) {
 		}
 		switch ntf.TYPE {
 		case common.CREATE:
-			d.ntfCreated(&ds)
+			s.ntfCreated(&ds)
 		case common.UPDATE_DATA:
-			d.ntfUpdated(&ds)
+			s.ntfUpdated(&ds)
 		case common.DELETE:
-			d.ntfDeleted(&ds)
+			s.ntfDeleted(&ds)
 		default:
 			// other notifications
 		}
@@ -29,16 +29,16 @@ func (d *ReadableAPI) ntListener(ntChan <-chan common.Notification) {
 }
 
 // Handles the creation of a new data source
-func (d *ReadableAPI) ntfCreated(ds *registry.DataSource) {
-	fmt.Println("created: ", ds.ID)
+func (s *influxStorage) ntfCreated(ds *registry.DataSource) {
+	fmt.Println("[nt] created: ", ds.ID)
 }
 
 // Handles updates of a data source
-func (d *ReadableAPI) ntfUpdated(ds *registry.DataSource) {
-	fmt.Println("updated: ", ds.ID)
+func (s *influxStorage) ntfUpdated(ds *registry.DataSource) {
+	fmt.Println("[nt] updated: ", ds.ID)
 }
 
 // Handles deletion of a data source
-func (d *ReadableAPI) ntfDeleted(ds *registry.DataSource) {
-	fmt.Println("deleted: ", ds.ID)
+func (s *influxStorage) ntfDeleted(ds *registry.DataSource) {
+	fmt.Println("[nt] deleted: ", ds.ID)
 }

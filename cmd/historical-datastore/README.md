@@ -12,4 +12,17 @@ Implementation of the [Historical Datastore Service](https://linksmart.eu/redmin
 
 ## Deployment
 
-TODO
+# Sample config file:
+historical-datastore.json
+{ 
+  "http": {
+    "bindAddr": "0.0.0.0",
+    "bindPort": 8085
+  },
+  "influxdb": {
+    "url" : "http://localhost:8086",
+    "dbname" : "test",
+    "user" : "",
+    "pass" : ""
+  }
+}

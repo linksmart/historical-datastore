@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
-	"net/url"
+	"os"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/context"
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/justinas/alice"
@@ -12,11 +13,17 @@ import (
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
-func main() {
-	var addr = flag.String("addr", ":8080", "HTTP bind address")
+var confPath = flag.String("conf", "historical-datastore.json", "Historical Datastore configuration file path")
 
+func main() {
 	flag.Parse()
-	// TODO config file
+
+	// Load Config File
+	conf, err := loadConfig(confPath)
+	if err != nil {
+		fmt.Printf("Config File: %s\n", err)
+		os.Exit(1)
+	}
 
 	// Setup and run the notifier
 	ntSndRegCh := make(chan common.Notification)
@@ -25,19 +32,16 @@ func main() {
 	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
 
 	// registry
-	regStorage := registry.NewMemoryStorage()
-	regAPI := registry.NewWriteableAPI(regStorage, ntSndRegCh)
+	regStorage := registry.NewMemoryStorage(ntSndRegCh)
+	regAPI := registry.NewWriteableAPI(regStorage)
 
 	// data
-	u, _ := url.Parse("http://localhost:8086")
-	dataStorageCfg := data.InfluxStorageConfig{
-		URL:      *u,
-		Database: "test",
-	}
-	dataStorage, _ := data.NewInfluxStorage(&dataStorageCfg)
+	dataStorage, _ := data.NewInfluxStorage(&conf.InfluxConf, ntRcvDataCh)
 	registryClient := registry.NewLocalClient(regStorage)
+	dataAPI := data.NewWriteableAPI(registryClient, dataStorage)
 
-	dataAPI := data.NewWriteableAPI(registryClient, dataStorage, ntRcvDataCh)
+	// aggregation
+	// TODO
 
 	commonHandlers := alice.New(
 		context.ClearHandler,
@@ -65,7 +69,11 @@ func main() {
 	router.get("/data/{id}", commonHandlers.ThenFunc(dataAPI.Query))
 
 	// aggregation api
+	// TODO
 
 	// start http server
-	http.ListenAndServe(*addr, router)
+	err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.Http.BindAddr, conf.Http.BindPort), router)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }

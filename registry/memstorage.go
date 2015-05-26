@@ -19,12 +19,14 @@ var ErrorNotFound = errors.New("Data source is not found!")
 type MemoryStorage struct {
 	data map[string]DataSource
 	//index []string
-	mutex sync.RWMutex
+	mutex  sync.RWMutex
+	ntChan chan<- common.Notification // write-only channel
 }
 
-func NewMemoryStorage() Storage {
+func NewMemoryStorage(ntChan chan<- common.Notification) Storage {
 	return &MemoryStorage{
-		data: make(map[string]DataSource),
+		data:   make(map[string]DataSource),
+		ntChan: ntChan,
 	}
 }
 
@@ -43,32 +45,46 @@ func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
 	ms.mutex.RUnlock()
 	//fmt.Println("New DS: ", ms.data[newUUID])
 
+	// Send a create notification
+	ms.sendNotification(&ds, common.CREATE)
+
 	return ms.data[newUUID], nil
 }
 
 func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 	ms.mutex.Lock()
-
 	_, ok := ms.data[id]
 	if !ok {
 		ms.mutex.Unlock()
 		return DataSource{}, ErrorNotFound
 	}
 
-	tempDS := ms.data[id]
+	oldDS := ms.data[id] // for comparison
+	tempDS := oldDS
 
 	// Modify writable elements
 	tempDS.Meta = ds.Meta
 	tempDS.Retention = ds.Retention
 	tempDS.Aggregation = ds.Aggregation
 	tempDS.Format = ds.Format
-	//tempDS.Resource = ds.Resource
-	//tempDS.Type = ds.Type
+	//tempDS.Resource
+	//tempDS.Type
 
 	// Store the modified DS
 	ms.data[id] = tempDS
-
+	updatedDS := ms.data[id] // for comparison
 	ms.mutex.Unlock()
+
+	// Compare DataAPI-related changes
+	if oldDS.Retention != updatedDS.Retention { // anything else?
+		// Send an update notification
+		ms.sendNotification(&updatedDS, common.UPDATE_DATA)
+	}
+	// Compare AggrAPI-related changes
+	//	if(oldDS.Aggregation != updatedDS.Aggregation){
+	//		// Send an update notification
+	//		regAPI.sendNotification(&updatedDS, common.UPDATE_AGGR)
+	//	}
 
 	return ms.data[id], nil
 }
@@ -81,9 +97,13 @@ func (ms *MemoryStorage) delete(id string) error {
 		ms.mutex.Unlock()
 		return ErrorNotFound
 	}
+	deletedDS := ms.data[id] // for notification
 
 	delete(ms.data, id)
 	ms.mutex.Unlock()
+
+	// Send a delete notification
+	ms.sendNotification(&deletedDS, common.DELETE)
 
 	return nil
 }
@@ -186,4 +206,9 @@ func (ms *MemoryStorage) pathFilter(path, op, value string, page, perPage int) (
 	}
 	ms.mutex.RUnlock()
 	return dss, len(matchedIDs), nil
+}
+
+// Sends a Notification{} to channel
+func (ms *MemoryStorage) sendNotification(ds *DataSource, ntType common.NotificationTYPE) {
+	ms.ntChan <- common.Notification{DS: *ds, TYPE: ntType}
 }

@@ -28,13 +28,8 @@ func setupRouter(regAPI *WriteableAPI) *mux.Router {
 }
 
 func setupAPI() (*WriteableAPI, Client) {
-	// Setup and run the notifier
-	ntSndRegCh := make(chan common.Notification)
-	ntRcvDataCh := make(chan common.Notification)
-	// nrAggrCh := make(chan int)
-	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
-	regStorage := NewMemoryStorage()
-	regAPI := NewWriteableAPI(regStorage, ntSndRegCh)
+	regStorage := setupMemStorage()
+	regAPI := NewWriteableAPI(regStorage)
 	registryClient := NewLocalClient(regStorage)
 
 	return regAPI, registryClient

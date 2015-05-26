@@ -9,7 +9,6 @@ import (
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
 	senml "linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/krylovsk/gosenml"
-	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
@@ -51,13 +50,8 @@ func (s *dummyDataStorage) query(q query, page, perPage int, ds ...registry.Data
 // }
 
 func setupWritableAPI() *mux.Router {
-	ntSndRegCh := make(chan common.Notification)
-	ntRcvDataCh := make(chan common.Notification)
-	// nrAggrCh := make(chan int)
-	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
-
 	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
-	api := NewWriteableAPI(registryClient, &dummyDataStorage{}, ntRcvDataCh)
+	api := NewWriteableAPI(registryClient, &dummyDataStorage{})
 
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("POST").Path("/data/{id}").HandlerFunc(api.Submit)
@@ -66,13 +60,8 @@ func setupWritableAPI() *mux.Router {
 }
 
 func setupReadableAPI() *mux.Router {
-	ntSndRegCh := make(chan common.Notification)
-	ntRcvDataCh := make(chan common.Notification)
-	// nrAggrCh := make(chan int)
-	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
-
 	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
-	api := NewReadableAPI(registryClient, &dummyDataStorage{}, ntRcvDataCh)
+	api := NewReadableAPI(registryClient, &dummyDataStorage{})
 
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("POST").Path("/data/{id}").HandlerFunc(api.Submit)

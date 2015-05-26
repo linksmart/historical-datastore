@@ -24,14 +24,12 @@ const (
 // Read-only HTTP Registry API
 type ReadableAPI struct {
 	storage Storage
-	ntChan  chan<- common.Notification // write-only channel
 }
 
 // Returns the configured read-only Registry API
-func NewReadableAPI(storage Storage, ntChan chan<- common.Notification) *ReadableAPI {
+func NewReadableAPI(storage Storage) *ReadableAPI {
 	return &ReadableAPI{
 		storage,
-		ntChan,
 	}
 }
 
@@ -41,9 +39,9 @@ type WriteableAPI struct {
 }
 
 // Returns the configured full Registry API
-func NewWriteableAPI(storage Storage, ntChan chan<- common.Notification) *WriteableAPI {
+func NewWriteableAPI(storage Storage) *WriteableAPI {
 	return &WriteableAPI{
-		NewReadableAPI(storage, ntChan),
+		NewReadableAPI(storage),
 	}
 }
 
@@ -70,7 +68,7 @@ func (regAPI *ReadableAPI) Index(w http.ResponseWriter, r *http.Request) {
 		Total:   total,
 	}
 
-	b, _ := json.Marshal(registry)
+	b, _ := json.Marshal(&registry)
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.Write(b)
 
@@ -114,10 +112,7 @@ func (regAPI *WriteableAPI) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send a create notification
-	regAPI.sendNotification(&addedDS, common.CREATE)
-
-	//b, _ := json.Marshal(addedDS)
+	//b, _ := json.Marshal(&addedDS)
 	w.Header().Set("Location", addedDS.URL)
 	//w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusCreated)
@@ -141,7 +136,7 @@ func (regAPI *ReadableAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, _ := json.Marshal(ds)
+	b, _ := json.Marshal(&ds)
 
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.Write(b)
@@ -177,23 +172,11 @@ func (regAPI *WriteableAPI) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oldDS, err := regAPI.storage.get(id)
+	_, err = regAPI.storage.update(id, ds)
 	if err != nil {
 		common.ErrorResponse(http.StatusNotFound, err.Error(), w)
 		return
 	}
-	updatedDS, err := regAPI.storage.update(id, ds)
-
-	// Compare DataAPI-related changes
-	if oldDS.Retention != updatedDS.Retention { // anything else?
-		// Send an update notification
-		regAPI.sendNotification(&updatedDS, common.UPDATE_DATA)
-	}
-	// Compare AggrAPI-related changes
-	//	if(oldDS.Aggregation != updatedDS.Aggregation){
-	//		// Send an update notification
-	//		regAPI.sendNotification(&updatedDS, common.UPDATE_AGGR)
-	//	}
 
 	w.WriteHeader(http.StatusOK)
 	return
@@ -215,9 +198,6 @@ func (regAPI *WriteableAPI) Delete(w http.ResponseWriter, r *http.Request) {
 		common.ErrorResponse(http.StatusNotFound, err.Error(), w)
 		return
 	}
-
-	// Send a delete notification
-	regAPI.sendNotification(&DataSource{ID: id}, common.DELETE)
 
 	return
 }
@@ -248,7 +228,7 @@ func (regAPI *ReadableAPI) Filter(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if datasource.ID != "" {
-			body, _ = json.Marshal(datasource)
+			body, _ = json.Marshal(&datasource)
 		} else {
 			common.ErrorResponse(http.StatusNotFound, "No matched entries found.", w)
 			return
@@ -271,7 +251,7 @@ func (regAPI *ReadableAPI) Filter(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if registry.Total != 0 {
-			body, _ = json.Marshal(registry)
+			body, _ = json.Marshal(&registry)
 		} else {
 			common.ErrorResponse(http.StatusNotFound, "No matched entries found.", w)
 			return
@@ -280,9 +260,4 @@ func (regAPI *ReadableAPI) Filter(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.Write(body)
-}
-
-// Sends a Notification{} to channel
-func (regAPI *ReadableAPI) sendNotification(ds *DataSource, _type common.NotificationTYPE) {
-	regAPI.ntChan <- common.Notification{DS: *ds, TYPE: _type}
 }

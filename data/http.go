@@ -33,23 +33,18 @@ type WriteableAPI struct {
 }
 
 // NewWriteableAPI returns the configured Data API
-func NewWriteableAPI(registryClient registry.Client, storage Storage, ntChan <-chan common.Notification) *WriteableAPI {
+func NewWriteableAPI(registryClient registry.Client, storage Storage) *WriteableAPI {
 	return &WriteableAPI{
-		NewReadableAPI(registryClient, storage, ntChan),
+		NewReadableAPI(registryClient, storage),
 	}
 }
 
 // NewReadableAPI returns the configured Data API
-func NewReadableAPI(registryClient registry.Client, storage Storage, ntChan <-chan common.Notification) *ReadableAPI {
-	d := &ReadableAPI{
+func NewReadableAPI(registryClient registry.Client, storage Storage) *ReadableAPI {
+	return &ReadableAPI{
 		registryClient,
 		storage,
 	}
-
-	// Run the notification listener
-	go d.ntListener(ntChan)
-
-	return d
 }
 
 func parseQueryParameters(form url.Values) query {

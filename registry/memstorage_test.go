@@ -11,6 +11,27 @@ import (
 	"linksmart.eu/services/historical-datastore/common"
 )
 
+func setupMemStorage() Storage {
+	// Setup and run the notifier
+	ntSndRegCh := make(chan common.Notification)
+	ntRcvDataCh := make(chan common.Notification)
+	// nrAggrCh := make(chan int)
+	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
+
+	// Collect notifications
+	go func() {
+		for ntf := range ntRcvDataCh {
+			ds, ok := ntf.DS.(DataSource)
+			if !ok {
+				fmt.Println("ntListener(): Bad notification!", ds)
+				continue
+			}
+		}
+	}()
+
+	return NewMemoryStorage(ntSndRegCh)
+}
+
 func TestMemstorageAdd(t *testing.T) {
 	var ds DataSource
 	ds.Resource = "any_url"
@@ -22,7 +43,7 @@ func TestMemstorageAdd(t *testing.T) {
 	ds.Type = "string"
 	ds.Format = "application/senml+json"
 
-	storage := NewMemoryStorage()
+	storage := setupMemStorage()
 	addedDS, err := storage.add(ds)
 	if err != nil {
 		t.Errorf("Received unexpected error on add: %v", err.Error())
@@ -44,7 +65,7 @@ func TestMemstorageGet(t *testing.T) {
 }
 
 func TestMemstorageUpdate(t *testing.T) {
-	storage := NewMemoryStorage()
+	storage := setupMemStorage()
 	ID := generateDummyData(1, NewLocalClient(storage))[0]
 
 	ds, err := storage.get(ID)
@@ -72,7 +93,7 @@ func TestMemstorageUpdate(t *testing.T) {
 }
 
 func TestMemstorageDelete(t *testing.T) {
-	storage := NewMemoryStorage()
+	storage := setupMemStorage()
 	ID := generateDummyData(1, NewLocalClient(storage))[0]
 
 	err := storage.delete(ID)
@@ -89,7 +110,7 @@ func TestMemstorageDelete(t *testing.T) {
 func TestMemstorageGetMany(t *testing.T) {
 	// Check based on different inputs
 	subTest := func(TOTAL int, perPage int) {
-		storage := NewMemoryStorage()
+		storage := setupMemStorage()
 		generateDummyData(TOTAL, NewLocalClient(storage))
 
 		_, total, _ := storage.getMany(1, perPage)
@@ -119,7 +140,7 @@ func TestMemstorageGetMany(t *testing.T) {
 }
 
 func TestMemstorageGetCount(t *testing.T) {
-	storage := NewMemoryStorage()
+	storage := setupMemStorage()
 	total := 5
 	generateDummyData(total, NewLocalClient(storage))
 
@@ -129,7 +150,7 @@ func TestMemstorageGetCount(t *testing.T) {
 }
 
 func TestMemstoragePathFilterOne(t *testing.T) {
-	storage := NewMemoryStorage()
+	storage := setupMemStorage()
 	ID := generateDummyData(10, NewLocalClient(storage))[0]
 
 	targetDS, _ := storage.get(ID)
@@ -145,7 +166,7 @@ func TestMemstoragePathFilterOne(t *testing.T) {
 }
 
 func TestMemstoragePathFilter(t *testing.T) {
-	storage := NewMemoryStorage()
+	storage := setupMemStorage()
 	IDs := generateDummyData(10, NewLocalClient(storage))
 	expected := 3
 
