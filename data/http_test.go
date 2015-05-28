@@ -15,16 +15,16 @@ import (
 type dummyDataStorage struct{}
 
 // data is a map where keys are data source ids
-func (s *dummyDataStorage) submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
+func (s *dummyDataStorage) Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
 	return nil
 }
 
 // Retrieves last data point of every data source
-func (s *dummyDataStorage) getLast(ds ...registry.DataSource) (DataSet, error) {
+func (s *dummyDataStorage) GetLast(ds ...registry.DataSource) (DataSet, error) {
 	return DataSet{}, nil
 }
 
-func (s *dummyDataStorage) query(q query, page, perPage int, ds ...registry.DataSource) (DataSet, int, error) {
+func (s *dummyDataStorage) Query(q Query, page, perPage int, ds ...registry.DataSource) (DataSet, int, error) {
 	return DataSet{}, 0, nil
 }
 

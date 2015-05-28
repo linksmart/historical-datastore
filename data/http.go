@@ -47,8 +47,8 @@ func NewReadableAPI(registryClient registry.Client, storage Storage) *ReadableAP
 	}
 }
 
-func parseQueryParameters(form url.Values) query {
-	q := query{}
+func parseQueryParameters(form url.Values) Query {
+	q := Query{}
 	var err error
 
 	// if erroneous time specified for start use 'zero time'
@@ -139,7 +139,7 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add data to the storage
-	err = d.storage.submit(data, sources)
+	err = d.storage.Submit(data, sources)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
 		return
@@ -184,7 +184,7 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 
 	// no parameters - return last values
 	if len(r.Form) == 0 {
-		data, err := d.storage.getLast(sources...)
+		data, err := d.storage.GetLast(sources...)
 		if err != nil {
 			common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
 			return
@@ -209,7 +209,7 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 			perPage = len(sources)
 		}
 
-		data, total, err := d.storage.query(q, page, perPage, sources...)
+		data, total, err := d.storage.Query(q, page, perPage, sources...)
 		if err != nil {
 			common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
 			return

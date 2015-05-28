@@ -129,7 +129,7 @@ func (s *influxStorage) getLastPoints(ds registry.DataSource, n int) ([]DataPoin
 
 // Adds multiple data points for multiple data sources
 // data is a map where keys are data source ids
-func (s *influxStorage) submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
+func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
 	for id, dps := range data {
 		points := []influx.Point{}
 
@@ -189,7 +189,7 @@ func (s *influxStorage) submit(data map[string][]DataPoint, sources map[string]r
 }
 
 // Retrieves last data point of every data source
-func (s *influxStorage) getLast(sources ...registry.DataSource) (DataSet, error) {
+func (s *influxStorage) GetLast(sources ...registry.DataSource) (DataSet, error) {
 	points := []DataPoint{}
 	for _, ds := range sources {
 		pds, err := s.getLastPoints(ds, 1)
@@ -209,7 +209,7 @@ func (s *influxStorage) getLast(sources ...registry.DataSource) (DataSet, error)
 }
 
 // Queries data for specified data sources
-func (s *influxStorage) query(q query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
+func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
 	points := []DataPoint{}
 	total := 0
 	perEach := perPage / len(sources)

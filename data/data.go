@@ -67,7 +67,7 @@ type RecordSet struct {
 	Total int `json:"total"`
 }
 
-type query struct {
+type Query struct {
 	start time.Time
 	end   time.Time
 	sort  string
@@ -97,10 +97,10 @@ type Storage interface {
 	// Adds data points for multiple data sources
 	// data is a map where keys are data source ids
 	// sources is a map where keys are data source ids
-	submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error
+	Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error
 
 	// Retrieves last data point of every data source
-	getLast(sources ...registry.DataSource) (DataSet, error)
+	GetLast(sources ...registry.DataSource) (DataSet, error)
 	// Queries data for specified data sources
-	query(q query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error)
+	Query(q Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error)
 }
