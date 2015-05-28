@@ -68,10 +68,10 @@ type RecordSet struct {
 }
 
 type Query struct {
-	start time.Time
-	end   time.Time
-	sort  string
-	limit int
+	Start time.Time
+	End   time.Time
+	Sort  string
+	Limit int
 }
 
 // func (q *query) isValid() bool {

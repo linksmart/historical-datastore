@@ -52,27 +52,27 @@ func parseQueryParameters(form url.Values) Query {
 	var err error
 
 	// if erroneous time specified for start use 'zero time'
-	q.start, err = time.Parse(time.RFC3339, form.Get("start"))
+	q.Start, err = time.Parse(time.RFC3339, form.Get("start"))
 	if err != nil {
-		q.start = time.Time{}
+		q.Start = time.Time{}
 	}
 
 	// if erroneous time specified for end use 'now'
-	q.end, err = time.Parse(time.RFC3339, form.Get("end"))
+	q.End, err = time.Parse(time.RFC3339, form.Get("end"))
 	if err != nil {
-		q.end = time.Time{}
+		q.End = time.Time{}
 	}
 
 	// limit shall be int
-	q.limit, err = strconv.Atoi(form.Get("limit"))
+	q.Limit, err = strconv.Atoi(form.Get("limit"))
 	if err != nil {
-		q.limit = -1
+		q.Limit = -1
 	}
 
 	// sort shall be asc or desc
-	q.sort = form.Get("sort")
-	if q.sort == "" || q.sort != ASC {
-		q.sort = DESC
+	q.Sort = form.Get("sort")
+	if q.Sort == "" || q.Sort != ASC {
+		q.Sort = DESC
 	}
 	return q
 }
@@ -216,10 +216,10 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 		}
 
 		v := url.Values{}
-		v.Add("start", q.start.Format(time.RFC3339))
-		v.Add("end", q.end.Format(time.RFC3339))
-		v.Add("sort", q.sort)
-		v.Add("limit", fmt.Sprintf("%d", q.limit))
+		v.Add("start", q.Start.Format(time.RFC3339))
+		v.Add("end", q.End.Format(time.RFC3339))
+		v.Add("sort", q.Sort)
+		v.Add("limit", fmt.Sprintf("%d", q.Limit))
 		v.Add("page", fmt.Sprintf("%d", page))
 		v.Add("per_page", fmt.Sprintf("%d", perPage))
 		recordSet = RecordSet{

@@ -219,7 +219,7 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 		msrmt := msrmtBySource(ds)
 		q := influx.Query{
 			Command: fmt.Sprintf("SELECT * FROM %s WHERE dsID='%s' AND time > '%s' AND time < '%s' GROUP BY * LIMIT %d",
-				msrmt, ds.ID, q.start.Format(time.RFC3339), q.end.Format(time.RFC3339), perEach),
+				msrmt, ds.ID, q.Start.Format(time.RFC3339), q.End.Format(time.RFC3339), perEach),
 			Database: s.config.Database,
 		}
 
