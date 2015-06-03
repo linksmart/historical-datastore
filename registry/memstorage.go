@@ -94,7 +94,6 @@ func (ms *MemoryStorage) delete(id string) error {
 
 	_, ok := ms.data[id]
 	if !ok {
-		ntSndRegCh
 		ms.mutex.Unlock()
 		return ErrorNotFound
 	}
