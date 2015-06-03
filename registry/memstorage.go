@@ -17,17 +17,17 @@ var ErrorNotFound = errors.New("Data source is not found!")
 
 // In-memory storage
 type MemoryStorage struct {
-	data map[string]DataSource
-	//index []string
+	data   map[string]DataSource
 	mutex  sync.RWMutex
-	ntChan chan<- common.Notification // write-only channel
+	ntChan chan common.Notification
 }
 
-func NewMemoryStorage(ntChan chan<- common.Notification) Storage {
-	return &MemoryStorage{
-		data:   make(map[string]DataSource),
-		ntChan: ntChan,
+func NewMemoryStorage() (Storage, *chan common.Notification) {
+	ms := &MemoryStorage{
+		data: make(map[string]DataSource),
 	}
+
+	return ms, &ms.ntChan
 }
 
 func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
@@ -94,6 +94,7 @@ func (ms *MemoryStorage) delete(id string) error {
 
 	_, ok := ms.data[id]
 	if !ok {
+		ntSndRegCh
 		ms.mutex.Unlock()
 		return ErrorNotFound
 	}
@@ -210,5 +211,7 @@ func (ms *MemoryStorage) pathFilter(path, op, value string, page, perPage int) (
 
 // Sends a Notification{} to channel
 func (ms *MemoryStorage) sendNotification(ds *DataSource, ntType common.NotificationTYPE) {
-	ms.ntChan <- common.Notification{DS: *ds, TYPE: ntType}
+	if ms.ntChan != nil {
+		ms.ntChan <- common.Notification{DS: *ds, TYPE: ntType}
+	}
 }

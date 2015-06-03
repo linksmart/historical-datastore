@@ -22,7 +22,7 @@ type influxStorage struct {
 }
 
 // NewInfluxStorage returns a new Storage given a configuration
-func NewInfluxStorage(cfg *InfluxStorageConfig, ntChan <-chan common.Notification) (Storage, error) {
+func NewInfluxStorage(cfg *InfluxStorageConfig) (Storage, error, chan<- common.Notification) {
 	c, err := influx.NewClient(influx.Config{
 		URL:      *cfg.ParsedURL(),
 		Username: cfg.Username,
@@ -30,16 +30,19 @@ func NewInfluxStorage(cfg *InfluxStorageConfig, ntChan <-chan common.Notificatio
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("Error initializing influxdb client: %v", err.Error())
+		return nil, fmt.Errorf("Error initializing influxdb client: %v", err.Error()), nil
 	}
 
 	s := &influxStorage{
 		client: c,
 		config: cfg,
 	}
+
 	// Run the notification listener
+	ntChan := make(chan common.Notification)
 	go s.ntListener(ntChan)
-	return s, nil
+
+	return s, nil, ntChan
 }
 
 // Returns the influxdb measurement for a given data source

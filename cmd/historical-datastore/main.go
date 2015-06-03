@@ -25,23 +25,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Setup and run the notifier
-	ntSndRegCh := make(chan common.Notification)
-	ntRcvDataCh := make(chan common.Notification)
-	// nrAggrCh := make(chan int)
-	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
-
 	// registry
-	regStorage := registry.NewMemoryStorage(ntSndRegCh)
+	regStorage, ntSndRegCh := registry.NewMemoryStorage()
 	regAPI := registry.NewWriteableAPI(regStorage)
 
 	// data
-	dataStorage, _ := data.NewInfluxStorage(&conf.InfluxConf, ntRcvDataCh)
+	dataStorage, _, ntRcvDataCh := data.NewInfluxStorage(&conf.InfluxConf)
 	registryClient := registry.NewLocalClient(regStorage)
 	dataAPI := data.NewWriteableAPI(registryClient, dataStorage)
 
 	// aggregation
 	// TODO
+
+	// Start the notifier
+	common.StartNotifier(ntSndRegCh, ntRcvDataCh)
 
 	commonHandlers := alice.New(
 		context.ClearHandler,
