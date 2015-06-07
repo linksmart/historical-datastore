@@ -12,24 +12,8 @@ import (
 )
 
 func setupMemStorage() Storage {
-	// Setup and run the notifier
-	ntSndRegCh := make(chan common.Notification)
-	ntRcvDataCh := make(chan common.Notification)
-	// nrAggrCh := make(chan int)
-	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
-
-	// Collect notifications
-	go func() {
-		for ntf := range ntRcvDataCh {
-			ds, ok := ntf.DS.(DataSource)
-			if !ok {
-				fmt.Println("ntListener(): Bad notification!", ds)
-				continue
-			}
-		}
-	}()
-
-	return NewMemoryStorage(ntSndRegCh)
+	storage, _ := NewMemoryStorage()
+	return storage
 }
 
 func TestMemstorageAdd(t *testing.T) {

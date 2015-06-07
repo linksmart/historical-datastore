@@ -52,6 +52,7 @@ func (regAPI *ReadableAPI) Index(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	page, _ := strconv.Atoi(r.Form.Get(common.GetParamPage))
 	perPage, _ := strconv.Atoi(r.Form.Get(common.GetParamPerPage))
+	page, perPage = common.ValidatePagingParams(page, perPage, common.MaxPerPage)
 
 	datasources, total, err := regAPI.storage.getMany(page, perPage)
 	if err != nil {

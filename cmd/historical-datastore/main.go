@@ -30,7 +30,7 @@ func main() {
 	regAPI := registry.NewWriteableAPI(regStorage)
 
 	// data
-	dataStorage, _, ntRcvDataCh := data.NewInfluxStorage(&conf.InfluxConf)
+	dataStorage, ntRcvDataCh, _ := data.NewInfluxStorage(conf.Data.Backend.DSN)
 	registryClient := registry.NewLocalClient(regStorage)
 	dataAPI := data.NewWriteableAPI(registryClient, dataStorage)
 
@@ -69,7 +69,7 @@ func main() {
 	// TODO
 
 	// start http server
-	err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.Http.BindAddr, conf.Http.BindPort), router)
+	err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort), router)
 	if err != nil {
 		fmt.Println(err.Error())
 	}

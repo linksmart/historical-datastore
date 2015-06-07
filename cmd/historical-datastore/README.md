@@ -14,17 +14,17 @@ Implementation of the [Historical Datastore Service](https://linksmart.eu/redmin
 
 # Sample config file:
 historical-datastore.json
-{ 
- 	"http": {
-		"bindAddr": "0.0.0.0",
-    		"bindPort": 8085
-  	},
-  	"registry": {},
-  	"data": {
-		"backend": {
-			"type": "influxdb",
-	    		"dsn" : "http://user:password@localhost:8086/db"
-  		},
-  	},
-  	"aggregation": {}
+{
+    "http": {
+        "bindAddr": "0.0.0.0",
+        "bindPort": 8085
+    },
+    "registry": {},
+    "data": {
+        "backend": {
+            "type": "influxdb",
+            "dsn": "http://user:password@localhost:8086/db"
+        }
+    },
+    "aggregation": {}
 }

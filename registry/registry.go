@@ -140,7 +140,7 @@ func validateDataSource(ds *DataSource, context uint8) error {
 	var _errors []string
 	var readOnlyKeys, mandatoryKeys, invalidKeys []string
 
-	//// VALIDATE `json:"id"` /////////////////////////////////////////////////////
+	// VALIDATE `json:"id"` /////////////////////////////////////////////////////
 	// system-generated (read-only)
 	if ds.ID != "" {
 		readOnlyKeys = append(readOnlyKeys, "id")

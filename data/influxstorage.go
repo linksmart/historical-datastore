@@ -22,15 +22,19 @@ type influxStorage struct {
 }
 
 // NewInfluxStorage returns a new Storage given a configuration
-func NewInfluxStorage(cfg *InfluxStorageConfig) (Storage, error, chan<- common.Notification) {
+func NewInfluxStorage(DSN string) (Storage, chan<- common.Notification, error) {
+	cfg, err := initInfluxConf(DSN)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Influx config error: %v", err.Error())
+	}
+
 	c, err := influx.NewClient(influx.Config{
-		URL:      *cfg.ParsedURL(),
+		URL:      *cfg.URL,
 		Username: cfg.Username,
 		Password: cfg.Password,
 	})
-
 	if err != nil {
-		return nil, fmt.Errorf("Error initializing influxdb client: %v", err.Error()), nil
+		return nil, nil, fmt.Errorf("Error initializing influxdb client: %v", err.Error())
 	}
 
 	s := &influxStorage{
@@ -42,7 +46,7 @@ func NewInfluxStorage(cfg *InfluxStorageConfig) (Storage, error, chan<- common.N
 	ntChan := make(chan common.Notification)
 	go s.ntListener(ntChan)
 
-	return s, nil, ntChan
+	return s, ntChan, nil
 }
 
 // Returns the influxdb measurement for a given data source
@@ -253,23 +257,33 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 // InfluxStorageConfig configuration
 
 type InfluxStorageConfig struct {
-	URL      string `json:"url"`
-	Database string `json:"dbname"`
-	Username string `json:"user"`
-	Password string `json:"pass"`
+	URL      *url.URL
+	Database string
+	Username string
+	Password string
 }
 
-func (c *InfluxStorageConfig) ParsedURL() *url.URL {
-	url, _ := url.Parse("http://localhost:8086")
-	return url
-}
-
-func (c *InfluxStorageConfig) IsValid() error {
-	url, err := url.Parse(c.URL)
-	if err != nil {
-		return fmt.Errorf("Influxdb config: invalid url")
+func initInfluxConf(DSN string) (*InfluxStorageConfig, error) {
+	// Parse config's DSN string
+	PDSN, _ := url.Parse(DSN)
+	password, _ := PDSN.User.Password()
+	c := &InfluxStorageConfig{
+		URL:      PDSN,
+		Database: PDSN.Path,
+		Username: PDSN.User.Username(),
+		Password: password,
 	}
-	if url.Host == "" {
+
+	err := c.isValid()
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func (c *InfluxStorageConfig) isValid() error {
+	if c.URL.Host == "" {
 		return fmt.Errorf("Influxdb config: host:port in the URL must be not empty")
 	}
 	if c.Database == "" {
