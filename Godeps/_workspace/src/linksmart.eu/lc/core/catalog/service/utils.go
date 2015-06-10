@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	utils "linksmart.eu/services/historical-datastore/Godeps/_workspace/src/linksmart.eu/localconnect/core/catalog"
+	utils "linksmart.eu/services/historical-datastore/Godeps/_workspace/src/linksmart.eu/lc/core/catalog"
 )
 
 const (

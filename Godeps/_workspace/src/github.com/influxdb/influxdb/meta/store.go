@@ -20,7 +20,7 @@ import (
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/hashicorp/raft-boltdb"
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/influxdb/influxdb/influxql"
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/influxdb/influxdb/meta/internal"
-	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // tcp.Mux header bytes.

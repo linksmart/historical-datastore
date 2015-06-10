@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/mux"
-	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/linksmart.eu/localconnect/core/catalog"
+	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/linksmart.eu/lc/core/catalog"
 )
 
 const (
