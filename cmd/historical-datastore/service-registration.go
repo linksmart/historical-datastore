@@ -18,22 +18,16 @@ const (
 	  },
 	  "protocols": [
 	    {
-	      "type": "REST",
 	      "endpoint": {
 	        "url": ""
 	      },
 	      "methods": [],
-	      "content-types": [
-	        ""
-	      ]
+	      "content-types": []
 	    }
 	  ],
-	  "representation": {
-	    "application/ld+json": {}
-	  }
+	  "representation" : {}
 	}
 	`
-	defaultTtl = 120
 )
 
 func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
@@ -61,8 +55,12 @@ func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
 		// protocols
 		// port from the bind port, address from the public address
 		s.Protocols[0].Endpoint["url"] = fmt.Sprintf("http://%v:%v%v", conf.HTTP.PublicAddr, conf.HTTP.BindPort, common.RegistryAPILoc)
+		s.Protocols[0].Type = "REST"
 		s.Protocols[0].Methods = []string{"GET", "POST", "PUT", "DELETE"}
-		s.Protocols[0].ContentTypes[0] = common.DefaultMIMEType
+		s.Protocols[0].ContentTypes = []string{common.DefaultMIMEType}
+
+		// representation
+		s.Representation[common.DefaultMIMEType] = map[string]interface{}{}
 
 		sigCh := make(chan bool)
 		service, err := s.GetService()
