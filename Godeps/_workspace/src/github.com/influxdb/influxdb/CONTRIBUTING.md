@@ -16,10 +16,10 @@ Test cases should be in the form of `curl` commands. For example:
 ```
 # create database
 curl -G http://localhost:8086/query --data-urlencode "q=CREATE DATABASE mydb"
- 
+
 # create retention policy
 curl -G http://localhost:8086/query --data-urlencode "q=CREATE RETENTION POLICY myrp ON mydb DURATION 365d REPLICATION 1 DEFAULT"
- 
+
 # write data
 curl -d '{"database" : "mydb", "retentionPolicy" : "myrp", "points": [{"name":"cpu","tags":{"region":"useast","host":"server_1","service":"redis"},"fields":{"value":61}}]}' -H "Content-Type: application/json" http://localhost:8086/write
 
@@ -54,6 +54,15 @@ To submit a pull request you should fork the InfluxDB repository, and make your 
 
 There will usually be some back and forth as we finalize the change, but once that completes it may be merged.
 
+To assist in review for the PR, please add the following to your pull request comment:
+
+```md
+- [ ] CHANGELOG.md updated
+- [ ] Rebased/mergable
+- [ ] Tests pass
+- [ ] Sign [CLA](http://influxdb.com/community/cla.html) (if not already signed)
+```
+
 Use of third-party packages
 ------------
 A third-party package is defined as one that is not part of the standard Go distribution. Generally speaking we prefer to minimize our use of third-party packages, and avoid them unless absolutely necessarly. We'll often write a little bit of code rather than pull in a third-party package. Of course, we do use some third-party packages -- most importantly we use [BoltDB](https://github.com/boltdb/bolt) as the storage engine. So to maximise the chance your change will be accepted by us, use only the standard libaries, or the third-party packages we have decided to use.
@@ -67,13 +76,12 @@ If you are going to be contributing back to InfluxDB please take a
 second to sign our CLA, which can be found
 [on our website](http://influxdb.com/community/cla.html).
 
-Installing go
+Installing Go
 -------------
+InfluxDB requires Go 1.4 or greater.
 
-We recommend using gvm, a Go version manager. For instructions
-on how to install see
-[the gvm page on github](https://github.com/moovweb/gvm). InfluxDB
-currently works with Go 1.4 and up.
+At InfluxDB we find gvm, a Go version manager, useful for installing Go. For instructions
+on how to install it see [the gvm page on github](https://github.com/moovweb/gvm).
 
 After installing gvm you can install and set the default go version by
 running the following:
@@ -83,7 +91,6 @@ running the following:
 
 Revision Control Systems
 ------
-
 Go has the ability to import remote packages via revision control systems with the `go get` command.  To ensure that you can retrieve any remote package, be sure to install the following rcs software to your system.
 Currently the project only depends on `git` and `mercurial`.
 
@@ -92,7 +99,6 @@ Currently the project only depends on `git` and `mercurial`.
 
 Project structure
 -----------------
-
 First you need to setup the project structure:
 
     export GOPATH=$HOME/gocodez
@@ -170,6 +176,25 @@ go test -coverprofile /tmp/cover . && go tool cover -html /tmp/cover
 To install go cover, run the following command:
 ```
 go get golang.org/x/tools/cmd/cover
+```
+
+To update the generated protocol buffer code, you'll need to install the protocol buffers toolchain.
+
+First install the [protocol buffer compiler](https://developers.google.com/protocol-buffers/
+) 2.6.1 or later for your OS:
+
+Then install the go plugins:
+
+```bash
+go get github.com/gogo/protobuf/proto
+go get github.com/gogo/protobuf/protoc-gen-gogo
+go get github.com/gogo/protobuf/gogoproto
+```
+
+Finally run, `go generate` after updating any `*.proto` file:
+
+```bash
+go generate ./...
 ```
 
 Continuous Integration testing

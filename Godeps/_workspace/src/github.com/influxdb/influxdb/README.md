@@ -2,8 +2,7 @@
 
 ## An Open-Source, Distributed, Time Series Database
 
-> InfluxDB v0.9.0 is now in the RC phase. If you're building a new project,
-> please build against `master` or the most current RC instead of using v0.8.8.
+> InfluxDB v0.9.0 is now in the alpha phase. Builds are currently tagged as RCs, but they're alpha stage at this point. We will update this document when the first stable RC is ready. However, the current builds have an API that should not change significantly between now and the final 0.9.0 release. Most of the work we're doing now is focused on features and stability for clustering. So please develop against the current 0.9.0 RCs for new projects that won't go into production for a little bit.
 
 InfluxDB is an open source **distributed time series database** with
 **no external dependencies**. It's useful for recording metrics,
@@ -47,8 +46,8 @@ curl -H "Content-Type: application/json" http://localhost:8086/write -d '
     "retentionPolicy": "default",
     "points": [
         {
-            "timestamp": "2014-11-10T23:00:00Z",
-            "name": "cpu",
+            "time": "2014-11-10T23:00:00Z",
+            "measurement": "cpu",
              "tags": {
                  "region":"uswest",
                  "host": "server01"

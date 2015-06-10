@@ -1,4 +1,132 @@
-## v0.9.0-rc27 [unreleased]
+## v0.9.0-rc33 [unreleased]
+
+### Bugfixes
+
+- [2816](https://github.com/influxdb/influxdb/pull/2816) -- enable UDP service. Thanks @renan-
+- [2824](https://github.com/influxdb/influxdb/pull/2824) -- Add missing call to WaitGroup.Done in execConn. Thanks @liyichao
+- [2823](https://github.com/influxdb/influxdb/pull/2823) -- Convert OpenTSDB to a service.
+
+## v0.9.0-rc32 [2015-06-07]
+
+### Release Notes
+
+This released introduced an updated write path and clustering design. The data format has also changed, so you'll need to wipe out your data to upgrade from RC31. There should be no other data changes before v0.9.0 is released.
+
+### Features
+- [1997](https://github.com/influxdb/influxdb/pull/1997): Update SELECT * to return tag values.
+- [2599](https://github.com/influxdb/influxdb/issues/2599): Add "epoch" URL param and return JSON time values as epoch instead of date strings.
+- [2682](https://github.com/influxdb/influxdb/issues/2682): Adding pr checklist to CONTRIBUTING.md
+- [2683](https://github.com/influxdb/influxdb/issues/2683): Add batching support to Graphite inputs.
+- [2687](https://github.com/influxdb/influxdb/issues/2687): Add batching support to Collectd inputs.
+- [2696](https://github.com/influxdb/influxdb/pull/2696): Add line protocol. This is now the preferred way to write data.
+- [2751](https://github.com/influxdb/influxdb/pull/2751): Add UDP input. UDP only supports the line protocol now.
+- [2684](https://github.com/influxdb/influxdb/pull/2684): Include client timeout configuration. Thanks @vladlopes!
+
+### Bugfixes
+- [2776](https://github.com/influxdb/influxdb/issues/2776): Re-implement retention policy enforcement.
+- [2635](https://github.com/influxdb/influxdb/issues/2635): Fix querying against boolean field in WHERE clause.
+- [2644](https://github.com/influxdb/influxdb/issues/2644): Make SHOW queries work with FROM /<regex>/.
+- [2501](https://github.com/influxdb/influxdb/issues/2501): Name the FlagSet for the shell and add a version flag. Thanks @neonstalwart
+- [2647](https://github.com/influxdb/influxdb/issues/2647): Fixes typos in sample config file - thanks @claws!
+
+## v0.9.0-rc31 [2015-05-21]
+
+### Features
+- [#1822](https://github.com/influxdb/influxdb/issues/1822): Wire up DERIVATIVE aggregate
+- [#1477](https://github.com/influxdb/influxdb/issues/1477): Wire up non_negative_derivative function
+- [#2557](https://github.com/influxdb/influxdb/issues/2557): Fix false positive error with `GROUP BY time`
+- [#1891](https://github.com/influxdb/influxdb/issues/1891): Wire up COUNT DISTINCT aggregate
+- [#1989](https://github.com/influxdb/influxdb/issues/1989): Implement `SELECT tagName FROM m`
+
+### Bugfixes
+- [#2545](https://github.com/influxdb/influxdb/pull/2545): Use "value" as the field name for graphite input. Thanks @cannium.
+- [#2558](https://github.com/influxdb/influxdb/pull/2558): Fix client response check - thanks @vladlopes!
+- [#2566](https://github.com/influxdb/influxdb/pull/2566): Wait until each data write has been commited by the Raft cluster.
+- [#2602](https://github.com/influxdb/influxdb/pull/2602): CLI execute command exits without cleaning up liner package.
+- [#2610](https://github.com/influxdb/influxdb/pull/2610): Fix shard group creation
+- [#2596](https://github.com/influxdb/influxdb/pull/2596): RC30: `panic: runtime error: index out of range` when insert data points.
+- [#2592](https://github.com/influxdb/influxdb/pull/2592): Should return an error if user attempts to group by a field.
+- [#2499](https://github.com/influxdb/influxdb/pull/2499): Issuing a select query with tag as a values causes panic.
+- [#2612](https://github.com/influxdb/influxdb/pull/2612): Query planner should validate distinct is passed a field.
+- [#2531](https://github.com/influxdb/influxdb/issues/2531): Fix select with 3 or more terms in where clause.
+- [#2564](https://github.com/influxdb/influxdb/issues/2564): Change "name" to "measurement" in JSON for writes.
+
+## PRs
+- [#2569](https://github.com/influxdb/influxdb/pull/2569): Add derivative functions
+- [#2598](https://github.com/influxdb/influxdb/pull/2598): Implement tag support in SELECT statements
+- [#2624](https://github.com/influxdb/influxdb/pull/2624): Remove references to SeriesID in `DROP SERIES` handlers.
+
+## v0.9.0-rc30 [2015-05-12]
+
+### Release Notes
+
+This release has a breaking API change for writes -- the field previously called `timestamp` has been renamed to `time`.
+
+### Features
+- [#2254](https://github.com/influxdb/influxdb/pull/2254): Add Support for OpenTSDB HTTP interface. Thanks @tcolgate
+- [#2525](https://github.com/influxdb/influxdb/pull/2525): Serve broker diagnostics over HTTP
+- [#2186](https://github.com/influxdb/influxdb/pull/2186): The default status code for queries is now `200 OK`
+- [#2298](https://github.com/influxdb/influxdb/pull/2298): Successful writes now return a status code of `204 No Content` - thanks @neonstalwart!
+- [#2549](https://github.com/influxdb/influxdb/pull/2549): Raft election timeout to 5 seconds, so system is more forgiving of CPU loads.
+- [#2568](https://github.com/influxdb/influxdb/pull/2568): Wire up SELECT DISTINCT.
+
+### Bugfixes
+- [#2535](https://github.com/influxdb/influxdb/pull/2535): Return exit status 0 if influxd already running. Thanks @haim0n.
+- [#2521](https://github.com/influxdb/influxdb/pull/2521): Don't truncate topic data until fully replicated.
+- [#2509](https://github.com/influxdb/influxdb/pull/2509): Parse config file correctly during restore. Thanks @neonstalwart
+- [#2536](https://github.com/influxdb/influxdb/issues/2532): Set leader ID on restart of single-node cluster.
+- [#2448](https://github.com/influxdb/influxdb/pull/2448): Fix inconsistent data type - thanks @cannium!
+- [#2108](https://github.com/influxdb/influxdb/issues/2108): Change `timestamp` to `time` - thanks @neonstalwart!
+- [#2539](https://github.com/influxdb/influxdb/issues/2539): Add additional vote request logging.
+- [#2541](https://github.com/influxdb/influxdb/issues/2541): Update messaging client connection index with every message.
+- [#2542](https://github.com/influxdb/influxdb/issues/2542): Throw parser error for invalid aggregate without where time.
+- [#2548](https://github.com/influxdb/influxdb/issues/2548): Return an error when numeric aggregate applied to non-numeric data.
+- [#2487](https://github.com/influxdb/influxdb/issues/2487): Aggregate query with exact timestamp causes panic. Thanks @neonstalwart!
+- [#2552](https://github.com/influxdb/influxdb/issues/2552): Run CQ that is actually passed into go-routine.
+- [#2553](https://github.com/influxdb/influxdb/issues/2553): Fix race condition during CQ execution.
+- [#2557](https://github.com/influxdb/influxdb/issues/2557): RC30 WHERE time filter Regression.
+
+## v0.9.0-rc29 [2015-05-05]
+
+### Features
+- [#2410](https://github.com/influxdb/influxdb/pull/2410): If needed, brokers respond with data nodes for peer shard replication.
+- [#2469](https://github.com/influxdb/influxdb/pull/2469): Reduce default max topic size from 1GB to 50MB.
+- [#1824](https://github.com/influxdb/influxdb/pull/1824): Wire up MEDIAN aggregate. Thanks @neonstalwart!
+
+### Bugfixes
+- [#2446](https://github.com/influxdb/influxdb/pull/2446): Correctly count number of queries executed. Thanks @neonstalwart
+- [#2452](https://github.com/influxdb/influxdb/issues/2452): Fix panic with shard stats on multiple clusters
+- [#2453](https://github.com/influxdb/influxdb/pull/2453): Do not require snapshot on Log.WriteEntriesTo().
+- [#2460](https://github.com/influxdb/influxdb/issues/2460): Collectd input should use "value" for fields values. Fixes 2412. Thanks @josh-padnick
+- [#2465](https://github.com/influxdb/influxdb/pull/2465): HTTP response logging paniced with chunked requests. Thanks @Jackkoz
+- [#2475](https://github.com/influxdb/influxdb/pull/2475): RLock server when checking if shards groups are required during write.
+- [#2471](https://github.com/influxdb/influxdb/issues/2471): Function calls normalized to be lower case. Fixes percentile not working when called uppercase. Thanks @neonstalwart
+- [#2281](https://github.com/influxdb/influxdb/issues/2281): Fix Bad Escape error when parsing regex
+
+## v0.9.0-rc28 [2015-04-27]
+
+### Features
+- [#2410](https://github.com/influxdb/influxdb/pull/2410) Allow configuration of Raft timers
+- [#2354](https://github.com/influxdb/influxdb/pull/2354) Wire up STDDEV. Thanks @neonstalwart!
+
+### Bugfixes
+- [#2374](https://github.com/influxdb/influxdb/issues/2374): Two different panics during SELECT percentile
+- [#2404](https://github.com/influxdb/influxdb/pull/2404): Mean and percentile function fixes
+- [#2408](https://github.com/influxdb/influxdb/pull/2408): Fix snapshot 500 error
+- [#1896](https://github.com/influxdb/influxdb/issues/1896): Excessive heartbeater logging of "connection refused" on cluster node stop
+- [#2418](https://github.com/influxdb/influxdb/pull/2418): Fix raft node getting stuck in candidate state
+- [#2415](https://github.com/influxdb/influxdb/pull/2415): Raft leader ID now set on election after failover. Thanks @xiaost
+- [#2426](https://github.com/influxdb/influxdb/pull/2426): Fix race condition around listener address in openTSDB server.
+- [#2426](https://github.com/influxdb/influxdb/pull/2426): Fix race condition around listener address in Graphite server.
+- [#2429](https://github.com/influxdb/influxdb/pull/2429): Ensure no field value is null.
+- [#2431](https://github.com/influxdb/influxdb/pull/2431): Always append shard path in diags. Thanks @marcosnils
+- [#2441](https://github.com/influxdb/influxdb/pull/2441): Correctly release server RLock during "drop series".
+- [#2445](https://github.com/influxdb/influxdb/pull/2445): Read locks and data race fixes
+
+## v0.9.0-rc27 [04-23-2015]
+
+### Features
+- [#2398](https://github.com/influxdb/influxdb/pull/2398) Track more stats and report errors for shards.
 
 ### Bugfixes
 - [#2370](https://github.com/influxdb/influxdb/pull/2370): Fix data race in openTSDB endpoint.
@@ -7,6 +135,11 @@
 - [#2373](https://github.com/influxdb/influxdb/pull/2373): Actually allow HTTP logging to be controlled.
 - [#2376](https://github.com/influxdb/influxdb/pull/2376): Encode all types of integers. Thanks @jtakkala.
 - [#2376](https://github.com/influxdb/influxdb/pull/2376): Add shard path to existing diags value. Fix issue #2369.
+- [#2386](https://github.com/influxdb/influxdb/pull/2386): Fix shard datanodes stats getting appended too many times
+- [#2393](https://github.com/influxdb/influxdb/pull/2393): Fix default hostname for connecting to cluster.
+- [#2390](https://github.com/influxdb/influxdb/pull/2390): Handle large sums when calculating means - thanks @neonstalwart!
+- [#2391](https://github.com/influxdb/influxdb/pull/2391): Unable to write points through Go client when authentication enabled
+- [#2400](https://github.com/influxdb/influxdb/pull/2400): Always send auth headers for client requests if present
 
 ## v0.9.0-rc26 [04-21-2015]
 

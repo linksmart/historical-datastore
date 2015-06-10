@@ -16,8 +16,9 @@ Implementation of the [Historical Datastore Service](https://linksmart.eu/redmin
 historical-datastore.json
 {
     "http": {
+        "publicAddr": "localhost",
         "bindAddr": "0.0.0.0",
-        "bindPort": 8085
+        "bindPort": 8088
     },
     "registry": {},
     "data": {
@@ -26,5 +27,12 @@ historical-datastore.json
             "dsn": "http://user:password@localhost:8086/db"
         }
     },
-    "aggregation": {}
+    "aggregation": {},
+    "serviceCatalogs": [
+        {
+            "discover": false,
+            "endpoint": "http://localhost:8082/sc",
+            "ttl": 120
+        }
+    ]
 }

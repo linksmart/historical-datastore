@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/influxdb/influxdb/influxql"
+	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/influxdb/influxdb/influxql"
 )
 
 // GoDiagnostics captures basic information about the runtime.

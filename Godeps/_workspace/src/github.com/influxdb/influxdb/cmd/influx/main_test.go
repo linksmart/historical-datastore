@@ -3,7 +3,7 @@ package main_test
 import (
 	"testing"
 
-	main "github.com/influxdb/influxdb/cmd/influx"
+	main "linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/influxdb/influxdb/cmd/influx"
 )
 
 func TestParseCommand_CommandsExist(t *testing.T) {

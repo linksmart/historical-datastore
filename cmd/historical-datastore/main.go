@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"sync"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/gorilla/context"
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/justinas/alice"
@@ -67,6 +69,31 @@ func main() {
 
 	// aggregation api
 	// TODO
+
+	// Register in the service catalog(s)
+	var wg sync.WaitGroup
+	regChannels := registerInServiceCatalog(conf, &wg)
+
+	// Ctrl+C / Kill handling
+	handler := make(chan os.Signal, 1)
+	signal.Notify(handler, os.Interrupt, os.Kill)
+	go func() {
+		<-handler
+		fmt.Println(" Shutting down...")
+
+		// Unregister in the service catalog(s)
+		for _, sigCh := range regChannels {
+			// Notify if the routine hasn't returned already
+			select {
+			case sigCh <- true:
+			default:
+			}
+		}
+		wg.Wait()
+
+		fmt.Println("Stopped.")
+		os.Exit(0)
+	}()
 
 	// start http server
 	err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort), router)

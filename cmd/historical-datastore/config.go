@@ -22,12 +22,15 @@ type Config struct {
 	Data DataConf `json:"data"`
 	// Aggregation API Config
 	Aggr AggrConf `json:"aggregation"`
+	// Service Catalogs Registration Config
+	ServiceCatalogs []ServiceCatalogConf `json:"serviceCatalogs"`
 }
 
 // HTTP config
 type HTTPConf struct {
-	BindAddr string `json:"bindAddr"`
-	BindPort uint16 `json:"bindPort"`
+	PublicAddr string `json:"publicAddr"`
+	BindAddr   string `json:"bindAddr"`
+	BindPort   uint16 `json:"bindPort"`
 }
 
 // Registry config
@@ -47,6 +50,13 @@ type DataBackendConf struct {
 // Aggregation config
 type AggrConf struct{}
 
+// Service Catalogs Registration Config
+type ServiceCatalogConf struct {
+	Discover bool   `json:"discover"`
+	Endpoint string `json:"endpoint"`
+	TTL      uint   `json:"ttl"`
+}
+
 // Load API configuration from config file
 func loadConfig(confPath *string) (*Config, error) {
 	file, err := ioutil.ReadFile(*confPath)
@@ -61,8 +71,8 @@ func loadConfig(confPath *string) (*Config, error) {
 	}
 
 	// VALIDATE HTTP
-	if conf.HTTP.BindAddr == "" || conf.HTTP.BindPort == 0 {
-		return nil, fmt.Errorf("HTTP bindAddr and bindPort have to be defined")
+	if conf.HTTP.PublicAddr == "" || conf.HTTP.BindAddr == "" || conf.HTTP.BindPort == 0 {
+		return nil, fmt.Errorf("HTTP publicAddr, bindAddr, and bindPort have to be defined")
 	}
 
 	// VALIDATE REGISTRY API CONFIG
@@ -83,6 +93,16 @@ func loadConfig(confPath *string) (*Config, error) {
 	// VALIDATE AGGREGATION API CONFIG
 	//
 	//
+
+	// VALIDATE SERVICE CATALOG CONFIG
+	for _, cat := range conf.ServiceCatalogs {
+		if cat.Endpoint == "" && cat.Discover == false {
+			return nil, errors.New("All ServiceCatalog entries must have either endpoint or a discovery flag defined")
+		}
+		if cat.TTL <= 0 {
+			return nil, errors.New("All ServiceCatalog entries must have TTL >= 0")
+		}
+	}
 
 	return &conf, nil
 }

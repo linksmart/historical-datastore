@@ -33,6 +33,20 @@ func NewParser(r io.Reader) *Parser {
 // ParseQuery parses a query string and returns its AST representation.
 func ParseQuery(s string) (*Query, error) { return NewParser(strings.NewReader(s)).ParseQuery() }
 
+// ParseStatement parses a statement string and returns its AST representation.
+func ParseStatement(s string) (Statement, error) {
+	return NewParser(strings.NewReader(s)).ParseStatement()
+}
+
+// MustParseStatement parses a statement string and returns its AST. Panic on error.
+func MustParseStatement(s string) Statement {
+	stmt, err := ParseStatement(s)
+	if err != nil {
+		panic(err.Error())
+	}
+	return stmt
+}
+
 // ParseExpr parses an expression string and returns its AST representation.
 func ParseExpr(s string) (Expr, error) { return NewParser(strings.NewReader(s)).ParseExpr() }
 
@@ -621,7 +635,7 @@ func (p *Parser) parseSelectStatement(tr targetRequirement) (*SelectStatement, e
 	stmt := &SelectStatement{}
 	var err error
 
-	// Parse fields: "SELECT FIELD+".
+	// Parse fields: "FIELD+".
 	if stmt.Fields, err = p.parseFields(); err != nil {
 		return nil, err
 	}
@@ -687,8 +701,8 @@ func (p *Parser) parseSelectStatement(tr targetRequirement) (*SelectStatement, e
 		}
 	})
 
-	if d, _ := stmt.GroupByInterval(); stmt.IsRawQuery && d > 0 {
-		return nil, fmt.Errorf("GROUP BY requires at least one aggregate function")
+	if err := stmt.validate(tr); err != nil {
+		return nil, err
 	}
 
 	return stmt, nil
@@ -768,7 +782,7 @@ func (p *Parser) parseShowSeriesStatement() (*ShowSeriesStatement, error) {
 
 	// Parse optional FROM.
 	if tok, _, _ := p.scanIgnoreWhitespace(); tok == FROM {
-		if stmt.Source, err = p.parseSource(); err != nil {
+		if stmt.Sources, err = p.parseSources(); err != nil {
 			return nil, err
 		}
 	} else {
@@ -849,7 +863,7 @@ func (p *Parser) parseShowTagKeysStatement() (*ShowTagKeysStatement, error) {
 
 	// Parse optional source.
 	if tok, _, _ := p.scanIgnoreWhitespace(); tok == FROM {
-		if stmt.Source, err = p.parseSource(); err != nil {
+		if stmt.Sources, err = p.parseSources(); err != nil {
 			return nil, err
 		}
 	} else {
@@ -887,7 +901,7 @@ func (p *Parser) parseShowTagValuesStatement() (*ShowTagValuesStatement, error) 
 
 	// Parse optional source.
 	if tok, _, _ := p.scanIgnoreWhitespace(); tok == FROM {
-		if stmt.Source, err = p.parseSource(); err != nil {
+		if stmt.Sources, err = p.parseSources(); err != nil {
 			return nil, err
 		}
 	} else {
@@ -977,7 +991,7 @@ func (p *Parser) parseShowFieldKeysStatement() (*ShowFieldKeysStatement, error) 
 
 	// Parse optional source.
 	if tok, _, _ := p.scanIgnoreWhitespace(); tok == FROM {
-		if stmt.Source, err = p.parseSource(); err != nil {
+		if stmt.Sources, err = p.parseSources(); err != nil {
 			return nil, err
 		}
 	} else {
@@ -1023,9 +1037,11 @@ func (p *Parser) parseDropSeriesStatement() (*DropSeriesStatement, error) {
 	stmt := &DropSeriesStatement{}
 	var err error
 
-	if tok, _, _ := p.scanIgnoreWhitespace(); tok == FROM {
+	tok, pos, lit := p.scanIgnoreWhitespace()
+
+	if tok == FROM {
 		// Parse source.
-		if stmt.Source, err = p.parseSource(); err != nil {
+		if stmt.Sources, err = p.parseSources(); err != nil {
 			return nil, err
 		}
 	} else {
@@ -1037,14 +1053,11 @@ func (p *Parser) parseDropSeriesStatement() (*DropSeriesStatement, error) {
 		return nil, err
 	}
 
-	// If they didn't provide a FROM or a WHERE, they need to provide the SeriesID
-	if stmt.Condition == nil && stmt.Source == nil {
-		id, err := p.parseUInt64()
-		if err != nil {
-			return nil, err
-		}
-		stmt.SeriesID = id
+	// If they didn't provide a FROM or a WHERE, this query is invalid
+	if stmt.Condition == nil && stmt.Sources == nil {
+		return nil, newParseError(tokstr(tok, lit), []string{"FROM", "WHERE"}, pos)
 	}
+
 	return stmt, nil
 }
 
@@ -1788,6 +1801,21 @@ func (p *Parser) parseUnaryExpr() (Expr, error) {
 
 		// Parse it as a VarRef.
 		return p.parseVarRef()
+	case DISTINCT:
+		// If the next immediate token is a left parentheses, parse as function call.
+		// Otherwise parse as a Distinct expression.
+		tok0, pos, lit := p.scan()
+		if tok0 == LPAREN {
+			return p.parseCall("distinct")
+		} else if tok0 == WS {
+			tok1, pos, lit := p.scanIgnoreWhitespace()
+			if tok1 != IDENT {
+				return nil, newParseError(tokstr(tok1, lit), []string{"identifier"}, pos)
+			}
+			return &Distinct{Val: lit}, nil
+		}
+
+		return nil, newParseError(tokstr(tok0, lit), []string{"(", "identifier"}, pos)
 	case STRING:
 		// If literal looks like a date time then parse it as a time literal.
 		if isDateTimeString(lit) {
@@ -1869,6 +1897,7 @@ func (p *Parser) parseRegex() (*RegexLiteral, error) {
 // parseCall parses a function call.
 // This function assumes the function name and LPAREN have been consumed.
 func (p *Parser) parseCall(name string) (*Call, error) {
+	name = strings.ToLower(name)
 	// If there's a right paren then just return immediately.
 	if tok, _, _ := p.scan(); tok == RPAREN {
 		return &Call{Name: name}, nil

@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
 
 	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/influxdb/influxdb/influxql"
+	"linksmart.eu/services/historical-datastore/Godeps/_workspace/src/github.com/influxdb/influxdb/tsdb"
 )
 
 // Query is used to send a command to the server. Both Command and Database are required.
@@ -23,11 +25,13 @@ type Query struct {
 // URL: The URL of the server connecting to.
 // Username/Password are optional.  They will be passed via basic auth if provided.
 // UserAgent: If not provided, will default "InfluxDBClient",
+// Timeout: If not provided, will default to 0 (no timeout)
 type Config struct {
 	URL       url.URL
 	Username  string
 	Password  string
 	UserAgent string
+	Timeout   time.Duration
 }
 
 // Client is used to make calls to the server.
@@ -39,13 +43,20 @@ type Client struct {
 	userAgent  string
 }
 
+const (
+	ConsistencyOne    = "one"
+	ConsistencyAll    = "all"
+	ConsistencyQuorum = "quorum"
+	ConsistencyAny    = "any"
+)
+
 // NewClient will instantiate and return a connected client to issue commands to the server.
 func NewClient(c Config) (*Client, error) {
 	client := Client{
 		url:        c.URL,
 		username:   c.Username,
 		password:   c.Password,
-		httpClient: http.DefaultClient,
+		httpClient: &http.Client{Timeout: c.Timeout},
 		userAgent:  c.UserAgent,
 	}
 	if client.userAgent == "" {
@@ -111,17 +122,33 @@ func (c *Client) Query(q Query) (*Response, error) {
 func (c *Client) Write(bp BatchPoints) (*Response, error) {
 	c.url.Path = "write"
 
-	b, err := json.Marshal(&bp)
-	if err != nil {
-		return nil, err
+	var b bytes.Buffer
+	for _, p := range bp.Points {
+		if _, err := b.WriteString(p.MarshalString()); err != nil {
+			return nil, err
+		}
+
+		if err := b.WriteByte('\n'); err != nil {
+			return nil, err
+		}
 	}
 
-	req, err := http.NewRequest("POST", c.url.String(), bytes.NewBuffer(b))
+	req, err := http.NewRequest("POST", c.url.String(), &b)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "")
 	req.Header.Set("User-Agent", c.userAgent)
+	if c.username != "" {
+		req.SetBasicAuth(c.username, c.password)
+	}
+	params := req.URL.Query()
+	params.Add("db", bp.Database)
+	params.Add("rp", bp.RetentionPolicy)
+	params.Add("precision", bp.Precision)
+	params.Add("consistency", bp.WriteConsistency)
+	req.URL.RawQuery = params.Encode()
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -129,15 +156,15 @@ func (c *Client) Write(bp BatchPoints) (*Response, error) {
 	defer resp.Body.Close()
 
 	var response Response
-	dec := json.NewDecoder(resp.Body)
-	dec.UseNumber()
-	err = dec.Decode(&response)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil && err.Error() != "EOF" {
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return &response, response.Error()
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		var err = fmt.Errorf(string(body))
+		response.Err = err
+		return &response, err
 	}
 
 	return nil, nil
@@ -155,10 +182,16 @@ func (c *Client) Ping() (time.Duration, string, error) {
 		return 0, "", err
 	}
 	req.Header.Set("User-Agent", c.userAgent)
+	if c.username != "" {
+		req.SetBasicAuth(c.username, c.password)
+	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return 0, "", err
 	}
+	defer resp.Body.Close()
+
 	version := resp.Header.Get("X-Influxdb-Version")
 	return time.Since(now), version, nil
 }
@@ -170,8 +203,6 @@ func (c *Client) Dump(db string) (io.ReadCloser, error) {
 	u.Path = "dump"
 	values := u.Query()
 	values.Set("db", db)
-	values.Set("user", c.username)
-	values.Set("password", c.password)
 	u.RawQuery = values.Encode()
 
 	req, err := http.NewRequest("GET", u.String(), nil)
@@ -179,6 +210,10 @@ func (c *Client) Dump(db string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", c.userAgent)
+	if c.username != "" {
+		req.SetBasicAuth(c.username, c.password)
+	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -292,15 +327,15 @@ func (r Response) Error() error {
 }
 
 // Point defines the fields that will be written to the database
-// Name, Timestamp, and Fields are required
-// Precision can be specified if the timestamp is in epoch format (integer).
+// Measurement, Time, and Fields are required
+// Precision can be specified if the time is in epoch format (integer).
 // Valid values for Precision are n, u, ms, s, m, and h
 type Point struct {
-	Name      string
-	Tags      map[string]string
-	Timestamp time.Time
-	Fields    map[string]interface{}
-	Precision string
+	Measurement string
+	Tags        map[string]string
+	Time        time.Time
+	Fields      map[string]interface{}
+	Precision   string
 }
 
 // MarshalJSON will format the time in RFC3339Nano
@@ -308,39 +343,43 @@ type Point struct {
 // Or another way to say it is we always send back in nanosecond precision
 func (p *Point) MarshalJSON() ([]byte, error) {
 	point := struct {
-		Name      string                 `json:"name,omitempty"`
-		Tags      map[string]string      `json:"tags,omitempty"`
-		Timestamp string                 `json:"timestamp,omitempty"`
-		Fields    map[string]interface{} `json:"fields,omitempty"`
-		Precision string                 `json:"precision,omitempty"`
+		Measurement string                 `json:"measurement,omitempty"`
+		Tags        map[string]string      `json:"tags,omitempty"`
+		Time        string                 `json:"time,omitempty"`
+		Fields      map[string]interface{} `json:"fields,omitempty"`
+		Precision   string                 `json:"precision,omitempty"`
 	}{
-		Name:      p.Name,
-		Tags:      p.Tags,
-		Fields:    p.Fields,
-		Precision: p.Precision,
+		Measurement: p.Measurement,
+		Tags:        p.Tags,
+		Fields:      p.Fields,
+		Precision:   p.Precision,
 	}
 	// Let it omit empty if it's really zero
-	if !p.Timestamp.IsZero() {
-		point.Timestamp = p.Timestamp.UTC().Format(time.RFC3339Nano)
+	if !p.Time.IsZero() {
+		point.Time = p.Time.UTC().Format(time.RFC3339Nano)
 	}
 	return json.Marshal(&point)
+}
+
+func (p *Point) MarshalString() string {
+	return tsdb.NewPoint(p.Measurement, p.Tags, p.Fields, p.Time).String()
 }
 
 // UnmarshalJSON decodes the data into the Point struct
 func (p *Point) UnmarshalJSON(b []byte) error {
 	var normal struct {
-		Name      string                 `json:"name"`
-		Tags      map[string]string      `json:"tags"`
-		Timestamp time.Time              `json:"timestamp"`
-		Precision string                 `json:"precision"`
-		Fields    map[string]interface{} `json:"fields"`
+		Measurement string                 `json:"measurement"`
+		Tags        map[string]string      `json:"tags"`
+		Time        time.Time              `json:"time"`
+		Precision   string                 `json:"precision"`
+		Fields      map[string]interface{} `json:"fields"`
 	}
 	var epoch struct {
-		Name      string                 `json:"name"`
-		Tags      map[string]string      `json:"tags"`
-		Timestamp *int64                 `json:"timestamp"`
-		Precision string                 `json:"precision"`
-		Fields    map[string]interface{} `json:"fields"`
+		Measurement string                 `json:"measurement"`
+		Tags        map[string]string      `json:"tags"`
+		Time        *int64                 `json:"time"`
+		Precision   string                 `json:"precision"`
+		Fields      map[string]interface{} `json:"fields"`
 	}
 
 	if err := func() error {
@@ -350,18 +389,18 @@ func (p *Point) UnmarshalJSON(b []byte) error {
 		if err = dec.Decode(&epoch); err != nil {
 			return err
 		}
-		// Convert from epoch to time.Time, but only if Timestamp
+		// Convert from epoch to time.Time, but only if Time
 		// was actually set.
 		var ts time.Time
-		if epoch.Timestamp != nil {
-			ts, err = EpochToTime(*epoch.Timestamp, epoch.Precision)
+		if epoch.Time != nil {
+			ts, err = EpochToTime(*epoch.Time, epoch.Precision)
 			if err != nil {
 				return err
 			}
 		}
-		p.Name = epoch.Name
+		p.Measurement = epoch.Measurement
 		p.Tags = epoch.Tags
-		p.Timestamp = ts
+		p.Time = ts
 		p.Precision = epoch.Precision
 		p.Fields = normalizeFields(epoch.Fields)
 		return nil
@@ -374,10 +413,10 @@ func (p *Point) UnmarshalJSON(b []byte) error {
 	if err := dec.Decode(&normal); err != nil {
 		return err
 	}
-	normal.Timestamp = SetPrecision(normal.Timestamp, normal.Precision)
-	p.Name = normal.Name
+	normal.Time = SetPrecision(normal.Time, normal.Precision)
+	p.Measurement = normal.Measurement
 	p.Tags = normal.Tags
-	p.Timestamp = normal.Timestamp
+	p.Time = normal.Time
 	p.Precision = normal.Precision
 	p.Fields = normalizeFields(normal.Fields)
 
@@ -407,16 +446,17 @@ func normalizeFields(fields map[string]interface{}) map[string]interface{} {
 // Database and Points are required
 // If no retention policy is specified, it will use the databases default retention policy.
 // If tags are specified, they will be "merged" with all points.  If a point already has that tag, it is ignored.
-// If timestamp is specified, it will be applied to any point with an empty timestamp.
-// Precision can be specified if the timestamp is in epoch format (integer).
+// If time is specified, it will be applied to any point with an empty time.
+// Precision can be specified if the time is in epoch format (integer).
 // Valid values for Precision are n, u, ms, s, m, and h
 type BatchPoints struct {
-	Points          []Point           `json:"points,omitempty"`
-	Database        string            `json:"database,omitempty"`
-	RetentionPolicy string            `json:"retentionPolicy,omitempty"`
-	Tags            map[string]string `json:"tags,omitempty"`
-	Timestamp       time.Time         `json:"timestamp,omitempty"`
-	Precision       string            `json:"precision,omitempty"`
+	Points           []Point           `json:"points,omitempty"`
+	Database         string            `json:"database,omitempty"`
+	RetentionPolicy  string            `json:"retentionPolicy,omitempty"`
+	Tags             map[string]string `json:"tags,omitempty"`
+	Time             time.Time         `json:"time,omitempty"`
+	Precision        string            `json:"precision,omitempty"`
+	WriteConsistency string            `json:"-"`
 }
 
 // UnmarshalJSON decodes the data into the BatchPoints struct
@@ -426,7 +466,7 @@ func (bp *BatchPoints) UnmarshalJSON(b []byte) error {
 		Database        string            `json:"database"`
 		RetentionPolicy string            `json:"retentionPolicy"`
 		Tags            map[string]string `json:"tags"`
-		Timestamp       time.Time         `json:"timestamp"`
+		Time            time.Time         `json:"time"`
 		Precision       string            `json:"precision"`
 	}
 	var epoch struct {
@@ -434,7 +474,7 @@ func (bp *BatchPoints) UnmarshalJSON(b []byte) error {
 		Database        string            `json:"database"`
 		RetentionPolicy string            `json:"retentionPolicy"`
 		Tags            map[string]string `json:"tags"`
-		Timestamp       *int64            `json:"timestamp"`
+		Time            *int64            `json:"time"`
 		Precision       string            `json:"precision"`
 	}
 
@@ -445,8 +485,8 @@ func (bp *BatchPoints) UnmarshalJSON(b []byte) error {
 		}
 		// Convert from epoch to time.Time
 		var ts time.Time
-		if epoch.Timestamp != nil {
-			ts, err = EpochToTime(*epoch.Timestamp, epoch.Precision)
+		if epoch.Time != nil {
+			ts, err = EpochToTime(*epoch.Time, epoch.Precision)
 			if err != nil {
 				return err
 			}
@@ -455,7 +495,7 @@ func (bp *BatchPoints) UnmarshalJSON(b []byte) error {
 		bp.Database = epoch.Database
 		bp.RetentionPolicy = epoch.RetentionPolicy
 		bp.Tags = epoch.Tags
-		bp.Timestamp = ts
+		bp.Time = ts
 		bp.Precision = epoch.Precision
 		return nil
 	}(); err == nil {
@@ -465,12 +505,12 @@ func (bp *BatchPoints) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &normal); err != nil {
 		return err
 	}
-	normal.Timestamp = SetPrecision(normal.Timestamp, normal.Precision)
+	normal.Time = SetPrecision(normal.Time, normal.Precision)
 	bp.Points = normal.Points
 	bp.Database = normal.Database
 	bp.RetentionPolicy = normal.RetentionPolicy
 	bp.Tags = normal.Tags
-	bp.Timestamp = normal.Timestamp
+	bp.Time = normal.Time
 	bp.Precision = normal.Precision
 
 	return nil
@@ -505,7 +545,7 @@ func EpochToTime(epoch int64, precision string) (time.Time, error) {
 	case "n":
 		t = time.Unix(0, epoch)
 	default:
-		return time.Time{}, fmt.Errorf("Unknowm precision %q", precision)
+		return time.Time{}, fmt.Errorf("Unknown precision %q", precision)
 	}
 	return t, nil
 }
@@ -526,13 +566,4 @@ func SetPrecision(t time.Time, precision string) time.Time {
 		return t.Round(time.Hour)
 	}
 	return t
-}
-
-func detect(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }

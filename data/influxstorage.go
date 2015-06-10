@@ -174,11 +174,11 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 			}
 
 			pt := influx.Point{
-				Name:      msrmtBySource(sources[id]),
-				Tags:      tags,
-				Fields:    fields,
-				Timestamp: timestamp,
-				Precision: "s",
+				Measurement: msrmtBySource(sources[id]),
+				Tags:        tags,
+				Fields:      fields,
+				Time:        timestamp,
+				Precision:   "s",
 			}
 			points = append(points, pt)
 		}
