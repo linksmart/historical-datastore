@@ -181,6 +181,11 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 		}
 		sources = append(sources, ds)
 	}
+	if len(sources) == 0 {
+		common.ErrorResponse(http.StatusNotFound,
+			"None of the specified data sources could be retrieved from the registry.", w)
+		return
+	}
 
 	// no parameters - return last values
 	if len(r.Form) == 0 {
