@@ -158,6 +158,12 @@
 			"revision": "1bc0720082d79ce7ffc6ef6e523d00d46b0dee45",
 			"branch": "master",
 			"path": "/ipv6"
+		},
+		{
+			"importpath": "github.com/kylewolfe/simplexml",
+			"repository": "https://github.com/kylewolfe/simplexml",
+			"revision": "b3c9a372c5f1b4671dd5b3be71fc4f0498397ac2",
+			"branch": "master"
 		}
 	]
 }

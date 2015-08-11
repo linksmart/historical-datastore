@@ -42,8 +42,15 @@ func main() {
 	// Start the notifier
 	common.StartNotifier(ntSndRegCh, ntRcvDataCh)
 
+	err = obtainServiceToken()
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+
 	commonHandlers := alice.New(
 		context.ClearHandler,
+		authHandler,
 		loggingHandler,
 		recoverHandler,
 	)
