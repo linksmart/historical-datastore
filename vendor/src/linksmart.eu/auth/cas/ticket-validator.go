@@ -3,97 +3,73 @@ package cas
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
-	"net/url"
-	"path"
 	"strings"
 
 	simplexml "github.com/kylewolfe/simplexml"
+	auth "linksmart.eu/auth"
 )
 
 const (
-	ticketPath              = "/v1/tickets/"
 	oauthProfilePath        = "/oauth2.0/profile"
 	casProtocolValidatePath = "/p3/serviceValidate"
 )
 
-type CasAuth struct {
-	conf Config
+type TicketValidator struct {
+	auth.AuthServer
+	serviceID string
 }
 
-// Formats error messages
-func fErr(err error) error {
-	return fmt.Errorf("CAS Error: %s", err.Error())
+// Service Ticket (Token) Validator
+func NewTicketValidator(serverAddr, serviceID string) auth.TicketValidator {
+	var v TicketValidator
+	v.ServerAddr = serverAddr
+	v.serviceID = serviceID
+	return &v
 }
 
-func SetupCasAuth(confPath *string) (*CasAuth, error) {
-	var ca CasAuth
-	err := ca.loadConfig(confPath)
-	if err != nil {
-		return nil, fErr(err)
+// HTTP Handler for service token validation
+func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		X_auth_token := r.Header.Get("X_auth_token")
+
+		if X_auth_token == "" {
+			log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), "X_auth_token not specified.")
+			errorResponse(http.StatusUnauthorized, "X_auth_token entity header not specified.", w)
+			return
+		}
+
+		// Validate Token
+		valid, body, err := v.ValidateServiceToken(v.serviceID, X_auth_token)
+		if err != nil {
+			log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), "Auth. server error: "+err.Error())
+			errorResponse(http.StatusInternalServerError, "Authorization server error: "+err.Error(), w)
+			return
+		}
+		if !valid {
+			if _, ok := body["error"]; ok {
+				log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), body["error"])
+				errorResponse(http.StatusUnauthorized, "Unauthorized request: "+body["error"].(string), w)
+				return
+			}
+			errorResponse(http.StatusUnauthorized, "Unauthorized request.", w)
+			return
+		}
+
+		// Valid token, proceed to next handler
+		next.ServeHTTP(w, r)
 	}
-
-	return &ca, nil
-}
-
-// Request Ticker Granting Ticket (TGT) from CAS Server
-func (ca *CasAuth) RequestTicketGrantingTicket() (string, error) {
-	fmt.Println("CAS: Getting TGT...")
-	res, err := http.PostForm(ca.conf.CasServer+ticketPath, url.Values{
-		"username": {ca.conf.Username},
-		"password": {ca.conf.Password},
-	})
-	if err != nil {
-		return "", fErr(err)
-	}
-	fmt.Println("CAS:", res.Status)
-
-	// Check for credentials
-	if res.StatusCode != http.StatusCreated {
-		return "", fErr(fmt.Errorf("Unable to obtain TGT for user `%s`.", ca.conf.Username))
-	}
-
-	locationHeader, err := res.Location()
-	if err != nil {
-		return "", fErr(err)
-	}
-
-	return path.Base(locationHeader.Path), nil
-}
-
-// Request Service Token from CAS Server
-func (ca *CasAuth) RequestServiceToken(TGT, serviceID string) (string, error) {
-	fmt.Println("CAS: Getting Service Token...")
-	res, err := http.PostForm(ca.conf.CasServer+ticketPath+TGT, url.Values{
-		"service": {serviceID},
-	})
-	if err != nil {
-		return "", fErr(err)
-	}
-	fmt.Println("CAS:", res.Status)
-
-	body, err := ioutil.ReadAll(res.Body)
-	defer res.Body.Close()
-	if err != nil {
-		return "", fErr(err)
-	}
-	res.Body.Close()
-
-	// Check for TGT errors
-	if res.StatusCode != http.StatusOK {
-		return "", fErr(fmt.Errorf(string(body)))
-	}
-
-	return string(body), nil
+	return http.HandlerFunc(fn)
 }
 
 // Validate Service Token (CAS Protocol)
-func (ca *CasAuth) ValidateServiceToken(serviceID, serviceToken string) (bool, map[string]interface{}, error) {
+func (v *TicketValidator) ValidateServiceToken(serviceID, serviceToken string) (bool, map[string]interface{}, error) {
 	fmt.Println("CAS: Validating Service Token...")
 
 	bodyMap := make(map[string]interface{})
 	res, err := http.Get(fmt.Sprintf("%s%s?service=%s&ticket=%s",
-		ca.conf.CasServer, casProtocolValidatePath, serviceID, serviceToken))
+		v.ServerAddr, casProtocolValidatePath, serviceID, serviceToken))
 	if err != nil {
 		return false, bodyMap, fErr(err)
 	}
@@ -133,7 +109,7 @@ func (ca *CasAuth) ValidateServiceToken(serviceID, serviceToken string) (bool, m
 		if err != nil {
 			return false, bodyMap, fErr(fmt.Errorf("Unexpected error. No error message."))
 		}
-		bodyMap["error"] = errMsg
+		bodyMap["error"] = strings.TrimSpace(errMsg)
 		return false, bodyMap, nil
 	}
 	// Token is valid
@@ -196,24 +172,3 @@ func (ca *CasAuth) ValidateServiceToken(serviceID, serviceToken string) (bool, m
 //	// Valid token + attributes
 //	return true, bodyMap, nil
 //}
-
-// Expire the Ticket Granting Ticket
-func (ca *CasAuth) Logout(TGT string) error {
-	fmt.Println("CAS: Destroying TGT... ")
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s%s%s", ca.conf.CasServer, ticketPath, TGT), nil)
-	if err != nil {
-		return fErr(err)
-	}
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fErr(err)
-	}
-	fmt.Println("CAS:", res.Status)
-
-	// Check for server errors
-	if res.StatusCode != http.StatusOK {
-		return fErr(fmt.Errorf(res.Status))
-	}
-
-	return nil
-}

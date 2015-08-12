@@ -13,6 +13,8 @@ import (
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/data"
 	"linksmart.eu/services/historical-datastore/registry"
+
+	cas "linksmart.eu/auth/cas"
 )
 
 var confPath = flag.String("conf", "historical-datastore.json", "Historical Datastore configuration file path")
@@ -42,15 +44,14 @@ func main() {
 	// Start the notifier
 	common.StartNotifier(ntSndRegCh, ntRcvDataCh)
 
-	err = obtainServiceToken()
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+	tv := cas.NewTicketValidator(conf.AuthServer.ServerAddr, "testServiceID")
+	if conf.AuthServer.Enabled {
+
 	}
 
 	commonHandlers := alice.New(
 		context.ClearHandler,
-		authHandler,
+		tv.ValidateServiceTokenHandler,
 		loggingHandler,
 		recoverHandler,
 	)

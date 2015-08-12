@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
+	"strings"
 )
 
 // Supported Data backend types
@@ -24,6 +25,8 @@ type Config struct {
 	Aggr AggrConf `json:"aggregation"`
 	// Service Catalogs Registration Config
 	ServiceCatalogs []ServiceCatalogConf `json:"serviceCatalogs"`
+	// Authentication Server Config
+	AuthServer AuthServerConf `json:"authServer"`
 }
 
 // HTTP config
@@ -55,6 +58,12 @@ type ServiceCatalogConf struct {
 	Discover bool   `json:"discover"`
 	Endpoint string `json:"endpoint"`
 	TTL      uint   `json:"ttl"`
+}
+
+// Authentication Server Config
+type AuthServerConf struct {
+	Enabled    bool   `json:"enabled"`
+	ServerAddr string `json:"serverAddr"`
 }
 
 // Load API configuration from config file
@@ -101,6 +110,18 @@ func loadConfig(confPath *string) (*Config, error) {
 		}
 		if cat.TTL <= 0 {
 			return nil, errors.New("All ServiceCatalog entries must have TTL >= 0")
+		}
+	}
+
+	// VALIDATE AUTHENTICATION SERVER CONFIG
+	if conf.AuthServer.Enabled == true {
+		if conf.AuthServer.ServerAddr == "" {
+			return nil, errors.New("Authentication server address (ServerAddr) is not specified.")
+		}
+		conf.AuthServer.ServerAddr = strings.TrimSuffix(conf.AuthServer.ServerAddr, "/")
+		_, err = url.Parse(conf.AuthServer.ServerAddr)
+		if err != nil {
+			return nil, errors.New("Invalid authentication server address (ServerAddr): " + err.Error())
 		}
 	}
 
