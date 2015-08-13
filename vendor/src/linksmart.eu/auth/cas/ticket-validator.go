@@ -17,29 +17,24 @@ const (
 )
 
 type TicketValidator struct {
-	auth.AuthServer
-	serviceID     string
-	serverEnabled bool
+	conf *auth.Config
 }
 
 // Service Ticket (Token) Validator
-func NewTicketValidator(serverAddr, serviceID string, serverEnabled bool) auth.TicketValidator {
+func NewTicketValidator(confPath *string) (auth.TicketValidator, error) {
 	var v TicketValidator
-	v.ServerAddr = serverAddr
-	v.serviceID = serviceID
-	v.serverEnabled = serverEnabled
-	return &v
+	var err error
+	v.conf, err = auth.LoadConfigFile(confPath)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(v.conf)
+	return &v, nil
 }
 
 // HTTP Handler for service token validation
 func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		// Authentication is not enabled
-		if !v.serverEnabled {
-			next.ServeHTTP(w, r)
-			return
-		}
-
 		X_auth_token := r.Header.Get("X_auth_token")
 
 		if X_auth_token == "" {
@@ -49,7 +44,7 @@ func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Ha
 		}
 
 		// Validate Token
-		valid, body, err := v.ValidateServiceToken(v.serviceID, X_auth_token)
+		valid, body, err := v.ValidateServiceToken(X_auth_token)
 		if err != nil {
 			log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), "Auth. server error: "+err.Error())
 			errorResponse(http.StatusInternalServerError, "Authorization server error: "+err.Error(), w)
@@ -58,12 +53,21 @@ func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Ha
 		if !valid {
 			if _, ok := body["error"]; ok {
 				log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), body["error"])
-				errorResponse(http.StatusUnauthorized, "Unauthorized request: "+body["error"].(string), w)
+				errorResponse(http.StatusUnauthorized, "Unauthorized request: "+body["error"], w)
 				return
 			}
 			errorResponse(http.StatusUnauthorized, "Unauthorized request.", w)
 			return
 		}
+
+		// Check Authorization rules
+		authorized := v.conf.IsAuthorized(r.URL.Path, r.Method, body["user"], "")
+		if !authorized {
+			log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), "Access denied for user/group.")
+			errorResponse(http.StatusUnauthorized, "Access denied for user/group.", w)
+			return
+		}
+		fmt.Println("IsAuthorized", authorized)
 
 		// Valid token, proceed to next handler
 		next.ServeHTTP(w, r)
@@ -72,12 +76,12 @@ func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Ha
 }
 
 // Validate Service Token (CAS Protocol)
-func (v *TicketValidator) ValidateServiceToken(serviceID, serviceToken string) (bool, map[string]interface{}, error) {
+func (v *TicketValidator) ValidateServiceToken(serviceToken string) (bool, map[string]string, error) {
 	fmt.Println("CAS: Validating Service Token...")
 
-	bodyMap := make(map[string]interface{})
+	bodyMap := make(map[string]string)
 	res, err := http.Get(fmt.Sprintf("%s%s?service=%s&ticket=%s",
-		v.ServerAddr, casProtocolValidatePath, serviceID, serviceToken))
+		v.conf.ServerAddr, casProtocolValidatePath, v.conf.ServiceID, serviceToken))
 	if err != nil {
 		return false, bodyMap, fErr(err)
 	}
@@ -101,11 +105,13 @@ func (v *TicketValidator) ValidateServiceToken(serviceID, serviceToken string) (
 	if err != nil {
 		return false, bodyMap, fErr(fmt.Errorf("Unexpected error while validating service token."))
 	}
+	//fmt.Println(string(body))
 
 	// StatusCode is 200 for all responses (valid, expired, missing)
 	// Check if response contains authenticationSuccess tag
 	success := doc.Root().Search().ByName("authenticationSuccess").One()
 	// There is no authenticationSuccess tag
+	// Token is invalid or there are response errors
 	if success == nil {
 		// Check if response contains authenticationFailure tag
 		failure := doc.Root().Search().ByName("authenticationFailure").One()
@@ -120,16 +126,20 @@ func (v *TicketValidator) ValidateServiceToken(serviceID, serviceToken string) (
 		bodyMap["error"] = strings.TrimSpace(errMsg)
 		return false, bodyMap, nil
 	}
+
 	// Token is valid
 	fmt.Println("CAS: Token was valid.")
 	// Extract username
 	userTag := doc.Root().Search().ByName("authenticationSuccess").ByName("user").One()
-	if userTag != nil {
-		user, err := userTag.Value()
-		if err == nil {
-			bodyMap["username"] = user
-		}
+	if userTag == nil {
+		return false, bodyMap, fErr(fmt.Errorf("Could not find `user` from validation response."))
 	}
+	user, err := userTag.Value()
+	if err != nil {
+		return false, bodyMap, fErr(fmt.Errorf("Could not get value of `user` from validation response."))
+	}
+	bodyMap["user"] = user
+
 	// Valid token + attributes
 	return true, bodyMap, nil
 }

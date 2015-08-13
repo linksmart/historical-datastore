@@ -18,6 +18,7 @@ import (
 )
 
 var confPath = flag.String("conf", "historical-datastore.json", "Historical Datastore configuration file path")
+var authConfPath = flag.String("auth_conf", "auth.json", "Auth configuration file path")
 
 func main() {
 	flag.Parse()
@@ -44,18 +45,26 @@ func main() {
 	// Start the notifier
 	common.StartNotifier(ntSndRegCh, ntRcvDataCh)
 
-	tv := cas.NewTicketValidator(
-		conf.AuthServer.ServerAddr,
-		"testServiceID",
-		conf.AuthServer.Enabled,
-	)
-
-	commonHandlers := alice.New(
-		context.ClearHandler,
-		tv.ValidateServiceTokenHandler,
-		loggingHandler,
-		recoverHandler,
-	)
+	var commonHandlers alice.Chain
+	if conf.AuthServer.Enabled {
+		tv, err := cas.NewTicketValidator(authConfPath)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+		commonHandlers = alice.New(
+			context.ClearHandler,
+			tv.ValidateServiceTokenHandler,
+			loggingHandler,
+			recoverHandler,
+		)
+	} else {
+		commonHandlers = alice.New(
+			context.ClearHandler,
+			loggingHandler,
+			recoverHandler,
+		)
+	}
 
 	// http api
 	router := newRouter()
