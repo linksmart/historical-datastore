@@ -18,20 +18,28 @@ const (
 
 type TicketValidator struct {
 	auth.AuthServer
-	serviceID string
+	serviceID     string
+	serverEnabled bool
 }
 
 // Service Ticket (Token) Validator
-func NewTicketValidator(serverAddr, serviceID string) auth.TicketValidator {
+func NewTicketValidator(serverAddr, serviceID string, serverEnabled bool) auth.TicketValidator {
 	var v TicketValidator
 	v.ServerAddr = serverAddr
 	v.serviceID = serviceID
+	v.serverEnabled = serverEnabled
 	return &v
 }
 
 // HTTP Handler for service token validation
 func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
+		// Authentication is not enabled
+		if !v.serverEnabled {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		X_auth_token := r.Header.Get("X_auth_token")
 
 		if X_auth_token == "" {

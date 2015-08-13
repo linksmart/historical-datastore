@@ -44,10 +44,11 @@ func main() {
 	// Start the notifier
 	common.StartNotifier(ntSndRegCh, ntRcvDataCh)
 
-	tv := cas.NewTicketValidator(conf.AuthServer.ServerAddr, "testServiceID")
-	if conf.AuthServer.Enabled {
-
-	}
+	tv := cas.NewTicketValidator(
+		conf.AuthServer.ServerAddr,
+		"testServiceID",
+		conf.AuthServer.Enabled,
+	)
 
 	commonHandlers := alice.New(
 		context.ClearHandler,
