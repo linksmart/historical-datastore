@@ -46,7 +46,7 @@ func main() {
 	common.StartNotifier(ntSndRegCh, ntRcvDataCh)
 
 	var commonHandlers alice.Chain
-	if conf.AuthServer.Enabled {
+	if conf.EnableAuth {
 		tv, err := cas.NewTicketValidator(authConfPath)
 		if err != nil {
 			fmt.Println(err.Error())

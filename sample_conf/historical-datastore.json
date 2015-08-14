@@ -19,8 +19,5 @@
             "ttl": 120
         }
     ],
-    "authServer": {
-        "enabled": true,
-        "serverAddr": "http://gando:8070/cas"
-    }
+    "enableAuth": true
 }

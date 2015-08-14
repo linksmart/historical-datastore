@@ -20,9 +20,7 @@ type TicketObtainer struct {
 
 // Service Ticket (Token) Validator
 func NewTicketObtainer(serverAddr string) auth.TicketObtainer {
-	var o TicketObtainer
-	o.serverAddr = serverAddr
-	return &o
+	return &TicketObtainer{serverAddr}
 }
 
 // Request Ticker Granting Ticket (TGT) from CAS Server

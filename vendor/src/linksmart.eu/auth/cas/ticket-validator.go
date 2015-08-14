@@ -17,19 +17,16 @@ const (
 )
 
 type TicketValidator struct {
-	conf *auth.Config
+	*auth.TicketValidatorConf
 }
 
 // Service Ticket (Token) Validator
 func NewTicketValidator(confPath *string) (auth.TicketValidator, error) {
-	var v TicketValidator
-	var err error
-	v.conf, err = auth.LoadConfigFile(confPath)
+	conf, err := auth.LoadTicketValidatorConf(confPath)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(v.conf)
-	return &v, nil
+	return &TicketValidator{conf}, nil
 }
 
 // HTTP Handler for service token validation
@@ -60,14 +57,13 @@ func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Ha
 			return
 		}
 
-		// Check Authorization rules
-		authorized := v.conf.IsAuthorized(r.URL.Path, r.Method, body["user"], "")
+		// Check if user matches authorization rules
+		authorized := v.IsAuthorized(r.URL.Path, r.Method, body["user"], "")
 		if !authorized {
-			log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), "Access denied for user/group.")
-			errorResponse(http.StatusUnauthorized, "Access denied for user/group.", w)
+			log.Printf("[%s] %q %s `%s`\n", r.Method, r.URL.String(), "Access denied for", body["user"])
+			errorResponse(http.StatusUnauthorized, fmt.Sprintf("Access denied for `%s`", body["user"]), w)
 			return
 		}
-		fmt.Println("IsAuthorized", authorized)
 
 		// Valid token, proceed to next handler
 		next.ServeHTTP(w, r)
@@ -81,7 +77,7 @@ func (v *TicketValidator) ValidateServiceToken(serviceToken string) (bool, map[s
 
 	bodyMap := make(map[string]string)
 	res, err := http.Get(fmt.Sprintf("%s%s?service=%s&ticket=%s",
-		v.conf.ServerAddr, casProtocolValidatePath, v.conf.ServiceID, serviceToken))
+		v.ServerAddr, casProtocolValidatePath, v.ServiceID, serviceToken))
 	if err != nil {
 		return false, bodyMap, fErr(err)
 	}
