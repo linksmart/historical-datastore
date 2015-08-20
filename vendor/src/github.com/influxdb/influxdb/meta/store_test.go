@@ -361,7 +361,7 @@ func TestStore_UpdateRetentionPolicy(t *testing.T) {
 	} else if !reflect.DeepEqual(rpi, &meta.RetentionPolicyInfo{
 		Name:               "rp1",
 		Duration:           10 * time.Hour,
-		ShardGroupDuration: 7 * 24 * time.Hour,
+		ShardGroupDuration: 1 * time.Hour,
 		ReplicaN:           1,
 	}) {
 		t.Fatalf("unexpected policy: %#v", rpi)
@@ -735,6 +735,7 @@ func TestStore_Snapshot_And_Restore(t *testing.T) {
 
 	s := MustOpenStore()
 	s.LeaveFiles = true
+	addr := s.RemoteAddr.String()
 
 	// Create a bunch of databases in the Store
 	nDatabases := 5
@@ -749,12 +750,12 @@ func TestStore_Snapshot_And_Restore(t *testing.T) {
 
 	s.Close()
 
+	// Allow the kernel to free up the port so we can re-use it again
+	time.Sleep(100 * time.Millisecond)
+
 	// Test restoring the snapshot taken above.
 	existingDataPath := s.Path()
-	s = NewStore(NewConfig(existingDataPath))
-	if err := s.Open(); err != nil {
-		panic(err)
-	}
+	s = MustOpenStoreWithPath(addr, existingDataPath)
 	defer s.Close()
 
 	// Wait until the server is ready.
@@ -934,6 +935,7 @@ func (s *Store) Open() error {
 	}
 	s.Addr = ln.Addr()
 	s.Listener = ln
+	s.RemoteAddr = s.Addr
 
 	// Wrap listener in a muxer.
 	mux := tcp.NewMux()
@@ -979,29 +981,15 @@ func NewConfig(path string) *meta.Config {
 type Cluster struct {
 	path   string
 	Stores []*Store
+	n      int
 }
 
 // NewCluster returns a cluster of n stores within path.
 func NewCluster(path string, n int) *Cluster {
-	c := &Cluster{path: path}
-
-	peers := []string{}
-	if n > 1 {
-		// Construct a list of temporary peers.
-		peers := make([]string, n)
-		for i := range peers {
-			peers[i] = "127.0.0.1:0"
-		}
-	}
-
-	// Create new stores with temporary peers.
-	for i := 0; i < n; i++ {
-		config := NewConfig(filepath.Join(path, strconv.Itoa(i)))
-		config.Peers = peers
-		s := NewStore(config)
-		c.Stores = append(c.Stores, s)
-	}
-
+	c := &Cluster{path: path, n: n}
+	config := NewConfig(filepath.Join(path, strconv.Itoa(0)))
+	s := NewStore(config)
+	c.Stores = append(c.Stores, s)
 	return c
 }
 
@@ -1043,19 +1031,14 @@ func (c *Cluster) Join() error {
 // Open opens and initializes all stores in the cluster.
 func (c *Cluster) Open() error {
 	if err := func() error {
-		// Open each store and add to peer list.
-		peers := make([]string, len(c.Stores))
-		for i, s := range c.Stores {
-			if err := s.Open(); err != nil {
-				return fmt.Errorf("open test store #%d: %s", i, err)
-			}
-			peers[i] = s.Addr.String()
+
+		if err := c.Stores[0].Open(); err != nil {
+			return err
 		}
 
-		// Reset peers on all stores.
-		for _, s := range c.Stores {
-			if err := s.SetPeers(peers); err != nil {
-				return fmt.Errorf("set peers: %s", err)
+		for i := 1; i < c.n; i++ {
+			if err := c.Join(); err != nil {
+				panic(fmt.Sprintf("failed to add new cluster node: %v", err))
 			}
 		}
 

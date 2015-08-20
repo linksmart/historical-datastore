@@ -45,25 +45,21 @@ func main() {
 	// Start the notifier
 	common.StartNotifier(ntSndRegCh, ntRcvDataCh)
 
-	var commonHandlers alice.Chain
+	commonHandlers := alice.New(
+		context.ClearHandler,
+		loggingHandler,
+		recoverHandler,
+	)
+
+	// Append auth handler if enabled
+	fmt.Println(conf.EnableAuth)
 	if conf.EnableAuth {
 		tv, err := cas.NewTicketValidator(authConfPath)
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)
 		}
-		commonHandlers = alice.New(
-			context.ClearHandler,
-			tv.ValidateServiceTokenHandler,
-			loggingHandler,
-			recoverHandler,
-		)
-	} else {
-		commonHandlers = alice.New(
-			context.ClearHandler,
-			loggingHandler,
-			recoverHandler,
-		)
+		commonHandlers = commonHandlers.Append(tv.ValidateServiceTokenHandler)
 	}
 
 	// http api

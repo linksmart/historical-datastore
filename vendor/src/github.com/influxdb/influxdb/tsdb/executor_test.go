@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -289,6 +290,10 @@ func TestWritePointsAndExecuteTwoShardsQueryRewrite(t *testing.T) {
 	}{
 		{
 			stmt:     `SELECT * FROM cpu`,
+			expected: `[{"name":"cpu","columns":["time","host","value1","value2"],"values":[["1970-01-01T00:00:01Z","serverA",100,null],["1970-01-01T00:00:02Z","serverB",null,200]]}]`,
+		},
+		{
+			stmt:     `SELECT * FROM cpu GROUP BY *`,
 			expected: `[{"name":"cpu","tags":{"host":"serverA"},"columns":["time","value1","value2"],"values":[["1970-01-01T00:00:01Z",100,null]]},{"name":"cpu","tags":{"host":"serverB"},"columns":["time","value1","value2"],"values":[["1970-01-01T00:00:02Z",null,200]]}]`,
 		},
 	}
@@ -579,7 +584,7 @@ func TestProcessAggregateDerivative(t *testing.T) {
 			},
 		},
 		{
-			name:     "float derivatives",
+			name:     "integer derivatives",
 			fn:       "derivative",
 			interval: 24 * time.Hour,
 			in: [][]interface{}{
@@ -605,6 +610,30 @@ func TestProcessAggregateDerivative(t *testing.T) {
 				},
 				[]interface{}{
 					time.Unix(0, 0).Add(72 * time.Hour), 4.0,
+				},
+			},
+		},
+		{
+			name:     "string derivatives",
+			fn:       "derivative",
+			interval: 24 * time.Hour,
+			in: [][]interface{}{
+				[]interface{}{
+					time.Unix(0, 0), "1.0",
+				},
+				[]interface{}{
+					time.Unix(0, 0).Add(24 * time.Hour), "2.0",
+				},
+				[]interface{}{
+					time.Unix(0, 0).Add(48 * time.Hour), "3.0",
+				},
+				[]interface{}{
+					time.Unix(0, 0).Add(72 * time.Hour), "4.0",
+				},
+			},
+			exp: [][]interface{}{
+				[]interface{}{
+					time.Unix(0, 0), 0.0,
 				},
 			},
 		},
@@ -680,6 +709,43 @@ func TestProcessRawQueryDerivative(t *testing.T) {
 				{
 					Time:  time.Unix(0, 0).Add(72 * time.Hour).UnixNano(),
 					Value: 9.0,
+				},
+			},
+			exp: []*tsdb.MapperValue{
+				{
+					Time:  time.Unix(0, 0).Add(24 * time.Hour).UnixNano(),
+					Value: 3.0,
+				},
+				{
+					Time:  time.Unix(0, 0).Add(48 * time.Hour).UnixNano(),
+					Value: 2.0,
+				},
+				{
+					Time:  time.Unix(0, 0).Add(72 * time.Hour).UnixNano(),
+					Value: 4.0,
+				},
+			},
+		},
+		{
+			name:     "integer derivative",
+			fn:       "derivative",
+			interval: 24 * time.Hour,
+			in: []*tsdb.MapperValue{
+				{
+					Time:  time.Unix(0, 0).Unix(),
+					Value: int64(0),
+				},
+				{
+					Time:  time.Unix(0, 0).Add(24 * time.Hour).UnixNano(),
+					Value: int64(3),
+				},
+				{
+					Time:  time.Unix(0, 0).Add(48 * time.Hour).UnixNano(),
+					Value: int64(5),
+				},
+				{
+					Time:  time.Unix(0, 0).Add(72 * time.Hour).UnixNano(),
+					Value: int64(9),
 				},
 			},
 			exp: []*tsdb.MapperValue{
@@ -806,6 +872,35 @@ func TestProcessRawQueryDerivative(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:     "string derivatives",
+			fn:       "derivative",
+			interval: 24 * time.Hour,
+			in: []*tsdb.MapperValue{
+				{
+					Time:  time.Unix(0, 0).Unix(),
+					Value: "1.0",
+				},
+				{
+					Time:  time.Unix(0, 0).Add(24 * time.Hour).UnixNano(),
+					Value: "2.0",
+				},
+				{
+					Time:  time.Unix(0, 0).Add(48 * time.Hour).UnixNano(),
+					Value: "3.0",
+				},
+				{
+					Time:  time.Unix(0, 0).Add(72 * time.Hour).UnixNano(),
+					Value: "4.0",
+				},
+			},
+			exp: []*tsdb.MapperValue{
+				{
+					Time:  time.Unix(0, 0).Unix(),
+					Value: 0.0,
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -853,6 +948,8 @@ func testStore() *tsdb.Store {
 	path, _ := ioutil.TempDir("", "")
 
 	store := tsdb.NewStore(path)
+
+	store.EngineOptions.Config.WALDir = filepath.Join(path, "wal")
 	err := store.Open()
 	if err != nil {
 		panic(err)

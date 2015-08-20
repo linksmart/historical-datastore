@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
-	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -39,6 +39,8 @@ type raftState interface {
 // localRaft is a consensus strategy that uses a local raft implementation for
 // consensus operations.
 type localRaft struct {
+	wg        sync.WaitGroup
+	closing   chan struct{}
 	store     *Store
 	raft      *raft.Raft
 	transport *raft.NetworkTransport
@@ -95,26 +97,61 @@ func (r *localRaft) invalidate() error {
 }
 
 func (r *localRaft) open() error {
+	r.closing = make(chan struct{})
+
 	s := r.store
 	// Setup raft configuration.
 	config := raft.DefaultConfig()
-	config.Logger = s.Logger
+	config.LogOutput = ioutil.Discard
+
+	if s.clusterTracingEnabled {
+		config.Logger = s.Logger
+	}
 	config.HeartbeatTimeout = s.HeartbeatTimeout
 	config.ElectionTimeout = s.ElectionTimeout
 	config.LeaderLeaseTimeout = s.LeaderLeaseTimeout
 	config.CommitTimeout = s.CommitTimeout
 
 	// If no peers are set in the config or there is one and we are it, then start as a single server.
-	config.EnableSingleNode = (len(s.peers) == 0) || len(s.peers) == 1 && raft.PeerContained(s.peers, s.Addr.String())
+	if len(s.peers) <= 1 {
+		config.EnableSingleNode = true
+		// Ensure we can always become the leader
+		config.DisableBootstrapAfterElect = false
+		// Don't shutdown raft automatically if we renamed our hostname back to a previous name
+		config.ShutdownOnRemove = false
+	}
 
 	// Build raft layer to multiplex listener.
-	r.raftLayer = newRaftLayer(s.RaftListener, s.Addr)
+	r.raftLayer = newRaftLayer(s.RaftListener, s.RemoteAddr)
 
 	// Create a transport layer
-	r.transport = raft.NewNetworkTransport(r.raftLayer, 3, 10*time.Second, os.Stderr)
+	r.transport = raft.NewNetworkTransport(r.raftLayer, 3, 10*time.Second, config.LogOutput)
 
 	// Create peer storage.
 	r.peerStore = raft.NewJSONPeers(s.path, r.transport)
+
+	peers, err := r.peerStore.Peers()
+	if err != nil {
+		return err
+	}
+
+	// For single-node clusters, we can update the raft peers before we start the cluster if the hostname
+	// has changed.
+	if config.EnableSingleNode {
+		if err := r.peerStore.SetPeers([]string{s.RemoteAddr.String()}); err != nil {
+			return err
+		}
+		peers = []string{s.RemoteAddr.String()}
+	}
+
+	// If we have multiple nodes in the cluster, make sure our address is in the raft peers or
+	// we won't be able to boot into the cluster because the other peers will reject our new hostname.  This
+	// is difficult to resolve automatically because we need to have all the raft peers agree on the current members
+	// of the cluster before we can change them.
+	if len(peers) > 0 && !raft.PeerContained(peers, s.RemoteAddr.String()) {
+		s.Logger.Printf("%v is not in the list of raft peers. Please update %v/peers.json on all raft nodes to have the same contents.", s.RemoteAddr.String(), s.Path())
+		return fmt.Errorf("peers out of sync: %v not in %v", s.RemoteAddr.String(), peers)
+	}
 
 	// Create the log store and stable store.
 	store, err := raftboltdb.NewBoltStore(filepath.Join(s.path, "raft.db"))
@@ -136,19 +173,52 @@ func (r *localRaft) open() error {
 	}
 	r.raft = ra
 
+	r.wg.Add(1)
+	go r.logLeaderChanges()
+
 	return nil
 }
 
-func (r *localRaft) close() error {
-	// Shutdown raft.
-	if r.raft != nil {
-		r.raft.Shutdown()
-		r.raft = nil
+func (r *localRaft) logLeaderChanges() {
+	defer r.wg.Done()
+	// Logs our current state (Node at 1.2.3.4:8088 [Follower])
+	r.store.Logger.Printf(r.raft.String())
+	for {
+		select {
+		case <-r.closing:
+			return
+		case <-r.raft.LeaderCh():
+			peers, err := r.peers()
+			if err != nil {
+				r.store.Logger.Printf("failed to lookup peers: %v", err)
+			}
+			r.store.Logger.Printf("%v. peers=%v", r.raft.String(), peers)
+		}
 	}
+}
+
+func (r *localRaft) close() error {
+	close(r.closing)
+	r.wg.Wait()
+
 	if r.transport != nil {
 		r.transport.Close()
 		r.transport = nil
 	}
+
+	if r.raftLayer != nil {
+		r.raftLayer.Close()
+		r.raftLayer = nil
+	}
+
+	// Shutdown raft.
+	if r.raft != nil {
+		if err := r.raft.Shutdown().Error(); err != nil {
+			return err
+		}
+		r.raft = nil
+	}
+
 	if r.raftStore != nil {
 		r.raftStore.Close()
 		r.raftStore = nil
@@ -248,15 +318,7 @@ func (r *localRaft) addPeer(addr string) error {
 
 // setPeers sets a list of peers in the cluster.
 func (r *localRaft) setPeers(addrs []string) error {
-	a := make([]string, len(addrs))
-	for i, s := range addrs {
-		addr, err := net.ResolveTCPAddr("tcp", s)
-		if err != nil {
-			return fmt.Errorf("cannot resolve addr: %s, err=%s", s, err)
-		}
-		a[i] = addr.String()
-	}
-	return r.raft.SetPeers(a).Error()
+	return r.raft.SetPeers(addrs).Error()
 }
 
 func (r *localRaft) peers() ([]string, error) {

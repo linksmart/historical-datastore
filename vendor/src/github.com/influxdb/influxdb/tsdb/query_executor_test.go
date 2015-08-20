@@ -41,23 +41,74 @@ func TestWritePointsAndExecuteQuery(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	got := executeAndGetJSON("select * from cpu", executor)
-	exepected := `[{"series":[{"name":"cpu","tags":{"host":"server"},"columns":["time","value"],"values":[["1970-01-01T00:00:01.000000002Z",1],["1970-01-01T00:00:02.000000003Z",1]]}]}]`
+	got := executeAndGetJSON("SELECT * FROM cpu", executor)
+	exepected := `[{"series":[{"name":"cpu","columns":["time","host","value"],"values":[["1970-01-01T00:00:01.000000002Z","server",1],["1970-01-01T00:00:02.000000003Z","server",1]]}]}]`
 	if exepected != got {
-		t.Fatalf("exp: %s\ngot: %s", exepected, got)
+		t.Fatalf("\nexp: %s\ngot: %s", exepected, got)
+	}
+
+	got = executeAndGetJSON("SELECT * FROM cpu GROUP BY *", executor)
+	exepected = `[{"series":[{"name":"cpu","tags":{"host":"server"},"columns":["time","value"],"values":[["1970-01-01T00:00:01.000000002Z",1],["1970-01-01T00:00:02.000000003Z",1]]}]}]`
+	if exepected != got {
+		t.Fatalf("\nexp: %s\ngot: %s", exepected, got)
 	}
 
 	store.Close()
+	conf := store.EngineOptions.Config
 	store = tsdb.NewStore(store.Path())
+	store.EngineOptions.Config = conf
 	if err := store.Open(); err != nil {
 		t.Fatalf(err.Error())
 	}
 	executor.Store = store
 	executor.ShardMapper = &testShardMapper{store: store}
 
-	got = executeAndGetJSON("select * from cpu", executor)
+	got = executeAndGetJSON("SELECT * FROM cpu GROUP BY *", executor)
 	if exepected != got {
-		t.Fatalf("exp: %s\ngot: %s", exepected, got)
+		t.Fatalf("\nexp: %s\ngot: %s", exepected, got)
+	}
+}
+
+// Ensure writing a point and updating it results in only a single point.
+func TestWritePointsAndExecuteQuery_Update(t *testing.T) {
+	store, executor := testStoreAndExecutor()
+	defer os.RemoveAll(store.Path())
+
+	// Write original point.
+	if err := store.WriteToShard(1, []tsdb.Point{tsdb.NewPoint(
+		"temperature",
+		map[string]string{},
+		map[string]interface{}{"value": 100.0},
+		time.Unix(0, 0),
+	)}); err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	// Restart store.
+	store.Close()
+	conf := store.EngineOptions.Config
+	store = tsdb.NewStore(store.Path())
+	store.EngineOptions.Config = conf
+	if err := store.Open(); err != nil {
+		t.Fatalf(err.Error())
+	}
+	executor.Store = store
+	executor.ShardMapper = &testShardMapper{store: store}
+
+	// Rewrite point with new value.
+	if err := store.WriteToShard(1, []tsdb.Point{tsdb.NewPoint(
+		"temperature",
+		map[string]string{},
+		map[string]interface{}{"value": 200.0},
+		time.Unix(0, 0),
+	)}); err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	got := executeAndGetJSON("select * from temperature", executor)
+	exp := `[{"series":[{"name":"temperature","columns":["time","value"],"values":[["1970-01-01T00:00:00Z",200]]}]}]`
+	if exp != got {
+		t.Fatalf("\n\nexp: %s\ngot: %s", exp, got)
 	}
 }
 
@@ -77,7 +128,7 @@ func TestDropSeriesStatement(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	got := executeAndGetJSON("select * from cpu", executor)
+	got := executeAndGetJSON("SELECT * FROM cpu GROUP BY *", executor)
 	exepected := `[{"series":[{"name":"cpu","tags":{"host":"server"},"columns":["time","value"],"values":[["1970-01-01T00:00:01.000000002Z",1]]}]}]`
 	if exepected != got {
 		t.Fatalf("exp: %s\ngot: %s", exepected, got)
@@ -85,7 +136,7 @@ func TestDropSeriesStatement(t *testing.T) {
 
 	got = executeAndGetJSON("drop series from cpu", executor)
 
-	got = executeAndGetJSON("select * from cpu", executor)
+	got = executeAndGetJSON("SELECT * FROM cpu GROUP BY *", executor)
 	exepected = `[{}]`
 	if exepected != got {
 		t.Fatalf("exp: %s\ngot: %s", exepected, got)
@@ -98,7 +149,9 @@ func TestDropSeriesStatement(t *testing.T) {
 	}
 
 	store.Close()
+	conf := store.EngineOptions.Config
 	store = tsdb.NewStore(store.Path())
+	store.EngineOptions.Config = conf
 	store.Open()
 	executor.Store = store
 
@@ -168,7 +221,9 @@ func TestDropMeasurementStatement(t *testing.T) {
 
 	validateDrop()
 	store.Close()
+	conf := store.EngineOptions.Config
 	store = tsdb.NewStore(store.Path())
+	store.EngineOptions.Config = conf
 	store.Open()
 	executor.Store = store
 	validateDrop()
@@ -198,7 +253,7 @@ func TestDropDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := executeAndGetJSON("select * from cpu", executor)
+	got := executeAndGetJSON("SELECT * FROM cpu GROUP BY *", executor)
 	expected := `[{"series":[{"name":"cpu","tags":{"host":"server"},"columns":["time","value"],"values":[["1970-01-01T00:00:01.000000002Z",1]]}]}]`
 	if expected != got {
 		t.Fatalf("exp: %s\ngot: %s", expected, got)
@@ -232,7 +287,9 @@ func TestDropDatabase(t *testing.T) {
 	}
 
 	store.Close()
+	conf := store.EngineOptions.Config
 	store = tsdb.NewStore(store.Path())
+	store.EngineOptions.Config = conf
 	store.Open()
 	executor.Store = store
 	executor.ShardMapper = &testShardMapper{store: store}
@@ -297,6 +354,8 @@ func testStoreAndExecutor() (*tsdb.Store, *tsdb.QueryExecutor) {
 	path, _ := ioutil.TempDir("", "")
 
 	store := tsdb.NewStore(path)
+	store.EngineOptions.Config.WALDir = filepath.Join(path, "wal")
+
 	err := store.Open()
 	if err != nil {
 		panic(err)

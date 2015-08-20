@@ -2,41 +2,34 @@
 	"version": 0,
 	"dependencies": [
 		{
-			"importpath": "code.google.com/p/go-uuid/uuid",
-			"repository": "https://code.google.com/p/go-uuid",
-			"revision": "35bc42037350",
-			"branch": "default",
-			"path": "/uuid"
-		},
-		{
 			"importpath": "github.com/armon/go-metrics",
 			"repository": "https://github.com/armon/go-metrics",
-			"revision": "b2d95e5291cdbc26997d1301a5e467ecbb240e25",
+			"revision": "6c5fa0d8f48f4661c9ba8709799c88d425ad20f0",
 			"branch": "master"
 		},
 		{
 			"importpath": "github.com/boltdb/bolt",
 			"repository": "https://github.com/boltdb/bolt",
-			"revision": "c2745b3c62985affcf08d0522135f4747e9b81f3",
+			"revision": "0f053fabc06119583d61937a0a06ef0ba0f1b301",
 			"branch": "master"
 		},
 		{
 			"importpath": "github.com/gogo/protobuf/proto",
 			"repository": "https://github.com/gogo/protobuf",
-			"revision": "8edb24c179ed858a38f18920d9005c2dde05ec17",
+			"revision": "bc4045a0c607d84f80555f486c4305db4bd0420f",
 			"branch": "master",
 			"path": "/proto"
 		},
 		{
 			"importpath": "github.com/gorilla/context",
 			"repository": "https://github.com/gorilla/context",
-			"revision": "215affda49addc4c8ef7e2534915df2c8c35c6cd",
+			"revision": "1c83b3eabd45b6d76072b66b746c20815fb2872d",
 			"branch": "master"
 		},
 		{
 			"importpath": "github.com/gorilla/mux",
 			"repository": "https://github.com/gorilla/mux",
-			"revision": "f15e0c49460fd49eebe2bcc8486b05d1bef68d3a",
+			"revision": "ee1815431e497d3850809578c93ab6705f1a19f7",
 			"branch": "master"
 		},
 		{
@@ -49,7 +42,7 @@
 		{
 			"importpath": "github.com/hashicorp/raft",
 			"repository": "https://github.com/hashicorp/raft",
-			"revision": "9b586e29edf1ed085b11da7772479ee45c433996",
+			"revision": "feb5f8bb5624ccb475c1354a2ca14a22eea7da4e",
 			"branch": "master"
 		},
 		{
@@ -61,42 +54,42 @@
 		{
 			"importpath": "github.com/influxdb/influxdb/client",
 			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "affd0b1ca27a42dc04cd8f4a2e7bba596c4b41c9",
+			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
 			"branch": "master",
 			"path": "/client"
 		},
 		{
 			"importpath": "github.com/influxdb/influxdb/influxql",
 			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "affd0b1ca27a42dc04cd8f4a2e7bba596c4b41c9",
+			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
 			"branch": "master",
 			"path": "/influxql"
 		},
 		{
 			"importpath": "github.com/influxdb/influxdb/meta",
 			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "affd0b1ca27a42dc04cd8f4a2e7bba596c4b41c9",
+			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
 			"branch": "master",
 			"path": "/meta"
 		},
 		{
 			"importpath": "github.com/influxdb/influxdb/snapshot",
 			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "affd0b1ca27a42dc04cd8f4a2e7bba596c4b41c9",
+			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
 			"branch": "master",
 			"path": "/snapshot"
 		},
 		{
 			"importpath": "github.com/influxdb/influxdb/toml",
 			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "affd0b1ca27a42dc04cd8f4a2e7bba596c4b41c9",
+			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
 			"branch": "master",
 			"path": "/toml"
 		},
 		{
 			"importpath": "github.com/influxdb/influxdb/tsdb",
 			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "affd0b1ca27a42dc04cd8f4a2e7bba596c4b41c9",
+			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
 			"branch": "master",
 			"path": "/tsdb"
 		},
@@ -113,9 +106,15 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/kylewolfe/simplexml",
+			"repository": "https://github.com/kylewolfe/simplexml",
+			"revision": "b3c9a372c5f1b4671dd5b3be71fc4f0498397ac2",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/miekg/dns",
 			"repository": "https://github.com/miekg/dns",
-			"revision": "8fdd5c33f834fe1c16ede39b38a6bc822d32d07f",
+			"revision": "780188672c9d12dc55ac2f59d3db65427c860f2d",
 			"branch": "master"
 		},
 		{
@@ -125,45 +124,45 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/pborman/uuid",
+			"repository": "https://github.com/pborman/uuid",
+			"revision": "ca53cad383cad2479bbba7f7a1a05797ec1386e4",
+			"branch": "master"
+		},
+		{
 			"importpath": "golang.org/x/crypto/bcrypt",
 			"repository": "https://go.googlesource.com/crypto",
-			"revision": "2f3083f6163ef51179ad42ed523a18c9a1141467",
+			"revision": "81bf7719a6b7ce9b665598222362b50122dfc13b",
 			"branch": "master",
 			"path": "/bcrypt"
 		},
 		{
 			"importpath": "golang.org/x/crypto/blowfish",
 			"repository": "https://go.googlesource.com/crypto",
-			"revision": "2f3083f6163ef51179ad42ed523a18c9a1141467",
+			"revision": "81bf7719a6b7ce9b665598222362b50122dfc13b",
 			"branch": "master",
 			"path": "/blowfish"
 		},
 		{
 			"importpath": "golang.org/x/net/internal/iana",
 			"repository": "https://go.googlesource.com/net",
-			"revision": "1bc0720082d79ce7ffc6ef6e523d00d46b0dee45",
+			"revision": "66f0418ca41253f8d1a024eb9754e9441a8e79b9",
 			"branch": "master",
 			"path": "/internal/iana"
 		},
 		{
 			"importpath": "golang.org/x/net/ipv4",
 			"repository": "https://go.googlesource.com/net",
-			"revision": "1bc0720082d79ce7ffc6ef6e523d00d46b0dee45",
+			"revision": "66f0418ca41253f8d1a024eb9754e9441a8e79b9",
 			"branch": "master",
 			"path": "/ipv4"
 		},
 		{
 			"importpath": "golang.org/x/net/ipv6",
 			"repository": "https://go.googlesource.com/net",
-			"revision": "1bc0720082d79ce7ffc6ef6e523d00d46b0dee45",
+			"revision": "66f0418ca41253f8d1a024eb9754e9441a8e79b9",
 			"branch": "master",
 			"path": "/ipv6"
-		},
-		{
-			"importpath": "github.com/kylewolfe/simplexml",
-			"repository": "https://github.com/kylewolfe/simplexml",
-			"revision": "b3c9a372c5f1b4671dd5b3be71fc4f0498397ac2",
-			"branch": "master"
 		}
 	]
 }

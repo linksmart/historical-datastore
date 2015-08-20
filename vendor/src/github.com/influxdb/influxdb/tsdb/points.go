@@ -37,6 +37,13 @@ type Point interface {
 	String() string
 }
 
+// Points represents a sortable list of points by timestamp.
+type Points []Point
+
+func (a Points) Len() int           { return len(a) }
+func (a Points) Less(i, j int) bool { return a[i].Time().Before(a[j].Time()) }
+func (a Points) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
 // point is the default implementation of Point.
 type point struct {
 	time time.Time
@@ -84,6 +91,17 @@ var (
 	}
 
 	escapeCodesStr = map[string]string{}
+
+	measurementEscapeCodes = map[byte][]byte{
+		',': []byte(`\,`),
+		' ': []byte(`\ `),
+	}
+
+	tagEscapeCodes = map[byte][]byte{
+		',': []byte(`\,`),
+		' ': []byte(`\ `),
+		'=': []byte(`\=`),
+	}
 )
 
 func init() {
@@ -109,7 +127,7 @@ func ParsePointsWithPrecision(buf []byte, defaultTime time.Time, precision strin
 		block []byte
 	)
 	for {
-		pos, block = scanTo(buf, pos, '\n')
+		pos, block = scanLine(buf, pos)
 		pos += 1
 
 		if len(block) == 0 {
@@ -117,13 +135,25 @@ func ParsePointsWithPrecision(buf []byte, defaultTime time.Time, precision strin
 		}
 
 		// lines which start with '#' are comments
-		if start := skipWhitespace(block, 0); block[start] == '#' {
+		start := skipWhitespace(block, 0)
+
+		// If line is all whitespace, just skip it
+		if start >= len(block) {
 			continue
 		}
 
-		pt, err := parsePoint(block, defaultTime, precision)
+		if block[start] == '#' {
+			continue
+		}
+
+		// strip the newline if one is present
+		if block[len(block)-1] == '\n' {
+			block = block[:len(block)-1]
+		}
+
+		pt, err := parsePoint(block[start:len(block)], defaultTime, precision)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse '%s': %v", string(block), err)
+			return nil, fmt.Errorf("unable to parse '%s': %v", string(block[start:len(block)]), err)
 		}
 		points = append(points, pt)
 
@@ -222,6 +252,10 @@ func scanKey(buf []byte, i int) (int, []byte, error) {
 		}
 
 		if buf[i] == '=' {
+			if i-1 < 0 || i-2 < 0 {
+				return i, buf[start:i], fmt.Errorf("missing tag name")
+			}
+
 			// Check for "cpu,=value" but allow "cpu,a\,=value"
 			if buf[i-1] == ',' && buf[i-2] != '\\' {
 				return i, buf[start:i], fmt.Errorf("missing tag name")
@@ -254,6 +288,13 @@ func scanKey(buf []byte, i int) (int, []byte, error) {
 				return i, buf[start:i], fmt.Errorf("missing tag value")
 			}
 			i += 1
+
+			// grow our indices slice if we have too many tags
+			if commas >= len(indices) {
+				newIndics := make([]int, cap(indices)*2)
+				copy(newIndics, indices)
+				indices = newIndics
+			}
 			indices[commas] = i
 			commas += 1
 
@@ -273,6 +314,14 @@ func scanKey(buf []byte, i int) (int, []byte, error) {
 			if equals > 0 && commas-1 != equals-1 {
 				return i, buf[start:i], fmt.Errorf("missing tag value")
 			}
+
+			// grow our indices slice if we have too many tags
+			if commas >= len(indices) {
+				newIndics := make([]int, cap(indices)*2)
+				copy(newIndics, indices)
+				indices = newIndics
+			}
+
 			indices[commas] = i + 1
 			break
 		}
@@ -356,6 +405,15 @@ func less(buf []byte, indices []int, i, j int) bool {
 	return bytes.Compare(a, b) < 0
 }
 
+func isFieldEscapeChar(b byte) bool {
+	for c := range escapeCodes {
+		if c == b {
+			return true
+		}
+	}
+	return false
+}
+
 // scanFields scans buf, starting at i for the fields section of a point.  It returns
 // the ending position and the byte slice of the fields within buf
 func scanFields(buf []byte, i int) (int, []byte, error) {
@@ -375,10 +433,18 @@ func scanFields(buf []byte, i int) (int, []byte, error) {
 			break
 		}
 
-		// escaped character
-		if buf[i] == '\\' {
-			i += 2
-			continue
+		// escaped characters?
+		if buf[i] == '\\' && i+1 < len(buf) {
+
+			// Is this an escape char within a string field? Only " and \ are allowed.
+			if quoted && (buf[i+1] == '"' || buf[i+1] == '\\') {
+				i += 2
+				continue
+				// Non-string field escaped chars
+			} else if !quoted && isFieldEscapeChar(buf[i+1]) {
+				i += 2
+				continue
+			}
 		}
 
 		// If the value is quoted, scan until we get to the end quote
@@ -554,7 +620,7 @@ func scanNumber(buf []byte, i int) (int, error) {
 		}
 		i += 1
 	}
-	if isInt && decimals > 0 {
+	if isInt && (decimals > 0 || scientific) {
 		return i, fmt.Errorf("invalid number")
 	}
 
@@ -563,6 +629,10 @@ func scanNumber(buf []byte, i int) (int, error) {
 	// if we should parse the number to the actual type.  It does not do it all the time because it incurs
 	// extra allocations and we end up converting the type again when writing points to disk.
 	if isInt {
+		// Make sure the last char is an 'i' for integers (e.g. 9i10 is not valid)
+		if buf[i-1] != 'i' {
+			return i, fmt.Errorf("invalid number")
+		}
 		// Parse the int to check bounds the number of digits could be larger than the max range
 		// We subtract 1 from the index to remove the `i` from our tests
 		if len(buf[start:i-1]) >= maxInt64Digits || len(buf[start:i-1]) >= minInt64Digits {
@@ -658,6 +728,34 @@ func skipWhitespace(buf []byte, i int) int {
 	return i
 }
 
+// scanLine returns the end position in buf and the next line found within
+// buf.
+func scanLine(buf []byte, i int) (int, []byte) {
+	start := i
+	quoted := false
+	for {
+		// reached the end of buf?
+		if i >= len(buf) {
+			break
+		}
+
+		// If we see a double quote, makes sure it is not escaped
+		if buf[i] == '"' && (i-1 > 0 && buf[i-1] != '\\') {
+			i += 1
+			quoted = !quoted
+			continue
+		}
+
+		if buf[i] == '\n' && !quoted {
+			break
+		}
+
+		i += 1
+	}
+
+	return i, buf[start:i]
+}
+
 // scanTo returns the end position in buf and the next consecutive block
 // of bytes, starting from i and ending with stop byte.  If there are leading
 // spaces or escaped chars, they are skipped.
@@ -737,15 +835,16 @@ func scanFieldValue(buf []byte, i int) (int, []byte) {
 			break
 		}
 
-		// If we see a double quote, makes sure it is not escaped
-		if buf[i] == '"' && buf[i-1] != '\\' {
-			i += 1
-			quoted = !quoted
+		// Only escape char for a field value is a double-quote
+		if buf[i] == '\\' && i+1 < len(buf) && buf[i+1] == '"' {
+			i += 2
 			continue
 		}
 
-		if buf[i] == '\\' {
-			i += 2
+		// Quoted value? (e.g. string)
+		if buf[i] == '"' {
+			i += 1
+			quoted = !quoted
 			continue
 		}
 
@@ -755,6 +854,34 @@ func scanFieldValue(buf []byte, i int) (int, []byte) {
 		i += 1
 	}
 	return i, buf[start:i]
+}
+
+func escapeMeasurement(in []byte) []byte {
+	for b, esc := range measurementEscapeCodes {
+		in = bytes.Replace(in, []byte{b}, esc, -1)
+	}
+	return in
+}
+
+func unescapeMeasurement(in []byte) []byte {
+	for b, esc := range measurementEscapeCodes {
+		in = bytes.Replace(in, esc, []byte{b}, -1)
+	}
+	return in
+}
+
+func escapeTag(in []byte) []byte {
+	for b, esc := range tagEscapeCodes {
+		in = bytes.Replace(in, []byte{b}, esc, -1)
+	}
+	return in
+}
+
+func unescapeTag(in []byte) []byte {
+	for b, esc := range tagEscapeCodes {
+		in = bytes.Replace(in, esc, []byte{b}, -1)
+	}
+	return in
 }
 
 func escape(in []byte) []byte {
@@ -785,25 +912,68 @@ func unescapeString(in string) string {
 	return in
 }
 
-// escapeQuoteString returns a copy of in with any double quotes that
-// have not been escaped with escaped quotes
-func escapeQuoteString(in string) string {
-	if strings.IndexAny(in, `"`) == -1 {
-		return in
+// escapeStringField returns a copy of in with any double quotes or
+// backslashes with escaped values
+func escapeStringField(in string) string {
+	var out []byte
+	i := 0
+	for {
+		if i >= len(in) {
+			break
+		}
+		// escape double-quotes
+		if in[i] == '\\' {
+			out = append(out, '\\')
+			out = append(out, '\\')
+			i += 1
+			continue
+		}
+		// escape double-quotes
+		if in[i] == '"' {
+			out = append(out, '\\')
+			out = append(out, '"')
+			i += 1
+			continue
+		}
+		out = append(out, in[i])
+		i += 1
+
 	}
-	return quoteReplacer.ReplaceAllString(in, `$1\"`)
+	return string(out)
 }
 
-// unescapeQuoteString returns a copy of in with any escaped double-quotes
-// with unescaped double quotes
-func unescapeQuoteString(in string) string {
-	return strings.Replace(in, `\"`, `"`, -1)
+// unescapeStringField returns a copy of in with any escaped double-quotes
+// or backslashes unescaped
+func unescapeStringField(in string) string {
+	var out []byte
+	i := 0
+	for {
+		if i >= len(in) {
+			break
+		}
+		// unescape backslashes
+		if in[i] == '\\' && i+1 < len(in) && in[i+1] == '\\' {
+			out = append(out, '\\')
+			i += 2
+			continue
+		}
+		// unescape double-quotes
+		if in[i] == '\\' && i+1 < len(in) && in[i+1] == '"' {
+			out = append(out, '"')
+			i += 2
+			continue
+		}
+		out = append(out, in[i])
+		i += 1
+
+	}
+	return string(out)
 }
 
 // NewPoint returns a new point with the given measurement name, tags, fields and timestamp
 func NewPoint(name string, tags Tags, fields Fields, time time.Time) Point {
 	return &point{
-		key:    makeKey([]byte(name), tags),
+		key:    MakeKey([]byte(name), tags),
 		time:   time,
 		fields: fields.MarshalBinary(),
 	}
@@ -833,7 +1003,7 @@ func (p *point) Name() string {
 
 // SetName updates the measurement name for the point
 func (p *point) SetName(name string) {
-	p.key = makeKey([]byte(name), p.Tags())
+	p.key = MakeKey([]byte(name), p.Tags())
 }
 
 // Time return the timestamp for the point
@@ -867,7 +1037,7 @@ func (p *point) Tags() Tags {
 			i, key = scanTo(p.key, i, '=')
 			i, value = scanTagValue(p.key, i+1)
 
-			tags[string(unescape(key))] = string(unescape(value))
+			tags[string(unescapeTag(key))] = string(unescapeTag(value))
 
 			i += 1
 		}
@@ -875,20 +1045,22 @@ func (p *point) Tags() Tags {
 	return tags
 }
 
-func makeKey(name []byte, tags Tags) []byte {
-	return append(escape(name), tags.HashKey()...)
+func MakeKey(name []byte, tags Tags) []byte {
+	// unescape the name and then re-escape it to avoid double escaping.
+	// The key should always be stored in escaped form.
+	return append(escapeMeasurement(unescapeMeasurement(name)), tags.HashKey()...)
 }
 
 // SetTags replaces the tags for the point
 func (p *point) SetTags(tags Tags) {
-	p.key = makeKey(p.name(), tags)
+	p.key = MakeKey(p.name(), tags)
 }
 
 // AddTag adds or replaces a tag value for a point
 func (p *point) AddTag(key, value string) {
 	tags := p.Tags()
 	tags[key] = value
-	p.key = makeKey(p.name(), tags)
+	p.key = MakeKey(p.name(), tags)
 }
 
 // Fields returns the fields for the point
@@ -970,9 +1142,9 @@ func (t Tags) HashKey() []byte {
 
 	escaped := Tags{}
 	for k, v := range t {
-		ek := escapeString(k)
-		ev := escapeString(v)
-		escaped[ek] = ev
+		ek := escapeTag([]byte(k))
+		ev := escapeTag([]byte(v))
+		escaped[string(ek)] = string(ev)
 	}
 
 	// Extract keys and determine final size.
@@ -1050,7 +1222,7 @@ func newFieldsFromBinary(buf []byte) Fields {
 
 		// If the first char is a double-quote, then unmarshal as string
 		if valueBuf[0] == '"' {
-			value = unescapeQuoteString(string(valueBuf[1 : len(valueBuf)-1]))
+			value = unescapeStringField(string(valueBuf[1 : len(valueBuf)-1]))
 			// Check for numeric characters and special NaN or Inf
 		} else if (valueBuf[0] >= '0' && valueBuf[0] <= '9') || valueBuf[0] == '-' || valueBuf[0] == '+' || valueBuf[0] == '.' ||
 			valueBuf[0] == 'N' || valueBuf[0] == 'n' || // NaN
@@ -1117,14 +1289,14 @@ func (p Fields) MarshalBinary() []byte {
 			b = append(b, t...)
 		case string:
 			b = append(b, '"')
-			b = append(b, []byte(escapeQuoteString(t))...)
+			b = append(b, []byte(escapeStringField(t))...)
 			b = append(b, '"')
 		case nil:
 			// skip
 		default:
 			// Can't determine the type, so convert to string
 			b = append(b, '"')
-			b = append(b, []byte(escapeQuoteString(fmt.Sprintf("%v", v)))...)
+			b = append(b, []byte(escapeStringField(fmt.Sprintf("%v", v)))...)
 			b = append(b, '"')
 
 		}

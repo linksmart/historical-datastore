@@ -112,6 +112,17 @@ func (s *DatabaseIndex) CreateMeasurementIndexIfNotExists(name string) *Measurem
 	return m
 }
 
+// TagsForSeries returns the tag map for the passed in series
+func (s *DatabaseIndex) TagsForSeries(key string) map[string]string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	ss := s.series[key]
+	if ss == nil {
+		return nil
+	}
+	return ss.Tags
+}
+
 // measurementsByExpr takes and expression containing only tags and returns
 // a list of matching *Measurement.
 func (db *DatabaseIndex) measurementsByExpr(expr influxql.Expr) (Measurements, error) {
@@ -284,6 +295,7 @@ func (db *DatabaseIndex) DropSeries(keys []string) {
 			continue
 		}
 		series.measurement.DropSeries(series.id)
+		delete(db.series, k)
 	}
 }
 
@@ -297,7 +309,6 @@ type Measurement struct {
 	index      *DatabaseIndex
 
 	// in-memory index fields
-	series              map[string]*Series // sorted tagset string to the series object
 	seriesByID          map[uint64]*Series // lookup table for series by their id
 	measurement         *Measurement
 	seriesByTagKeyValue map[string]map[string]SeriesIDs // map from tag key to value to sorted set of series ids
@@ -311,7 +322,6 @@ func NewMeasurement(name string, idx *DatabaseIndex) *Measurement {
 		fieldNames: make(map[string]struct{}),
 		index:      idx,
 
-		series:              make(map[string]*Series),
 		seriesByID:          make(map[uint64]*Series),
 		seriesByTagKeyValue: make(map[string]map[string]SeriesIDs),
 		seriesIDs:           make(SeriesIDs, 0),
@@ -324,6 +334,13 @@ func (m *Measurement) HasField(name string) bool {
 	defer m.mu.RUnlock()
 	_, hasField := m.fieldNames[name]
 	return hasField
+}
+
+// SeriesByID returns a series by identifier.
+func (m *Measurement) SeriesByID(id uint64) *Series {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.seriesByID[id]
 }
 
 // SeriesKeys returns the keys of every series in this measurement
@@ -342,7 +359,7 @@ func (m *Measurement) ValidateGroupBy(stmt *influxql.SelectStatement) error {
 	for _, d := range stmt.Dimensions {
 		switch e := d.Expr.(type) {
 		case *influxql.VarRef:
-			if !m.HasTagKey(e.Val) {
+			if m.HasField(e.Val) {
 				return fmt.Errorf("can not use field in GROUP BY clause: %s", e.Val)
 			}
 		}
@@ -374,8 +391,6 @@ func (m *Measurement) AddSeries(s *Series) bool {
 		return false
 	}
 	m.seriesByID[s.id] = s
-	tagset := string(MarshalTags(s.Tags))
-	m.series[tagset] = s
 	m.seriesIDs = append(m.seriesIDs, s.id)
 
 	// the series ID should always be higher than all others because it's a new
@@ -413,10 +428,6 @@ func (m *Measurement) DropSeries(seriesID uint64) {
 	if _, ok := m.seriesByID[seriesID]; !ok {
 		return
 	}
-	s := m.seriesByID[seriesID]
-	tagset := string(MarshalTags(s.Tags))
-
-	delete(m.series, tagset)
 	delete(m.seriesByID, seriesID)
 
 	var ids []uint64
@@ -980,6 +991,16 @@ type Series struct {
 
 	id          uint64
 	measurement *Measurement
+	shardIDs    map[uint64]bool // shards that have this series defined
+}
+
+// NewSeries returns an initialized series struct
+func NewSeries(key string, tags map[string]string) *Series {
+	return &Series{
+		Key:      key,
+		Tags:     tags,
+		shardIDs: make(map[uint64]bool),
+	}
 }
 
 // MarshalBinary encodes the object to a binary format.
@@ -1006,6 +1027,10 @@ func (s *Series) UnmarshalBinary(buf []byte) error {
 		s.Tags[t.GetKey()] = t.GetValue()
 	}
 	return nil
+}
+
+func (s *Series) InitializeShards() {
+	s.shardIDs = make(map[uint64]bool)
 }
 
 // match returns true if all tags match the series' tags.

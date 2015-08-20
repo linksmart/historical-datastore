@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"code.google.com/p/go-uuid/uuid"
+	"github.com/pborman/uuid"
 	"linksmart.eu/lc/core/catalog"
 	"linksmart.eu/services/historical-datastore/common"
 )

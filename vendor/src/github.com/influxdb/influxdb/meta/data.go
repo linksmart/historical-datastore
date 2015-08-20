@@ -141,8 +141,8 @@ func (data *Data) CreateRetentionPolicy(database string, rpi *RetentionPolicyInf
 	// Validate retention policy.
 	if rpi.Name == "" {
 		return ErrRetentionPolicyNameRequired
-	} else if rpi.ReplicaN != len(data.Nodes) {
-		return ErrReplicationFactorMismatch
+	} else if rpi.ReplicaN < 1 {
+		return ErrReplicationFactorTooLow
 	}
 
 	// Find database.
@@ -212,6 +212,7 @@ func (data *Data) UpdateRetentionPolicy(database, name string, rpu *RetentionPol
 	}
 	if rpu.Duration != nil {
 		rpi.Duration = *rpu.Duration
+		rpi.ShardGroupDuration = shardGroupDuration(rpi.Duration)
 	}
 	if rpu.ReplicaN != nil {
 		rpi.ReplicaN = *rpu.ReplicaN

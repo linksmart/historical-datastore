@@ -37,7 +37,7 @@ var _ tsdb.Engine = &Engine{}
 
 // Engine represents a version 1 storage engine.
 type Engine struct {
-	mu sync.Mutex
+	mu sync.RWMutex
 
 	path string   // path to data file
 	db   *bolt.DB // underlying database
@@ -85,6 +85,9 @@ func NewEngine(path string, opt tsdb.EngineOptions) tsdb.Engine {
 
 	return e
 }
+
+// Path returns the path the engine was initialized with.
+func (e *Engine) Path() string { return e.path }
 
 // Open opens and initializes the engine.
 func (e *Engine) Open() error {
@@ -191,7 +194,7 @@ func (e *Engine) LoadMetadataIndex(index *tsdb.DatabaseIndex, measurementFields 
 		meta = tx.Bucket([]byte("series"))
 		c = meta.Cursor()
 		for k, v := c.First(); k != nil; k, v = c.Next() {
-			series := &tsdb.Series{}
+			series := tsdb.NewSeries("", nil)
 			if err := series.UnmarshalBinary(v); err != nil {
 				return err
 			}
@@ -531,6 +534,9 @@ func (tx *Tx) Cursor(key string) tsdb.Cursor {
 	// Retrieve key bucket.
 	b := tx.Bucket([]byte(key))
 
+	tx.engine.mu.RLock()
+	defer tx.engine.mu.RUnlock()
+
 	// Ignore if there is no bucket or points in the cache.
 	partitionID := WALPartition([]byte(key))
 	if b == nil && len(tx.engine.cache[partitionID][key]) == 0 {
@@ -560,6 +566,9 @@ type Cursor struct {
 	// Cache and current cache index.
 	cache [][]byte
 	index int
+
+	// Previously read key.
+	prev []byte
 }
 
 // Seek moves the cursor to a position and returns the closest key/value pair.
@@ -574,46 +583,42 @@ func (c *Cursor) Seek(seek []byte) (key, value []byte) {
 		return bytes.Compare(c.cache[i][0:8], seek) != -1
 	})
 
+	c.prev = nil
 	return c.read()
 }
 
 // Next returns the next key/value pair from the cursor.
 func (c *Cursor) Next() (key, value []byte) {
-	// Read next bolt key/value if not bufferred.
-	if c.buf.key == nil && c.cursor != nil {
-		c.buf.key, c.buf.value = c.cursor.Next()
-	}
-
 	return c.read()
 }
 
 // read returns the next key/value in the cursor buffer or cache.
 func (c *Cursor) read() (key, value []byte) {
-	// If neither a buffer or cache exists then return nil.
-	if c.buf.key == nil && c.index >= len(c.cache) {
-		return nil, nil
-	}
-
-	// Use the buffer if it exists and there's no cache or if it is lower than the cache.
-	if c.buf.key != nil && (c.index >= len(c.cache) || bytes.Compare(c.buf.key, c.cache[c.index][0:8]) == -1) {
-		key, value = c.buf.key, c.buf.value
-		c.buf.key, c.buf.value = nil, nil
-		return
-	}
-
-	// Otherwise read from the cache.
 	// Continue skipping ahead through duplicate keys in the cache list.
 	for {
-		// Read the current cache key/value pair.
-		key, value = c.cache[c.index][0:8], c.cache[c.index][8:]
-		c.index++
+		// Read next value from the cursor.
+		if c.buf.key == nil && c.cursor != nil {
+			c.buf.key, c.buf.value = c.cursor.Next()
+		}
+
+		// Read from the buffer or cache, which ever is lower.
+		if c.buf.key != nil && (c.index >= len(c.cache) || bytes.Compare(c.buf.key, c.cache[c.index][0:8]) == -1) {
+			key, value = c.buf.key, c.buf.value
+			c.buf.key, c.buf.value = nil, nil
+		} else if c.index < len(c.cache) {
+			key, value = c.cache[c.index][0:8], c.cache[c.index][8:]
+			c.index++
+		} else {
+			key, value = nil, nil
+		}
 
 		// Exit loop if we're at the end of the cache or the next key is different.
-		if c.index >= len(c.cache) || !bytes.Equal(key, c.cache[c.index][0:8]) {
+		if key == nil || !bytes.Equal(key, c.prev) {
 			break
 		}
 	}
 
+	c.prev = key
 	return
 }
 

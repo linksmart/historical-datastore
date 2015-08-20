@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -105,7 +106,7 @@ func TestShardMapper_RawMapperTagSetsFields(t *testing.T) {
 	}
 }
 
-func TestShardMapper_WriteAndSingleMapperRawQuery(t *testing.T) {
+func TestShardMapper_WriteAndSingleMapperRawQuerySingleValue(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "shard_test")
 	defer os.RemoveAll(tmpDir)
 	shard := mustCreateShard(tmpDir)
@@ -136,41 +137,41 @@ func TestShardMapper_WriteAndSingleMapperRawQuery(t *testing.T) {
 	}{
 		{
 			stmt:     `SELECT load FROM cpu`,
-			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42},{"time":2000000000,"value":60}]}`, `null`},
+			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}},{"time":2000000000,"value":60,"tags":{"host":"serverB","region":"us-east"}}]}`, `null`},
 		},
 		{
-			stmt:      `SELECT load FROM cpu`,
+			stmt:      `SELECT load FROM cpu # chunkSize 1`,
 			chunkSize: 1,
-			expected:  []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42}]}`, `{"name":"cpu","fields":["load"],"values":[{"time":2000000000,"value":60}]}`, `null`},
+			expected:  []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}}]}`},
 		},
 		{
-			stmt:      `SELECT load FROM cpu`,
+			stmt:      `SELECT load FROM cpu # chunkSize 2`,
 			chunkSize: 2,
-			expected:  []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42},{"time":2000000000,"value":60}]}`},
+			expected:  []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}},{"time":2000000000,"value":60,"tags":{"host":"serverB","region":"us-east"}}]}`},
 		},
 		{
-			stmt:      `SELECT load FROM cpu`,
+			stmt:      `SELECT load FROM cpu # chunkSize 3`,
 			chunkSize: 3,
-			expected:  []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42},{"time":2000000000,"value":60}]}`},
+			expected:  []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}},{"time":2000000000,"value":60,"tags":{"host":"serverB","region":"us-east"}}]}`},
 		},
 		{
 			stmt: `SELECT load FROM cpu GROUP BY host`,
 			expected: []string{
-				`{"name":"cpu","tags":{"host":"serverA"},"fields":["load"],"values":[{"time":1000000000,"value":42}]}`,
-				`{"name":"cpu","tags":{"host":"serverB"},"fields":["load"],"values":[{"time":2000000000,"value":60}]}`,
-				`null`},
+				`{"name":"cpu","tags":{"host":"serverA"},"fields":["load"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}}]}`,
+				`{"name":"cpu","tags":{"host":"serverB"},"fields":["load"],"values":[{"time":2000000000,"value":60,"tags":{"host":"serverB","region":"us-east"}}]}`,
+			},
 		},
 		{
 			stmt:     `SELECT load FROM cpu GROUP BY region`,
-			expected: []string{`{"name":"cpu","tags":{"region":"us-east"},"fields":["load"],"values":[{"time":1000000000,"value":42},{"time":2000000000,"value":60}]}`, `null`},
+			expected: []string{`{"name":"cpu","tags":{"region":"us-east"},"fields":["load"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}},{"time":2000000000,"value":60,"tags":{"host":"serverB","region":"us-east"}}]}`},
 		},
 		{
 			stmt:     `SELECT load FROM cpu WHERE host='serverA'`,
-			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42}]}`, `null`},
+			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}}]}`},
 		},
 		{
 			stmt:     `SELECT load FROM cpu WHERE host='serverB'`,
-			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":2000000000,"value":60}]}`, `null`},
+			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":2000000000,"value":60,"tags":{"host":"serverB","region":"us-east"}}]}`},
 		},
 		{
 			stmt:     `SELECT load FROM cpu WHERE host='serverC'`,
@@ -178,19 +179,19 @@ func TestShardMapper_WriteAndSingleMapperRawQuery(t *testing.T) {
 		},
 		{
 			stmt:     `SELECT load FROM cpu WHERE load = 60`,
-			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":2000000000,"value":60}]}`, `null`},
+			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":2000000000,"value":60,"tags":{"host":"serverB","region":"us-east"}}]}`},
 		},
 		{
 			stmt:     `SELECT load FROM cpu WHERE load != 60`,
-			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42}]}`, `null`},
+			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}}]}`},
 		},
 		{
 			stmt:     fmt.Sprintf(`SELECT load FROM cpu WHERE time = '%s'`, pt1time.Format(influxql.DateTimeFormat)),
-			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42}]}`, `null`},
+			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}}]}`},
 		},
 		{
 			stmt:     fmt.Sprintf(`SELECT load FROM cpu WHERE time > '%s'`, pt1time.Format(influxql.DateTimeFormat)),
-			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":2000000000,"value":60}]}`, `null`},
+			expected: []string{`{"name":"cpu","fields":["load"],"values":[{"time":2000000000,"value":60,"tags":{"host":"serverB","region":"us-east"}}]}`},
 		},
 		{
 			stmt:     fmt.Sprintf(`SELECT load FROM cpu WHERE time > '%s'`, pt2time.Format(influxql.DateTimeFormat)),
@@ -243,11 +244,11 @@ func TestShardMapper_WriteAndSingleMapperRawQueryMultiValue(t *testing.T) {
 	}{
 		{
 			stmt:     `SELECT foo FROM cpu`,
-			expected: []string{`{"name":"cpu","fields":["foo"],"values":[{"time":1000000000,"value":42},{"time":2000000000,"value":60}]}`, `null`},
+			expected: []string{`{"name":"cpu","fields":["foo"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}},{"time":2000000000,"value":60,"tags":{"host":"serverB","region":"us-east"}}]}`},
 		},
 		{
 			stmt:     `SELECT foo,bar FROM cpu`,
-			expected: []string{`{"name":"cpu","fields":["bar","foo"],"values":[{"time":1000000000,"value":{"bar":43,"foo":42}},{"time":2000000000,"value":{"bar":61,"foo":60}}]}`, `null`},
+			expected: []string{`{"name":"cpu","fields":["bar","foo"],"values":[{"time":1000000000,"value":{"bar":43,"foo":42},"tags":{"host":"serverA","region":"us-east"}},{"time":2000000000,"value":{"bar":61,"foo":60},"tags":{"host":"serverB","region":"us-east"}}]}`},
 		},
 	}
 
@@ -296,15 +297,15 @@ func TestShardMapper_WriteAndSingleMapperRawQueryMultiSource(t *testing.T) {
 	}{
 		{
 			stmt:     `SELECT foo FROM cpu0,cpu1`,
-			expected: []string{`{"name":"cpu0","fields":["foo"],"values":[{"time":1000000000,"value":42}]}`, `null`},
+			expected: []string{`{"name":"cpu0","fields":["foo"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}}]}`},
 		},
 		{
 			stmt:     `SELECT foo FROM cpu0,cpu1 WHERE foo=42`,
-			expected: []string{`{"name":"cpu0","fields":["foo"],"values":[{"time":1000000000,"value":42}]}`, `null`},
+			expected: []string{`{"name":"cpu0","fields":["foo"],"values":[{"time":1000000000,"value":42,"tags":{"host":"serverA","region":"us-east"}}]}`},
 		},
 		{
 			stmt:     `SELECT bar FROM cpu0,cpu1`,
-			expected: []string{`{"name":"cpu1","fields":["bar"],"values":[{"time":2000000000,"value":60}]}`, `null`},
+			expected: []string{`{"name":"cpu1","fields":["bar"],"values":[{"time":2000000000,"value":60,"tags":{"host":"serverB","region":"us-east"}}]}`},
 		},
 		{
 			stmt:     `SELECT bar FROM cpu0,cpu1 WHERE foo=42`,
@@ -419,14 +420,14 @@ func TestShardMapper_WriteAndSingleMapperAggregateQuery(t *testing.T) {
 		for i := range tt.expected {
 			got := aggIntervalAsJson(t, mapper)
 			if got != tt.expected[i] {
-				t.Errorf("test '%s'\n\tgot      %s\n\texpected %s", tt.stmt, got, tt.expected[i])
+				t.Fatalf("test '%s'\n\tgot      %s\n\texpected %s", tt.stmt, got, tt.expected[i])
 				break
 			}
 		}
 	}
 }
 
-func TestShardMapper_LocalMapperTagSets(t *testing.T) {
+func TestShardMapper_LocalMapperTagSetsFields(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "shard_test")
 	defer os.RemoveAll(tmpDir)
 	shard := mustCreateShard(tmpDir)
@@ -451,50 +452,64 @@ func TestShardMapper_LocalMapperTagSets(t *testing.T) {
 	}
 
 	var tests = []struct {
-		stmt     string
-		expected []string
+		stmt           string
+		expectedFields []string
+		expectedTags   []string
 	}{
 		{
-			stmt:     `SELECT sum(value) FROM cpu`,
-			expected: []string{"cpu"},
+			stmt:           `SELECT sum(value) FROM cpu`,
+			expectedFields: []string{"value"},
+			expectedTags:   []string{"cpu"},
 		},
 		{
-			stmt:     `SELECT sum(value) FROM cpu GROUP BY host`,
-			expected: []string{"cpu|host|serverA", "cpu|host|serverB"},
+			stmt:           `SELECT sum(value) FROM cpu GROUP BY host`,
+			expectedFields: []string{"value"},
+			expectedTags:   []string{"cpu|host|serverA", "cpu|host|serverB"},
 		},
 		{
-			stmt:     `SELECT sum(value) FROM cpu GROUP BY region`,
-			expected: []string{"cpu|region|us-east"},
+			stmt:           `SELECT sum(value) FROM cpu GROUP BY region`,
+			expectedFields: []string{"value"},
+			expectedTags:   []string{"cpu|region|us-east"},
 		},
 		{
-			stmt:     `SELECT sum(value) FROM cpu WHERE host='serverA'`,
-			expected: []string{"cpu"},
+			stmt:           `SELECT sum(value) FROM cpu WHERE host='serverA'`,
+			expectedFields: []string{"value"},
+			expectedTags:   []string{"cpu"},
 		},
 		{
-			stmt:     `SELECT sum(value) FROM cpu WHERE host='serverB'`,
-			expected: []string{"cpu"},
+			stmt:           `SELECT sum(value) FROM cpu WHERE host='serverB'`,
+			expectedFields: []string{"value"},
+			expectedTags:   []string{"cpu"},
 		},
 		{
-			stmt:     `SELECT sum(value) FROM cpu WHERE host='serverC'`,
-			expected: []string{},
+			stmt:           `SELECT sum(value) FROM cpu WHERE host='serverC'`,
+			expectedFields: []string{"value"},
+			expectedTags:   []string{},
 		},
 	}
 
 	for _, tt := range tests {
 		stmt := mustParseSelectStatement(tt.stmt)
 		mapper := openLocalMapperOrFail(t, shard, stmt)
-		got := mapper.TagSets()
-		if !reflect.DeepEqual(got, tt.expected) {
-			t.Errorf("test '%s'\n\tgot      %s\n\texpected %s", tt.stmt, got, tt.expected)
+
+		fields := mapper.Fields()
+		if !reflect.DeepEqual(fields, tt.expectedFields) {
+			t.Errorf("test '%s'\n\tgot      %s\n\texpected %s", tt.stmt, fields, tt.expectedFields)
+		}
+
+		tags := mapper.TagSets()
+		if !reflect.DeepEqual(tags, tt.expectedTags) {
+			t.Errorf("test '%s'\n\tgot      %s\n\texpected %s", tt.stmt, tags, tt.expectedTags)
 		}
 	}
-
 }
 
 func mustCreateShard(dir string) *tsdb.Shard {
 	tmpShard := path.Join(dir, "shard")
 	index := tsdb.NewDatabaseIndex()
-	sh := tsdb.NewShard(index, tmpShard, tsdb.NewEngineOptions())
+	opts := tsdb.NewEngineOptions()
+	opts.Config.WALDir = filepath.Join(dir, "wal")
+	sh := tsdb.NewShard(1, index, tmpShard, opts)
 	if err := sh.Open(); err != nil {
 		panic(fmt.Sprintf("error opening shard: %s", err.Error()))
 	}

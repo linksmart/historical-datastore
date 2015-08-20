@@ -19,10 +19,10 @@ type conf struct {
 }
 
 func TestAuthProcedure(t *testing.T) {
-	rulesConfPath := flag.String("rulesconf", "client-example.json", "Auth server test config file path")
+	rulesConfPath := flag.String("rulesconf", "conf_validation.json", "Auth server test config file path")
 
 	// Load test config file
-	confPath := flag.String("conf", "test_client.json", "Auth server test config file path")
+	confPath := flag.String("conf", "conf_obtainer.json", "Auth server test config file path")
 	flag.Parse()
 	file, err := ioutil.ReadFile(*confPath)
 	if err != nil {
@@ -69,11 +69,11 @@ func TestAuthProcedure(t *testing.T) {
 		t.Fatal("Valid token is flagged as invalid!")
 	}
 
-	// Expire the Ticket
-	err = to.Logout(TGT)
-	if err != nil {
-		// CAS bug: first DELETE query responds 500
-		//t.Fatal(err.Error())
-	}
+	//	// Expire the Ticket
+	//	err = to.Logout(TGT)
+	//	if err != nil {
+	//		// CAS bug: first DELETE query responds 500
+	//		//t.Fatal(err.Error())
+	//	}
 
 }

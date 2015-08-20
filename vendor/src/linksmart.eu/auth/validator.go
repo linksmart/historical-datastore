@@ -1,3 +1,8 @@
+/*
+	Package auth provides interfaces to obtain and validate service tickets.
+	In addition, a set of methods are provided to load auth rules and check
+		whether a service token passes one.
+*/
 package auth
 
 import (
@@ -9,20 +14,7 @@ import (
 	"strings"
 )
 
-// Methods to login, obtain Service Token, and logout
-type TicketObtainer interface {
-	// Given valid username and password,
-	// 	Login must return a Ticket Granting Ticket (TGT).
-	Login(username, password string) (string, error)
-	// Given valid TGT and serviceID,
-	//	RequestServiceToken must return a Service Token.
-	RequestServiceToken(TGT, serviceID string) (string, error)
-	// Given a valid TGT,
-	// 	Logout must expire it.
-	Logout(TGT string) error
-}
-
-// Methods to validate Service Token
+// Interface methods to validate Service Token
 type TicketValidator interface {
 	// Given a valid serviceToken for the specified serviceID,
 	//	ValidateServiceToken must return true with a set of user attributes.
@@ -32,7 +24,7 @@ type TicketValidator interface {
 	ValidateServiceTokenHandler(next http.Handler) http.Handler
 }
 
-// TicketValidator: Config
+// TicketValidator Config
 type TicketValidatorConf struct {
 	// Auth server address
 	ServerAddr string `json:"serverAddr"`
@@ -44,7 +36,7 @@ type TicketValidatorConf struct {
 	Rules []Rule `json:"rules"`
 }
 
-// TicketValidator: Config Rule
+// TicketValidator Config Rule
 type Rule struct {
 	Resources []string `json:"resources"`
 	Methods   []string `json:"methods"`
@@ -52,8 +44,7 @@ type Rule struct {
 	Groups    []string `json:"groups"`
 }
 
-// TicketValidator:
-// Loads config file into TicketValidatorConf
+// LoadTicketValidatorConf loads config file into TicketValidatorConf
 func LoadTicketValidatorConf(path *string) (*TicketValidatorConf, error) {
 	file, err := ioutil.ReadFile(*path)
 	if err != nil {
@@ -75,8 +66,7 @@ func LoadTicketValidatorConf(path *string) (*TicketValidatorConf, error) {
 	return &conf, nil
 }
 
-// TicketValidator:
-// Check whether a user/group is authorized to access resource using a specific method
+// IsAuthorized checks whether a user/group is authorized to access resource using a specific method
 // The decision is made based on the configured rules and policy
 func (c *TicketValidatorConf) IsAuthorized(resource, method, user, group string) bool {
 	policyAllow := true

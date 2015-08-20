@@ -34,6 +34,8 @@ const (
 
 	// SaltBytes is the number of bytes used for salts
 	SaltBytes = 32
+
+	DefaultSyncNodeDelay = time.Second
 )
 
 // ExecMagic is the first 4 bytes sent to a remote exec connection to verify
@@ -45,6 +47,10 @@ const (
 	AutoCreateRetentionPolicyName   = "default"
 	AutoCreateRetentionPolicyPeriod = 0
 	RetentionPolicyMinDuration      = time.Hour
+
+	// MaxAutoCreatedRetentionPolicyReplicaN is the maximum replication factor that will
+	// be set for auto-created retention policies.
+	MaxAutoCreatedRetentionPolicyReplicaN = 3
 )
 
 // Raft configuration.
@@ -71,7 +77,8 @@ type Store struct {
 
 	rpc *rpc
 
-	remoteAddr net.Addr
+	// The address used by other nodes to reach this node.
+	RemoteAddr net.Addr
 
 	raftState raftState
 
@@ -184,6 +191,8 @@ func (s *Store) Open() error {
 		panic("Store.RPCListener not set")
 	}
 
+	s.Logger.Printf("Using data dir: %v", s.Path())
+
 	if err := func() error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -241,10 +250,50 @@ func (s *Store) Open() error {
 	if s.id == 0 {
 		go s.init()
 	} else {
+		go s.syncNodeInfo()
 		close(s.ready)
 	}
 
 	return nil
+}
+
+// syncNodeInfo continuously tries to update the current nodes hostname
+// in the meta store.  It will retry until successful.
+func (s *Store) syncNodeInfo() error {
+	<-s.ready
+
+	for {
+		if err := func() error {
+			if err := s.WaitForLeader(0); err != nil {
+				return err
+			}
+
+			ni, err := s.Node(s.id)
+			if err != nil {
+				return err
+			}
+
+			if ni == nil {
+				return ErrNodeNotFound
+			}
+
+			if ni.Host == s.RemoteAddr.String() {
+				s.Logger.Printf("Updated node id=%d hostname=%v", s.id, s.RemoteAddr.String())
+				return nil
+			}
+
+			_, err = s.UpdateNode(s.id, s.RemoteAddr.String())
+			if err != nil {
+				return err
+			}
+			return nil
+		}(); err != nil {
+			// If we get an error, the cluster has not stabilized so just try again
+			time.Sleep(DefaultSyncNodeDelay)
+			continue
+		}
+		return nil
+	}
 }
 
 // loadState sets the appropriate raftState from our persistent storage
@@ -284,42 +333,40 @@ func (s *Store) joinCluster() error {
 	// We already have a node ID so were already part of a cluster,
 	// don't join again so we can use our existing state.
 	if s.id != 0 {
-		s.Logger.Printf("skipping join: already member of cluster: nodeId=%v raftEnabled=%v raftNodes=%v",
-			s.id, raft.PeerContained(s.peers, s.Addr.String()), s.peers)
+		s.Logger.Printf("Skipping cluster join: already member of cluster: nodeId=%v raftEnabled=%v peers=%v",
+			s.id, raft.PeerContained(s.peers, s.RemoteAddr.String()), s.peers)
 		return nil
 	}
 
-	s.Logger.Printf("joining cluster at: %v", s.peers)
+	s.Logger.Printf("Joining cluster at: %v", s.peers)
 	for {
 		for _, join := range s.peers {
-			res, err := s.rpc.join(s.Addr.String(), join)
+			res, err := s.rpc.join(s.RemoteAddr.String(), join)
 			if err != nil {
-				s.Logger.Printf("join failed: %v", err)
+				s.Logger.Printf("Join node %v failed: %v: retrying...", join, err)
 				continue
 			}
 
-			s.Logger.Printf("joined remote node %v", join)
-			s.Logger.Printf("nodeId=%v raftEnabled=%v raftNodes=%v", res.NodeID, res.RaftEnabled, res.RaftNodes)
+			s.Logger.Printf("Joined remote node %v", join)
+			s.Logger.Printf("nodeId=%v raftEnabled=%v peers=%v", res.NodeID, res.RaftEnabled, res.RaftNodes)
 
 			s.peers = res.RaftNodes
 			s.id = res.NodeID
 
 			if err := s.writeNodeID(res.NodeID); err != nil {
-				s.Logger.Printf("write node id failed: %v", err)
+				s.Logger.Printf("Write node id failed: %v", err)
 				break
 			}
 
 			if !res.RaftEnabled {
 				// Shutdown our local raft and transition to a remote raft state
 				if err := s.enableRemoteRaft(); err != nil {
-					s.Logger.Printf("enable remote raft failed: %v", err)
+					s.Logger.Printf("Enable remote raft failed: %v", err)
 					break
 				}
 			}
 			return nil
 		}
-
-		s.Logger.Printf("join failed: retrying...")
 		time.Sleep(time.Second)
 	}
 }
@@ -328,7 +375,7 @@ func (s *Store) enableLocalRaft() error {
 	if _, ok := s.raftState.(*localRaft); ok {
 		return nil
 	}
-	s.Logger.Printf("switching to local raft")
+	s.Logger.Printf("Switching to local raft")
 
 	lr := &localRaft{store: s}
 	return s.changeState(lr)
@@ -339,7 +386,7 @@ func (s *Store) enableRemoteRaft() error {
 		return nil
 	}
 
-	s.Logger.Printf("switching to remote raft")
+	s.Logger.Printf("Switching to remote raft")
 	rr := &remoteRaft{store: s}
 	return s.changeState(rr)
 }
@@ -432,8 +479,6 @@ func (s *Store) readID() error {
 	}
 	s.id = id
 
-	s.Logger.Printf("read local node id: %d", s.id)
-
 	return nil
 }
 
@@ -460,7 +505,7 @@ func (s *Store) createLocalNode() error {
 	}
 
 	// Create new node.
-	ni, err := s.CreateNode(s.Addr.String())
+	ni, err := s.CreateNode(s.RemoteAddr.String())
 	if err != nil {
 		return fmt.Errorf("create node: %s", err)
 	}
@@ -473,7 +518,7 @@ func (s *Store) createLocalNode() error {
 	// Set ID locally.
 	s.id = ni.ID
 
-	s.Logger.Printf("created local node: id=%d, host=%s", s.id, s.Addr.String())
+	s.Logger.Printf("Created local node: id=%d, host=%s", s.id, s.RemoteAddr)
 
 	return nil
 }
@@ -594,16 +639,22 @@ func (s *Store) handleExecConn(conn net.Conn) {
 	// but may not know who the current leader of the cluster.  If we are not
 	// the leader, proxy the request to the current leader.
 	if !s.IsLeader() {
+
+		if s.Leader() == s.RemoteAddr.String() {
+			s.Logger.Printf("No leader")
+			return
+		}
+
 		leaderConn, err := net.DialTimeout("tcp", s.Leader(), 10*time.Second)
 		if err != nil {
-			s.Logger.Printf("dial leader: %v", err)
+			s.Logger.Printf("Dial leader: %v", err)
 			return
 		}
 		defer leaderConn.Close()
 		leaderConn.Write([]byte{MuxExecHeader})
 
 		if err := proxy(leaderConn.(*net.TCPConn), conn.(*net.TCPConn)); err != nil {
-			s.Logger.Printf("leader proxy error: %v", err)
+			s.Logger.Printf("Leader proxy error: %v", err)
 		}
 		conn.Close()
 		return
@@ -655,9 +706,9 @@ func (s *Store) handleExecConn(conn net.Conn) {
 	if b, err := proto.Marshal(&resp); err != nil {
 		panic(err)
 	} else if err = binary.Write(conn, binary.BigEndian, uint64(len(b))); err != nil {
-		s.Logger.Printf("unable to write exec response size: %s", err)
+		s.Logger.Printf("Unable to write exec response size: %s", err)
 	} else if _, err = conn.Write(b); err != nil {
-		s.Logger.Printf("unable to write exec response: %s", err)
+		s.Logger.Printf("Unable to write exec response: %s", err)
 	}
 	conn.Close()
 }
@@ -755,6 +806,19 @@ func (s *Store) CreateNode(host string) (*NodeInfo, error) {
 	return s.NodeByHost(host)
 }
 
+// UpdateNode updates an existing node in the store.
+func (s *Store) UpdateNode(id uint64, host string) (*NodeInfo, error) {
+	if err := s.exec(internal.Command_UpdateNodeCommand, internal.E_UpdateNodeCommand_Command,
+		&internal.UpdateNodeCommand{
+			ID:   proto.Uint64(id),
+			Host: proto.String(host),
+		},
+	); err != nil {
+		return nil, err
+	}
+	return s.NodeByHost(host)
+}
+
 // DeleteNode removes a node from the metastore by id.
 func (s *Store) DeleteNode(id uint64) error {
 	return s.exec(internal.Command_DeleteNodeCommand, internal.E_DeleteNodeCommand_Command,
@@ -804,6 +868,10 @@ func (s *Store) CreateDatabase(name string) (*DatabaseInfo, error) {
 			return nil
 		}); err != nil {
 			return nil, fmt.Errorf("read: %s", err)
+		}
+
+		if nodeN > MaxAutoCreatedRetentionPolicyReplicaN {
+			nodeN = MaxAutoCreatedRetentionPolicyReplicaN
 		}
 
 		// Create a retention policy.
@@ -1581,6 +1649,8 @@ func (fsm *storeFSM) Apply(l *raft.Log) interface{} {
 			return fsm.applySetAdminPrivilegeCommand(&cmd)
 		case internal.Command_SetDataCommand:
 			return fsm.applySetDataCommand(&cmd)
+		case internal.Command_UpdateNodeCommand:
+			return fsm.applyUpdateNodeCommand(&cmd)
 		default:
 			panic(fmt.Errorf("cannot apply command: %x", l.Data))
 		}
@@ -1609,6 +1679,23 @@ func (fsm *storeFSM) applyCreateNodeCommand(cmd *internal.Command) interface{} {
 	if other.ClusterID == 0 {
 		other.ClusterID = uint64(v.GetRand())
 	}
+
+	fsm.data = other
+	return nil
+}
+
+func (fsm *storeFSM) applyUpdateNodeCommand(cmd *internal.Command) interface{} {
+	ext, _ := proto.GetExtension(cmd, internal.E_UpdateNodeCommand_Command)
+	v := ext.(*internal.UpdateNodeCommand)
+
+	// Copy data and update.
+	other := fsm.data.Clone()
+	ni := other.Node(v.GetID())
+	if ni == nil {
+		return ErrNodeNotFound
+	}
+
+	ni.Host = v.GetHost()
 
 	fsm.data = other
 	return nil
