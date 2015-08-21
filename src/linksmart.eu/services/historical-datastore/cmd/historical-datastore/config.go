@@ -56,9 +56,18 @@ type AggrConf struct{}
 
 // Service Catalogs Registration Config
 type ServiceCatalogConf struct {
-	Discover bool   `json:"discover"`
-	Endpoint string `json:"endpoint"`
-	TTL      uint   `json:"ttl"`
+	Discover bool        `json:"discover"`
+	Endpoint string      `json:"endpoint"`
+	TTL      uint        `json:"ttl"`
+	Auth     ServiceAuth `json:"auth"`
+}
+
+// Auth config for Remote Catalogs
+type ServiceAuth struct {
+	ServerAddr string `json:"serverAddr"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	ServiceID  string `json:"serviceID"`
 }
 
 // Load API configuration from config file

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"linksmart.eu/auth/cas"
 	sc "linksmart.eu/lc/core/catalog/service"
 	"linksmart.eu/services/historical-datastore/common"
 )
@@ -68,7 +69,8 @@ func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
 			fmt.Println(err.Error())
 			continue
 		}
-		go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, wg)
+		go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, wg,
+			cas.NewTicketObtainerClient(cat.Auth.ServerAddr, cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID))
 		regChannels = append(regChannels, sigCh)
 		wg.Add(1)
 	}

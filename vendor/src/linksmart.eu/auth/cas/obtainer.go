@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"path"
 
-	auth "linksmart.eu/auth"
+	"linksmart.eu/auth"
 )
 
 const (

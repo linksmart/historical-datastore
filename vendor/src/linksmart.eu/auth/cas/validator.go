@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	simplexml "github.com/kylewolfe/simplexml"
-	auth "linksmart.eu/auth"
+	"github.com/kylewolfe/simplexml"
+	"linksmart.eu/auth"
 )
 
 const (
@@ -58,10 +58,12 @@ func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Ha
 		}
 
 		// Check if user matches authorization rules
-		authorized := v.IsAuthorized(r.URL.Path, r.Method, body["user"], "")
+		authorized := v.IsAuthorized(r.URL.Path, r.Method, body["user"], body["group"])
 		if !authorized {
-			log.Printf("[%s] %q %s `%s`\n", r.Method, r.URL.String(), "Access denied for", body["user"])
-			errorResponse(http.StatusUnauthorized, fmt.Sprintf("Access denied for `%s`", body["user"]), w)
+			log.Printf("[%s] %q %s `%s`/`%s`\n", r.Method, r.URL.String(),
+				"Access denied for", body["group"], body["user"])
+			errorResponse(http.StatusUnauthorized,
+				fmt.Sprintf("Access denied for `%s`/`%s`", body["group"], body["user"]), w)
 			return
 		}
 
@@ -134,7 +136,17 @@ func (v *TicketValidator) ValidateServiceToken(serviceToken string) (bool, map[s
 	if err != nil {
 		return false, bodyMap, fErr(fmt.Errorf("Could not get value of `user` from validation response."))
 	}
-	bodyMap["user"] = user
+	// temporary workaround until CAS bug is fixed
+	ldapDescription := strings.Split(user, "-")
+	if len(ldapDescription) == 2 {
+		bodyMap["user"] = ldapDescription[0]
+		bodyMap["group"] = ldapDescription[1]
+	} else if len(ldapDescription) == 1 {
+		bodyMap["user"] = ldapDescription[0]
+		bodyMap["group"] = ""
+	} else {
+		return false, bodyMap, fErr(fmt.Errorf("Unexcpected format for `user` in validation response."))
+	}
 
 	// Valid token + attributes
 	return true, bodyMap, nil

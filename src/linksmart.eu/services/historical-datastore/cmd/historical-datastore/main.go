@@ -10,15 +10,16 @@ import (
 
 	"github.com/gorilla/context"
 	"github.com/justinas/alice"
+	"linksmart.eu/auth/cas"
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/data"
 	"linksmart.eu/services/historical-datastore/registry"
-
-	cas "linksmart.eu/auth/cas"
 )
 
-var confPath = flag.String("conf", "historical-datastore.json", "Historical Datastore configuration file path")
-var authConfPath = flag.String("auth_conf", "auth.json", "Auth configuration file path")
+var (
+	confPath     = flag.String("conf", "historical-datastore.json", "Historical Datastore configuration file path")
+	authConfPath = flag.String("auth_conf", "auth.json", "Auth configuration file path")
+)
 
 func main() {
 	flag.Parse()
@@ -52,7 +53,6 @@ func main() {
 	)
 
 	// Append auth handler if enabled
-	fmt.Println(conf.EnableAuth)
 	if conf.EnableAuth {
 		tv, err := cas.NewTicketValidator(authConfPath)
 		if err != nil {
