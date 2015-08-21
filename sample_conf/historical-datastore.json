@@ -16,7 +16,13 @@
         {
             "discover": false,
             "endpoint": "http://localhost:8082/sc",
-            "ttl": 120
+            "ttl": 10,
+			"auth": {
+				"serverAddr": "http://gando:8070/cas",
+				"username": "dimmer",
+				"password": "password",
+				"serviceID": "testServiceID"
+			}
         }
     ],
     "enableAuth": true

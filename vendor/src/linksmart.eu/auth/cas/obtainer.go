@@ -14,17 +14,17 @@ const (
 	ticketPath = "/v1/tickets/"
 )
 
-type TicketObtainer struct {
+type Obtainer struct {
 	serverAddr string
 }
 
 // Service Ticket (Token) Validator
-func NewTicketObtainer(serverAddr string) auth.TicketObtainer {
-	return &TicketObtainer{serverAddr}
+func NewObtainer(serverAddr string) auth.Obtainer {
+	return &Obtainer{serverAddr}
 }
 
 // Request Ticker Granting Ticket (TGT) from CAS Server
-func (o *TicketObtainer) Login(username, password string) (string, error) {
+func (o *Obtainer) Login(username, password string) (string, error) {
 	fmt.Println("CAS: Getting TGT...")
 	res, err := http.PostForm(o.serverAddr+ticketPath, url.Values{
 		"username": {username},
@@ -49,8 +49,8 @@ func (o *TicketObtainer) Login(username, password string) (string, error) {
 }
 
 // Request Service Token from CAS Server
-func (o *TicketObtainer) RequestServiceToken(TGT, serviceID string) (string, error) {
-	fmt.Println("CAS: Getting Service Token...")
+func (o *Obtainer) RequestTicket(TGT, serviceID string) (string, error) {
+	fmt.Println("CAS: Getting Service Ticket...")
 	res, err := http.PostForm(o.serverAddr+ticketPath+TGT, url.Values{
 		"service": {serviceID},
 	})
@@ -75,7 +75,7 @@ func (o *TicketObtainer) RequestServiceToken(TGT, serviceID string) (string, err
 }
 
 // Expire the Ticket Granting Ticket
-func (o *TicketObtainer) Logout(TGT string) error {
+func (o *Obtainer) Logout(TGT string) error {
 	fmt.Println("CAS: Logging out (deleting TGT)...")
 	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s%s%s", o.serverAddr, ticketPath, TGT), nil)
 	if err != nil {

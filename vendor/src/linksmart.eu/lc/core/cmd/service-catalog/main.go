@@ -133,12 +133,12 @@ func setupRouter(config *Config) (*mux.Router, error) {
 
 	// Append auth handler if enabled
 	if config.EnableAuth {
-		tv, err := cas.NewTicketValidator(authConfPath)
+		v, err := cas.NewValidator(authConfPath)
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)
 		}
-		commonHandlers = commonHandlers.Append(tv.ValidateServiceTokenHandler)
+		commonHandlers = commonHandlers.Append(v.Handler)
 	}
 
 	// Configure routers

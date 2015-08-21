@@ -6,7 +6,7 @@
   	{
   		"resources": ["/data","/registry","/aggregation"],
   		"methods": ["GET","POST","PUT"],
-  		"users": ["u1", "u2"],
+  		"users": ["dimmer", "u2"],
   		"groups": ["g1", "g2"]
   	},
   	{

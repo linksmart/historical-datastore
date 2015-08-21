@@ -1,9 +1,13 @@
 package cas
 
-import "linksmart.eu/auth"
+import (
+	"fmt"
 
-type TicketObtainerClient struct {
-	to        auth.TicketObtainer
+	"linksmart.eu/auth"
+)
+
+type ObtainerClient struct {
+	obtainer  auth.Obtainer
 	username  string
 	password  string
 	serviceID string
@@ -11,26 +15,25 @@ type TicketObtainerClient struct {
 }
 
 // Service Ticket (Token) Validator
-func NewTicketObtainerClient(serverAddr, username, password, serviceID string) *TicketObtainerClient {
-	// Setup ticket obtainer
-	to := NewTicketObtainer(serverAddr)
-	return &TicketObtainerClient{
-		to:        to,
+func NewObtainerClient(serverAddr, username, password, serviceID string) *ObtainerClient {
+	return &ObtainerClient{
+		obtainer:  NewObtainer(serverAddr), // Setup ticket obtainer
 		username:  username,
 		password:  password,
 		serviceID: serviceID,
 	}
 }
 
-func (c *TicketObtainerClient) New() (string, error) {
+func (c *ObtainerClient) New() (string, error) {
 	// Get Ticket Granting Ticket
-	TGT, err := c.to.Login(c.username, c.password)
+	TGT, err := c.obtainer.Login(c.username, c.password)
 	if err != nil {
 		return "", err
 	}
+	fmt.Println("CAS: First TGT:", TGT)
 
-	// Get Service Token
-	serviceToken, err := c.to.RequestServiceToken(TGT, c.serviceID)
+	// Get Service Ticket
+	ticket, err := c.obtainer.RequestTicket(TGT, c.serviceID)
 	if err != nil {
 		return "", err
 	}
@@ -38,27 +41,29 @@ func (c *TicketObtainerClient) New() (string, error) {
 	// Keep a copy for renewal references
 	c.tgt = TGT
 
-	return serviceToken, nil
+	return ticket, nil
 }
 
-func (c *TicketObtainerClient) Renew() (string, error) {
-	// Renew Service Token using previous TGT
-	serviceToken, err := c.to.RequestServiceToken(c.tgt, c.serviceID)
+func (c *ObtainerClient) Renew() (string, error) {
+	// Renew Service Ticket using previous TGT
+	ticket, err := c.obtainer.RequestTicket(c.tgt, c.serviceID)
+	fmt.Println("CAS: New serviceToken:", ticket)
 	if err != nil {
 		// Get a new Ticket Granting Ticket
-		TGT, err := c.to.Login(c.username, c.password)
+		TGT, err := c.obtainer.Login(c.username, c.password)
 		if err != nil {
 			return "", err
 		}
-		// Get Service Token
-		serviceToken, err := c.to.RequestServiceToken(TGT, c.serviceID)
+		fmt.Println("CAS: New TGT:", TGT)
+		// Get Service Ticket
+		ticket, err := c.obtainer.RequestTicket(TGT, c.serviceID)
 		if err != nil {
 			return "", err
 		}
 		// Keep a copy for future renewal references
 		c.tgt = TGT
 
-		return serviceToken, nil
+		return ticket, nil
 	}
-	return serviceToken, nil
+	return ticket, nil
 }

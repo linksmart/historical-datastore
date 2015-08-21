@@ -16,21 +16,21 @@ const (
 	casProtocolValidatePath = "/p3/serviceValidate"
 )
 
-type TicketValidator struct {
-	*auth.TicketValidatorConf
+type Validator struct {
+	*auth.ValidatorConf
 }
 
-// Service Ticket (Token) Validator
-func NewTicketValidator(confPath *string) (auth.TicketValidator, error) {
-	conf, err := auth.LoadTicketValidatorConf(confPath)
+// Service Ticket Validator
+func NewValidator(confPath *string) (auth.Validator, error) {
+	conf, err := auth.LoadValidatorConf(confPath)
 	if err != nil {
 		return nil, err
 	}
-	return &TicketValidator{conf}, nil
+	return &Validator{conf}, nil
 }
 
 // HTTP Handler for service token validation
-func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Handler {
+func (v *Validator) Handler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		X_auth_token := r.Header.Get("X_auth_token")
 
@@ -41,7 +41,7 @@ func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Ha
 		}
 
 		// Validate Token
-		valid, body, err := v.ValidateServiceToken(X_auth_token)
+		valid, body, err := v.Validate(X_auth_token)
 		if err != nil {
 			log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), "Auth. server error: "+err.Error())
 			errorResponse(http.StatusInternalServerError, "Authorization server error: "+err.Error(), w)
@@ -58,7 +58,7 @@ func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Ha
 		}
 
 		// Check if user matches authorization rules
-		authorized := v.IsAuthorized(r.URL.Path, r.Method, body["user"], body["group"])
+		authorized := v.Authorized(r.URL.Path, r.Method, body["user"], body["group"])
 		if !authorized {
 			log.Printf("[%s] %q %s `%s`/`%s`\n", r.Method, r.URL.String(),
 				"Access denied for", body["group"], body["user"])
@@ -73,13 +73,13 @@ func (v *TicketValidator) ValidateServiceTokenHandler(next http.Handler) http.Ha
 	return http.HandlerFunc(fn)
 }
 
-// Validate Service Token (CAS Protocol)
-func (v *TicketValidator) ValidateServiceToken(serviceToken string) (bool, map[string]string, error) {
+// Validate Service Ticket (CAS Protocol)
+func (v *Validator) Validate(ticket string) (bool, map[string]string, error) {
 	fmt.Println("CAS: Validating Service Token...")
 
 	bodyMap := make(map[string]string)
 	res, err := http.Get(fmt.Sprintf("%s%s?service=%s&ticket=%s",
-		v.ServerAddr, casProtocolValidatePath, v.ServiceID, serviceToken))
+		v.ServerAddr, casProtocolValidatePath, v.ServiceID, ticket))
 	if err != nil {
 		return false, bodyMap, fErr(err)
 	}

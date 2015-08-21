@@ -1,6 +1,6 @@
 {
     "serverAddr": "http://gando:8070/cas",
 	"serviceID": "testServiceID",
-	"username": "testadmin",
-	"password": "password-testadmin"
+	"username": "dimmer",
+	"password": "password"
 }

@@ -35,32 +35,32 @@ func TestAuthProcedure(t *testing.T) {
 	}
 
 	// Setup ticket obtainer
-	to := NewTicketObtainer(c.ServerAddr)
+	o := NewObtainer(c.ServerAddr)
 
 	// Get Ticket Granting Ticket
-	TGT, err := to.Login(c.Username, c.Password)
+	TGT, err := o.Login(c.Username, c.Password)
 	if err != nil {
 		t.Fatal(err.Error())
 		return
 	}
 
-	// Get Service Token
-	serviceToken, err := to.RequestServiceToken(TGT, c.ServiceID)
+	// Get Service ticket
+	ticket, err := o.RequestTicket(TGT, c.ServiceID)
 	if err != nil {
 		t.Fatal(err.Error())
 		return
 	}
-	fmt.Println("Token", serviceToken)
+	fmt.Println("Token", ticket)
 
 	// Setup ticket validator
-	tv, err := NewTicketValidator(rulesConfPath)
+	v, err := NewValidator(rulesConfPath)
 	if err != nil {
 		t.Fatal(err.Error())
 		return
 	}
 
-	// Validate Token
-	valid, _, err := tv.ValidateServiceToken(serviceToken)
+	// Validate Ticket
+	valid, _, err := v.Validate(ticket)
 	if err != nil {
 		t.Fatal(err.Error())
 		return
