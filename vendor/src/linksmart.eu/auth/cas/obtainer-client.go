@@ -12,6 +12,7 @@ type ObtainerClient struct {
 	password  string
 	serviceID string
 	tgt       string
+	ticket    string
 }
 
 // Service Ticket (Token) Validator
@@ -22,6 +23,10 @@ func NewObtainerClient(serverAddr, username, password, serviceID string) *Obtain
 		password:  password,
 		serviceID: serviceID,
 	}
+}
+
+func (c *ObtainerClient) Ticket() string {
+	return c.ticket
 }
 
 func (c *ObtainerClient) New() (string, error) {
@@ -37,6 +42,7 @@ func (c *ObtainerClient) New() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	c.ticket = ticket
 
 	// Keep a copy for renewal references
 	c.tgt = TGT
@@ -60,10 +66,21 @@ func (c *ObtainerClient) Renew() (string, error) {
 		if err != nil {
 			return "", err
 		}
+		c.ticket = ticket
 		// Keep a copy for future renewal references
 		c.tgt = TGT
 
 		return ticket, nil
 	}
 	return ticket, nil
+}
+
+func (c *ObtainerClient) Delete() error {
+	err := c.obtainer.Logout(c.tgt)
+	if err != nil {
+		fmt.Println("CAS:", err.Error())
+		return err
+	}
+	fmt.Println("CAS: TGT was deleted.")
+	return nil
 }

@@ -14,7 +14,6 @@ import (
 type RemoteCatalogClient struct {
 	serverEndpoint *url.URL
 	ticketClient   *cas.ObtainerClient
-	ticket         string
 }
 
 func serviceFromResponse(res *http.Response, apiLocation string) (*Service, error) {
@@ -48,8 +47,7 @@ func servicesFromResponse(res *http.Response, apiLocation string) ([]Service, in
 	return svcs, len(svcs), nil
 }
 
-func NewRemoteCatalogClient(serverEndpoint string,
-	ticketClient *cas.ObtainerClient, ticket string) *RemoteCatalogClient {
+func NewRemoteCatalogClient(serverEndpoint string, ticketClient *cas.ObtainerClient) *RemoteCatalogClient {
 	// Check if serverEndpoint is a correct URL
 	endpointUrl, err := url.Parse(serverEndpoint)
 	if err != nil {
@@ -59,7 +57,6 @@ func NewRemoteCatalogClient(serverEndpoint string,
 	return &RemoteCatalogClient{
 		serverEndpoint: endpointUrl,
 		ticketClient:   ticketClient,
-		ticket:         ticket,
 	}
 }
 
@@ -78,7 +75,7 @@ func (self *RemoteCatalogClient) httpClient(method string, url string,
 	// If ticketClient is instantiated, service requires auth
 	if self.ticketClient != nil {
 		// Set auth header and send the request
-		req.Header.Set("X_auth_token", self.ticket)
+		req.Header.Set("X_auth_token", self.ticketClient.Ticket())
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, err
@@ -93,9 +90,6 @@ func (self *RemoteCatalogClient) httpClient(method string, url string,
 					return nil, err
 				}
 				logger.Println("httpClient() Renewed ticket.")
-
-				// Keep the new ticket for future references
-				self.ticket = ticket
 
 				// Reset the header and try again
 				req.Header.Set("X_auth_token", ticket)

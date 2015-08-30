@@ -69,8 +69,8 @@ func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
 			fmt.Println(err.Error())
 			continue
 		}
-		go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, wg,
-			cas.NewObtainerClient(cat.Auth.ServerAddr, cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID))
+		obtainer := cas.NewObtainerClient(cat.Auth.ServerAddr, cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID)
+		go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, wg, obtainer)
 		regChannels = append(regChannels, sigCh)
 		wg.Add(1)
 	}
