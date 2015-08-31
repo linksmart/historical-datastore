@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"linksmart.eu/auth/cas"
+	cas "linksmart.eu/auth/cas/obtainer"
+	auth "linksmart.eu/auth/obtainer"
 	sc "linksmart.eu/lc/core/catalog/service"
 	"linksmart.eu/services/historical-datastore/common"
 )
@@ -69,7 +70,9 @@ func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
 			fmt.Println(err.Error())
 			continue
 		}
-		obtainer := cas.NewObtainerClient(cat.Auth.ServerAddr, cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID)
+
+		// Setup auth client with a CAS obtainer
+		obtainer := auth.NewClient(cas.New(cat.Auth.ServerAddr), cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID)
 		go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, wg, obtainer)
 		regChannels = append(regChannels, sigCh)
 		wg.Add(1)

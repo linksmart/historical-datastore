@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"linksmart.eu/auth/cas"
+	auth "linksmart.eu/auth/obtainer"
 	utils "linksmart.eu/lc/core/catalog"
 )
 
@@ -44,7 +44,7 @@ func RegisterService(client CatalogClient, s *Service) error {
 // sigCh: channel for shutdown signalisation from upstream
 // ticketClient: set to nil for no auth
 func RegisterServiceWithKeepalive(endpoint string, discover bool, s Service,
-	sigCh <-chan bool, wg *sync.WaitGroup, ticketClient *cas.ObtainerClient) {
+	sigCh <-chan bool, wg *sync.WaitGroup, ticketClient *auth.Client) {
 	defer wg.Done()
 	var err error
 	if discover {
@@ -57,7 +57,7 @@ func RegisterServiceWithKeepalive(endpoint string, discover bool, s Service,
 
 	// Get a new service auth ticket
 	if ticketClient != nil {
-		_, err := ticketClient.New()
+		_, err := ticketClient.Obtain()
 		if err != nil {
 			logger.Println("RegisterServiceWithKeepalive() Unable to get service token:", err.Error())
 			return

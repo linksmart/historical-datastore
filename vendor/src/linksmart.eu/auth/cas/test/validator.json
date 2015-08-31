@@ -6,7 +6,7 @@
   	{
   		"resources": ["/data","/registry","/aggregation"],
   		"methods": ["GET","POST","PUT"],
-  		"users": ["u1", "u2"],
+  		"users": ["fit", "u2"],
   		"groups": ["g1", "g2"]
   	},
   	{
@@ -16,9 +16,9 @@
   		"groups": ["g1", "g2"]	
   	},
   	{
-  		"resources": ["/registry", "/"],
+  		"resources": ["/data", "/test2"],
   		"methods": ["GET", "DELETE"],
-  		"users": ["u1", "testadmin"],
+  		"users": ["u1", "u2"],
   		"groups": ["g1", "g2"]	
   	}
   ]

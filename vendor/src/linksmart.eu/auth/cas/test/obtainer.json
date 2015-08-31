@@ -1,0 +1,6 @@
+{
+    "serverAddr": "http://gando:8070/cas",
+	"serviceID": "testServiceID",
+	"username": "dimmer",
+	"password": "password"
+}

@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
+
+	"linksmart.eu/auth/obtainer"
+	"linksmart.eu/auth/validator"
 )
 
 // Supported Data backend types
@@ -26,8 +29,8 @@ type Config struct {
 	Aggr AggrConf `json:"aggregation"`
 	// Service Catalogs Registration Config
 	ServiceCatalogs []ServiceCatalogConf `json:"serviceCatalogs"`
-	// Enable Authorization Checking
-	EnableAuth bool `json:"enableAuth"`
+	// Auth config
+	Auth validator.Conf `json:"auth"`
 }
 
 // HTTP config
@@ -56,18 +59,10 @@ type AggrConf struct{}
 
 // Service Catalogs Registration Config
 type ServiceCatalogConf struct {
-	Discover bool        `json:"discover"`
-	Endpoint string      `json:"endpoint"`
-	TTL      uint        `json:"ttl"`
-	Auth     ServiceAuth `json:"auth"`
-}
-
-// Auth config for Remote Catalogs
-type ServiceAuth struct {
-	ServerAddr string `json:"serverAddr"`
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	ServiceID  string `json:"serviceID"`
+	Discover bool          `json:"discover"`
+	Endpoint string        `json:"endpoint"`
+	TTL      uint          `json:"ttl"`
+	Auth     obtainer.Conf `json:"auth"`
 }
 
 // Load API configuration from config file
@@ -116,18 +111,6 @@ func loadConfig(confPath *string) (*Config, error) {
 			return nil, errors.New("All ServiceCatalog entries must have TTL >= 0")
 		}
 	}
-
-	// VALIDATE AUTHENTICATION SERVER CONFIG
-	//	if conf.AuthServer.Enabled == true {
-	//		if conf.AuthServer.ServerAddr == "" {
-	//			return nil, errors.New("Authentication server address (ServerAddr) is not specified.")
-	//		}
-	//		conf.AuthServer.ServerAddr = strings.TrimSuffix(conf.AuthServer.ServerAddr, "/")
-	//		_, err = url.Parse(conf.AuthServer.ServerAddr)
-	//		if err != nil {
-	//			return nil, errors.New("Invalid authentication server address (ServerAddr): " + err.Error())
-	//		}
-	//	}
 
 	return &conf, nil
 }

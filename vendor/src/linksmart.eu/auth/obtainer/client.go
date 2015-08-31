@@ -1,13 +1,9 @@
-package cas
+package obtainer
 
-import (
-	"fmt"
+import "fmt"
 
-	"linksmart.eu/auth"
-)
-
-type ObtainerClient struct {
-	obtainer  auth.Obtainer
+type Client struct {
+	obtainer  Obtainer
 	username  string
 	password  string
 	serviceID string
@@ -15,21 +11,21 @@ type ObtainerClient struct {
 	ticket    string
 }
 
-// Service Ticket (Token) Validator
-func NewObtainerClient(serverAddr, username, password, serviceID string) *ObtainerClient {
-	return &ObtainerClient{
-		obtainer:  NewObtainer(serverAddr), // Setup ticket obtainer
+func NewClient(obtainer Obtainer, username, password, serviceID string) *Client {
+	return &Client{
+		obtainer:  obtainer,
 		username:  username,
 		password:  password,
 		serviceID: serviceID,
 	}
 }
 
-func (c *ObtainerClient) Ticket() string {
+func (c *Client) Ticket() string {
 	return c.ticket
 }
 
-func (c *ObtainerClient) New() (string, error) {
+// Obtain a new ticket
+func (c *Client) Obtain() (string, error) {
 	// Get Ticket Granting Ticket
 	TGT, err := c.obtainer.Login(c.username, c.password)
 	if err != nil {
@@ -50,7 +46,8 @@ func (c *ObtainerClient) New() (string, error) {
 	return ticket, nil
 }
 
-func (c *ObtainerClient) Renew() (string, error) {
+// Renew the ticket
+func (c *Client) Renew() (string, error) {
 	// Renew Service Ticket using previous TGT
 	ticket, err := c.obtainer.RequestTicket(c.tgt, c.serviceID)
 	fmt.Println("CAS: New serviceToken:", ticket)
@@ -75,10 +72,10 @@ func (c *ObtainerClient) Renew() (string, error) {
 	return ticket, nil
 }
 
-func (c *ObtainerClient) Delete() error {
+// Delete the ticket granting ticket
+func (c *Client) Delete() error {
 	err := c.obtainer.Logout(c.tgt)
 	if err != nil {
-		fmt.Println("CAS:", err.Error())
 		return err
 	}
 	fmt.Println("CAS: TGT was deleted.")

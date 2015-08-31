@@ -1,13 +1,15 @@
-package cas
+package obtainer
 
 import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 
 	"linksmart.eu/auth"
+	"linksmart.eu/auth/obtainer"
 )
 
 const (
@@ -18,31 +20,33 @@ type Obtainer struct {
 	serverAddr string
 }
 
-// Service Ticket (Token) Validator
-func NewObtainer(serverAddr string) auth.Obtainer {
+func New(serverAddr string) obtainer.Obtainer {
+	// Initialize the logger
+	auth.InitLogger(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, "CAS")
+
 	return &Obtainer{serverAddr}
 }
 
 // Request Ticker Granting Ticket (TGT) from CAS Server
 func (o *Obtainer) Login(username, password string) (string, error) {
-	fmt.Println("CAS: Getting TGT...")
+	auth.Log.Println("Getting TGT...")
 	res, err := http.PostForm(o.serverAddr+ticketPath, url.Values{
 		"username": {username},
 		"password": {password},
 	})
 	if err != nil {
-		return "", fErr(err)
+		return "", auth.Error(err)
 	}
-	fmt.Println("CAS:", res.Status)
+	auth.Log.Println(res.Status)
 
 	// Check for credentials
 	if res.StatusCode != http.StatusCreated {
-		return "", fErr(fmt.Errorf("Unable to obtain ticket (TGT) for user `%s`.", username))
+		return "", auth.Errorf(fmt.Sprintf("Unable to obtain ticket (TGT) for user `%s`.", username))
 	}
 
 	locationHeader, err := res.Location()
 	if err != nil {
-		return "", fErr(err)
+		return "", auth.Error(err)
 	}
 
 	return path.Base(locationHeader.Path), nil
@@ -50,25 +54,25 @@ func (o *Obtainer) Login(username, password string) (string, error) {
 
 // Request Service Token from CAS Server
 func (o *Obtainer) RequestTicket(TGT, serviceID string) (string, error) {
-	fmt.Println("CAS: Getting Service Ticket...")
+	auth.Log.Println("Getting Service Ticket...")
 	res, err := http.PostForm(o.serverAddr+ticketPath+TGT, url.Values{
 		"service": {serviceID},
 	})
 	if err != nil {
-		return "", fErr(err)
+		return "", auth.Error(err)
 	}
-	fmt.Println("CAS:", res.Status)
+	auth.Log.Println(res.Status)
 
 	body, err := ioutil.ReadAll(res.Body)
 	defer res.Body.Close()
 	if err != nil {
-		return "", fErr(err)
+		return "", auth.Error(err)
 	}
 	res.Body.Close()
 
 	// Check for TGT errors
 	if res.StatusCode != http.StatusOK {
-		return "", fErr(fmt.Errorf(string(body)))
+		return "", auth.Errorf(string(body))
 	}
 
 	return string(body), nil
@@ -76,20 +80,20 @@ func (o *Obtainer) RequestTicket(TGT, serviceID string) (string, error) {
 
 // Expire the Ticket Granting Ticket
 func (o *Obtainer) Logout(TGT string) error {
-	fmt.Println("CAS: Logging out (deleting TGT)...")
+	auth.Log.Println("Logging out (deleting TGT)...")
 	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s%s%s", o.serverAddr, ticketPath, TGT), nil)
 	if err != nil {
-		return fErr(err)
+		return auth.Error(err)
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fErr(err)
+		return auth.Error(err)
 	}
-	fmt.Println("CAS:", res.Status)
+	auth.Log.Println(res.Status)
 
 	// Check for server errors
 	if res.StatusCode != http.StatusOK {
-		return fErr(fmt.Errorf(res.Status))
+		return auth.Errorf(res.Status)
 	}
 
 	return nil

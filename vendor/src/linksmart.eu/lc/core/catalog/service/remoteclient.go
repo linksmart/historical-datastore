@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"net/url"
 
-	"linksmart.eu/auth/cas"
+	auth "linksmart.eu/auth/obtainer"
 )
 
 type RemoteCatalogClient struct {
 	serverEndpoint *url.URL
-	ticketClient   *cas.ObtainerClient
+	ticketClient   *auth.Client
 }
 
 func serviceFromResponse(res *http.Response, apiLocation string) (*Service, error) {
@@ -47,7 +47,7 @@ func servicesFromResponse(res *http.Response, apiLocation string) ([]Service, in
 	return svcs, len(svcs), nil
 }
 
-func NewRemoteCatalogClient(serverEndpoint string, ticketClient *cas.ObtainerClient) *RemoteCatalogClient {
+func NewRemoteCatalogClient(serverEndpoint string, ticketClient *auth.Client) *RemoteCatalogClient {
 	// Check if serverEndpoint is a correct URL
 	endpointUrl, err := url.Parse(serverEndpoint)
 	if err != nil {
@@ -75,7 +75,7 @@ func (self *RemoteCatalogClient) httpClient(method string, url string,
 	// If ticketClient is instantiated, service requires auth
 	if self.ticketClient != nil {
 		// Set auth header and send the request
-		req.Header.Set("X_auth_token", self.ticketClient.Ticket())
+		req.Header.Set("X-Auth-Token", self.ticketClient.Ticket())
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, err
@@ -84,7 +84,7 @@ func (self *RemoteCatalogClient) httpClient(method string, url string,
 		if res != nil {
 			if res.StatusCode == http.StatusUnauthorized {
 				// Get a new ticket and retry again
-				logger.Println("httpClient() Expired auth ticket.")
+				logger.Println("httpClient() Invalid authentication ticket.")
 				ticket, err := self.ticketClient.Renew()
 				if err != nil {
 					return nil, err
@@ -92,7 +92,7 @@ func (self *RemoteCatalogClient) httpClient(method string, url string,
 				logger.Println("httpClient() Renewed ticket.")
 
 				// Reset the header and try again
-				req.Header.Set("X_auth_token", ticket)
+				req.Header.Set("X-Auth-Token", ticket)
 				res, err := http.DefaultClient.Do(req)
 				if err != nil {
 					return nil, err

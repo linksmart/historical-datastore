@@ -1,4 +1,4 @@
-package auth
+package obtainer
 
 // Interface methods to login, obtain Service Ticket, and logout
 type Obtainer interface {

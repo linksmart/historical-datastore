@@ -1,14 +1,15 @@
-package cas
+package validator
 
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/kylewolfe/simplexml"
 	"linksmart.eu/auth"
+	"linksmart.eu/auth/validator"
 )
 
 const (
@@ -17,91 +18,50 @@ const (
 )
 
 type Validator struct {
-	*auth.ValidatorConf
+	*validator.Conf
 }
 
-// Service Ticket Validator
-func NewValidator(confPath *string) (auth.Validator, error) {
-	conf, err := auth.LoadValidatorConf(confPath)
-	if err != nil {
-		return nil, err
+func New(conf interface{}) (validator.Validator, error) {
+	// Initialize the logger
+	auth.InitLogger(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, "CAS")
+
+	authConf, ok := conf.(validator.Conf)
+	if !ok {
+		return nil, auth.Errorf("Bad config structure.")
 	}
-	return &Validator{conf}, nil
-}
 
-// HTTP Handler for service token validation
-func (v *Validator) Handler(next http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		X_auth_token := r.Header.Get("X_auth_token")
-
-		if X_auth_token == "" {
-			log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), "X_auth_token not specified.")
-			errorResponse(http.StatusUnauthorized, "X_auth_token entity header not specified.", w)
-			return
-		}
-
-		// Validate Token
-		valid, body, err := v.Validate(X_auth_token)
-		if err != nil {
-			log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), "Auth. server error: "+err.Error())
-			errorResponse(http.StatusInternalServerError, "Authorization server error: "+err.Error(), w)
-			return
-		}
-		if !valid {
-			if _, ok := body["error"]; ok {
-				log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), body["error"])
-				errorResponse(http.StatusUnauthorized, "Unauthorized request: "+body["error"], w)
-				return
-			}
-			errorResponse(http.StatusUnauthorized, "Unauthorized request.", w)
-			return
-		}
-
-		// Check if user matches authorization rules
-		authorized := v.Authorized(r.URL.Path, r.Method, body["user"], body["group"])
-		if !authorized {
-			log.Printf("[%s] %q %s `%s`/`%s`\n", r.Method, r.URL.String(),
-				"Access denied for", body["group"], body["user"])
-			errorResponse(http.StatusUnauthorized,
-				fmt.Sprintf("Access denied for `%s`/`%s`", body["group"], body["user"]), w)
-			return
-		}
-
-		// Valid token, proceed to next handler
-		next.ServeHTTP(w, r)
-	}
-	return http.HandlerFunc(fn)
+	return &Validator{&authConf}, nil
 }
 
 // Validate Service Ticket (CAS Protocol)
 func (v *Validator) Validate(ticket string) (bool, map[string]string, error) {
-	fmt.Println("CAS: Validating Service Token...")
+	auth.Log.Println("Validating Service Token...")
 
 	bodyMap := make(map[string]string)
 	res, err := http.Get(fmt.Sprintf("%s%s?service=%s&ticket=%s",
 		v.ServerAddr, casProtocolValidatePath, v.ServiceID, ticket))
 	if err != nil {
-		return false, bodyMap, fErr(err)
+		return false, bodyMap, auth.Error(err)
 	}
-	fmt.Println("CAS:", res.Status)
+	auth.Log.Println(res.Status)
 
 	// Check for server errors
 	if res.StatusCode != http.StatusOK {
-		return false, bodyMap, fErr(fmt.Errorf(res.Status))
+		return false, bodyMap, auth.Errorf(res.Status)
 	}
 
 	// User attributes / error message
 	body, err := ioutil.ReadAll(res.Body)
 	defer res.Body.Close()
 	if err != nil {
-		return false, bodyMap, fErr(err)
+		return false, bodyMap, auth.Error(err)
 	}
 	res.Body.Close()
 
 	// Create an xml document from response body
 	doc, err := simplexml.NewDocumentFromReader(strings.NewReader(string(body)))
 	if err != nil {
-		return false, bodyMap, fErr(fmt.Errorf("Unexpected error while validating service token."))
+		return false, bodyMap, auth.Errorf("Unexpected error while validating service token.")
 	}
 	//fmt.Println(string(body))
 
@@ -114,27 +74,27 @@ func (v *Validator) Validate(ticket string) (bool, map[string]string, error) {
 		// Check if response contains authenticationFailure tag
 		failure := doc.Root().Search().ByName("authenticationFailure").One()
 		if failure == nil {
-			return false, bodyMap, fErr(fmt.Errorf("Unexpected error while validating service token."))
+			return false, bodyMap, auth.Errorf("Unexpected error while validating service token.")
 		}
 		// Extract the error message
 		errMsg, err := failure.Value()
 		if err != nil {
-			return false, bodyMap, fErr(fmt.Errorf("Unexpected error. No error message."))
+			return false, bodyMap, auth.Errorf("Unexpected error. No error message.")
 		}
 		bodyMap["error"] = strings.TrimSpace(errMsg)
 		return false, bodyMap, nil
 	}
 
 	// Token is valid
-	fmt.Println("CAS: Token was valid.")
+	auth.Log.Println("Token was valid.")
 	// Extract username
 	userTag := doc.Root().Search().ByName("authenticationSuccess").ByName("user").One()
 	if userTag == nil {
-		return false, bodyMap, fErr(fmt.Errorf("Could not find `user` from validation response."))
+		return false, bodyMap, auth.Errorf("Could not find `user` from validation response.")
 	}
 	user, err := userTag.Value()
 	if err != nil {
-		return false, bodyMap, fErr(fmt.Errorf("Could not get value of `user` from validation response."))
+		return false, bodyMap, auth.Errorf("Could not get value of `user` from validation response.")
 	}
 	// temporary workaround until CAS bug is fixed
 	ldapDescription := strings.Split(user, "-")
@@ -145,7 +105,7 @@ func (v *Validator) Validate(ticket string) (bool, map[string]string, error) {
 		bodyMap["user"] = ldapDescription[0]
 		bodyMap["group"] = ""
 	} else {
-		return false, bodyMap, fErr(fmt.Errorf("Unexcpected format for `user` in validation response."))
+		return false, bodyMap, auth.Errorf("Unexcpected format for `user` in validation response.")
 	}
 
 	// Valid token + attributes

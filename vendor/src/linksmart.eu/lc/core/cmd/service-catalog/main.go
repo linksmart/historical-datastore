@@ -17,7 +17,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/oleksandr/bonjour"
-	"linksmart.eu/auth/cas"
+	"linksmart.eu/auth/cas/validator"
 	utils "linksmart.eu/lc/core/catalog"
 	catalog "linksmart.eu/lc/core/catalog/service"
 )
@@ -133,7 +133,7 @@ func setupRouter(config *Config) (*mux.Router, error) {
 
 	// Append auth handler if enabled
 	if config.EnableAuth {
-		v, err := cas.NewValidator(authConfPath)
+		v, err := validator.New(authConfPath)
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)
