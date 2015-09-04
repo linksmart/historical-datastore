@@ -3,7 +3,6 @@ package obtainer
 import (
 	"errors"
 	"net/url"
-	"strings"
 )
 
 // Obtainer Config
@@ -14,13 +13,25 @@ type Conf struct {
 	ServiceID  string `json:"serviceID"`
 }
 
-func ValidateConf(conf *Conf) error {
+func (c Conf) Validate() error {
 
 	// Validate ServerAddr
-	conf.ServerAddr = strings.TrimSuffix(conf.ServerAddr, "/")
-	_, err := url.Parse(conf.ServerAddr)
+	if c.ServerAddr == "" {
+		return errors.New("Ticket Obtainer: Server address (serverAddr) is not specified.")
+	}
+	_, err := url.Parse(c.ServerAddr)
 	if err != nil {
-		return errors.New("Invalid server address (ServerAddr): " + err.Error())
+		return errors.New("Ticket Obtainer: Server address (serverAddr) is invalid: " + err.Error())
+	}
+
+	// Validate Username
+	if c.Username == "" {
+		return errors.New("Ticket Obtainer: Username (username) is not specified.")
+	}
+
+	// Validate ServiceID
+	if c.ServiceID == "" {
+		return errors.New("Ticket Obtainer: Service ID (serviceID) is not specified.")
 	}
 
 	return nil

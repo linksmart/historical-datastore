@@ -13,8 +13,13 @@ import (
 	"time"
 
 	"github.com/codegangsta/negroni"
+	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
+	"github.com/justinas/alice"
 	"github.com/oleksandr/bonjour"
+	"linksmart.eu/auth/cas/obtainer"
+	"linksmart.eu/auth/cas/validator"
+	auth "linksmart.eu/auth/obtainer"
 	utils "linksmart.eu/lc/core/catalog"
 	catalog "linksmart.eu/lc/core/catalog/resource"
 	sc "linksmart.eu/lc/core/catalog/service"
@@ -29,7 +34,7 @@ func main() {
 
 	config, err := loadConfig(*confPath)
 	if err != nil {
-		logger.Fatalf("Error reading config file %v:%v", *confPath, err)
+		logger.Fatalf("Error reading config file %v: %v", *confPath, err)
 	}
 
 	r, err := setupRouter(config)
@@ -68,7 +73,16 @@ func main() {
 			// Set TTL
 			service.Ttl = cat.Ttl
 			sigCh := make(chan bool)
-			go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, &wg, nil)
+			if cat.Auth == nil {
+				go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, &wg, nil)
+			} else {
+				// Setup auth client with a CAS obtainer
+				go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, &wg,
+					auth.NewClient(
+						obtainer.New(cat.Auth.ServerAddr),
+						cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID),
+				)
+			}
 			regChannels = append(regChannels, sigCh)
 			wg.Add(1)
 		}
@@ -148,17 +162,31 @@ func setupRouter(config *Config) (*mux.Router, error) {
 		return nil, fmt.Errorf("Could not create catalog API structure. Unsupported storage type: %v", config.Storage.Type)
 	}
 
+	commonHandlers := alice.New(
+		context.ClearHandler,
+	)
+
+	// Append auth handler if enabled
+	if config.Auth.Enabled {
+		v, err := validator.New(config.Auth)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+		commonHandlers = commonHandlers.Append(v.Handler)
+	}
+
 	// Configure routers
 	r := mux.NewRouter().StrictSlash(true)
-	r.Methods("GET").Path(config.ApiLocation).HandlerFunc(api.List).Name("list")
-	r.Methods("POST").Path(config.ApiLocation + "/").HandlerFunc(api.Add).Name("add")
-	r.Methods("GET").Path(config.ApiLocation + "/{type}/{path}/{op}/{value}").HandlerFunc(api.Filter).Name("filter")
+	r.Methods("GET").Path(config.ApiLocation).Handler(commonHandlers.ThenFunc(api.List)).Name("list")
+	r.Methods("POST").Path(config.ApiLocation + "/").Handler(commonHandlers.ThenFunc(api.Add)).Name("add")
+	r.Methods("GET").Path(config.ApiLocation + "/{type}/{path}/{op}/{value:.*}").Handler(commonHandlers.ThenFunc(api.Filter)).Name("filter")
 
 	url := config.ApiLocation + "/{dgwid}/{regid}"
-	r.Methods("GET").Path(url).HandlerFunc(api.Get).Name("get")
-	r.Methods("PUT").Path(url).HandlerFunc(api.Update).Name("update")
-	r.Methods("DELETE").Path(url).HandlerFunc(api.Delete).Name("delete")
-	r.Methods("GET").Path(url + "/{resname}").HandlerFunc(api.GetResource).Name("details")
+	r.Methods("GET").Path(url).Handler(commonHandlers.ThenFunc(api.Get)).Name("get")
+	r.Methods("PUT").Path(url).Handler(commonHandlers.ThenFunc(api.Update)).Name("update")
+	r.Methods("DELETE").Path(url).Handler(commonHandlers.ThenFunc(api.Delete)).Name("delete")
+	r.Methods("GET").Path(url + "/{resname}").Handler(commonHandlers.ThenFunc(api.GetResource)).Name("details")
 
 	return r, nil
 }

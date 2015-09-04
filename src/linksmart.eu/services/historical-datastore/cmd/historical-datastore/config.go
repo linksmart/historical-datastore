@@ -59,10 +59,10 @@ type AggrConf struct{}
 
 // Service Catalogs Registration Config
 type ServiceCatalogConf struct {
-	Discover bool          `json:"discover"`
-	Endpoint string        `json:"endpoint"`
-	TTL      uint          `json:"ttl"`
-	Auth     obtainer.Conf `json:"auth"`
+	Discover bool           `json:"discover"`
+	Endpoint string         `json:"endpoint"`
+	TTL      uint           `json:"ttl"`
+	Auth     *obtainer.Conf `json:"auth"`
 }
 
 // Load API configuration from config file
@@ -109,6 +109,21 @@ func loadConfig(confPath *string) (*Config, error) {
 		}
 		if cat.TTL <= 0 {
 			return nil, errors.New("All ServiceCatalog entries must have TTL >= 0")
+		}
+		if cat.Auth != nil {
+			// Validate ticket obtainer config
+			err = cat.Auth.Validate()
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if conf.Auth.Enabled {
+		// Validate ticket validator config
+		err = conf.Auth.Validate()
+		if err != nil {
+			return nil, err
 		}
 	}
 

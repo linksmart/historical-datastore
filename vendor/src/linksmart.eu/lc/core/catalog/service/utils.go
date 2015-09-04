@@ -59,7 +59,7 @@ func RegisterServiceWithKeepalive(endpoint string, discover bool, s Service,
 	if ticketClient != nil {
 		_, err := ticketClient.Obtain()
 		if err != nil {
-			logger.Println("RegisterServiceWithKeepalive() Unable to get service token:", err.Error())
+			logger.Println("RegisterServiceWithKeepalive() Unable to get service ticket from auth client:", err.Error())
 			return
 		}
 	}

@@ -1,7 +1,5 @@
 package obtainer
 
-import "fmt"
-
 type Client struct {
 	obtainer  Obtainer
 	username  string
@@ -31,7 +29,6 @@ func (c *Client) Obtain() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("CAS: First TGT:", TGT)
 
 	// Get Service Ticket
 	ticket, err := c.obtainer.RequestTicket(TGT, c.serviceID)
@@ -50,14 +47,13 @@ func (c *Client) Obtain() (string, error) {
 func (c *Client) Renew() (string, error) {
 	// Renew Service Ticket using previous TGT
 	ticket, err := c.obtainer.RequestTicket(c.tgt, c.serviceID)
-	fmt.Println("CAS: New serviceToken:", ticket)
 	if err != nil {
 		// Get a new Ticket Granting Ticket
 		TGT, err := c.obtainer.Login(c.username, c.password)
 		if err != nil {
 			return "", err
 		}
-		fmt.Println("CAS: New TGT:", TGT)
+
 		// Get Service Ticket
 		ticket, err := c.obtainer.RequestTicket(TGT, c.serviceID)
 		if err != nil {
@@ -78,6 +74,5 @@ func (c *Client) Delete() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("CAS: TGT was deleted.")
 	return nil
 }

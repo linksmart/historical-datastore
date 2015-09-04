@@ -14,7 +14,7 @@ func (v *Validator) Handler(next http.Handler) http.Handler {
 
 		if X_Auth_Token == "" {
 			auth.Log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), "X-Auth-Token not specified.")
-			auth.HTTPErrorResponse(http.StatusUnauthorized, "X-Auth-Token entity header not specified.", w)
+			auth.HTTPErrorResponse(http.StatusUnauthorized, "Unauthorized request: X-Auth-Token entity header not specified.", w)
 			return
 		}
 

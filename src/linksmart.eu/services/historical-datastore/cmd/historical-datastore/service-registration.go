@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	cas "linksmart.eu/auth/cas/obtainer"
+	"linksmart.eu/auth/cas/obtainer"
 	auth "linksmart.eu/auth/obtainer"
 	sc "linksmart.eu/lc/core/catalog/service"
 	"linksmart.eu/services/historical-datastore/common"
@@ -15,8 +15,9 @@ const (
 	registrationTemplate = `
 	{
 	  "meta": {
-	    "apiVersion": "",
-		"apiComponents": []
+		"serviceType": "",
+	    "version": "",
+		"components": []
 	  },
 	  "protocols": [
 	    {
@@ -44,15 +45,16 @@ func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
 			continue
 		}
 
-		s.Type = ""
+		s.Type = "Service"
 		s.Name = "HistoricalDatastoreAPI"
-		s.Description = ""
+		s.Description = "Historical Datastore API"
 		s.Host = conf.HTTP.PublicAddr
 		s.Ttl = int(cat.TTL)
 
 		// meta
-		s.Meta["apiVersion"] = common.APIVersion
-		s.Meta["apiComponents"] = []string{"registryAPI", "dataAPI", "aggrAPI"}
+		s.Meta["serviceType"] = "linksmart-hds"
+		s.Meta["version"] = common.APIVersion
+		s.Meta["components"] = []string{"registryAPI", "dataAPI", "aggrAPI"}
 
 		// protocols
 		// port from the bind port, address from the public address
@@ -71,9 +73,17 @@ func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
 			continue
 		}
 
-		// Setup auth client with a CAS obtainer
-		obtainer := auth.NewClient(cas.New(cat.Auth.ServerAddr), cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID)
-		go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, wg, obtainer)
+		if cat.Auth == nil {
+			go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, wg, nil)
+		} else {
+			// Setup auth client with a CAS obtainer
+			go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, wg,
+				auth.NewClient(
+					obtainer.New(cat.Auth.ServerAddr),
+					cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID),
+			)
+		}
+
 		regChannels = append(regChannels, sigCh)
 		wg.Add(1)
 	}

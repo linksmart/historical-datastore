@@ -1,0 +1,41 @@
+{
+    "http": {
+        "publicAddr": "localhost",
+        "bindAddr": "0.0.0.0",
+        "bindPort": 8085
+    },
+    "registry": {},
+    "data": {
+        "backend": {
+            "type": "influxdb",
+            "dsn": "http://user:password@localhost:8086/db"
+        }
+    },
+    "aggregation": {},
+    "serviceCatalogs": [
+        {
+            "discover": false,
+            "endpoint": "http://localhost:8082/sc",
+            "ttl": 10,
+			"auth": {
+				"serverAddr": "http://dimmer.fit.fraunhofer.de:8070/cas",
+				"username": "scdimmer",
+				"password": "",
+				"serviceID": "dimmerSC"
+			}
+        }
+    ],
+	"auth": {
+		"enabled": true,
+		"serverAddr": "http://dimmer.fit.fraunhofer.de:8070/cas",
+		"serviceID": "dimmerHDS",
+		"authorization": [
+			{
+				"resources": ["/data","/registry","/aggregation"],
+				"methods": ["GET", "POST", "PUT", "DELETE"],
+				"users": [],
+				"groups": ["dimmerpartners"]
+			}
+		]
+	}
+}

@@ -23,8 +23,7 @@ import (
 )
 
 var (
-	confPath     = flag.String("conf", "conf/service-catalog.json", "Service catalog configuration file path")
-	authConfPath = flag.String("auth_conf", "conf/auth.json", "Auth configuration file path")
+	confPath = flag.String("conf", "conf/service-catalog.json", "Service catalog configuration file path")
 )
 
 func main() {
@@ -132,8 +131,8 @@ func setupRouter(config *Config) (*mux.Router, error) {
 	)
 
 	// Append auth handler if enabled
-	if config.EnableAuth {
-		v, err := validator.New(authConfPath)
+	if config.Auth.Enabled {
+		v, err := validator.New(config.Auth)
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)
@@ -145,7 +144,7 @@ func setupRouter(config *Config) (*mux.Router, error) {
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("GET").Path(config.ApiLocation).Handler(commonHandlers.ThenFunc(api.List)).Name("list")
 	r.Methods("POST").Path(config.ApiLocation + "/").Handler(commonHandlers.ThenFunc(api.Add)).Name("add")
-	r.Methods("GET").Path(config.ApiLocation + "/{type}/{path}/{op}/{value}").Handler(commonHandlers.ThenFunc(api.Filter)).Name("filter")
+	r.Methods("GET").Path(config.ApiLocation + "/{type}/{path}/{op}/{value:.*}").Handler(commonHandlers.ThenFunc(api.Filter)).Name("filter")
 
 	url := config.ApiLocation + "/{hostid}/{regid}"
 	r.Methods("GET").Path(url).Handler(commonHandlers.ThenFunc(api.Get)).Name("get")
