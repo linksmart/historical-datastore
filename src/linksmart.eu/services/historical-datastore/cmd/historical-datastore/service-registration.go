@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 	"sync"
 
 	"linksmart.eu/auth/cas/obtainer"
@@ -48,7 +50,8 @@ func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
 		s.Type = "Service"
 		s.Name = "HistoricalDatastoreAPI"
 		s.Description = "Historical Datastore API"
-		s.Host = conf.HTTP.PublicAddr
+		publicURL, _ := url.Parse(conf.HTTP.PublicEndpoint)
+		s.Host = strings.Split(publicURL.Host, ":")[0]
 		s.Ttl = int(cat.TTL)
 
 		// meta
