@@ -1,6 +1,6 @@
 {
     "http": {
-        "publicAddr": "localhost",
+        "publicEndpoint": "http://localhost:8085",
         "bindAddr": "0.0.0.0",
         "bindPort": 8085
     },

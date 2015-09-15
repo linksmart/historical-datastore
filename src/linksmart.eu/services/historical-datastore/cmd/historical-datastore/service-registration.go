@@ -58,7 +58,7 @@ func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
 
 		// protocols
 		// port from the bind port, address from the public address
-		s.Protocols[0].Endpoint["url"] = fmt.Sprintf("http://%v:%v%v", conf.HTTP.PublicAddr, conf.HTTP.BindPort, common.RegistryAPILoc)
+		s.Protocols[0].Endpoint["url"] = fmt.Sprintf("%s%s", conf.HTTP.PublicEndpoint, common.RegistryAPILoc)
 		s.Protocols[0].Type = "REST"
 		s.Protocols[0].Methods = []string{"GET", "POST", "PUT", "DELETE"}
 		s.Protocols[0].ContentTypes = []string{common.DefaultMIMEType}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
+	"strings"
 
 	"linksmart.eu/auth/obtainer"
 	"linksmart.eu/auth/validator"
@@ -35,9 +36,10 @@ type Config struct {
 
 // HTTP config
 type HTTPConf struct {
-	PublicAddr string `json:"publicAddr"`
-	BindAddr   string `json:"bindAddr"`
-	BindPort   uint16 `json:"bindPort"`
+	PublicEndpoint string `json:"publicEndpoint"`
+	PublicAddr     string
+	BindAddr       string `json:"bindAddr"`
+	BindPort       uint16 `json:"bindPort"`
 }
 
 // Registry config
@@ -79,9 +81,15 @@ func loadConfig(confPath *string) (*Config, error) {
 	}
 
 	// VALIDATE HTTP
-	if conf.HTTP.PublicAddr == "" || conf.HTTP.BindAddr == "" || conf.HTTP.BindPort == 0 {
-		return nil, fmt.Errorf("HTTP publicAddr, bindAddr, and bindPort have to be defined")
+	if conf.HTTP.BindAddr == "" || conf.HTTP.BindPort == 0 {
+		return nil, fmt.Errorf("HTTP bindAddr, and bindPort have to be defined")
 	}
+
+	publicURL, err := url.Parse(conf.HTTP.PublicEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("HTTP PublicEndpoint should be a valid URL")
+	}
+	conf.HTTP.PublicAddr = strings.Split(publicURL.Host, ":")[0]
 
 	// VALIDATE REGISTRY API CONFIG
 	//
