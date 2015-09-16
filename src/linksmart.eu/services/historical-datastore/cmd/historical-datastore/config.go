@@ -79,8 +79,8 @@ func loadConfig(confPath *string) (*Config, error) {
 	}
 
 	// VALIDATE HTTP
-	if conf.HTTP.BindAddr == "" || conf.HTTP.BindPort == 0 {
-		return nil, fmt.Errorf("HTTP bindAddr, and bindPort have to be defined")
+	if conf.HTTP.BindAddr == "" || conf.HTTP.BindPort == 0 || conf.HTTP.PublicEndpoint == "" {
+		return nil, fmt.Errorf("HTTP bindAddr, publicEndpoint, and bindPort have to be defined")
 	}
 
 	_, err = url.Parse(conf.HTTP.PublicEndpoint)

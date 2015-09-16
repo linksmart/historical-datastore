@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	confPath = flag.String("conf", "historical-datastore.json", "Historical Datastore configuration file path")
+	confPath = flag.String("conf", "conf/historical-datastore.json", "Historical Datastore configuration file path")
 )
 
 func main() {

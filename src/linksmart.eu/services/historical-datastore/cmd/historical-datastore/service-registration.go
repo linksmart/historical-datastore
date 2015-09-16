@@ -19,7 +19,7 @@ const (
 	  "meta": {
 		"serviceType": "",
 	    "version": "",
-		"components": []
+		"apis": []
 	  },
 	  "protocols": [
 	    {
@@ -57,7 +57,7 @@ func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
 		// meta
 		s.Meta["serviceType"] = "linksmart-hds"
 		s.Meta["version"] = common.APIVersion
-		s.Meta["components"] = []string{"registryAPI", "dataAPI", "aggrAPI"}
+		s.Meta["apis"] = []string{common.RegistryAPILoc, common.DataAPILoc, common.AggrAPILoc}
 
 		// protocols
 		// port from the bind port, address from the public address
@@ -67,7 +67,7 @@ func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
 		s.Protocols[0].ContentTypes = []string{common.DefaultMIMEType}
 
 		// representation
-		s.Representation[common.DefaultMIMEType] = map[string]interface{}{}
+		// s.Representation[common.DefaultMIMEType] = map[string]interface{}{}
 
 		sigCh := make(chan bool)
 		service, err := s.GetService()
