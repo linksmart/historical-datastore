@@ -221,12 +221,20 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 	total := 0
 	perEach := perPage / len(sources)
 
+	// If q.End is not set, make the query open-ended
+	var timeQry string
+	if q.Start.Before(q.End) {
+		timeQry = fmt.Sprintf("time > '%s' AND time < '%s'", q.Start.Format(time.RFC3339), q.End.Format(time.RFC3339))
+	} else {
+		timeQry = fmt.Sprintf("time > '%s'", q.Start.Format(time.RFC3339))
+	}
+
 	// NOTE: clarify relation between limit and perPage
 	for _, ds := range sources {
 		msrmt := msrmtBySource(ds)
 		q := influx.Query{
-			Command: fmt.Sprintf("SELECT * FROM %s WHERE dsID='%s' AND time > '%s' AND time < '%s' GROUP BY * LIMIT %d",
-				msrmt, ds.ID, q.Start.Format(time.RFC3339), q.End.Format(time.RFC3339), perEach),
+			Command: fmt.Sprintf("SELECT * FROM %s WHERE dsID='%s' AND %s GROUP BY * LIMIT %d",
+				msrmt, ds.ID, timeQry, perEach),
 			Database: s.config.Database,
 		}
 
