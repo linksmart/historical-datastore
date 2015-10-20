@@ -92,7 +92,7 @@ type Storage interface {
 
 	// Utility functions
 	getMany(page, perPage int) ([]DataSource, int, error)
-	getCount() int
+	getCount() (int, error)
 
 	// Path filtering
 	pathFilterOne(path, op, value string) (DataSource, error)

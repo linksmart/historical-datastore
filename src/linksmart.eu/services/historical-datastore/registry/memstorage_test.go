@@ -125,11 +125,12 @@ func TestMemstorageGetMany(t *testing.T) {
 
 func TestMemstorageGetCount(t *testing.T) {
 	storage := setupMemStorage()
-	total := 5
+	const total = 5
 	generateDummyData(total, NewLocalClient(storage))
 
-	if storage.getCount() != total {
-		t.Errorf("Stored %d but counted %d", total, storage.getCount())
+	c, _ := storage.getCount()
+	if c != total {
+		t.Errorf("Stored %d but counted %d", total, c)
 	}
 }
 

@@ -122,7 +122,7 @@ func (ms *MemoryStorage) get(id string) (DataSource, error) {
 
 func (ms *MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	ms.mutex.RLock()
-	total := ms.getCount()
+	total, _ := ms.getCount()
 
 	// Extract keys out of maps
 	allKeys := make([]string, 0, total)
@@ -150,8 +150,8 @@ func (ms *MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	return datasources, total, nil
 }
 
-func (ms *MemoryStorage) getCount() int {
-	return len(ms.data)
+func (ms *MemoryStorage) getCount() (int, error) {
+	return len(ms.data), nil
 }
 
 // Path filtering
