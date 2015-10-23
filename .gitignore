@@ -4,6 +4,3 @@ pkg/
 # private configs
 conf/
 
-# test database files
-test.ldb/
-

@@ -3,12 +3,14 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 
 	"github.com/pborman/uuid"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/syndtr/goleveldb/leveldb/util"
 
 	"linksmart.eu/lc/core/catalog"
 	"linksmart.eu/services/historical-datastore/common"
@@ -21,14 +23,21 @@ type LevelDBStorage struct {
 	wg     sync.WaitGroup
 }
 
-func NewLevelDBStorage(filename string) (Storage, *chan common.Notification, func() error, error) {
+func NewLevelDBStorage(dsn string) (Storage, *chan common.Notification, func() error, error) {
+	url, err := url.Parse(dsn)
+	if err != nil {
+		return &LevelDBStorage{}, nil, nil, err
+	}
+
 	// LevelDB options
 	options := &opt.Options{
 	// https://godoc.org/github.com/syndtr/goleveldb/leveldb/opt#Options
 	}
 
+	fmt.Println("Path", url.Path)
+
 	// Open the database
-	db, err := leveldb.OpenFile(filename, options)
+	db, err := leveldb.OpenFile(url.Path, options)
 	if err != nil {
 		return &LevelDBStorage{}, nil, nil, err
 	}
@@ -178,48 +187,40 @@ func (s *LevelDBStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	// LevelDB keys are sorted
 
 	// Get the queried page
-	pagedKeys := catalog.GetPageOfSlice(keys, page, perPage, common.MaxPerPage)
+	offset, limit := GetPageOfSlice(keys, page, perPage, common.MaxPerPage)
 
 	// page/registry is empty
-	if len(pagedKeys) == 0 {
-		return []DataSource{}, total, nil
+	if limit == 0 {
+		return []DataSource{}, 0, nil
 	}
 
-	datasources := make([]DataSource, 0, len(pagedKeys))
+	datasources := make([]DataSource, 0, limit)
 
-	// TODO
-	// Iterate through a database snapshot
-	// pagedKeys should have exclusive upper limit i.e. [...) instead of [...]
+	// a nil Range.Limit is treated as a key after all keys in the DB.
+	var end []byte = nil
+	if offset+limit < len(keys) {
+		end = []byte(keys[offset+limit])
+	}
 
-	//	// Iterate over a latest snapshot of the database
-	//	s.wg.Add(1)
-	//	iter = s.db.NewIterator(&util.Range{
-	//		Start: []byte(pagedKeys[0]),
-	//		Limit: []byte(pagedKeys[len(pagedKeys)-1])},
-	//		nil)
-	//	for iter.Next() {
-	//		dsBytes := iter.Value()
-	//		var ds DataSource
-	//		err = json.Unmarshal(dsBytes, &ds)
-	//		if err != nil {
-	//			return nil, 0, err
-	//		}
-	//		datasources = append(datasources, ds)
-	//	}
-	//	iter.Release()
-	//	s.wg.Done()
-	//	err = iter.Error()
-	//	if err != nil {
-	//		return nil, 0, err
-	//	}
-
-	for _, key := range pagedKeys {
-		ds, err := s.get(key)
+	// Iterate over a latest snapshot of the database
+	s.wg.Add(1)
+	iter = s.db.NewIterator(
+		&util.Range{Start: []byte(keys[offset]), Limit: end},
+		nil)
+	for iter.Next() {
+		dsBytes := iter.Value()
+		var ds DataSource
+		err = json.Unmarshal(dsBytes, &ds)
 		if err != nil {
-			fmt.Println(err.Error())
-			continue
+			return nil, 0, err
 		}
 		datasources = append(datasources, ds)
+	}
+	iter.Release()
+	s.wg.Done()
+	err = iter.Error()
+	if err != nil {
+		return nil, 0, err
 	}
 
 	return datasources, total, nil
@@ -317,26 +318,44 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 		return []DataSource{}, 0, err
 	}
 
-	keys := catalog.GetPageOfSlice(matchedIDs, page, perPage, common.MaxPerPage)
-	if len(keys) == 0 {
-		return []DataSource{}, len(matchedIDs), nil
+	// Apply pagination
+	offset, limit := GetPageOfSlice(matchedIDs, page, perPage, common.MaxPerPage)
+
+	// page/registry is empty
+	if limit == 0 {
+		return []DataSource{}, 0, nil
 	}
 
-	dss := make([]DataSource, 0, len(keys))
+	datasources := make([]DataSource, 0, len(matchedIDs))
 
-	// TODO
-	// Iterate through a database snapshot
+	// a nil Range.Limit is treated as a key after all keys in the DB.
+	var end []byte = nil
+	if offset+limit < len(matchedIDs) {
+		end = []byte(matchedIDs[offset+limit])
+	}
 
-	for _, key := range keys {
-		ds, err := s.get(key)
+	// Iterate over a latest snapshot of the database
+	s.wg.Add(1)
+	iter = s.db.NewIterator(
+		&util.Range{Start: []byte(matchedIDs[offset]), Limit: end},
+		nil)
+	for iter.Next() {
+		dsBytes := iter.Value()
+		var ds DataSource
+		err = json.Unmarshal(dsBytes, &ds)
 		if err != nil {
-			fmt.Println(err.Error())
-			continue
+			return nil, 0, err
 		}
-		dss = append(dss, ds)
+		datasources = append(datasources, ds)
+	}
+	iter.Release()
+	s.wg.Done()
+	err = iter.Error()
+	if err != nil {
+		return nil, 0, err
 	}
 
-	return dss, len(matchedIDs), nil
+	return datasources, len(matchedIDs), nil
 }
 
 // Sends a Notification{} to channel
@@ -344,4 +363,39 @@ func (s *LevelDBStorage) sendNotification(ds *DataSource, ntType common.Notifica
 	if s.ntChan != nil {
 		s.ntChan <- common.Notification{DS: *ds, TYPE: ntType}
 	}
+}
+
+// Returns offset and limit representing a subset of the given slice
+//	 based on the requested 'page'
+func GetPageOfSlice(slice []string, page, perPage, maxPerPage int) (int, int) {
+	//keys := []string{}
+	page, perPage = catalog.ValidatePagingParams(page, perPage, maxPerPage)
+
+	// Never return more than the defined maximum
+	if perPage > maxPerPage || perPage == 0 {
+		perPage = maxPerPage
+	}
+
+	// if 1, not specified or negative - return the first page
+	if page < 2 {
+		// first page
+		if perPage > len(slice) {
+			//keys = slice
+			return 0, len(slice)
+		} else {
+			//keys = slice[:perPage]
+			return 0, perPage
+		}
+	} else if page == int(len(slice)/perPage)+1 {
+		// last page
+		//keys = slice[perPage*(page-1):]
+		return perPage * (page - 1), len(slice) - perPage*(page-1)
+	} else if page <= len(slice)/perPage && page*perPage <= len(slice) {
+		// slice
+		r := page * perPage
+		l := r - perPage
+		//keys = slice[l:r]
+		return l, r - l
+	}
+	return 0, 0
 }

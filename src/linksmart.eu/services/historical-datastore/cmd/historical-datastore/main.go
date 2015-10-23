@@ -31,7 +31,22 @@ func main() {
 	}
 
 	// registry
-	regStorage, ntSndRegCh := registry.NewMemoryStorage()
+	var (
+		regStorage registry.Storage
+		ntSndRegCh *chan common.Notification
+		closeReg   func() error
+	)
+	switch conf.Reg.Backend.Type {
+	case "memory":
+		regStorage, ntSndRegCh = registry.NewMemoryStorage()
+	case "leveldb":
+		regStorage, ntSndRegCh, closeReg, err = registry.NewLevelDBStorage(conf.Reg.Backend.DSN)
+		if err != nil {
+			fmt.Printf("Failed to start LevelDB: %s\n", err)
+			os.Exit(1)
+		}
+	}
+
 	regAPI := registry.NewWriteableAPI(regStorage)
 
 	// data
@@ -103,6 +118,14 @@ func main() {
 			}
 		}
 		wg.Wait()
+
+		// Close the Registry Storage
+		if closeReg != nil {
+			err := closeReg()
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		}
 
 		fmt.Println("Stopped.")
 		os.Exit(0)

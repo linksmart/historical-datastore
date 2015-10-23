@@ -11,8 +11,14 @@ import (
 	"linksmart.eu/auth/validator"
 )
 
+// Supported Registry backend types
+var supportedRegBackends = map[string]bool{
+	"memory":  true,
+	"leveldb": true,
+}
+
 // Supported Data backend types
-var supportedBackends = map[string]bool{
+var supportedDataBackends = map[string]bool{
 	"influxdb": true,
 }
 
@@ -41,7 +47,15 @@ type HTTPConf struct {
 }
 
 // Registry config
-type RegConf struct{}
+type RegConf struct {
+	Backend RegBackendConf `json:"backend"`
+}
+
+// Registry backend config
+type RegBackendConf struct {
+	Type string `json:"type"`
+	DSN  string `json:"dsn"`
+}
 
 // Data config
 type DataConf struct {
@@ -89,12 +103,19 @@ func loadConfig(confPath *string) (*Config, error) {
 	}
 
 	// VALIDATE REGISTRY API CONFIG
-	//
-	//
+	// Check if backend is supported
+	if !supportedRegBackends[conf.Reg.Backend.Type] {
+		return nil, errors.New("Registry backend type is not supported!")
+	}
+	// Check DSN
+	_, err = url.Parse(conf.Data.Backend.DSN)
+	if err != nil {
+		return nil, err
+	}
 
 	// VALIDATE DATA API CONFIG
 	// Check if backend is supported
-	if !supportedBackends[conf.Data.Backend.Type] {
+	if !supportedDataBackends[conf.Data.Backend.Type] {
 		return nil, errors.New("Data backend type is not supported!")
 	}
 	// Check DSN
