@@ -222,7 +222,10 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 
 		v := url.Values{}
 		v.Add("start", q.Start.Format(time.RFC3339))
-		v.Add("end", q.End.Format(time.RFC3339))
+		// Omit end in open-ended queries
+		if q.End.After(q.Start) {
+			v.Add("end", q.End.Format(time.RFC3339))
+		}
 		v.Add("sort", q.Sort)
 		v.Add("limit", fmt.Sprintf("%d", q.Limit))
 		v.Add("page", fmt.Sprintf("%d", page))
