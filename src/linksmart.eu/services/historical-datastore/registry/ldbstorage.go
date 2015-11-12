@@ -23,21 +23,14 @@ type LevelDBStorage struct {
 	wg     sync.WaitGroup
 }
 
-func NewLevelDBStorage(dsn string) (Storage, *chan common.Notification, func() error, error) {
+func NewLevelDBStorage(dsn string, opts *opt.Options) (Storage, *chan common.Notification, func() error, error) {
 	url, err := url.Parse(dsn)
 	if err != nil {
 		return &LevelDBStorage{}, nil, nil, err
 	}
 
-	// LevelDB options
-	options := &opt.Options{
-	// https://godoc.org/github.com/syndtr/goleveldb/leveldb/opt#Options
-	}
-
-	fmt.Println("Path", url.Path)
-
 	// Open the database
-	db, err := leveldb.OpenFile(url.Path, options)
+	db, err := leveldb.OpenFile(url.Path, opts)
 	if err != nil {
 		return &LevelDBStorage{}, nil, nil, err
 	}
@@ -45,10 +38,10 @@ func NewLevelDBStorage(dsn string) (Storage, *chan common.Notification, func() e
 	s := &LevelDBStorage{
 		db: db,
 	}
-	return s, &s.ntChan, s.Close, nil
+	return s, &s.ntChan, s.close, nil
 }
 
-func (s *LevelDBStorage) Close() error {
+func (s *LevelDBStorage) close() error {
 	// Wait for pending operations
 	s.wg.Wait()
 	return s.db.Close()
@@ -315,44 +308,24 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 	s.wg.Done()
 	err := iter.Error()
 	if err != nil {
-		return []DataSource{}, 0, err
+		return nil, 0, err
 	}
 
 	// Apply pagination
-	offset, limit := GetPageOfSlice(matchedIDs, page, perPage, common.MaxPerPage)
+	slice := catalog.GetPageOfSlice(matchedIDs, page, perPage, common.MaxPerPage)
 
 	// page/registry is empty
-	if limit == 0 {
-		return []DataSource{}, 0, nil
+	if len(slice) == 0 {
+		return []DataSource{}, len(matchedIDs), nil
 	}
 
-	datasources := make([]DataSource, 0, len(matchedIDs))
-
-	// a nil Range.Limit is treated as a key after all keys in the DB.
-	var end []byte = nil
-	if offset+limit < len(matchedIDs) {
-		end = []byte(matchedIDs[offset+limit])
-	}
-
-	// Iterate over a latest snapshot of the database
-	s.wg.Add(1)
-	iter = s.db.NewIterator(
-		&util.Range{Start: []byte(matchedIDs[offset]), Limit: end},
-		nil)
-	for iter.Next() {
-		dsBytes := iter.Value()
-		var ds DataSource
-		err = json.Unmarshal(dsBytes, &ds)
+	datasources := make([]DataSource, len(slice))
+	for i, id := range slice {
+		ds, err := s.get(id)
 		if err != nil {
-			return nil, 0, err
+			return nil, len(matchedIDs), err
 		}
-		datasources = append(datasources, ds)
-	}
-	iter.Release()
-	s.wg.Done()
-	err = iter.Error()
-	if err != nil {
-		return nil, 0, err
+		datasources[i] = ds
 	}
 
 	return datasources, len(matchedIDs), nil

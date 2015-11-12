@@ -40,7 +40,7 @@ func main() {
 	case "memory":
 		regStorage, ntSndRegCh = registry.NewMemoryStorage()
 	case "leveldb":
-		regStorage, ntSndRegCh, closeReg, err = registry.NewLevelDBStorage(conf.Reg.Backend.DSN)
+		regStorage, ntSndRegCh, closeReg, err = registry.NewLevelDBStorage(conf.Reg.Backend.DSN, nil)
 		if err != nil {
 			fmt.Printf("Failed to start LevelDB: %s\n", err)
 			os.Exit(1)

@@ -15,7 +15,7 @@ func setupLevelDB() (Storage, func() error, error) {
 	// Replace Windows-based backslashes with slash (not parsed as Path by net/url)
 	os_temp := strings.Replace(os.TempDir(), "\\", "/", -1)
 	temp_file := fmt.Sprintf("%s/hds-test.ldb/%d.ldb", os_temp, time.Now().UnixNano())
-	storage, _, closeDB, err := NewLevelDBStorage(temp_file)
+	storage, _, closeDB, err := NewLevelDBStorage(temp_file, nil)
 	if err != nil {
 		return nil, nil, err
 	}
