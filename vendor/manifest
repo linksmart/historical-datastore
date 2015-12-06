@@ -58,46 +58,25 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/influxdb/influxdb/client",
+			"importpath": "github.com/influxdb/influxdb/client/v2",
 			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
+			"revision": "e2ae97b2cd6eca7259dba9bd2fea1137788eba5f",
 			"branch": "master",
-			"path": "/client"
+			"path": "/client/v2"
 		},
 		{
-			"importpath": "github.com/influxdb/influxdb/influxql",
+			"importpath": "github.com/influxdb/influxdb/models",
 			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
+			"revision": "9c65e1750aed764b3934467f8542f67d772857dd",
 			"branch": "master",
-			"path": "/influxql"
+			"path": "/models"
 		},
 		{
-			"importpath": "github.com/influxdb/influxdb/meta",
+			"importpath": "github.com/influxdb/influxdb/pkg/escape",
 			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
+			"revision": "9c65e1750aed764b3934467f8542f67d772857dd",
 			"branch": "master",
-			"path": "/meta"
-		},
-		{
-			"importpath": "github.com/influxdb/influxdb/snapshot",
-			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
-			"branch": "master",
-			"path": "/snapshot"
-		},
-		{
-			"importpath": "github.com/influxdb/influxdb/toml",
-			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
-			"branch": "master",
-			"path": "/toml"
-		},
-		{
-			"importpath": "github.com/influxdb/influxdb/tsdb",
-			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "911c89caba32fb28269c76ad399a96f76973c895",
-			"branch": "master",
-			"path": "/tsdb"
+			"path": "/pkg/escape"
 		},
 		{
 			"importpath": "github.com/justinas/alice",

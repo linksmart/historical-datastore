@@ -3,21 +3,21 @@ package data
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 	"time"
 
-	"log"
+	influx "github.com/influxdb/influxdb/client/v2"
+	"github.com/influxdb/influxdb/models"
 
-	influx "github.com/influxdb/influxdb/client"
-	"github.com/influxdb/influxdb/influxql"
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
 // influxStorage implements a simple data storage back-end with SQLite
 type influxStorage struct {
-	client *influx.Client
+	client influx.Client
 	config *InfluxStorageConfig
 }
 
@@ -27,9 +27,10 @@ func NewInfluxStorage(DSN string) (Storage, chan<- common.Notification, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("Influx config error: %v", err.Error())
 	}
+	cfg.Replication = 1
 
-	c, err := influx.NewClient(influx.Config{
-		URL:      *cfg.URL,
+	c, err := influx.NewHTTPClient(influx.HTTPConfig{
+		Addr:     cfg.DSN,
 		Username: cfg.Username,
 		Password: cfg.Password,
 	})
@@ -50,19 +51,26 @@ func NewInfluxStorage(DSN string) (Storage, chan<- common.Notification, error) {
 }
 
 // Returns the influxdb measurement for a given data source
-func msrmtBySource(ds registry.DataSource) string {
+func (s *influxStorage) msrmtBySource(ds registry.DataSource, fullyQualify bool) string {
 	h := strings.Replace(ds.ParsedResource().Host, ".", "_", -1)
 	p := strings.Replace(ds.ParsedResource().Path, "/", "_", -1)
-	return fmt.Sprintf("hds_data_%s%s", h, p)
+	p = strings.Replace(p, ".", "_", -1)
+
+	msrmt := fmt.Sprintf("hds_data_%s%s", h, p)
+	if fullyQualify && ds.Retention != "" {
+		msrmt = fmt.Sprintf("%s.\"%s\".%s", s.config.Database, ds.Retention, msrmt)
+	}
+
+	return msrmt
 }
 
-func pointsFromRow(r influxql.Row) ([]DataPoint, error) {
+func pointsFromRow(r models.Row) ([]DataPoint, error) {
 	var name, units string
 	var ok bool
 	points := []DataPoint{}
 
-	// (shared) name
-	if name, ok = r.Tags["dsName"]; !ok {
+	// resource name
+	if name, ok = r.Tags["name"]; !ok {
 		return nil, fmt.Errorf("Empty data source name tag")
 	}
 	// (shared) units
@@ -70,6 +78,7 @@ func pointsFromRow(r influxql.Row) ([]DataPoint, error) {
 
 	// individual points (values)
 	for _, e := range r.Values {
+		fmt.Println("value", e)
 		p := NewDataPoint()
 		p.Name = name
 		p.Units = units
@@ -87,13 +96,14 @@ func pointsFromRow(r influxql.Row) ([]DataPoint, error) {
 			case "booleanValue":
 				val := v.(bool)
 				p.BooleanValue = &val
-			case "srtringValue":
+			case "stringValue":
 				val := v.(string)
 				p.StringValue = &val
 			case "time":
 				val := v.(string)
 				t, err := time.Parse(time.RFC3339, val)
 				if err != nil {
+					fmt.Println("pointsFromRow()", err.Error())
 					continue
 				}
 				p.Time = t.Unix()
@@ -106,11 +116,11 @@ func pointsFromRow(r influxql.Row) ([]DataPoint, error) {
 
 // Returns n last points for a given DataSource
 func (s *influxStorage) getLastPoints(ds registry.DataSource, n int) ([]DataPoint, error) {
-	msrmt := msrmtBySource(ds)
 	q := influx.Query{
-		Command:  fmt.Sprintf("SELECT * FROM %s WHERE dsID='%s' GROUP BY * LIMIT %d", msrmt, ds.ID, n),
+		Command:  fmt.Sprintf("SELECT * FROM %s WHERE id='%s' GROUP BY * ORDER BY time DESC LIMIT %d", s.msrmtBySource(ds, true), ds.ID, n),
 		Database: s.config.Database,
 	}
+	fmt.Println(q)
 
 	res, err := s.client.Query(q)
 	if err != nil {
@@ -121,6 +131,7 @@ func (s *influxStorage) getLastPoints(ds registry.DataSource, n int) ([]DataPoin
 	}
 
 	if len(res.Results) < 1 || len(res.Results[0].Series) < 1 {
+		log.Panicln("No data records.")
 		return []DataPoint{}, nil // no error but also no data
 	}
 
@@ -128,18 +139,29 @@ func (s *influxStorage) getLastPoints(ds registry.DataSource, n int) ([]DataPoin
 	// e.g., if someone messed with the data outside of the HDS API
 	points, err := pointsFromRow(res.Results[0].Series[0])
 	if err != nil {
+		fmt.Println("pointsFromRow error", err.Error())
 		return []DataPoint{}, err
 	}
 
 	return points, nil
 }
 
+// echo '{"e":[{ "n": "string", "sv":"hello2" }]}' | http post http://localhost:8085/data/33bc308c-bac5-4e78-b97f-4de9b06f3b27 Content-Type:'application/senml+json'
+
 // Adds multiple data points for multiple data sources
 // data is a map where keys are data source ids
 func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
 	for id, dps := range data {
-		points := []influx.Point{}
 
+		bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
+			Database:        s.config.Database,
+			Precision:       "ms",
+			RetentionPolicy: sources[id].Retention,
+		})
+		if err != nil {
+			fmt.Println(err.Error())
+			return err
+		}
 		for _, dp := range dps {
 			var (
 				timestamp time.Time
@@ -148,8 +170,8 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 			)
 			// tags
 			tags = make(map[string]string)
-			tags["dsName"] = dp.Name // must be the same as sources[id].Resource
-			tags["dsID"] = sources[id].ID
+			tags["name"] = dp.Name // must be the same as sources[id].Resource
+			tags["id"] = sources[id].ID
 			if dp.Units != "" {
 				tags["units"] = dp.Units
 			}
@@ -172,22 +194,19 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 			} else {
 				timestamp = time.Unix(dp.Time, 0)
 			}
-
-			pt := influx.Point{
-				Measurement: msrmtBySource(sources[id]),
-				Tags:        tags,
-				Fields:      fields,
-				Time:        timestamp,
-				Precision:   "s",
+			pt, err := influx.NewPoint(
+				s.msrmtBySource(sources[id], false),
+				tags,
+				fields,
+				timestamp,
+			)
+			if err != nil {
+				fmt.Println(err.Error())
+				continue
 			}
-			points = append(points, pt)
+			bp.AddPoint(pt)
 		}
-		bps := influx.BatchPoints{
-			Points:          points,
-			Database:        s.config.Database,
-			RetentionPolicy: sources[id].Retention.Policy,
-		}
-		_, err := s.client.Write(bps)
+		err = s.client.Write(bp)
 		if err != nil {
 			return err
 		}
@@ -199,6 +218,7 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 func (s *influxStorage) GetLast(sources ...registry.DataSource) (DataSet, error) {
 	points := []DataPoint{}
 	for _, ds := range sources {
+
 		pds, err := s.getLastPoints(ds, 1)
 		if err != nil {
 			log.Printf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
@@ -231,10 +251,9 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 
 	// NOTE: clarify relation between limit and perPage
 	for _, ds := range sources {
-		msrmt := msrmtBySource(ds)
 		q := influx.Query{
-			Command: fmt.Sprintf("SELECT * FROM %s WHERE dsID='%s' AND %s GROUP BY * LIMIT %d",
-				msrmt, ds.ID, timeQry, perEach),
+			Command: fmt.Sprintf("SELECT * FROM %s WHERE id='%s' AND %s GROUP BY * LIMIT %d",
+				s.msrmtBySource(ds, true), ds.ID, timeQry, perEach),
 			Database: s.config.Database,
 		}
 
@@ -260,42 +279,69 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 	dataset := NewDataSet()
 	dataset.Entries = points
 	return dataset, total, nil
+
+	return NewDataSet(), 0, nil
+}
+
+// Handles the creation of a new data source
+func (s *influxStorage) ntfCreated(ds *registry.DataSource) {
+	fmt.Println("[nt] created: ", ds.ID)
+	if ds.Retention != "" {
+		q := influx.Query{
+			Command: fmt.Sprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
+				ds.Retention, s.config.Database, ds.Retention, s.config.Replication),
+		}
+		res, err := s.client.Query(q)
+		if err != nil {
+			log.Printf("Error creating retention policy: %v", err.Error())
+		}
+		if res.Error() != nil {
+			log.Printf("Error creating retention policy: %v", res.Error())
+		}
+	}
+}
+
+// Handles updates of a data source
+func (s *influxStorage) ntfUpdated(ds *registry.DataSource) {
+	fmt.Println("[nt] updated: ", ds.ID)
+}
+
+// Handles deletion of a data source
+func (s *influxStorage) ntfDeleted(ds *registry.DataSource) {
+	fmt.Println("[nt] deleted: ", ds.ID)
 }
 
 // InfluxStorageConfig configuration
 
 type InfluxStorageConfig struct {
-	URL      *url.URL
-	Database string
-	Username string
-	Password string
+	DSN         string
+	Database    string
+	Username    string
+	Password    string
+	Replication int
 }
 
 func initInfluxConf(DSN string) (*InfluxStorageConfig, error) {
 	// Parse config's DSN string
-	PDSN, _ := url.Parse(DSN)
+	PDSN, err := url.Parse(DSN)
+	if err != nil {
+		return nil, err
+	}
+	// Validate
+	if PDSN.Host == "" {
+		return nil, fmt.Errorf("Influxdb config: host:port in the URL must be not empty")
+	}
+	if PDSN.Path == "" {
+		return nil, fmt.Errorf("Influxdb config: db must be not empty")
+	}
+
 	password, _ := PDSN.User.Password()
 	c := &InfluxStorageConfig{
-		URL:      PDSN,
-		Database: PDSN.Path,
+		DSN:      DSN,
+		Database: strings.Trim(PDSN.Path, "/"),
 		Username: PDSN.User.Username(),
 		Password: password,
 	}
 
-	err := c.isValid()
-	if err != nil {
-		return nil, err
-	}
-
 	return c, nil
-}
-
-func (c *InfluxStorageConfig) isValid() error {
-	if c.URL.Host == "" {
-		return fmt.Errorf("Influxdb config: host:port in the URL must be not empty")
-	}
-	if c.Database == "" {
-		return fmt.Errorf("Influxdb config: db must be not empty")
-	}
-	return nil
 }

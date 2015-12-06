@@ -39,8 +39,8 @@ type DataSource struct {
 	Resource string `json:"resource"`
 	// Meta is a hash-map with optional meta-information
 	Meta map[string]interface{} `json:"meta"`
-	// Retention is the retention policy for data
-	Retention RetentionPolicy `json:"retention"`
+	// Retention is the retention duration for data
+	Retention string `json:"retention"`
 	// Aggregation is an array of configured aggregations
 	Aggregation []AggregatedDataSource `json:"aggregation"`
 	// Type is the values type used in payload
@@ -67,19 +67,8 @@ type AggregatedDataSource struct {
 	// Aggregates is an array of aggregates calculated on each interval
 	// Valid values: mean, stddev, sum, min, max, median
 	Aggregates []string `json:"aggregates"`
-	// Retention is the retention policy
-	Retention RetentionPolicy `json:"retention"`
-}
-
-// RetentionPolicy describes the retention policy
-type RetentionPolicy struct {
-	// Policy is the period of time the data will be kept around
-	// (at least that long) specified as a decimal number with units, e.g., "1h"
-	// Valid time units are "h" (hours), "d" (days), "w" (weeks), and "m" (months)
-	Policy string `json:"policy"`
-	// Duration is the period of time the data will be kept around
-	// after the Policy period (how often the old data will be removed)
-	Duration string `json:"duration"`
+	// Retention is the retention duration
+	Retention string `json:"retention"`
 }
 
 // Storage is an interface of a Registry storage backend
@@ -179,17 +168,12 @@ func validateDataSource(ds *DataSource, context uint8) error {
 
 	// VALIDATE `json:"retention"` ////////////////////////////////////////////////
 	// valid
-	if ds.Retention.Policy != "" {
-		if !validRetention(ds.Retention.Policy) {
-			invalidKeys = append(invalidKeys, fmt.Sprintf("retention.policy<[0-9]*(%s)>",
-				strings.Join(common.RetentionPeriods(), "|")))
-		}
-	}
-	// valid
-	if ds.Retention.Duration != "" {
-		if !validRetention(ds.Retention.Duration) {
-			invalidKeys = append(invalidKeys, fmt.Sprintf("retention.duration<[0-9]*(%s)>",
-				strings.Join(common.RetentionPeriods(), "|")))
+	if ds.Retention != "" {
+		// Create regexp: ^[0-9]*(h|d|w|m)$
+		retPeriods := strings.Join(common.RetentionPeriods(), "|")
+		re := regexp.MustCompile("^[0-9]*(" + retPeriods + ")$")
+		if !re.MatchString(ds.Retention) {
+			invalidKeys = append(invalidKeys, fmt.Sprintf("retention %s", re.String()))
 		}
 	}
 
@@ -240,26 +224,6 @@ func validateDataSource(ds *DataSource, context uint8) error {
 		return errors.New(strings.Join(_errors, ". "))
 	}
 	return nil
-}
-
-func validRetention(duration string) bool {
-	// Create regexp: h|d|w|m
-	retPeriods := strings.Join(common.RetentionPeriods(), "|")
-	// Create regexp: ^[0-9]*(h|d|w|m)$
-	re := regexp.MustCompile("^[0-9]*(" + retPeriods + ")$")
-
-	return re.MatchString(duration)
-
-	//	_, err := time.ParseDuration(duration)
-	//	if err == nil{
-	//		for _,suffix := range common.RetentionPeriods(){
-	//			return strings.HasSuffix(duration, suffix)
-	//		}
-	//	}
-	//	if err != nil{
-	//		fmt.Println(err.Error())
-	//	}
-	//	return false
 }
 
 func stringInSlice(a string, list []string) bool {
