@@ -1,19 +1,19 @@
 package common
 
 // Supported notification types
-type NotificationTYPE uint8
+type NotificationType uint8
 
 const (
-	CREATE NotificationTYPE = iota
+	CREATE NotificationType = iota
 	DELETE
-	UPDATE_DATA
-	UPDATE_AGGR
+	UPDATE
 )
 
 // A notification message
 type Notification struct {
-	TYPE NotificationTYPE
-	DS   interface{}
+	Type     NotificationType
+	Payload  interface{}
+	Callback chan error
 }
 
 // Constructs notifier and starts multicasting

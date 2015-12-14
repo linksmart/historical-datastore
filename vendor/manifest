@@ -58,11 +58,24 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/influxdb/influxdb",
+			"repository": "https://github.com/influxdb/influxdb",
+			"revision": "98db147df268b41c8d2ad8550ceac9dc3e36fdeb",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/influxdb/influxdb/client/v2",
 			"repository": "https://github.com/influxdb/influxdb",
 			"revision": "e2ae97b2cd6eca7259dba9bd2fea1137788eba5f",
 			"branch": "master",
 			"path": "/client/v2"
+		},
+		{
+			"importpath": "github.com/influxdb/influxdb/meta",
+			"repository": "https://github.com/influxdb/influxdb",
+			"revision": "98db147df268b41c8d2ad8550ceac9dc3e36fdeb",
+			"branch": "master",
+			"path": "/meta"
 		},
 		{
 			"importpath": "github.com/influxdb/influxdb/models",

@@ -17,9 +17,9 @@ var ErrorNotFound = errors.New("Data source is not found!")
 
 // In-memory storage
 type MemoryStorage struct {
-	data   map[string]DataSource
-	mutex  sync.RWMutex
-	ntChan chan common.Notification
+	data  map[string]DataSource
+	mutex sync.RWMutex
+	nt    chan common.Notification
 }
 
 func NewMemoryStorage() (Storage, *chan common.Notification) {
@@ -27,7 +27,7 @@ func NewMemoryStorage() (Storage, *chan common.Notification) {
 		data: make(map[string]DataSource),
 	}
 
-	return ms, &ms.ntChan
+	return ms, &ms.nt
 }
 
 func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
@@ -39,14 +39,17 @@ func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
 	ds.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, ds.ID)
 	ds.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, ds.ID)
 
+	// Send a create notification
+	errClbk := sendNotification(ds, common.CREATE, ms.nt)
+	if err := <-errClbk; err != nil {
+		return DataSource{}, err
+	}
+
 	// Add the new DataSource to the map
 	ms.mutex.RLock()
 	ms.data[newUUID] = ds
 	ms.mutex.RUnlock()
 	//fmt.Println("New DS: ", ms.data[newUUID])
-
-	// Send a create notification
-	ms.sendNotification(&ds, common.CREATE)
 
 	return ms.data[newUUID], nil
 }
@@ -70,21 +73,15 @@ func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 	//tempDS.Resource
 	//tempDS.Type
 
+	// Send an update notification
+	errClbk := sendNotification([]DataSource{oldDS, tempDS}, common.UPDATE, ms.nt)
+	if err := <-errClbk; err != nil {
+		return DataSource{}, err
+	}
+
 	// Store the modified DS
 	ms.data[id] = tempDS
-	updatedDS := ms.data[id] // for comparison
 	ms.mutex.Unlock()
-
-	// Compare DataAPI-related changes
-	if oldDS.Retention != updatedDS.Retention { // anything else?
-		// Send an update notification
-		ms.sendNotification(&updatedDS, common.UPDATE_DATA)
-	}
-	// Compare AggrAPI-related changes
-	//	if(oldDS.Aggregation != updatedDS.Aggregation){
-	//		// Send an update notification
-	//		regAPI.sendNotification(&updatedDS, common.UPDATE_AGGR)
-	//	}
 
 	return ms.data[id], nil
 }
@@ -97,13 +94,15 @@ func (ms *MemoryStorage) delete(id string) error {
 		ms.mutex.Unlock()
 		return ErrorNotFound
 	}
-	deletedDS := ms.data[id] // for notification
+
+	// Send a delete notification
+	errClbk := sendNotification(ms.data[id], common.DELETE, ms.nt)
+	if err := <-errClbk; err != nil {
+		return err
+	}
 
 	delete(ms.data, id)
 	ms.mutex.Unlock()
-
-	// Send a delete notification
-	ms.sendNotification(&deletedDS, common.DELETE)
 
 	return nil
 }
@@ -206,11 +205,4 @@ func (ms *MemoryStorage) pathFilter(path, op, value string, page, perPage int) (
 	}
 	ms.mutex.RUnlock()
 	return dss, len(matchedIDs), nil
-}
-
-// Sends a Notification{} to channel
-func (ms *MemoryStorage) sendNotification(ds *DataSource, ntType common.NotificationTYPE) {
-	if ms.ntChan != nil {
-		ms.ntChan <- common.Notification{DS: *ds, TYPE: ntType}
-	}
 }

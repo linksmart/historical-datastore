@@ -8,20 +8,30 @@ import (
 )
 
 // Handles an incoming notification
-func (s *influxStorage) ntListener(ntChan <-chan common.Notification) {
+func ntListener(s Storage, ntChan <-chan common.Notification) {
 	for ntf := range ntChan {
-		ds, ok := ntf.DS.(registry.DataSource)
-		if !ok {
-			fmt.Println("ntListener(): Bad notification!", ds)
-			continue
-		}
-		switch ntf.TYPE {
+		switch ntf.Type {
 		case common.CREATE:
-			s.ntfCreated(&ds)
-		case common.UPDATE_DATA:
-			s.ntfUpdated(&ds)
+			ds, ok := ntf.Payload.(registry.DataSource)
+			if !ok {
+				fmt.Println("ntListener() create: Bad notification!", ds)
+				continue
+			}
+			s.ntfCreated(ds, ntf.Callback)
+		case common.UPDATE:
+			dss, ok := ntf.Payload.([]registry.DataSource)
+			if !ok || len(dss) < 2 {
+				fmt.Println("ntListener() update: Bad notification!", dss)
+				continue
+			}
+			s.ntfUpdated(dss[0], dss[1], ntf.Callback)
 		case common.DELETE:
-			s.ntfDeleted(&ds)
+			ds, ok := ntf.Payload.(registry.DataSource)
+			if !ok {
+				fmt.Println("ntListener() delete: Bad notification!", ds)
+				continue
+			}
+			s.ntfDeleted(ds, ntf.Callback)
 		default:
 			// other notifications
 		}

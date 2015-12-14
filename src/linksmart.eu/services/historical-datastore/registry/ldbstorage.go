@@ -18,9 +18,9 @@ import (
 
 // LevelDB storage
 type LevelDBStorage struct {
-	db     *leveldb.DB
-	ntChan chan common.Notification
-	wg     sync.WaitGroup
+	db *leveldb.DB
+	nt chan common.Notification
+	wg sync.WaitGroup
 }
 
 func NewLevelDBStorage(dsn string, opts *opt.Options) (Storage, *chan common.Notification, func() error, error) {
@@ -38,7 +38,7 @@ func NewLevelDBStorage(dsn string, opts *opt.Options) (Storage, *chan common.Not
 	s := &LevelDBStorage{
 		db: db,
 	}
-	return s, &s.ntChan, s.close, nil
+	return s, &s.nt, s.close, nil
 }
 
 func (s *LevelDBStorage) close() error {
@@ -57,6 +57,12 @@ func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
 	ds.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, ds.ID)
 	ds.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, ds.ID)
 
+	// Send a create notification
+	errClbk := sendNotification(ds, common.CREATE, s.nt)
+	if err := <-errClbk; err != nil {
+		return DataSource{}, err
+	}
+
 	// Convert to json bytes
 	dsBytes, err := json.Marshal(&ds)
 	if err != nil {
@@ -68,9 +74,6 @@ func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
 	if err != nil {
 		return DataSource{}, err
 	}
-
-	// Send a create notification
-	s.sendNotification(&ds, common.CREATE)
 
 	return ds, nil
 }
@@ -93,6 +96,12 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 	//tempDS.Resource
 	//tempDS.Type
 
+	// Send an update notification
+	errClbk := sendNotification([]DataSource{oldDS, tempDS}, common.UPDATE, s.nt)
+	if err := <-errClbk; err != nil {
+		return DataSource{}, err
+	}
+
 	// Convert to json bytes
 	dsBytes, err := json.Marshal(&tempDS)
 	if err != nil {
@@ -105,17 +114,6 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 		return DataSource{}, err
 	}
 
-	// Compare DataAPI-related changes
-	if oldDS.Retention != tempDS.Retention { // anything else?
-		// Send an update notification
-		s.sendNotification(&tempDS, common.UPDATE_DATA)
-	}
-	// Compare AggrAPI-related changes
-	//	if(oldDS.Aggregation != updatedDS.Aggregation){
-	//		// Send an update notification
-	//		regAPI.sendNotification(&updatedDS, common.UPDATE_AGGR)
-	//	}
-
 	return tempDS, nil
 }
 
@@ -126,15 +124,18 @@ func (s *LevelDBStorage) delete(id string) error {
 		return err
 	}
 
+	// Send a delete notification
+	errClbk := sendNotification(ds, common.DELETE, s.nt)
+	if err := <-errClbk; err != nil {
+		return err
+	}
+
 	err = s.db.Delete([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
 		return ErrorNotFound
 	} else if err != nil {
 		return err
 	}
-
-	// Send a delete notification
-	s.sendNotification(&ds, common.DELETE)
 
 	return nil
 }
@@ -329,13 +330,6 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 	}
 
 	return datasources, len(matchedIDs), nil
-}
-
-// Sends a Notification{} to channel
-func (s *LevelDBStorage) sendNotification(ds *DataSource, ntType common.NotificationTYPE) {
-	if s.ntChan != nil {
-		s.ntChan <- common.Notification{DS: *ds, TYPE: ntType}
-	}
 }
 
 // Returns offset and limit representing a subset of the given slice

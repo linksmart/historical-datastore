@@ -28,7 +28,7 @@ const (
 var (
 	supportedTypes      = []string{"string", "bool", "float"}
 	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}
-	retentionPeriods    = []string{"h", "d", "w", "m"}
+	retentionPeriods    = []string{"m", "h", "d", "w"}
 )
 
 func SupportedTypes() []string {
