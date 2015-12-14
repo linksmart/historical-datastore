@@ -181,10 +181,7 @@ func TestHttpCreate(t *testing.T) {
 		{
 			"resource": "any_url",
 			"meta": {},
-			"retention": {
-			    "policy": "1w",
-			    "duration": "1m"
-			},
+			"retention": "1m",
 			"aggregation": [],
 			"type": "string",
 			"format": "any_format"
@@ -305,10 +302,7 @@ func TestHttpUpdate(t *testing.T) {
 	b := []byte(`
 		{
 			"meta": {},
-			"retention": {
-			    "policy": "1w",
-			    "duration": "1m"
-			},
+			"retention": "1m",
 			"aggregation": [],
 			"format": "any_format"
 		}
@@ -478,10 +472,7 @@ var (
 		`{
 			"id": "12345",
 			"resource": "any_url",
-			"retention": {
-			    "policy": "2h",
-			    "duration": "3d"
-			},
+			"retention": "3d",
 			"type": "string",
 			"format": "any_format"
 		}`,
@@ -489,10 +480,7 @@ var (
 		`{
 			"url": "any_regurl",
 			"resource": "any_url",
-			"retention": {
-			    "policy": "2h",
-			    "duration": "3d"
-			},
+			"retention": "3d",
 			"type": "string",
 			"format": "any_format"
 		}`,
@@ -500,40 +488,21 @@ var (
 		`{
 			"data" : "any_dataurl",
 			"resource": "any_url",
-			"retention": {
-			    "policy": "2h",
-			    "duration": "3d"
-			},
-			"type": "string",
-			"format": "any_format"
-		}`,
-		// Invalid retention policy //////////
-		`{
-			"resource": "any_url",
-			"retention": {
-			    "policy": "2",
-			    "duration": "3d"
-			},
+			"retention": "3d",
 			"type": "string",
 			"format": "any_format"
 		}`,
 		// Invalid retention duration //////////
 		`{
 			"resource": "any_url",
-			"retention": {
-			    "policy": "2h",
-			    "duration": "3s"
-			},
+			"retention": "3s",
 			"type": "string",
 			"format": "any_format"
 		}`,
 		// Missing format //////////
 		`{
 			"resource": "any_url",
-			"retention": {
-			    "policy": "2h",
-			    "duration": "3w"
-			},
+			"retention": "3w",
 			"type": "string",
 			"format": ""
 		}`,
@@ -541,10 +510,7 @@ var (
 		//		`{
 		//			"resource": "any_url",
 		//			"meta": {},
-		//			"retention": {
-		//			    "policy": "2h",
-		//			    "duration": "3w"
-		//			},
+		//			"retention": "3w",
 		//			"aggregation": [],
 		//			"type": "float",
 		//			"format": "any_format"
@@ -556,30 +522,21 @@ var (
 		// Missing resource url //////////
 		`{
 			"resource": "",
-			"retention": {
-			    "policy": "2h",
-			    "duration": "3d"
-			},
+			"retention": "3d",
 			"type": "string",
 			"format": "any_format"
 		}`,
 		// Missing type //////////
 		`{
 			"resource": "any_url",
-			"retention": {
-			    "policy": "2h",
-			    "duration": "3d"
-			},
+			"retention": "3d",
 			"type": "",
 			"format": "any_format"
 		}`,
 		// Invalid type //////////
 		`{
 			"resource": "any_url",
-			"retention": {
-			    "policy": "2h",
-			    "duration": "3w"
-			},
+			"retention": "3w",
 			"type": "some_unsupported_type",
 			"format": "any_format"
 		}`,
@@ -589,18 +546,12 @@ var (
 		// Provided read-only resource url //////////
 		`{
 			"resource": "any_url",
-			"retention": {
-			    "policy": "2h",
-			    "duration": "3d"
-			},
+			"retention": "3d",
 			"format": "any_format"
 		}`,
 		// Provided read-only type //////////
 		`{
-			"retention": {
-			    "policy": "2h",
-			    "duration": "3d"
-			},
+			"retention": "3d",
 			"type": "string",
 			"format": "any_format"
 		}`,

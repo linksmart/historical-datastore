@@ -44,8 +44,7 @@ func TestLevelDBAdd(t *testing.T) {
 	ds.Resource = "any_url"
 	ds.Meta = make(map[string]interface{})
 	ds.Meta["SerialNumber"] = 12345
-	ds.Retention.Policy = "1w"
-	ds.Retention.Duration = "2w"
+	ds.Retention = "2w"
 	//ds.Aggregation TODO
 	ds.Type = "string"
 	ds.Format = "application/senml+json"
@@ -90,8 +89,7 @@ func TestLevelDBUpdate(t *testing.T) {
 	// Update the following
 	ds.Meta = make(map[string]interface{})
 	ds.Meta["SerialNumber"] = 12345
-	ds.Retention.Policy = "10w"
-	ds.Retention.Duration = "20w"
+	ds.Retention = "20w"
 	//ds.Aggregation TODO
 	ds.Format = "new_format"
 

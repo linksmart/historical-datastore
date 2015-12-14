@@ -21,8 +21,7 @@ func TestMemstorageAdd(t *testing.T) {
 	ds.Resource = "any_url"
 	ds.Meta = make(map[string]interface{})
 	ds.Meta["SerialNumber"] = 12345
-	ds.Retention.Policy = "1w"
-	ds.Retention.Duration = "2w"
+	ds.Retention = "2w"
 	//ds.Aggregation TODO
 	ds.Type = "string"
 	ds.Format = "application/senml+json"
@@ -60,8 +59,7 @@ func TestMemstorageUpdate(t *testing.T) {
 	// Update the following
 	ds.Meta = make(map[string]interface{})
 	ds.Meta["SerialNumber"] = 12345
-	ds.Retention.Policy = "10w"
-	ds.Retention.Duration = "20w"
+	ds.Retention = "20w"
 	//ds.Aggregation TODO
 	ds.Format = "new_format"
 
@@ -190,8 +188,7 @@ func generateDummyData(quantity int, c Client) []string {
 		ds.Resource = fmt.Sprintf("http://example.com/sensor%d", i)
 		ds.Meta = make(map[string]interface{})
 		ds.Meta["SerialNumber"] = randInt(10000, 99999)
-		ds.Retention.Policy = fmt.Sprintf("%d%s", randInt(1, 20), common.RetentionPeriods()[randInt(0, 3)])
-		ds.Retention.Duration = fmt.Sprintf("%d%s", randInt(1, 20), common.RetentionPeriods()[randInt(0, 3)])
+		ds.Retention = fmt.Sprintf("%d%s", randInt(1, 20), common.RetentionPeriods()[randInt(0, 3)])
 		//ds.Aggregation TODO
 		ds.Type = common.SupportedTypes()[randInt(0, 2)]
 		ds.Format = "application/senml+json"
