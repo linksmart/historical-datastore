@@ -338,7 +338,7 @@ func (s *influxStorage) ntfCreated(ds registry.DataSource, callback chan error) 
 			ds.Retention, s.config.Database, ds.Retention, s.config.Replication)
 		if err != nil {
 			if err.Error() == meta.ErrRetentionPolicyExists.Error() {
-				// not a registry error
+				// Not an error. Policy already exists.
 				callback <- nil
 				return
 			}
@@ -352,9 +352,18 @@ func (s *influxStorage) ntfCreated(ds registry.DataSource, callback chan error) 
 // Handles updates of a data source
 func (s *influxStorage) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
 	log.Println("nt: updated", oldDS.ID)
-	// Note: changes to duration do not affect data already on disk. that data will expire using the prior settings
-	// Altering retention will affect other measurements using the same policy.
-	//	Create policy per resource instead?
+	// Note:
+	// Existing shard groups are not changed when the retention policy changes. Right now retention policy
+	//	changes only apply to shard groups moving forward. It does not affect data that has already been written.
+	//
+	// INCREASED/DECREASED RETENTION?
+	// - Changes to duration do not affect data already on disk. that data will expire using the prior settings.
+	//
+	// ENABLED RETENTION?
+	// - Changing INF to 1h takes a week (shard's lifetime) to apply.ASC
+	//
+	// Altering is done on the policies rather than the data. If altering is needed, we should create policies
+	//	per resource and alter it or have resource-independent policies and query historical data for all existing policy.
 	callback <- nil
 }
 
@@ -364,7 +373,7 @@ func (s *influxStorage) ntfDeleted(ds registry.DataSource, callback chan error) 
 	_, err := s.querySprintf("DROP MEASUREMENT %s", s.msrmtBySource(ds, false))
 	if err != nil {
 		if strings.Contains(err.Error(), "measurement not found") {
-			// not a registry error
+			// Not an error, No data to delete.
 			callback <- nil
 			return
 		}

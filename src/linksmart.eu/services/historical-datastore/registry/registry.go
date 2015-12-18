@@ -129,25 +129,25 @@ func validateDataSource(ds *DataSource, context uint8) error {
 	var _errors []string
 	var readOnlyKeys, mandatoryKeys, invalidKeys []string
 
-	// VALIDATE `json:"id"` /////////////////////////////////////////////////////
+	// VALIDATE ID `json:"id"` /////////////////////////////////////////////////////
 	// system-generated (read-only)
 	if ds.ID != "" {
 		readOnlyKeys = append(readOnlyKeys, "id")
 	}
 
-	// VALIDATE `json:"url"` //////////////////////////////////////////////////////
+	// VALIDATE URL `json:"url"` //////////////////////////////////////////////////////
 	// system-generated (read-only)
 	if ds.URL != "" {
 		readOnlyKeys = append(readOnlyKeys, "url")
 	}
 
-	// VALIDATE `json:"data"` /////////////////////////////////////////////////////
+	// VALIDATE DATA `json:"data"` /////////////////////////////////////////////////////
 	// system-generated (read-only)
 	if ds.Data != "" {
 		readOnlyKeys = append(readOnlyKeys, "data")
 	}
 
-	// VALIDATE `json:"resource"` /////////////////////////////////////////////////
+	// VALIDATE RESOURCE `json:"resource"` /////////////////////////////////////////////////
 	// mandatory for creation
 	if ds.Resource == "" && context == CREATE {
 		mandatoryKeys = append(mandatoryKeys, "resource")
@@ -164,9 +164,13 @@ func validateDataSource(ds *DataSource, context uint8) error {
 		}
 	}
 
-	// VALIDATE `json:"meta"` /////////////////////////////////////////////////////
+	// VALIDATE META `json:"meta"` /////////////////////////////////////////////////////
 
-	// VALIDATE `json:"retention"` ////////////////////////////////////////////////
+	// VALIDATE RETENTION `json:"retention"` ////////////////////////////////////////////////
+	// fixed (read-only once created)
+	if ds.Retention != "" && context == UPDATE {
+		readOnlyKeys = append(readOnlyKeys, "retention")
+	}
 	// valid
 	if ds.Retention != "" {
 		// Create regexp: ^[0-9]*(h|d|w|m)$
@@ -182,7 +186,7 @@ func validateDataSource(ds *DataSource, context uint8) error {
 	// common.SupportedAggregates()
 	// only if format=float
 
-	// VALIDATE `json:"type"` /////////////////////////////////////////////////////
+	// VALIDATE TYPE `json:"type"` /////////////////////////////////////////////////////
 	// mandatory for creation
 	if ds.Type == "" && context == CREATE {
 		mandatoryKeys = append(mandatoryKeys, "type")
@@ -199,7 +203,7 @@ func validateDataSource(ds *DataSource, context uint8) error {
 		}
 	}
 
-	// VALIDATE `json:"format"` ///////////////////////////////////////////////////
+	// VALIDATE FORMAT `json:"format"` ///////////////////////////////////////////////////
 	// mandatory
 	if ds.Format == "" {
 		mandatoryKeys = append(mandatoryKeys, "format")
@@ -207,7 +211,7 @@ func validateDataSource(ds *DataSource, context uint8) error {
 
 	///////////////////////////////////////////////////////////////////////////////
 	if len(readOnlyKeys) > 0 {
-		_errors = append(_errors, "Ambitious assignment to read-only key(s): "+
+		_errors = append(_errors, "Ambitious assignment to read-only attribute(s): "+
 			strings.Join(readOnlyKeys, ", "))
 	}
 	if len(mandatoryKeys) > 0 {
