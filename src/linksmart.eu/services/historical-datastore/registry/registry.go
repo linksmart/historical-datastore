@@ -167,10 +167,6 @@ func validateDataSource(ds *DataSource, context uint8) error {
 	// VALIDATE META `json:"meta"` /////////////////////////////////////////////////////
 
 	// VALIDATE RETENTION `json:"retention"` ////////////////////////////////////////////////
-	// fixed (read-only once created)
-	if ds.Retention != "" && context == UPDATE {
-		readOnlyKeys = append(readOnlyKeys, "retention")
-	}
 	// valid
 	if ds.Retention != "" {
 		// Create regexp: ^[0-9]*(h|d|w|m)$
@@ -204,8 +200,8 @@ func validateDataSource(ds *DataSource, context uint8) error {
 	}
 
 	// VALIDATE FORMAT `json:"format"` ///////////////////////////////////////////////////
-	// mandatory
-	if ds.Format == "" {
+	// mandatory for creation
+	if ds.Format == "" && context == CREATE {
 		mandatoryKeys = append(mandatoryKeys, "format")
 	}
 

@@ -71,13 +71,6 @@
 			"path": "/client/v2"
 		},
 		{
-			"importpath": "github.com/influxdb/influxdb/meta",
-			"repository": "https://github.com/influxdb/influxdb",
-			"revision": "98db147df268b41c8d2ad8550ceac9dc3e36fdeb",
-			"branch": "master",
-			"path": "/meta"
-		},
-		{
 			"importpath": "github.com/influxdb/influxdb/models",
 			"repository": "https://github.com/influxdb/influxdb",
 			"revision": "9c65e1750aed764b3934467f8542f67d772857dd",

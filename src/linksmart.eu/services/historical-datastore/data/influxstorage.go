@@ -10,7 +10,6 @@ import (
 	"time"
 
 	influx "github.com/influxdb/influxdb/client/v2"
-	"github.com/influxdb/influxdb/meta"
 	"github.com/influxdb/influxdb/models"
 
 	"linksmart.eu/services/historical-datastore/common"
@@ -53,17 +52,17 @@ func NewInfluxStorage(DSN string) (Storage, chan<- common.Notification, error) {
 }
 
 // Returns the influxdb measurement for a given data source
-func (s *influxStorage) msrmtBySource(ds registry.DataSource, fullyQualify bool) string {
-	h := strings.Replace(ds.ParsedResource().Host, ".", "_", -1)
-	p := strings.Replace(ds.ParsedResource().Path, "/", "_", -1)
-	p = strings.Replace(p, ".", "_", -1)
+func (s *influxStorage) msrmt(ds registry.DataSource) string {
+	return fmt.Sprintf("data_%s", ds.ID)
+}
 
-	msrmt := fmt.Sprintf("hds_data_%s%s", h, p)
-	if fullyQualify && ds.Retention != "" {
-		msrmt = fmt.Sprintf("%s.\"%s\".%s", s.config.Database, ds.Retention, msrmt)
-	}
+func (s *influxStorage) retention(ds registry.DataSource) string {
+	return fmt.Sprintf("policy_%s", ds.ID)
+}
 
-	return msrmt
+// Fully qualified measurement name
+func (s *influxStorage) fqMsrmt(ds registry.DataSource) string {
+	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.Database, s.retention(ds), s.msrmt(ds))
 }
 
 func pointsFromRow(r models.Row) ([]DataPoint, error) {
@@ -130,8 +129,8 @@ func pointsFromRow(r models.Row) ([]DataPoint, error) {
 // Returns n last points for a given DataSource
 func (s *influxStorage) getLastPoints(ds registry.DataSource, n int) ([]DataPoint, error) {
 	q := influx.Query{
-		Command: fmt.Sprintf("SELECT * FROM %s WHERE id='%s' GROUP BY * ORDER BY time DESC LIMIT %d",
-			s.msrmtBySource(ds, true), ds.ID, n),
+		Command: fmt.Sprintf("SELECT * FROM %s GROUP BY * ORDER BY time DESC LIMIT %d",
+			s.msrmt(ds), n),
 		Database: s.config.Database,
 	}
 
@@ -167,7 +166,7 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 		bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
 			Database:        s.config.Database,
 			Precision:       "ms",
-			RetentionPolicy: sources[id].Retention,
+			RetentionPolicy: s.retention(sources[id]),
 		})
 		if err != nil {
 			fmt.Println(err.Error())
@@ -182,7 +181,7 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 			// tags
 			tags = make(map[string]string)
 			tags["name"] = dp.Name // must be the same as sources[id].Resource
-			tags["id"] = sources[id].ID
+			//tags["id"] = sources[id].ID
 			if dp.Units != "" {
 				tags["units"] = dp.Units
 			}
@@ -205,7 +204,7 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 				timestamp = time.Unix(dp.Time, 0)
 			}
 			pt, err := influx.NewPoint(
-				s.msrmtBySource(sources[id], false),
+				s.msrmt(sources[id]),
 				tags,
 				fields,
 				timestamp,
@@ -271,7 +270,7 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 	for i, ds := range sources {
 		q := influx.Query{
 			Command: fmt.Sprintf("SELECT * FROM %s WHERE %s GROUP BY * ORDER BY time %s LIMIT %d OFFSET %d",
-				s.msrmtBySource(ds, true), timeQry, sort, perItems[i], offsets[i]),
+				s.fqMsrmt(ds), timeQry, sort, perItems[i], offsets[i]),
 			Database: s.config.Database,
 		}
 		res, err := s.client.Query(q)
@@ -295,7 +294,7 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 		// Count total
 		q = influx.Query{
 			Command: fmt.Sprintf("SELECT COUNT(value)+COUNT(stringValue)+COUNT(booleanValue) FROM %s WHERE %s",
-				s.msrmtBySource(ds, true), timeQry),
+				s.fqMsrmt(ds), timeQry),
 			Database: s.config.Database,
 		}
 		res, err = s.client.Query(q)
@@ -335,13 +334,8 @@ func (s *influxStorage) ntfCreated(ds registry.DataSource, callback chan error) 
 	log.Println("nt: created", ds.ID)
 	if ds.Retention != "" {
 		_, err := s.querySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
-			ds.Retention, s.config.Database, ds.Retention, s.config.Replication)
+			s.retention(ds), s.config.Database, ds.Retention, s.config.Replication)
 		if err != nil {
-			if err.Error() == meta.ErrRetentionPolicyExists.Error() {
-				// Not an error. Policy already exists.
-				callback <- nil
-				return
-			}
 			callback <- fmt.Errorf("Error creating retention policy: %v", err.Error())
 			return
 		}
@@ -364,13 +358,24 @@ func (s *influxStorage) ntfUpdated(oldDS registry.DataSource, newDS registry.Dat
 	//
 	// Altering is done on the policies rather than the data. If altering is needed, we should create policies
 	//	per resource and alter it or have resource-independent policies and query historical data for all existing policy.
+
+	if oldDS.Retention != newDS.Retention {
+
+		_, err := s.querySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v", s.retention(oldDS), s.config.Database, newDS.Retention)
+		if err != nil {
+			callback <- fmt.Errorf("Error modifying the retention policy for source: %v", err.Error())
+			return
+		}
+
+	}
 	callback <- nil
 }
 
 // Handles deletion of a data source
 func (s *influxStorage) ntfDeleted(ds registry.DataSource, callback chan error) {
 	log.Println("nt: deleted", ds.ID)
-	_, err := s.querySprintf("DROP MEASUREMENT %s", s.msrmtBySource(ds, false))
+
+	_, err := s.querySprintf("DROP MEASUREMENT \"%s\"", s.msrmt(ds))
 	if err != nil {
 		if strings.Contains(err.Error(), "measurement not found") {
 			// Not an error, No data to delete.
@@ -380,6 +385,13 @@ func (s *influxStorage) ntfDeleted(ds registry.DataSource, callback chan error) 
 		callback <- fmt.Errorf("Error removing the historical data: %v", err.Error())
 		return
 	}
+
+	_, err = s.querySprintf("DROP RETENTION POLICY \"%s\" ON %s", s.retention(ds), s.config.Database)
+	if err != nil {
+		callback <- fmt.Errorf("Error removing the retention policy for source: %v", err.Error())
+		return
+	}
+
 	callback <- nil
 }
 
