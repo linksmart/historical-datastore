@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"linksmart.eu/services/historical-datastore/common"
 )
 
 func setupLevelDB() (Storage, func() error, error) {
@@ -15,10 +17,12 @@ func setupLevelDB() (Storage, func() error, error) {
 	// Replace Windows-based backslashes with slash (not parsed as Path by net/url)
 	os_temp := strings.Replace(os.TempDir(), "\\", "/", -1)
 	temp_file := fmt.Sprintf("%s/hds-test.ldb/%d.ldb", os_temp, time.Now().UnixNano())
-	storage, _, closeDB, err := NewLevelDBStorage(temp_file, nil)
+	storage, in, closeDB, err := NewLevelDBStorage(temp_file, nil)
 	if err != nil {
 		return nil, nil, err
 	}
+	out := dummyListener()
+	common.StartNotifier(in, out)
 
 	return storage, closeDB, nil
 }

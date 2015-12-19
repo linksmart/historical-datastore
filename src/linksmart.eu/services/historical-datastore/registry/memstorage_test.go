@@ -11,8 +11,22 @@ import (
 	"linksmart.eu/services/historical-datastore/common"
 )
 
+func dummyListener() chan<- common.Notification {
+	ntChan := make(chan common.Notification)
+	go func() {
+		for {
+			nt := <-ntChan
+			nt.Callback <- nil
+		}
+	}()
+	return ntChan
+}
+
 func setupMemStorage() Storage {
-	storage, _ := NewMemoryStorage()
+	storage, in := NewMemoryStorage()
+	out := dummyListener()
+	common.StartNotifier(in, out)
+
 	return storage
 }
 

@@ -28,6 +28,11 @@ func (s *dummyDataStorage) Query(q Query, page, perPage int, ds ...registry.Data
 	return DataSet{}, 0, nil
 }
 
+func (s *dummyDataStorage) ntfCreated(ds registry.DataSource, callback chan error) {}
+func (s *dummyDataStorage) ntfUpdated(old registry.DataSource, new registry.DataSource, callback chan error) {
+}
+func (s *dummyDataStorage) ntfDeleted(ds registry.DataSource, callback chan error) {}
+
 // func setupWritableAPI() *mux.Router {
 // 	ntSndRegCh := make(chan common.Notification)
 // 	ntRcvDataCh := make(chan common.Notification)
