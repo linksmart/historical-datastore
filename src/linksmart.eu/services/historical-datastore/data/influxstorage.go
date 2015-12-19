@@ -128,27 +128,19 @@ func pointsFromRow(r models.Row) ([]DataPoint, error) {
 
 // Returns n last points for a given DataSource
 func (s *influxStorage) getLastPoints(ds registry.DataSource, n int) ([]DataPoint, error) {
-	q := influx.Query{
-		Command: fmt.Sprintf("SELECT * FROM %s GROUP BY * ORDER BY time DESC LIMIT %d",
-			s.msrmt(ds), n),
-		Database: s.config.Database,
-	}
-
-	res, err := s.client.Query(q)
+	res, err := s.querySprintf("SELECT * FROM %s GROUP BY * ORDER BY time DESC LIMIT %d",
+		s.fqMsrmt(ds), n)
 	if err != nil {
 		return []DataPoint{}, err
 	}
-	if res.Error() != nil {
-		return []DataPoint{}, res.Error()
-	}
 
-	if len(res.Results) < 1 || len(res.Results[0].Series) < 1 {
+	if len(res) < 1 || len(res[0].Series) < 1 {
 		return []DataPoint{}, nil // no error but also no data
 	}
 
 	// There can be a case where there is more than 1 series matching the query
 	// e.g., if someone messed with the data outside of the HDS API
-	points, err := pointsFromRow(res.Results[0].Series[0])
+	points, err := pointsFromRow(res[0].Series[0])
 	if err != nil {
 		return []DataPoint{}, err
 	}
@@ -169,7 +161,6 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 			RetentionPolicy: s.retention(sources[id]),
 		})
 		if err != nil {
-			fmt.Println(err.Error())
 			return err
 		}
 		for _, dp := range dps {
@@ -210,8 +201,7 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 				timestamp,
 			)
 			if err != nil {
-				fmt.Println(err.Error())
-				continue
+				return fmt.Errorf("Error creating data point for source %v: %v", sources[id].ID, err.Error())
 			}
 			bp.AddPoint(pt)
 		}
@@ -230,12 +220,10 @@ func (s *influxStorage) GetLast(sources ...registry.DataSource) (DataSet, error)
 
 		pds, err := s.getLastPoints(ds, 1)
 		if err != nil {
-			log.Printf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
-			continue
+			return NewDataSet(), fmt.Errorf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
 		}
 		if len(pds) < 1 {
-			log.Printf("There is no data for source %v", ds.Resource)
-			continue
+			return NewDataSet(), fmt.Errorf("There is no data for source %v", ds.Resource)
 		}
 		points = append(points, pds[0])
 	}
@@ -268,49 +256,35 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 
 	// NOTE: clarify relation between limit and perPage
 	for i, ds := range sources {
-		q := influx.Query{
-			Command: fmt.Sprintf("SELECT * FROM %s WHERE %s GROUP BY * ORDER BY time %s LIMIT %d OFFSET %d",
-				s.fqMsrmt(ds), timeQry, sort, perItems[i], offsets[i]),
-			Database: s.config.Database,
-		}
-		res, err := s.client.Query(q)
+		res, err := s.querySprintf("SELECT * FROM %s WHERE %s GROUP BY * ORDER BY time %s LIMIT %d OFFSET %d",
+			s.fqMsrmt(ds), timeQry, sort, perItems[i], offsets[i])
 		if err != nil {
-			log.Printf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
-			continue
+			return NewDataSet(), 0, fmt.Errorf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
 		}
-		if res.Error() != nil || len(res.Results) < 1 || len(res.Results[0].Series) < 1 {
-			log.Printf("There is no data for source %v", ds.Resource)
-			continue
+		if len(res) < 1 || len(res[0].Series) < 1 {
+			return NewDataSet(), 0, fmt.Errorf("There is no data for source %v", ds.Resource)
 		}
 
 		// There can be a case where there is more than 1 series matching the query
 		// e.g., if someone messed with the data outside of the HDS API
-		pds, err := pointsFromRow(res.Results[0].Series[0])
+		pds, err := pointsFromRow(res[0].Series[0])
 		if err != nil {
-			log.Printf("Error parsing points for source %v: %v", ds.Resource, err.Error())
-			continue
+			return NewDataSet(), 0, fmt.Errorf("Error parsing points for source %v: %v", ds.Resource, err.Error())
 		}
 
 		// Count total
-		q = influx.Query{
-			Command: fmt.Sprintf("SELECT COUNT(value)+COUNT(stringValue)+COUNT(booleanValue) FROM %s WHERE %s",
-				s.fqMsrmt(ds), timeQry),
-			Database: s.config.Database,
-		}
-		res, err = s.client.Query(q)
+		res, err = s.querySprintf("SELECT COUNT(value)+COUNT(stringValue)+COUNT(booleanValue) FROM %s WHERE %s",
+			s.fqMsrmt(ds), timeQry)
 		if err != nil {
-			log.Printf("Error counting records for source %v: %v", ds.Resource, err.Error())
-			continue
+			return NewDataSet(), 0, fmt.Errorf("Error counting records for source %v: %v", ds.Resource, err.Error())
 		}
-		if res.Error() != nil ||
-			len(res.Results) < 1 ||
-			len(res.Results[0].Series) < 1 ||
-			len(res.Results[0].Series[0].Values) < 1 ||
-			len(res.Results[0].Series[0].Values[0]) < 2 {
-			log.Printf("Error counting records for source %v: %v", ds.Resource, res.Error())
-			continue
+		if len(res) < 1 ||
+			len(res[0].Series) < 1 ||
+			len(res[0].Series[0].Values) < 1 ||
+			len(res[0].Series[0].Values[0]) < 2 {
+			return NewDataSet(), 0, fmt.Errorf("Unable to count records for source %v", ds.Resource)
 		}
-		count, err := res.Results[0].Series[0].Values[0][1].(json.Number).Int64()
+		count, err := res[0].Series[0].Values[0][1].(json.Number).Int64()
 		if err != nil {
 			log.Println(err.Error())
 		}

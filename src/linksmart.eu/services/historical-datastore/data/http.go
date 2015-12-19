@@ -3,7 +3,6 @@ package data
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -114,8 +113,10 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	for _, id := range ids {
 		ds, err := d.registryClient.Get(id)
 		if err != nil {
-			log.Printf("Error retrieving data source %v from the registry: %v **data will be discarded**", id, err.Error())
-			continue
+			common.ErrorResponse(http.StatusInternalServerError,
+				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()),
+				w)
+			return
 		}
 		dsResources[ds.Resource] = ds
 	}
@@ -126,8 +127,10 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 		// Check if there is a data source for this entry
 		ds, ok := dsResources[e.Name]
 		if !ok {
-			log.Printf("Data point for unknown data source %v **data will be discarded**", e.Name)
-			// continue
+			common.ErrorResponse(http.StatusNotFound,
+				fmt.Sprintf("Data point for unknown data source %v", e.Name),
+				w)
+			return
 		}
 		_, ok = data[ds.ID]
 		if !ok {
@@ -176,8 +179,10 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 	for _, id := range ids {
 		ds, err := d.registryClient.Get(id)
 		if err != nil {
-			log.Printf("Error retrieving data source %v from the registry: %v **data will be discarded**", id, err.Error())
-			continue
+			common.ErrorResponse(http.StatusInternalServerError,
+				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()),
+				w)
+			return
 		}
 		sources = append(sources, ds)
 	}
