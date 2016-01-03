@@ -51,11 +51,12 @@ func NewInfluxStorage(DSN string) (Storage, chan<- common.Notification, error) {
 	return s, ntChan, nil
 }
 
-// Returns the influxdb measurement for a given data source
+// Formatted measurement name for a given data source
 func (s *influxStorage) msrmt(ds registry.DataSource) string {
 	return fmt.Sprintf("data_%s", ds.ID)
 }
 
+// Formatted retention policy name for a given data source
 func (s *influxStorage) retention(ds registry.DataSource) string {
 	return fmt.Sprintf("policy_%s", ds.ID)
 }
@@ -64,91 +65,6 @@ func (s *influxStorage) retention(ds registry.DataSource) string {
 func (s *influxStorage) fqMsrmt(ds registry.DataSource) string {
 	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.Database, s.retention(ds), s.msrmt(ds))
 }
-
-func pointsFromRow(r models.Row) ([]DataPoint, error) {
-	var name, units string
-	var ok bool
-	points := []DataPoint{}
-
-	// resource name
-	if name, ok = r.Tags["name"]; !ok {
-		return nil, errors.New("Empty data source name tag")
-	}
-	// (shared) units
-	units, _ = r.Tags["units"]
-
-	// individual points (values)
-	for _, e := range r.Values {
-		p := NewDataPoint()
-		p.Name = name
-		p.Units = units
-
-		// values
-		for i, v := range e {
-			// point with nil column
-			if v == nil {
-				continue
-			}
-			switch r.Columns[i] {
-			case "value":
-				if val, err := v.(json.Number).Float64(); err == nil {
-					p.Value = &val
-				} else {
-					return nil, err
-				}
-			case "booleanValue":
-				if val, ok := v.(bool); ok {
-					p.BooleanValue = &val
-				} else {
-					return nil, errors.New("Interface conversion error.")
-				}
-			case "stringValue":
-				if val, ok := v.(string); ok {
-					p.StringValue = &val
-				} else {
-					return nil, errors.New("Interface conversion error.")
-				}
-			case "time":
-				if val, ok := v.(string); ok {
-					t, err := time.Parse(time.RFC3339, val)
-					if err != nil {
-						fmt.Println("pointsFromRow()", err.Error())
-						continue
-					}
-					p.Time = t.Unix()
-				} else {
-					return nil, errors.New("Interface conversion error.")
-				}
-			}
-		}
-		points = append(points, p)
-	}
-	return points, nil
-}
-
-// Returns n last points for a given DataSource
-func (s *influxStorage) getLastPoints(ds registry.DataSource, n int) ([]DataPoint, error) {
-	res, err := s.querySprintf("SELECT * FROM %s GROUP BY * ORDER BY time DESC LIMIT %d",
-		s.fqMsrmt(ds), n)
-	if err != nil {
-		return []DataPoint{}, err
-	}
-
-	if len(res) < 1 || len(res[0].Series) < 1 {
-		return []DataPoint{}, nil // no error but also no data
-	}
-
-	// There can be a case where there is more than 1 series matching the query
-	// e.g., if someone messed with the data outside of the HDS API
-	points, err := pointsFromRow(res[0].Series[0])
-	if err != nil {
-		return []DataPoint{}, err
-	}
-
-	return points, nil
-}
-
-// echo '{"e":[{ "n": "string", "sv":"hello2" }]}' | http post http://localhost:8085/data/33bc308c-bac5-4e78-b97f-4de9b06f3b27 Content-Type:'application/senml+json'
 
 // Adds multiple data points for multiple data sources
 // data is a map where keys are data source ids
@@ -182,7 +98,7 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 			// The "value", "stringValue", and "booleanValue" fields MUST NOT appear together.
 			if dp.Value != nil {
 				fields["value"] = *dp.Value
-			} else if dp.StringValue != nil {
+			} else if dp.StringValue != nil && *dp.StringValue != "" {
 				fields["stringValue"] = *dp.StringValue
 			} else if dp.BooleanValue != nil {
 				fields["booleanValue"] = *dp.BooleanValue
@@ -213,18 +129,90 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 	return nil
 }
 
+func pointsFromRow(r models.Row) ([]DataPoint, error) {
+	points := []DataPoint{}
+
+	for _, e := range r.Values {
+		p := NewDataPoint()
+
+		// fields and tags
+		for i, v := range e {
+			// point with nil column
+			if v == nil {
+				continue
+			}
+			switch r.Columns[i] {
+			case "time":
+				if val, ok := v.(string); ok {
+					t, err := time.Parse(time.RFC3339, val)
+					if err != nil {
+						return nil, fmt.Errorf("Invalid time format:", val)
+					}
+					p.Time = t.Unix()
+				} else {
+					return nil, errors.New("Interface conversion error. time not string?")
+				}
+			case "name":
+				if val, ok := v.(string); ok {
+					p.Name = val
+				} else {
+					return nil, errors.New("Interface conversion error. name not string?")
+				}
+			case "value":
+				if val, err := v.(json.Number).Float64(); err == nil {
+					p.Value = &val
+				} else {
+					return nil, err
+				}
+			case "booleanValue":
+				if val, ok := v.(bool); ok {
+					p.BooleanValue = &val
+				} else {
+					return nil, errors.New("Interface conversion error. booleanValue not bool?")
+				}
+			case "stringValue":
+				if val, ok := v.(string); ok {
+					p.StringValue = &val
+				} else {
+					return nil, errors.New("Interface conversion error. stringValue not string?")
+				}
+			case "units":
+				if val, ok := v.(string); ok {
+					p.Units = val
+				} else {
+					return nil, errors.New("Interface conversion error. units not string?")
+				}
+			} // endswitch
+		}
+		points = append(points, p)
+	}
+
+	return points, nil
+}
+
 // Retrieves last data point of every data source
 func (s *influxStorage) GetLast(sources ...registry.DataSource) (DataSet, error) {
 	points := []DataPoint{}
 	for _, ds := range sources {
 
-		pds, err := s.getLastPoints(ds, 1)
+		res, err := s.querySprintf("SELECT * FROM %s ORDER BY time DESC LIMIT 1", s.fqMsrmt(ds))
 		if err != nil {
 			return NewDataSet(), fmt.Errorf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
 		}
-		if len(pds) < 1 {
-			return NewDataSet(), fmt.Errorf("There is no data for source %v", ds.Resource)
+		if len(res) < 1 || len(res[0].Series) < 1 {
+			log.Printf("There is no data for source %v", ds.Resource)
+			continue
 		}
+
+		if len(res[0].Series) > 1 {
+			return NewDataSet(), fmt.Errorf("Unrecognized/Corrupted database schema.")
+		}
+
+		pds, err := pointsFromRow(res[0].Series[0])
+		if err != nil {
+			return NewDataSet(), fmt.Errorf("Error parsing points for source %v: %v", ds.Resource, err.Error())
+		}
+
 		points = append(points, pds[0])
 	}
 	dataset := NewDataSet()
@@ -239,11 +227,11 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 	//perEach := perPage / len(sources)
 
 	// If q.End is not set, make the query open-ended
-	var timeQry string
+	var timeCond string
 	if q.Start.Before(q.End) {
-		timeQry = fmt.Sprintf("time > '%s' AND time < '%s'", q.Start.Format(time.RFC3339), q.End.Format(time.RFC3339))
+		timeCond = fmt.Sprintf("time > '%s' AND time < '%s'", q.Start.Format(time.RFC3339), q.End.Format(time.RFC3339))
 	} else {
-		timeQry = fmt.Sprintf("time > '%s'", q.Start.Format(time.RFC3339))
+		timeCond = fmt.Sprintf("time > '%s'", q.Start.Format(time.RFC3339))
 	}
 
 	perItems, offsets := perItemPagination(q.Limit, page, perPage, len(sources))
@@ -254,19 +242,21 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 		sort = "DESC"
 	}
 
-	// NOTE: clarify relation between limit and perPage
 	for i, ds := range sources {
-		res, err := s.querySprintf("SELECT * FROM %s WHERE %s GROUP BY * ORDER BY time %s LIMIT %d OFFSET %d",
-			s.fqMsrmt(ds), timeQry, sort, perItems[i], offsets[i])
+		res, err := s.querySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
+			s.fqMsrmt(ds), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
 			return NewDataSet(), 0, fmt.Errorf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
 		}
 		if len(res) < 1 || len(res[0].Series) < 1 {
-			return NewDataSet(), 0, fmt.Errorf("There is no data for source %v", ds.Resource)
+			log.Printf("There is no data for source %v", ds.Resource)
+			continue
 		}
 
-		// There can be a case where there is more than 1 series matching the query
-		// e.g., if someone messed with the data outside of the HDS API
+		if len(res[0].Series) > 1 {
+			return NewDataSet(), 0, fmt.Errorf("Unrecognized/Corrupted database schema.")
+		}
+
 		pds, err := pointsFromRow(res[0].Series[0])
 		if err != nil {
 			return NewDataSet(), 0, fmt.Errorf("Error parsing points for source %v: %v", ds.Resource, err.Error())
@@ -274,7 +264,7 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 
 		// Count total
 		res, err = s.querySprintf("SELECT COUNT(value)+COUNT(stringValue)+COUNT(booleanValue) FROM %s WHERE %s",
-			s.fqMsrmt(ds), timeQry)
+			s.fqMsrmt(ds), timeCond)
 		if err != nil {
 			return NewDataSet(), 0, fmt.Errorf("Error counting records for source %v: %v", ds.Resource, err.Error())
 		}
@@ -290,13 +280,15 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 		}
 		total += int(count)
 
-		points = append(points, pds...)
+		if perItems[i] != 0 { // influx ignores `limit 0`
+			points = append(points, pds...)
+		}
 	}
 	dataset := NewDataSet()
 	dataset.Entries = points
 
 	// q.Limit overrides total
-	if q.Limit < total {
+	if q.Limit > 0 && q.Limit < total {
 		total = q.Limit
 	}
 
@@ -305,7 +297,7 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 
 // Handles the creation of a new data source
 func (s *influxStorage) ntfCreated(ds registry.DataSource, callback chan error) {
-	log.Println("nt: created", ds.ID)
+
 	if ds.Retention != "" {
 		_, err := s.querySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
 			s.retention(ds), s.config.Database, ds.Retention, s.config.Replication)
@@ -313,41 +305,27 @@ func (s *influxStorage) ntfCreated(ds registry.DataSource, callback chan error) 
 			callback <- fmt.Errorf("Error creating retention policy: %v", err.Error())
 			return
 		}
+		log.Println("influxStorage: created retention policy for", ds.ID)
 	}
 	callback <- nil
 }
 
 // Handles updates of a data source
 func (s *influxStorage) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
-	log.Println("nt: updated", oldDS.ID)
-	// Note:
-	// Existing shard groups are not changed when the retention policy changes. Right now retention policy
-	//	changes only apply to shard groups moving forward. It does not affect data that has already been written.
-	//
-	// INCREASED/DECREASED RETENTION?
-	// - Changes to duration do not affect data already on disk. that data will expire using the prior settings.
-	//
-	// ENABLED RETENTION?
-	// - Changing INF to 1h takes a week (shard's lifetime) to apply.ASC
-	//
-	// Altering is done on the policies rather than the data. If altering is needed, we should create policies
-	//	per resource and alter it or have resource-independent policies and query historical data for all existing policy.
 
 	if oldDS.Retention != newDS.Retention {
-
 		_, err := s.querySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v", s.retention(oldDS), s.config.Database, newDS.Retention)
 		if err != nil {
 			callback <- fmt.Errorf("Error modifying the retention policy for source: %v", err.Error())
 			return
 		}
-
+		log.Println("influxStorage: altered retention policy for", oldDS.ID)
 	}
 	callback <- nil
 }
 
 // Handles deletion of a data source
 func (s *influxStorage) ntfDeleted(ds registry.DataSource, callback chan error) {
-	log.Println("nt: deleted", ds.ID)
 
 	_, err := s.querySprintf("DROP MEASUREMENT \"%s\"", s.msrmt(ds))
 	if err != nil {
@@ -359,19 +337,21 @@ func (s *influxStorage) ntfDeleted(ds registry.DataSource, callback chan error) 
 		callback <- fmt.Errorf("Error removing the historical data: %v", err.Error())
 		return
 	}
+	log.Println("influxStorage: dropped measurements for", ds.ID)
 
 	_, err = s.querySprintf("DROP RETENTION POLICY \"%s\" ON %s", s.retention(ds), s.config.Database)
 	if err != nil {
 		callback <- fmt.Errorf("Error removing the retention policy for source: %v", err.Error())
 		return
 	}
+	log.Println("influxStorage: dropped retention policy for", ds.ID)
 
 	callback <- nil
 }
 
 // Query influxdb
 func (s *influxStorage) querySprintf(format string, a ...interface{}) (res []influx.Result, err error) {
-	fmt.Println(fmt.Sprintf(format, a...))
+	fmt.Println("QUERY:", fmt.Sprintf(format, a...))
 	q := influx.Query{
 		Command:  fmt.Sprintf(format, a...),
 		Database: s.config.Database,
