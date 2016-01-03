@@ -92,7 +92,7 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 
 	// Only SenML is supported for now
 	if contentType != "application/senml+json" {
-		common.ErrorResponse(http.StatusUnsupportedMediaType, "Unsupported content type", w)
+		common.ErrorResponse(http.StatusUnsupportedMediaType, "Unsupported content type: "+contentType+". Only `application/senml+json` is supported.", w)
 		return
 	}
 
@@ -113,7 +113,7 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	for _, id := range ids {
 		ds, err := d.registryClient.Get(id)
 		if err != nil {
-			common.ErrorResponse(http.StatusInternalServerError,
+			common.ErrorResponse(http.StatusNotFound,
 				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()),
 				w)
 			return
@@ -124,14 +124,40 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	// Fill the data map with provided data points
 	entries := senmlMessage.Expand().Entries
 	for _, e := range entries {
+		if e.Name == "" {
+			common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Data source name not specified."), w)
+			return
+		}
 		// Check if there is a data source for this entry
 		ds, ok := dsResources[e.Name]
 		if !ok {
-			common.ErrorResponse(http.StatusNotFound,
-				fmt.Sprintf("Data point for unknown data source %v", e.Name),
-				w)
+			common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data point for unknown data source %v.", e.Name), w)
 			return
 		}
+
+		// Check if type of value matches the data source type in registry
+		typeError := false
+		fmt.Println(ds.Type)
+		switch ds.Type {
+		case common.FLOAT:
+			if e.BooleanValue != nil || e.StringValue != nil && *e.StringValue != "" {
+				typeError = true
+			}
+		case common.STRING:
+			if e.Value != nil || e.BooleanValue != nil {
+				typeError = true
+			}
+		case common.BOOL:
+			if e.Value != nil || e.StringValue != nil && *e.StringValue != "" {
+				typeError = true
+			}
+		}
+		if typeError {
+			common.ErrorResponse(http.StatusBadRequest,
+				fmt.Sprintf("Entry for data point %v has a type that is incompatible with source registration. Source %v has type %v.", e.Name, ds.ID, ds.Type), w)
+			return
+		}
+
 		_, ok = data[ds.ID]
 		if !ok {
 			data[ds.ID] = []DataPoint{}
@@ -179,7 +205,7 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 	for _, id := range ids {
 		ds, err := d.registryClient.Get(id)
 		if err != nil {
-			common.ErrorResponse(http.StatusInternalServerError,
+			common.ErrorResponse(http.StatusNotFound,
 				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()),
 				w)
 			return
@@ -232,7 +258,9 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 			v.Add("end", q.End.Format(time.RFC3339))
 		}
 		v.Add("sort", q.Sort)
-		v.Add("limit", fmt.Sprintf("%d", q.Limit))
+		if q.Limit > 0 { // non-positive limit is ignored
+			v.Add("limit", fmt.Sprintf("%d", q.Limit))
+		}
 		v.Add("page", fmt.Sprintf("%d", page))
 		v.Add("per_page", fmt.Sprintf("%d", perPage))
 		recordSet = RecordSet{

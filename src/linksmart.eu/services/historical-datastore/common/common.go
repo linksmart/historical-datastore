@@ -25,8 +25,14 @@ const (
 	MaxPerPage = 100
 )
 
+const (
+	STRING = "string"
+	FLOAT  = "float"
+	BOOL   = "bool"
+)
+
 var (
-	supportedTypes      = []string{"string", "bool", "float"}
+	supportedTypes      = []string{STRING, BOOL, FLOAT}
 	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}
 	retentionPeriods    = []string{"m", "h", "d", "w"}
 )
