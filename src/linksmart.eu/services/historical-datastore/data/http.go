@@ -137,7 +137,6 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 
 		// Check if type of value matches the data source type in registry
 		typeError := false
-		fmt.Println(ds.Type)
 		switch ds.Type {
 		case common.FLOAT:
 			if e.BooleanValue != nil || e.StringValue != nil && *e.StringValue != "" {
@@ -230,7 +229,6 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 			URL:     fmt.Sprintf("%s", r.URL.Path),
 			Data:    data,
 			Time:    time.Since(timeStart).Seconds() * 1000,
-			Error:   "",
 			Page:    page,
 			PerPage: perPage,
 			Total:   len(data.Entries),
@@ -267,7 +265,6 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 			URL:     fmt.Sprintf("%s?%s", r.URL.Path, v.Encode()),
 			Data:    data,
 			Time:    time.Since(timeStart).Seconds() * 1000,
-			Error:   "",
 			Page:    page,
 			PerPage: perPage,
 			Total:   total,

@@ -58,8 +58,6 @@ type RecordSet struct {
 	Data DataSet `json:"data"`
 	// Time is the time of query in milliseconds
 	Time float64 `json:"time"`
-	// Error is the query error (or null)
-	Error string `json:"error"`
 	// Page is the current page in Data pagination
 	Page int `json:"page"`
 	// PerPage is the results per page in Data pagination
