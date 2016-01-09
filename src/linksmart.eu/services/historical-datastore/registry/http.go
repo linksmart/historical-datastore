@@ -212,8 +212,6 @@ func (regAPI *ReadableAPI) Filter(w http.ResponseWriter, r *http.Request) {
 	fop := params["op"]
 	fvalue := params["value"]
 
-	fmt.Println(fvalue)
-
 	r.ParseForm()
 	page, _ := strconv.Atoi(r.Form.Get(common.GetParamPage))
 	perPage, _ := strconv.Atoi(r.Form.Get(common.GetParamPerPage))
