@@ -298,15 +298,18 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 // Handles the creation of a new data source
 func (s *influxStorage) ntfCreated(ds registry.DataSource, callback chan error) {
 
+	duration := "INF"
 	if ds.Retention != "" {
-		_, err := s.querySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
-			s.retention(ds), s.config.Database, ds.Retention, s.config.Replication)
-		if err != nil {
-			callback <- fmt.Errorf("Error creating retention policy: %v", err.Error())
-			return
-		}
-		log.Println("influxStorage: created retention policy for", ds.ID)
+		duration = ds.Retention
 	}
+	_, err := s.querySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
+		s.retention(ds), s.config.Database, duration, s.config.Replication)
+	if err != nil {
+		callback <- fmt.Errorf("Error creating retention policy: %v", err.Error())
+		return
+	}
+	log.Println("influxStorage: created retention policy for", ds.ID)
+	
 	callback <- nil
 }
 
@@ -314,7 +317,11 @@ func (s *influxStorage) ntfCreated(ds registry.DataSource, callback chan error) 
 func (s *influxStorage) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
 
 	if oldDS.Retention != newDS.Retention {
-		_, err := s.querySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v", s.retention(oldDS), s.config.Database, newDS.Retention)
+		duration := "INF"
+		if newDS.Retention != ""{
+			duration = newDS.Retention
+		}
+		_, err := s.querySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v", s.retention(oldDS), s.config.Database, duration)
 		if err != nil {
 			callback <- fmt.Errorf("Error modifying the retention policy for source: %v", err.Error())
 			return
@@ -331,14 +338,14 @@ func (s *influxStorage) ntfDeleted(ds registry.DataSource, callback chan error) 
 	if err != nil {
 		if strings.Contains(err.Error(), "measurement not found") {
 			// Not an error, No data to delete.
-			callback <- nil
-			return
+			goto DROP_RETENTION
 		}
 		callback <- fmt.Errorf("Error removing the historical data: %v", err.Error())
 		return
 	}
 	log.Println("influxStorage: dropped measurements for", ds.ID)
-
+	
+	DROP_RETENTION:
 	_, err = s.querySprintf("DROP RETENTION POLICY \"%s\" ON %s", s.retention(ds), s.config.Database)
 	if err != nil {
 		callback <- fmt.Errorf("Error removing the retention policy for source: %v", err.Error())
