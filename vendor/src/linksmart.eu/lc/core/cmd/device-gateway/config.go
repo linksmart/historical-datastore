@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"linksmart.eu/auth/obtainer"
-	"linksmart.eu/auth/validator"
+	utils "linksmart.eu/lc/core/catalog"
+	"linksmart.eu/lc/sec/authz"
 )
 
 //
@@ -99,23 +99,38 @@ func loadConfig(confPath string) (*Config, error) {
 // Main configuration container
 //
 type Config struct {
-	Id           string                       `json:"id"`
-	Description  string                       `json:"description"`
-	DnssdEnabled bool                         `json:"dnssdEnabled"`
-	PublicAddr   string                       `json:"publicAddr"`
-	StaticDir    string                       `json:"staticDir`
-	Catalog      []Catalog                    `json:"catalog"`
-	Http         HttpConfig                   `json:"http"`
-	Protocols    map[ProtocolType]interface{} `json:"protocols"`
-	Devices      []Device                     `json:"devices"`
-	// Auth config
-	Auth validator.Conf `json:"auth"`
+	Id             string                       `json:"id"`
+	Description    string                       `json:"description"`
+	DnssdEnabled   bool                         `json:"dnssdEnabled"`
+	PublicEndpoint string                       `json:"publicEndpoint"`
+	StaticDir      string                       `json:"staticDir`
+	Catalog        []Catalog                    `json:"catalog"`
+	Http           HttpConfig                   `json:"http"`
+	Storage        StorageConfig                `json:"storage"`
+	Protocols      map[ProtocolType]interface{} `json:"protocols"`
+	Devices        []Device                     `json:"devices"`
+	Auth           ValidatorConf                `json:"auth"`
 }
 
 // Validates the loaded configuration
 func (c *Config) Validate() error {
+	// Check if PublicEndpoint is valid
+	if c.PublicEndpoint == "" {
+		return fmt.Errorf("PublicEndpoint has to be defined")
+	}
+	_, err := url.Parse(c.PublicEndpoint)
+	if err != nil {
+		return fmt.Errorf("PublicEndpoint should be a valid URL")
+	}
+
 	// Check if HTTP configuration is valid
-	err := c.Http.Validate()
+	err = c.Http.Validate()
+	if err != nil {
+		return err
+	}
+
+	// Check if Storage configuration is valid
+	err = c.Storage.Validate()
 	if err != nil {
 		return err
 	}
@@ -182,9 +197,9 @@ func (c *Config) FindResource(resourceId string) (*Resource, bool) {
 // Catalog config
 //
 type Catalog struct {
-	Discover bool           `json:"discover"`
-	Endpoint string         `json:"endpoint"`
-	Auth     *obtainer.Conf `json:"auth"`
+	Discover bool          `json:"discover"`
+	Endpoint string        `json:"endpoint"`
+	Auth     *ObtainerConf `json:"auth"`
 }
 
 func (c *Catalog) Validate() error {
@@ -205,6 +220,25 @@ type HttpConfig struct {
 func (h *HttpConfig) Validate() error {
 	if h.BindAddr == "" || h.BindPort == 0 {
 		return fmt.Errorf("HTTP bindAddr and bindPort have to be defined")
+	}
+	return nil
+}
+
+//
+// Storage config
+//
+type StorageConfig struct {
+	Type string `json:"type"`
+}
+
+var supportedBackends = map[string]bool{
+	utils.CatalogBackendMemory:  true,
+	utils.CatalogBackendLevelDB: true,
+}
+
+func (c *StorageConfig) Validate() error {
+	if c.Type != "" && !supportedBackends[c.Type] {
+		return fmt.Errorf("Unsupported storage backend")
 	}
 	return nil
 }
@@ -306,6 +340,8 @@ type SupportedProtocol struct {
 	Type         ProtocolType
 	Methods      []string
 	ContentTypes []string `json:"content-types"`
+	PubTopic     string   `json:"pub_topic"`
+	SubTopic     string   `json:"sub_topic"`
 }
 
 //
@@ -328,3 +364,90 @@ const (
 	// Constantly running and emitting output
 	ExecTypeService ExecType = "service"
 )
+
+// Ticket Validator Config
+type ValidatorConf struct {
+	// Auth switch
+	Enabled bool `json:"enabled"`
+	// Authentication provider name
+	Provider string `json:"provider"`
+	// Authentication provider URL
+	ProviderURL string `json:"providerURL"`
+	// Service ID
+	ServiceID string `json:"serviceID"`
+	// Authorization config
+	Authz *authz.Conf `json:"authorization"`
+}
+
+func (c ValidatorConf) Validate() error {
+
+	// Validate Provider
+	if c.Provider == "" {
+		return errors.New("Ticket Validator: Auth provider name (provider) is not specified.")
+	}
+
+	// Validate ProviderURL
+	if c.ProviderURL == "" {
+		return errors.New("Ticket Validator: Auth provider URL (providerURL) is not specified.")
+	}
+	_, err := url.Parse(c.ProviderURL)
+	if err != nil {
+		return errors.New("Ticket Validator: Auth provider URL (providerURL) is invalid: " + err.Error())
+	}
+
+	// Validate ServiceID
+	if c.ServiceID == "" {
+		return errors.New("Ticket Validator: Auth Service ID (serviceID) is not specified.")
+	}
+
+	// Validate Authorization
+	if c.Authz != nil {
+		if err := c.Authz.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Ticket Obtainer Client Config
+type ObtainerConf struct {
+	// Authentication provider name
+	Provider string `json:"provider"`
+	// Authentication provider URL
+	ProviderURL string `json:"providerURL"`
+	// Service ID
+	ServiceID string `json:"serviceID"`
+	// User credentials
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+func (c ObtainerConf) Validate() error {
+
+	// Validate Provider
+	if c.Provider == "" {
+		return errors.New("Ticket Obtainer: Auth provider name (provider) is not specified.")
+	}
+
+	// Validate ProviderURL
+	if c.ProviderURL == "" {
+		return errors.New("Ticket Obtainer: Auth provider URL (ProviderURL) is not specified.")
+	}
+	_, err := url.Parse(c.ProviderURL)
+	if err != nil {
+		return errors.New("Ticket Obtainer: Auth provider URL (ProviderURL) is invalid: " + err.Error())
+	}
+
+	// Validate Username
+	if c.Username == "" {
+		return errors.New("Ticket Obtainer: Auth Username (username) is not specified.")
+	}
+
+	// Validate ServiceID
+	if c.ServiceID == "" {
+		return errors.New("Ticket Obtainer: Auth Service ID (serviceID) is not specified.")
+	}
+
+	return nil
+}

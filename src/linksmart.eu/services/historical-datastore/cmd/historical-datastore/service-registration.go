@@ -7,10 +7,11 @@ import (
 	"strings"
 	"sync"
 
-	"linksmart.eu/auth/cas/obtainer"
-	auth "linksmart.eu/auth/obtainer"
 	sc "linksmart.eu/lc/core/catalog/service"
 	"linksmart.eu/services/historical-datastore/common"
+
+	_ "linksmart.eu/lc/sec/auth/cas/obtainer"
+	"linksmart.eu/lc/sec/auth/obtainer"
 )
 
 const (
@@ -79,12 +80,14 @@ func registerInServiceCatalog(conf *Config, wg *sync.WaitGroup) []chan bool {
 		if cat.Auth == nil {
 			go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, wg, nil)
 		} else {
-			// Setup auth client with a CAS obtainer
-			go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, wg,
-				auth.NewClient(
-					obtainer.New(cat.Auth.ServerAddr),
-					cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID),
-			)
+			// Setup ticket client
+			ticket, err := obtainer.NewClient(cat.Auth.Provider, cat.Auth.ProviderURL, cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID)
+			if err != nil {
+				fmt.Println(err.Error())
+				continue
+			}
+			// Register with a ticket obtainer client
+			go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, wg, ticket)
 		}
 
 		regChannels = append(regChannels, sigCh)

@@ -22,25 +22,29 @@
             "discover": false,
             "endpoint": "http://localhost:8082/sc",
             "ttl": 10,
-			"auth": {
-				"serverAddr": "http://dimmer.fit.fraunhofer.de:8070/cas",
-				"username": "scdimmer",
-				"password": "",
-				"serviceID": "dimmerSC"
-			}
+						"auth": {
+							"provider": "cas",
+							"providerURL": "http://dimmer.fit.fraunhofer.de:8070/cas",
+							"username": "scdimmer",
+							"password": "",
+							"serviceID": "dimmerSC"
+						}
         }
     ],
 	"auth": {
 		"enabled": true,
-		"serverAddr": "http://dimmer.fit.fraunhofer.de:8070/cas",
+		"provider": "cas",
+		"providerURL": "http://dimmer.fit.fraunhofer.de:8070/cas",
 		"serviceID": "dimmerHDS",
-		"authorization": [
-			{
-				"resources": ["/data","/registry","/aggregation"],
-				"methods": ["GET", "POST", "PUT", "DELETE"],
-				"users": [],
-				"groups": ["dimmerpartners"]
-			}
-		]
+		"authorization": {
+			"rules": [
+				{
+					"resources": ["/data","/registry","/aggregation"],
+					"methods": ["GET", "POST", "PUT", "DELETE"],
+					"users": [],
+					"groups": ["dimmerpartners"]
+				}
+			]
+		}
 	}
 }

@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"sync"
 
-	"linksmart.eu/auth/cas/obtainer"
-	auth "linksmart.eu/auth/obtainer"
 	catalog "linksmart.eu/lc/core/catalog/resource"
+
+	_ "linksmart.eu/lc/sec/auth/cas/obtainer"
+	"linksmart.eu/lc/sec/auth/obtainer"
 )
 
 // Parses config into a slice of configured devices
@@ -38,15 +39,23 @@ func configureDevices(config *Config) []catalog.Device {
 				p.ContentTypes = proto.ContentTypes
 				p.Endpoint = map[string]interface{}{}
 				if proto.Type == ProtocolTypeREST {
-					p.Endpoint["url"] = fmt.Sprintf("http://%s:%d%s",
-						config.PublicAddr,
-						config.Http.BindPort,
-						restConfig.Location+"/"+device.Name+"/"+resource.Name)
+					p.Endpoint["url"] = fmt.Sprintf("%s%s/%s/%s",
+						config.PublicEndpoint,
+						restConfig.Location,
+						device.Name,
+						resource.Name)
 				} else if proto.Type == ProtocolTypeMQTT {
 					mqtt, ok := config.Protocols[ProtocolTypeMQTT].(MqttProtocol)
 					if ok {
 						p.Endpoint["url"] = mqtt.URL
-						p.Endpoint["topic"] = fmt.Sprintf("%s/%v/%v", mqtt.Prefix, device.Name, resource.Name)
+						if proto.PubTopic != "" {
+							p.Endpoint["pub_topic"] = proto.PubTopic
+						} else {
+							p.Endpoint["pub_topic"] = fmt.Sprintf("%s/%v/%v", mqtt.Prefix, device.Name, resource.Name)
+						}
+						if proto.SubTopic != "" {
+							p.Endpoint["sub_topic"] = proto.SubTopic
+						}
 					}
 				}
 				res.Protocols = append(res.Protocols, *p)
@@ -75,22 +84,22 @@ func registerInRemoteCatalog(devices []catalog.Device, config *Config) ([]chan<-
 		logger.Println("Will now register in the configured remote catalogs")
 
 		for _, cat := range config.Catalog {
+			var ticket *obtainer.Client
+			var err error
+			if cat.Auth != nil {
+				// Setup ticket client
+				ticket, err = obtainer.NewClient(cat.Auth.Provider, cat.Auth.ProviderURL, cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID)
+				if err != nil {
+					logger.Println(err.Error())
+					continue
+				}
+			}
+
 			for _, d := range devices {
 				sigCh := make(chan bool)
-
-				if cat.Auth == nil {
-					go catalog.RegisterDeviceWithKeepalive(cat.Endpoint, cat.Discover, d, sigCh, &wg, nil)
-				} else {
-					// Setup auth client with a CAS obtainer
-					go catalog.RegisterDeviceWithKeepalive(cat.Endpoint, cat.Discover, d, sigCh, &wg,
-						auth.NewClient(
-							obtainer.New(cat.Auth.ServerAddr),
-							cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID),
-					)
-				}
-
-				regChannels = append(regChannels, sigCh)
 				wg.Add(1)
+				go catalog.RegisterDeviceWithKeepalive(cat.Endpoint, cat.Discover, d, sigCh, &wg, ticket)
+				regChannels = append(regChannels, sigCh)
 			}
 		}
 	}

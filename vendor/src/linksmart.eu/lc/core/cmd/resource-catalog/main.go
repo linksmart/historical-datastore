@@ -17,12 +17,15 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/oleksandr/bonjour"
-	"linksmart.eu/auth/cas/obtainer"
-	"linksmart.eu/auth/cas/validator"
-	auth "linksmart.eu/auth/obtainer"
 	utils "linksmart.eu/lc/core/catalog"
 	catalog "linksmart.eu/lc/core/catalog/resource"
 	sc "linksmart.eu/lc/core/catalog/service"
+
+	_ "linksmart.eu/lc/sec/auth/cas/obtainer"
+	"linksmart.eu/lc/sec/auth/obtainer"
+
+	_ "linksmart.eu/lc/sec/auth/cas/validator"
+	"linksmart.eu/lc/sec/auth/validator"
 )
 
 var (
@@ -37,7 +40,7 @@ func main() {
 		logger.Fatalf("Error reading config file %v: %v", *confPath, err)
 	}
 
-	r, err := setupRouter(config)
+	r, shutdownAPI, err := setupRouter(config)
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
@@ -73,18 +76,20 @@ func main() {
 			// Set TTL
 			service.Ttl = cat.Ttl
 			sigCh := make(chan bool)
+			wg.Add(1)
 			if cat.Auth == nil {
 				go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, &wg, nil)
 			} else {
-				// Setup auth client with a CAS obtainer
-				go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, &wg,
-					auth.NewClient(
-						obtainer.New(cat.Auth.ServerAddr),
-						cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID),
-				)
+				// Setup ticket client
+				ticket, err := obtainer.NewClient(cat.Auth.Provider, cat.Auth.ProviderURL, cat.Auth.Username, cat.Auth.Password, cat.Auth.ServiceID)
+				if err != nil {
+					logger.Println(err.Error())
+					continue
+				}
+				// Register with a ticket obtainer client
+				go sc.RegisterServiceWithKeepalive(cat.Endpoint, cat.Discover, *service, sigCh, &wg, ticket)
 			}
 			regChannels = append(regChannels, sigCh)
-			wg.Add(1)
 		}
 
 	}
@@ -118,6 +123,12 @@ func main() {
 			}
 			wg.Wait()
 
+			// Shutdown catalog API
+			err := shutdownAPI()
+			if err != nil {
+				logger.Println(err.Error())
+			}
+
 			logger.Println("Stopped")
 			os.Exit(0)
 		}
@@ -147,20 +158,31 @@ func main() {
 	n.Run(endpoint)
 }
 
-func setupRouter(config *Config) (*mux.Router, error) {
+func setupRouter(config *Config) (*mux.Router, func() error, error) {
+	// Setup API storage
+	var (
+		storage catalog.CatalogStorage
+		err     error
+	)
+	switch config.Storage.Type {
+	case utils.CatalogBackendMemory:
+		storage = catalog.NewMemoryStorage()
+	case utils.CatalogBackendLevelDB:
+		storage, err = catalog.NewLevelDBStorage(config.Storage.DSN, nil)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to start LevelDB storage: %v", err.Error())
+		}
+	default:
+		return nil, nil, fmt.Errorf("Could not create catalog API storage. Unsupported type: %v", config.Storage.Type)
+	}
+
 	// Create catalog API object
-	var api *catalog.WritableCatalogAPI
-	if config.Storage.Type == utils.CatalogBackendMemory {
-		api = catalog.NewWritableCatalogAPI(
-			catalog.NewMemoryStorage(),
-			config.ApiLocation,
-			utils.StaticLocation,
-			config.Description,
-		)
-	}
-	if api == nil {
-		return nil, fmt.Errorf("Could not create catalog API structure. Unsupported storage type: %v", config.Storage.Type)
-	}
+	api := catalog.NewWritableCatalogAPI(
+		storage,
+		config.ApiLocation,
+		utils.StaticLocation,
+		config.Description,
+	)
 
 	commonHandlers := alice.New(
 		context.ClearHandler,
@@ -168,11 +190,12 @@ func setupRouter(config *Config) (*mux.Router, error) {
 
 	// Append auth handler if enabled
 	if config.Auth.Enabled {
-		v, err := validator.New(config.Auth)
+		// Setup ticket validator
+		v, err := validator.Setup(config.Auth.Provider, config.Auth.ProviderURL, config.Auth.ServiceID, config.Auth.Authz)
 		if err != nil {
-			fmt.Println(err.Error())
-			os.Exit(1)
+			return nil, nil, err
 		}
+
 		commonHandlers = commonHandlers.Append(v.Handler)
 	}
 
@@ -188,5 +211,5 @@ func setupRouter(config *Config) (*mux.Router, error) {
 	r.Methods("DELETE").Path(url).Handler(commonHandlers.ThenFunc(api.Delete)).Name("delete")
 	r.Methods("GET").Path(url + "/{resname}").Handler(commonHandlers.ThenFunc(api.GetResource)).Name("details")
 
-	return r, nil
+	return r, storage.Close, nil
 }

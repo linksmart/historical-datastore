@@ -22,7 +22,7 @@ type Service struct {
 	Ttl            int                    `json:"ttl"`
 	Created        time.Time              `json:"created"`
 	Updated        time.Time              `json:"updated"`
-	Expires        time.Time              `json:"expires"`
+	Expires        *time.Time             `json:"expires"`
 }
 
 // Deep copy of the Service
@@ -86,8 +86,9 @@ type CatalogStorage interface {
 
 	// Utility functions
 	getMany(page, perPage int) ([]Service, int, error)
-	getCount() int
+	getCount() (int, error)
 	cleanExpired(ts time.Time)
+	Close() error
 
 	// Path filtering
 	pathFilterOne(path, op, value string) (Service, error)
@@ -100,4 +101,20 @@ type Listener interface {
 	added(s Service)
 	updated(s Service)
 	deleted(id string)
+}
+
+// Sorted-map data structure based on AVL Tree (go-avltree)
+type SortedMap struct {
+	key   interface{}
+	value interface{}
+}
+
+// Operator for Time-type key
+func timeKeys(a interface{}, b interface{}) int {
+	if a.(SortedMap).key.(time.Time).Before(b.(SortedMap).key.(time.Time)) {
+		return -1
+	} else if a.(SortedMap).key.(time.Time).After(b.(SortedMap).key.(time.Time)) {
+		return 1
+	}
+	return 0
 }

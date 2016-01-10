@@ -11,12 +11,21 @@ import (
 	"sync"
 
 	catalog "linksmart.eu/lc/core/catalog/service"
+
+	_ "linksmart.eu/lc/sec/auth/cas/obtainer"
+	"linksmart.eu/lc/sec/auth/obtainer"
 )
 
 var (
 	confPath = flag.String("conf", "", "Path to the service configuration file")
 	endpoint = flag.String("endpoint", "", "Service Catalog endpoint")
 	discover = flag.Bool("discover", false, "Use DNS-SD service discovery to find Service Catalog endpoint")
+	// Authentication configuration
+	authProvider    = flag.String("authProvider", "", "Authentication provider name")
+	authProviderURL = flag.String("authProviderURL", "", "Authentication provider url")
+	authUser        = flag.String("authUser", "", "Auth. server username")
+	authPass        = flag.String("authPass", "", "Auth. server password")
+	serviceID       = flag.String("serviceID", "", "Service ID at the auth. server")
 )
 
 func main() {
@@ -26,6 +35,9 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
+
+	// requiresAuth if authProvider is specified
+	var requiresAuth bool = (*authProvider != "")
 
 	if *endpoint == "" && !*discover {
 		logger.Println("ERROR: -endpoint was not provided and discover flag not set.")
@@ -41,7 +53,18 @@ func main() {
 	// Launch the registration routine
 	var wg sync.WaitGroup
 	regCh := make(chan bool)
-	go catalog.RegisterServiceWithKeepalive(*endpoint, *discover, *service, regCh, &wg, nil)
+
+	if !requiresAuth {
+		go catalog.RegisterServiceWithKeepalive(*endpoint, *discover, *service, regCh, &wg, nil)
+	} else {
+		// Setup ticket client
+		ticket, err := obtainer.NewClient(*authProvider, *authProviderURL, *authUser, *authPass, *serviceID)
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
+		// Register with a ticket obtainer client
+		go catalog.RegisterServiceWithKeepalive(*endpoint, *discover, *service, regCh, &wg, ticket)
+	}
 	wg.Add(1)
 
 	// Ctrl+C handling

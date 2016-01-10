@@ -6,15 +6,16 @@ import (
 	"io/ioutil"
 	"mime"
 	"net/http"
-	"os"
 	"path/filepath"
 
 	"github.com/codegangsta/negroni"
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
-	"linksmart.eu/auth/cas/validator"
 	catalog "linksmart.eu/lc/core/catalog/resource"
+
+	_ "linksmart.eu/lc/sec/auth/cas/validator"
+	"linksmart.eu/lc/sec/auth/validator"
 )
 
 // errorResponse used to serialize errors into JSON for RESTful responses
@@ -33,7 +34,7 @@ type RESTfulAPI struct {
 }
 
 // Constructs a RESTfulAPI data structure
-func newRESTfulAPI(conf *Config, dataCh chan<- DataRequest) *RESTfulAPI {
+func newRESTfulAPI(conf *Config, dataCh chan<- DataRequest) (*RESTfulAPI, error) {
 	restConfig, _ := conf.Protocols[ProtocolTypeREST].(RestProtocol)
 
 	// Common handlers
@@ -43,11 +44,12 @@ func newRESTfulAPI(conf *Config, dataCh chan<- DataRequest) *RESTfulAPI {
 
 	// Append auth handler if enabled
 	if conf.Auth.Enabled {
-		v, err := validator.New(conf.Auth)
+		// Setup ticket validator
+		v, err := validator.Setup(conf.Auth.Provider, conf.Auth.ProviderURL, conf.Auth.ServiceID, conf.Auth.Authz)
 		if err != nil {
-			logger.Println(err.Error())
-			os.Exit(1)
+			return nil, err
 		}
+
 		commonHandlers = commonHandlers.Append(v.Handler)
 	}
 
@@ -58,7 +60,7 @@ func newRESTfulAPI(conf *Config, dataCh chan<- DataRequest) *RESTfulAPI {
 		dataCh:         dataCh,
 		commonHandlers: commonHandlers,
 	}
-	return api
+	return api, nil
 }
 
 // Setup all routers, handlers and start a HTTP server (blocking call)

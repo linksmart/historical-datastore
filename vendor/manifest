@@ -2,6 +2,12 @@
 	"version": 0,
 	"dependencies": [
 		{
+			"importpath": "github.com/ancientlore/go-avltree",
+			"repository": "https://github.com/ancientlore/go-avltree",
+			"revision": "1ec3f9cf4fbd05e8f2a0e0adbe055a858180b6cb",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/armon/go-metrics",
 			"repository": "https://github.com/armon/go-metrics",
 			"revision": "6c5fa0d8f48f4661c9ba8709799c88d425ad20f0",

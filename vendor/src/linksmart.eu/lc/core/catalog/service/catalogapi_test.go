@@ -3,12 +3,15 @@ package service
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/pborman/uuid"
 	utils "linksmart.eu/lc/core/catalog"
 )
 
@@ -17,9 +20,41 @@ const (
 	staticLocation = "/static"
 )
 
-func setupRouter() *mux.Router {
+var supportedBackends = map[string]bool{
+	utils.CatalogBackendMemory:  true,
+	utils.CatalogBackendLevelDB: true,
+}
+var storageType string
+
+func TestMain(m *testing.M) {
+	for b, supported := range supportedBackends {
+		if supported {
+			storageType = b
+			m.Run()
+		}
+	}
+	os.Exit(0)
+}
+
+func setupRouter() (*mux.Router, func(), error) {
+	var (
+		storage CatalogStorage
+		err     error
+		tempDir string = fmt.Sprintf("%s/lslc/test-%s.ldb",
+			strings.Replace(os.TempDir(), "\\", "/", -1), uuid.New())
+	)
+	switch storageType {
+	case utils.CatalogBackendMemory:
+		storage = NewMemoryStorage()
+	case utils.CatalogBackendLevelDB:
+		storage, err = NewLevelDBStorage(tempDir, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
 	api := NewWritableCatalogAPI(
-		NewMemoryStorage(),
+		storage,
 		apiLocation,
 		staticLocation,
 		"Test catalog",
@@ -35,7 +70,10 @@ func setupRouter() *mux.Router {
 	r.Methods("PUT").Path(url).HandlerFunc(api.Update).Name("update")
 	r.Methods("DELETE").Path(url).HandlerFunc(api.Delete).Name("delete")
 
-	return r
+	return r, func() {
+		storage.Close()
+		os.RemoveAll(tempDir) // Remove temp files
+	}, nil
 }
 
 func mockedService(id string) *Service {
@@ -92,8 +130,13 @@ func sameServices(s1, s2 *Service, checkID bool) bool {
 }
 
 func TestList(t *testing.T) {
-	ts := httptest.NewServer(setupRouter())
+	router, shutdown, err := setupRouter()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	ts := httptest.NewServer(router)
 	defer ts.Close()
+	defer shutdown()
 
 	url := ts.URL + apiLocation
 	t.Log("Calling GET", url)
@@ -125,8 +168,13 @@ func TestList(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	ts := httptest.NewServer(setupRouter())
+	router, shutdown, err := setupRouter()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	ts := httptest.NewServer(router)
 	defer ts.Close()
+	defer shutdown()
 
 	service := mockedService("1")
 	b, _ := json.Marshal(service)
@@ -170,8 +218,13 @@ func TestCreate(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
-	ts := httptest.NewServer(setupRouter())
+	router, shutdown, err := setupRouter()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	ts := httptest.NewServer(router)
 	defer ts.Close()
+	defer shutdown()
 
 	service := mockedService("1")
 	b, _ := json.Marshal(service)
@@ -218,8 +271,13 @@ func TestRetrieve(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	ts := httptest.NewServer(setupRouter())
+	router, shutdown, err := setupRouter()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	ts := httptest.NewServer(router)
 	defer ts.Close()
+	defer shutdown()
 
 	service := mockedService("1")
 	b, _ := json.Marshal(service)
@@ -274,8 +332,13 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	ts := httptest.NewServer(setupRouter())
+	router, shutdown, err := setupRouter()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	ts := httptest.NewServer(router)
 	defer ts.Close()
+	defer shutdown()
 
 	service := mockedService("1")
 	b, _ := json.Marshal(service)
@@ -328,8 +391,13 @@ func TestDelete(t *testing.T) {
 }
 
 func TestFilter(t *testing.T) {
-	ts := httptest.NewServer(setupRouter())
+	router, shutdown, err := setupRouter()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	ts := httptest.NewServer(router)
 	defer ts.Close()
+	defer shutdown()
 
 	// create 3 services
 	service1 := mockedService("1")

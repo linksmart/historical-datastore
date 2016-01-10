@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/oleksandr/bonjour"
+	"github.com/syndtr/goleveldb/leveldb/opt"
+
+	utils "linksmart.eu/lc/core/catalog"
 	catalog "linksmart.eu/lc/core/catalog/resource"
 )
 
@@ -33,19 +37,43 @@ func main() {
 	// Agents' process manager
 	agentManager := newAgentManager(config)
 
-	// Configure MQTT publishing if required
-	mqttPublisher := newMQTTPublisher(config)
-	if mqttPublisher != nil {
-		agentManager.setPublishingChannel(mqttPublisher.dataInbox())
-		go mqttPublisher.start()
+	// Configure MQTT if required
+	mqttConnector := newMQTTConnector(config, agentManager.DataRequestInbox())
+	if mqttConnector != nil {
+		agentManager.setPublishingChannel(mqttConnector.dataInbox())
+		go mqttConnector.start()
 	}
 
 	// Start agents
 	go agentManager.start()
 
 	// Expose device's resources via REST (include statics and local catalog)
-	restServer := newRESTfulAPI(config, agentManager.DataRequestInbox())
-	catalogStorage := catalog.NewMemoryStorage()
+	restServer, err := newRESTfulAPI(config, agentManager.DataRequestInbox())
+	if err != nil {
+		logger.Println(err.Error())
+		os.Exit(1)
+	}
+
+	// Setup Storage backend
+	var (
+		catalogStorage catalog.CatalogStorage
+	)
+	// use memory storage if not defined otherwise
+	switch config.Storage.Type {
+	case "", utils.CatalogBackendMemory:
+		catalogStorage = catalog.NewMemoryStorage()
+	case utils.CatalogBackendLevelDB:
+		tempDir := fmt.Sprintf("%s/lslc/dgw-%d.ldb", strings.Replace(os.TempDir(), "\\", "/", -1), time.Now().UnixNano())
+		defer os.RemoveAll(tempDir)
+
+		catalogStorage, err = catalog.NewLevelDBStorage(tempDir, &opt.Options{Compression: opt.NoCompression})
+		if err != nil {
+			logger.Fatalf("Failed to start LevelDB storage: %v\n", err.Error())
+		}
+	default:
+		logger.Fatalf("Could not create catalog API storage. Unsupported type: %v\n", config.Storage.Type)
+	}
+
 	go restServer.start(catalogStorage)
 
 	// Parse device configurations
@@ -94,8 +122,14 @@ func main() {
 
 	// Shutdown all
 	agentManager.stop()
-	if mqttPublisher != nil {
-		mqttPublisher.stop()
+	if mqttConnector != nil {
+		mqttConnector.stop()
+	}
+
+	// Shutdown catalog API
+	err = catalogStorage.Close()
+	if err != nil {
+		logger.Println(err.Error())
 	}
 
 	// Unregister in the remote catalog(s)
