@@ -309,7 +309,7 @@ func (s *influxStorage) ntfCreated(ds registry.DataSource, callback chan error) 
 		return
 	}
 	log.Println("influxStorage: created retention policy for", ds.ID)
-	
+
 	callback <- nil
 }
 
@@ -318,7 +318,7 @@ func (s *influxStorage) ntfUpdated(oldDS registry.DataSource, newDS registry.Dat
 
 	if oldDS.Retention != newDS.Retention {
 		duration := "INF"
-		if newDS.Retention != ""{
+		if newDS.Retention != "" {
 			duration = newDS.Retention
 		}
 		_, err := s.querySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v", s.retention(oldDS), s.config.Database, duration)
@@ -344,8 +344,8 @@ func (s *influxStorage) ntfDeleted(ds registry.DataSource, callback chan error) 
 		return
 	}
 	log.Println("influxStorage: dropped measurements for", ds.ID)
-	
-	DROP_RETENTION:
+
+DROP_RETENTION:
 	_, err = s.querySprintf("DROP RETENTION POLICY \"%s\" ON %s", s.retention(ds), s.config.Database)
 	if err != nil {
 		callback <- fmt.Errorf("Error removing the retention policy for source: %v", err.Error())
@@ -368,6 +368,8 @@ func (s *influxStorage) querySprintf(format string, a ...interface{}) (res []inf
 			return res, response.Error()
 		}
 		res = response.Results
+	} else {
+		return res, err
 	}
 	return res, nil
 }
@@ -398,7 +400,7 @@ func initInfluxConf(DSN string) (*InfluxStorageConfig, error) {
 
 	password, _ := PDSN.User.Password()
 	c := &InfluxStorageConfig{
-		DSN:      DSN,
+		DSN:      fmt.Sprintf("%v://%v", PDSN.Scheme, PDSN.Host),
 		Database: strings.Trim(PDSN.Path, "/"),
 		Username: PDSN.User.Username(),
 		Password: password,
