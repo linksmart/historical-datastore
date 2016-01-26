@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/context"
 	"github.com/justinas/alice"
 
+	"linksmart.eu/services/historical-datastore/aggregation"
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/data"
 	"linksmart.eu/services/historical-datastore/registry"
@@ -58,7 +59,7 @@ func main() {
 	dataAPI := data.NewWriteableAPI(registryClient, dataStorage)
 
 	// aggregation
-	// TODO
+	aggrAPI := aggregation.NewAPI(regStorage, dataStorage)
 
 	// Start the notifier
 	common.StartNotifier(ntSndRegCh, ntRcvDataCh)
@@ -101,7 +102,7 @@ func main() {
 	router.get("/data/{id}", commonHandlers.ThenFunc(dataAPI.Query))
 
 	// aggregation api
-	// TODO
+	router.get("/aggr/{interval}/{id}", commonHandlers.ThenFunc(aggrAPI.Query))
 
 	// Register in the service catalog(s)
 	var wg sync.WaitGroup

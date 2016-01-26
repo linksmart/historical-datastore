@@ -56,14 +56,10 @@ func (ds *DataSource) ParsedResource() *url.URL {
 
 // AggregatedDataSource describes a data aggregatoin for a Data Source
 type AggregatedDataSource struct {
-	// ID is a unique ID of the aggregated data source
-	ID string `json:"id"`
-	// Data is the URL to the data in the Aggregate API
-	Data string `json:"data"`
-	// Source is the id of the parent DataSource
-	Source string `json:"source"`
 	// Interval is the aggregation interval
 	Interval string `json:"interval"`
+	// Data is the URL to the data in the Aggregate API
+	Data string `json:"data"`
 	// Aggregates is an array of aggregates calculated on each interval
 	// Valid values: mean, stddev, sum, min, max, median
 	Aggregates []string `json:"aggregates"`
