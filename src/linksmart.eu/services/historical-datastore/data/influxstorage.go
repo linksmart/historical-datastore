@@ -16,14 +16,14 @@ import (
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
-// influxStorage implements a simple data storage back-end with SQLite
-type influxStorage struct {
+// InfluxStorage implements a simple data storage back-end with SQLite
+type InfluxStorage struct {
 	client influx.Client
 	config *InfluxStorageConfig
 }
 
 // NewInfluxStorage returns a new Storage given a configuration
-func NewInfluxStorage(DSN string) (Storage, chan<- common.Notification, error) {
+func NewInfluxStorage(DSN string) (*InfluxStorage, chan<- common.Notification, error) {
 	cfg, err := initInfluxConf(DSN)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Influx config error: %v", err.Error())
@@ -39,7 +39,7 @@ func NewInfluxStorage(DSN string) (Storage, chan<- common.Notification, error) {
 		return nil, nil, fmt.Errorf("Error initializing influxdb client: %v", err.Error())
 	}
 
-	s := &influxStorage{
+	s := &InfluxStorage{
 		client: c,
 		config: cfg,
 	}
@@ -52,29 +52,39 @@ func NewInfluxStorage(DSN string) (Storage, chan<- common.Notification, error) {
 }
 
 // Formatted measurement name for a given data source
-func (s *influxStorage) msrmt(ds registry.DataSource) string {
+func (s *InfluxStorage) Msrmt(ds registry.DataSource) string {
 	return fmt.Sprintf("data_%s", ds.ID)
 }
 
 // Formatted retention policy name for a given data source
-func (s *influxStorage) retention(ds registry.DataSource) string {
+func (s *InfluxStorage) Retention(ds registry.DataSource) string {
 	return fmt.Sprintf("policy_%s", ds.ID)
 }
 
 // Fully qualified measurement name
-func (s *influxStorage) fqMsrmt(ds registry.DataSource) string {
-	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.Database, s.retention(ds), s.msrmt(ds))
+func (s *InfluxStorage) FQMsrmt(ds registry.DataSource) string {
+	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.Database, s.Retention(ds), s.Msrmt(ds))
+}
+
+// Database name
+func (s *InfluxStorage) Database() string {
+	return s.config.Database
+}
+
+// Influx Replication
+func (s *InfluxStorage) Replication() int {
+	return s.config.Replication
 }
 
 // Adds multiple data points for multiple data sources
 // data is a map where keys are data source ids
-func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
+func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
 	for id, dps := range data {
 
 		bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
 			Database:        s.config.Database,
 			Precision:       "ms",
-			RetentionPolicy: s.retention(sources[id]),
+			RetentionPolicy: s.Retention(sources[id]),
 		})
 		if err != nil {
 			return err
@@ -111,7 +121,7 @@ func (s *influxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 				timestamp = time.Unix(dp.Time, 0)
 			}
 			pt, err := influx.NewPoint(
-				s.msrmt(sources[id]),
+				s.Msrmt(sources[id]),
 				tags,
 				fields,
 				timestamp,
@@ -191,11 +201,11 @@ func pointsFromRow(r models.Row) ([]DataPoint, error) {
 }
 
 // Retrieves last data point of every data source
-func (s *influxStorage) GetLast(sources ...registry.DataSource) (DataSet, error) {
+func (s *InfluxStorage) GetLast(sources ...registry.DataSource) (DataSet, error) {
 	points := []DataPoint{}
 	for _, ds := range sources {
 
-		res, err := s.querySprintf("SELECT * FROM %s ORDER BY time DESC LIMIT 1", s.fqMsrmt(ds))
+		res, err := s.QuerySprintf("SELECT * FROM %s ORDER BY time DESC LIMIT 1", s.FQMsrmt(ds))
 		if err != nil {
 			return NewDataSet(), fmt.Errorf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
 		}
@@ -221,7 +231,7 @@ func (s *influxStorage) GetLast(sources ...registry.DataSource) (DataSet, error)
 }
 
 // Queries data for specified data sources
-func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
+func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
 	points := []DataPoint{}
 	total := 0
 	//perEach := perPage / len(sources)
@@ -243,8 +253,8 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 	}
 
 	for i, ds := range sources {
-		res, err := s.querySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
-			s.fqMsrmt(ds), timeCond, sort, perItems[i], offsets[i])
+		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
+			s.FQMsrmt(ds), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
 			return NewDataSet(), 0, fmt.Errorf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
 		}
@@ -263,8 +273,8 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 		}
 
 		// Count total
-		res, err = s.querySprintf("SELECT COUNT(value)+COUNT(stringValue)+COUNT(booleanValue) FROM %s WHERE %s",
-			s.fqMsrmt(ds), timeCond)
+		res, err = s.QuerySprintf("SELECT COUNT(value)+COUNT(stringValue)+COUNT(booleanValue) FROM %s WHERE %s",
+			s.FQMsrmt(ds), timeCond)
 		if err != nil {
 			return NewDataSet(), 0, fmt.Errorf("Error counting records for source %v: %v", ds.Resource, err.Error())
 		}
@@ -296,45 +306,45 @@ func (s *influxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 }
 
 // Handles the creation of a new data source
-func (s *influxStorage) ntfCreated(ds registry.DataSource, callback chan error) {
+func (s *InfluxStorage) ntfCreated(ds registry.DataSource, callback chan error) {
 
 	duration := "INF"
 	if ds.Retention != "" {
 		duration = ds.Retention
 	}
-	_, err := s.querySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
-		s.retention(ds), s.config.Database, duration, s.config.Replication)
+	_, err := s.QuerySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
+		s.Retention(ds), s.config.Database, duration, s.config.Replication)
 	if err != nil {
 		callback <- fmt.Errorf("Error creating retention policy: %v", err.Error())
 		return
 	}
-	log.Println("influxStorage: created retention policy for", ds.ID)
+	log.Println("InfluxStorage: created retention policy for", ds.ID)
 
 	callback <- nil
 }
 
 // Handles updates of a data source
-func (s *influxStorage) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
+func (s *InfluxStorage) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
 
 	if oldDS.Retention != newDS.Retention {
 		duration := "INF"
 		if newDS.Retention != "" {
 			duration = newDS.Retention
 		}
-		_, err := s.querySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v", s.retention(oldDS), s.config.Database, duration)
+		_, err := s.QuerySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v", s.Retention(oldDS), s.config.Database, duration)
 		if err != nil {
 			callback <- fmt.Errorf("Error modifying the retention policy for source: %v", err.Error())
 			return
 		}
-		log.Println("influxStorage: altered retention policy for", oldDS.ID)
+		log.Println("InfluxStorage: altered retention policy for", oldDS.ID)
 	}
 	callback <- nil
 }
 
 // Handles deletion of a data source
-func (s *influxStorage) ntfDeleted(ds registry.DataSource, callback chan error) {
+func (s *InfluxStorage) ntfDeleted(ds registry.DataSource, callback chan error) {
 
-	_, err := s.querySprintf("DROP MEASUREMENT \"%s\"", s.msrmt(ds))
+	_, err := s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.Msrmt(ds))
 	if err != nil {
 		if strings.Contains(err.Error(), "measurement not found") {
 			// Not an error, No data to delete.
@@ -343,21 +353,21 @@ func (s *influxStorage) ntfDeleted(ds registry.DataSource, callback chan error) 
 		callback <- fmt.Errorf("Error removing the historical data: %v", err.Error())
 		return
 	}
-	log.Println("influxStorage: dropped measurements for", ds.ID)
+	log.Println("InfluxStorage: dropped measurements for", ds.ID)
 
 DROP_RETENTION:
-	_, err = s.querySprintf("DROP RETENTION POLICY \"%s\" ON %s", s.retention(ds), s.config.Database)
+	_, err = s.QuerySprintf("DROP RETENTION POLICY \"%s\" ON %s", s.Retention(ds), s.config.Database)
 	if err != nil {
 		callback <- fmt.Errorf("Error removing the retention policy for source: %v", err.Error())
 		return
 	}
-	log.Println("influxStorage: dropped retention policy for", ds.ID)
+	log.Println("InfluxStorage: dropped retention policy for", ds.ID)
 
 	callback <- nil
 }
 
 // Query influxdb
-func (s *influxStorage) querySprintf(format string, a ...interface{}) (res []influx.Result, err error) {
+func (s *InfluxStorage) QuerySprintf(format string, a ...interface{}) (res []influx.Result, err error) {
 	fmt.Println("QUERY:", fmt.Sprintf(format, a...))
 	q := influx.Query{
 		Command:  fmt.Sprintf(format, a...),
