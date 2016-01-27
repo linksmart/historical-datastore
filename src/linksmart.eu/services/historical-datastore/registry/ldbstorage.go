@@ -3,7 +3,9 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 
@@ -57,6 +59,12 @@ func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
 	ds.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, ds.ID)
 	ds.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, ds.ID)
 
+	for i, aggr := range ds.Aggregation {
+		sort.Strings(aggr.Aggregates)
+		ds.Aggregation[i].ID = fmt.Sprintf("%x", crc32.ChecksumIEEE([]byte(aggr.Interval+strings.Join(aggr.Aggregates, ""))))
+		ds.Aggregation[i].Data = fmt.Sprintf("%s/%s/%s", common.AggrAPILoc, ds.Aggregation[i].ID, ds.ID)
+	}
+
 	// Send a create notification
 	err := sendNotification(ds, common.CREATE, s.nt)
 	if err != nil {
@@ -95,6 +103,13 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 	tempDS.Format = ds.Format
 	//tempDS.Resource
 	//tempDS.Type
+
+	// Re-generate read-only fields
+	for i, aggr := range tempDS.Aggregation {
+		sort.Strings(aggr.Aggregates)
+		tempDS.Aggregation[i].ID = fmt.Sprintf("%x", crc32.ChecksumIEEE([]byte(aggr.Interval+strings.Join(aggr.Aggregates, ""))))
+		tempDS.Aggregation[i].Data = fmt.Sprintf("%s/%s/%s", common.AggrAPILoc, tempDS.Aggregation[i].ID, tempDS.ID)
+	}
 
 	// Send an update notification
 	err = sendNotification([]DataSource{oldDS, tempDS}, common.UPDATE, s.nt)

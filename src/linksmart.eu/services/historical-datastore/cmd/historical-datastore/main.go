@@ -52,17 +52,18 @@ func main() {
 	}
 
 	regAPI := registry.NewWriteableAPI(regStorage)
+	registryClient := registry.NewLocalClient(regStorage)
 
 	// data
-	dataStorage, ntRcvDataCh, _ := data.NewInfluxStorage(conf.Data.Backend.DSN)
-	registryClient := registry.NewLocalClient(regStorage)
-	dataAPI := data.NewWriteableAPI(registryClient, dataStorage)
+	influxStorage, ntRcvDataCh, _ := data.NewInfluxStorage(conf.Data.Backend.DSN)
+	dataAPI := data.NewWriteableAPI(registryClient, influxStorage)
 
 	// aggregation
-	aggrAPI := aggregation.NewAPI(regStorage, dataStorage)
+	dataAggr, ntRcvAggrCh, _ := aggregation.NewInfluxAggr(influxStorage)
+	aggrAPI := aggregation.NewAPI(registryClient, dataAggr)
 
 	// Start the notifier
-	common.StartNotifier(ntSndRegCh, ntRcvDataCh)
+	common.StartNotifier(ntSndRegCh, ntRcvDataCh, ntRcvAggrCh)
 
 	commonHandlers := alice.New(
 		context.ClearHandler,
@@ -102,7 +103,7 @@ func main() {
 	router.get("/data/{id}", commonHandlers.ThenFunc(dataAPI.Query))
 
 	// aggregation api
-	router.get("/aggr/{interval}/{id}", commonHandlers.ThenFunc(aggrAPI.Query))
+	router.get("/aggr/{aggrid}/{uuid}", commonHandlers.ThenFunc(aggrAPI.Query))
 
 	// Register in the service catalog(s)
 	var wg sync.WaitGroup
