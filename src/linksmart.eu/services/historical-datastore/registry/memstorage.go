@@ -40,8 +40,8 @@ func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
 	ds.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, ds.ID)
 
 	// Send a create notification
-	errClbk := sendNotification(ds, common.CREATE, ms.nt)
-	if err := <-errClbk; err != nil {
+	err := sendNotification(ds, common.CREATE, ms.nt)
+	if err != nil {
 		return DataSource{}, err
 	}
 
@@ -74,8 +74,8 @@ func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 	//tempDS.Type
 
 	// Send an update notification
-	errClbk := sendNotification([]DataSource{oldDS, tempDS}, common.UPDATE, ms.nt)
-	if err := <-errClbk; err != nil {
+	err := sendNotification([]DataSource{oldDS, tempDS}, common.UPDATE, ms.nt)
+	if err != nil {
 		return DataSource{}, err
 	}
 
@@ -96,8 +96,8 @@ func (ms *MemoryStorage) delete(id string) error {
 	}
 
 	// Send a delete notification
-	errClbk := sendNotification(ms.data[id], common.DELETE, ms.nt)
-	if err := <-errClbk; err != nil {
+	err := sendNotification(ms.data[id], common.DELETE, ms.nt)
+	if err != nil {
 		return err
 	}
 
