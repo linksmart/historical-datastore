@@ -103,6 +103,7 @@ func main() {
 	router.get("/data/{id}", commonHandlers.ThenFunc(dataAPI.Query))
 
 	// aggregation api
+	router.get("/aggr", commonHandlers.ThenFunc(aggrAPI.Index))
 	router.get("/aggr/{aggrid}/{uuid}", commonHandlers.ThenFunc(aggrAPI.Query))
 
 	// Register in the service catalog(s)

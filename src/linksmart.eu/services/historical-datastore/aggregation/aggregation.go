@@ -18,6 +18,18 @@ type Aggr interface {
 	ntfDeleted(ds registry.DataSource, callback chan error)
 }
 
+type Index struct {
+	Aggrs []Aggregation `json:"aggregations"`
+}
+
+type Aggregation struct {
+	ID         string   `json:"id"`
+	Interval   string   `json:"interval"`
+	Aggregates []string `json:"aggregates"`
+	Retention  string   `json:"retention"`
+	Sources    []string `json:"sources"`
+}
+
 // RecordSet describes the recordset returned on querying the Aggr API
 type RecordSet struct {
 	// URL is the URL of the returned recordset in the Data API

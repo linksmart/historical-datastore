@@ -29,6 +29,56 @@ func NewAPI(registryClient registry.Client, storage Aggr) *API {
 	return &API{registryClient, storage}
 }
 
+func (api *API) Index(w http.ResponseWriter, r *http.Request) {
+
+	aggrs := make(map[string]Aggregation)
+	perPage := 100
+	for page := 1; ; page++ {
+		datasources, total, err := api.registryClient.GetDataSources(page, perPage)
+		if err != nil {
+			common.ErrorResponse(http.StatusInternalServerError, "Error reading registry: "+err.Error(), w)
+			return
+		}
+
+		for _, ds := range datasources {
+			for _, dsa := range ds.Aggregation {
+				var aggr Aggregation
+				aggr.ID = dsa.ID
+				aggr.Interval = dsa.Interval
+				aggr.Aggregates = dsa.Aggregates
+				aggr.Retention = dsa.Retention
+				var sources []string
+				a, found := aggrs[dsa.ID]
+				if found {
+					sources = a.Sources
+				}
+				aggr.Sources = append(sources, ds.ID)
+				aggrs[dsa.ID] = aggr
+			}
+		}
+
+		if page*perPage >= total {
+			break
+		}
+	}
+
+	var index Index
+	index.Aggrs = make([]Aggregation, 0, len(aggrs))
+	for _, v := range aggrs {
+		index.Aggrs = append(index.Aggrs, v)
+	}
+
+	b, err := json.Marshal(&index)
+	if err != nil {
+		common.ErrorResponse(http.StatusInternalServerError, "Error marshalling: "+err.Error(), w)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/vnd.eu.linksmart.hds+json;version="+common.APIVersion)
+	w.WriteHeader(http.StatusOK)
+	w.Write(b)
+}
+
 func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	timeStart := time.Now()
