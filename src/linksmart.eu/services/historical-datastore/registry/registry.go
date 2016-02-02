@@ -190,7 +190,7 @@ func validateDataSource(ds *DataSource, context uint8) error {
 	}
 	// valid
 	if ds.Type != "" {
-		if !stringInSlice(ds.Type, common.SupportedTypes()) {
+		if !common.SupportedType(ds.Type) {
 			invalidKeys = append(invalidKeys, fmt.Sprintf("type<%s>",
 				strings.Join(common.SupportedTypes(), ",")))
 		}
@@ -221,13 +221,4 @@ func validateDataSource(ds *DataSource, context uint8) error {
 		return errors.New(strings.Join(_errors, ". "))
 	}
 	return nil
-}
-
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
 }

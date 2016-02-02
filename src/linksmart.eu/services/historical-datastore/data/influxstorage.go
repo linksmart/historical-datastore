@@ -244,11 +244,11 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 		timeCond = fmt.Sprintf("time > '%s'", q.Start.Format(time.RFC3339))
 	}
 
-	perItems, offsets := perItemPagination(q.Limit, page, perPage, len(sources))
+	perItems, offsets := common.PerItemPagination(q.Limit, page, perPage, len(sources))
 
 	// Initialize sort order
 	sort := "ASC"
-	if q.Sort == DESC {
+	if q.Sort == common.DESC {
 		sort = "DESC"
 	}
 

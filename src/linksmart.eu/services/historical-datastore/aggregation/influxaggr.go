@@ -1,9 +1,14 @@
 package aggregation
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
+	"time"
+
+	"github.com/influxdb/influxdb/models"
 
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/data"
@@ -27,29 +32,144 @@ func NewInfluxAggr(influxStorage *data.InfluxStorage) (Aggr, chan<- common.Notif
 	return a, ntChan, nil
 }
 
-func (a *InfluxAggr) Query(q data.Query, page, perPage int, sources ...registry.DataSource) (data.DataSet, int, error) {
-	// TODO
-	return data.DataSet{}, 0, nil
+func (a *InfluxAggr) Query(aggr registry.AggregatedDataSource, q data.Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
+	points := []DataEntry{}
+	total := 0
+
+	// If q.End is not set, make the query open-ended
+	var timeCond string
+	if q.Start.Before(q.End) {
+		timeCond = fmt.Sprintf("time > '%s' AND time < '%s'", q.Start.Format(time.RFC3339), q.End.Format(time.RFC3339))
+	} else {
+		timeCond = fmt.Sprintf("time > '%s'", q.Start.Format(time.RFC3339))
+	}
+
+	perItems, offsets := common.PerItemPagination(q.Limit, page, perPage, len(sources))
+
+	// Initialize sort order
+	sort := "ASC"
+	if q.Sort == common.DESC {
+		sort = "DESC"
+	}
+
+	for i, ds := range sources {
+		res, err := a.influxStorage.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
+			a.fqMsrmt(ds.ID, aggr.ID), timeCond, sort, perItems[i], offsets[i])
+		if err != nil {
+			return DataSet{}, 0, fmt.Errorf("Error retrieving aggregated data records for source %v: %v", ds.Resource, err.Error())
+		}
+		if len(res) < 1 || len(res[0].Series) < 1 {
+			log.Printf("There is no data for source %v", ds.Resource)
+			continue
+		}
+
+		if len(res[0].Series) > 1 {
+			return DataSet{}, 0, fmt.Errorf("Unrecognized/Corrupted database schema.")
+		}
+
+		pds, err := pointsFromRow(res[0].Series[0], aggr, ds)
+		if err != nil {
+			return DataSet{}, 0, fmt.Errorf("Error parsing records for source %v: %v", ds.Resource, err.Error())
+		}
+
+		// Count total
+		res, err = a.influxStorage.QuerySprintf("SELECT COUNT(value)+COUNT(stringValue)+COUNT(booleanValue) FROM %s WHERE %s",
+			a.fqMsrmt(ds.ID, aggr.ID), timeCond)
+		if err != nil {
+			return DataSet{}, 0, fmt.Errorf("Error counting records for source %v: %v", ds.Resource, err.Error())
+		}
+		if len(res) < 1 ||
+			len(res[0].Series) < 1 ||
+			len(res[0].Series[0].Values) < 1 ||
+			len(res[0].Series[0].Values[0]) < 2 {
+			return DataSet{}, 0, fmt.Errorf("Unable to count records for source %v", ds.Resource)
+		}
+		count, err := res[0].Series[0].Values[0][1].(json.Number).Int64()
+		if err != nil {
+			log.Println(err.Error())
+		}
+		total += int(count)
+
+		if perItems[i] != 0 { // influx ignores `limit 0`
+			points = append(points, pds...)
+		}
+	}
+	var dataset DataSet
+	dataset.Entries = points
+
+	// q.Limit overrides total
+	if q.Limit > 0 && q.Limit < total {
+		total = q.Limit
+	}
+
+	return dataset, total, nil
+}
+
+func pointsFromRow(r models.Row, aggr registry.AggregatedDataSource, ds registry.DataSource) ([]DataEntry, error) {
+	var entries []DataEntry
+
+	for _, e := range r.Values {
+		entry := NewDataEntry()
+		entry.Name = ds.Resource
+		// entry.Units ?
+
+		// fields and tags
+		for i, v := range e {
+			// point with nil column
+			if v == nil {
+				continue
+			}
+			switch r.Columns[i] {
+			case "time":
+				if val, ok := v.(string); ok {
+					t, err := time.Parse(time.RFC3339, val)
+					if err != nil {
+						return nil, fmt.Errorf("Invalid time format %v: %v.", val, err)
+					}
+					entry.TimeEnd = t.Unix()
+					dur, err := time.ParseDuration(aggr.Interval)
+					if err != nil {
+						return nil, fmt.Errorf("Invalid aggregation interval %v: %v.", aggr.Interval, err)
+					}
+					entry.TimeStart = t.Add(-dur).Unix()
+				} else {
+					return nil, errors.New("Interface conversion error. time not string?")
+				}
+			default:
+				if common.SupportedAggregate(r.Columns[i]) {
+					if val, err := v.(json.Number).Float64(); err == nil {
+						entry.Aggregates[r.Columns[i]] = val
+					} else {
+						return nil, err
+					}
+				}
+			} // endswitch
+
+		}
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
 }
 
 // Formatted continuous query name for a given data source
-func (a *InfluxAggr) cq(ds registry.DataSource, dsa registry.AggregatedDataSource) string {
-	return fmt.Sprintf("\"cq_%s/%s\"", ds.ID, dsa.ID)
+func (a *InfluxAggr) cq(dsID, aggrID string) string {
+	return fmt.Sprintf("\"cq_%s/%s\"", dsID, aggrID)
 }
 
 // Formatted retention policy name for a given data source
-func (a *InfluxAggr) retention(ds registry.DataSource, dsa registry.AggregatedDataSource) string {
-	return fmt.Sprintf("\"policy_%s/%s\"", ds.ID, dsa.ID)
+func (a *InfluxAggr) retention(dsID, aggrID string) string {
+	return fmt.Sprintf("\"policy_%s/%s\"", dsID, aggrID)
 }
 
 // Formatted measurement name for a given data source
-func (a *InfluxAggr) msrmt(ds registry.DataSource, dsa registry.AggregatedDataSource) string {
-	return fmt.Sprintf("\"aggr_%s/%s\"", ds.ID, dsa.ID)
+func (a *InfluxAggr) msrmt(dsID, aggrID string) string {
+	return fmt.Sprintf("\"aggr_%s/%s\"", dsID, aggrID)
 }
 
 // Fully qualified measurement name
-func (a *InfluxAggr) fqMsrmt(ds registry.DataSource, dsa registry.AggregatedDataSource) string {
-	return fmt.Sprintf("%s.%s.%s", a.influxStorage.Database(), a.retention(ds, dsa), a.msrmt(ds, dsa))
+func (a *InfluxAggr) fqMsrmt(dsID, aggrID string) string {
+	return fmt.Sprintf("%s.%s.%s", a.influxStorage.Database(), a.retention(dsID, aggrID), a.msrmt(dsID, aggrID))
 }
 
 // e.g. returned string: min(value),max(value)
@@ -69,7 +189,7 @@ func (a *InfluxAggr) createAggregation(ds registry.DataSource, dsa registry.Aggr
 		duration = dsa.Retention
 	}
 	_, err := a.influxStorage.QuerySprintf("CREATE RETENTION POLICY %s ON %s DURATION %v REPLICATION %d",
-		a.retention(ds, dsa), a.influxStorage.Database(), duration, a.influxStorage.Replication())
+		a.retention(ds.ID, dsa.ID), a.influxStorage.Database(), duration, a.influxStorage.Replication())
 	if err != nil {
 		return fmt.Errorf("Error creating retention policy: %v", err.Error())
 	}
@@ -77,7 +197,7 @@ func (a *InfluxAggr) createAggregation(ds registry.DataSource, dsa registry.Aggr
 
 	// Create Continuous Queries
 	_, err = a.influxStorage.QuerySprintf("CREATE CONTINUOUS QUERY %s ON %s BEGIN SELECT %s INTO %s FROM %s GROUP BY time(%s) END",
-		a.cq(ds, dsa), a.influxStorage.Database(), a.functions(dsa), a.fqMsrmt(ds, dsa), a.influxStorage.FQMsrmt(ds), dsa.Interval)
+		a.cq(ds.ID, dsa.ID), a.influxStorage.Database(), a.functions(dsa), a.fqMsrmt(ds.ID, dsa.ID), a.influxStorage.FQMsrmt(ds), dsa.Interval)
 	if err != nil {
 		return fmt.Errorf("Error creating aggregation: %v", err.Error())
 	}
@@ -89,14 +209,14 @@ func (a *InfluxAggr) createAggregation(ds registry.DataSource, dsa registry.Aggr
 func (a *InfluxAggr) deleteAggregation(ds registry.DataSource, dsa registry.AggregatedDataSource) error {
 	// Drop Continuous Query
 	_, err := a.influxStorage.QuerySprintf("DROP CONTINUOUS QUERY %s ON %s",
-		a.cq(ds, dsa), a.influxStorage.Database())
+		a.cq(ds.ID, dsa.ID), a.influxStorage.Database())
 	if err != nil {
 		return fmt.Errorf("Error dropping aggregation: %v", err.Error())
 	}
 	log.Printf("InfluxAggr: dropped aggregation %s/%s", ds.ID, dsa.ID)
 
 	// Drop Measurement
-	_, err = a.influxStorage.QuerySprintf("DROP MEASUREMENT %s", a.msrmt(ds, dsa))
+	_, err = a.influxStorage.QuerySprintf("DROP MEASUREMENT %s", a.msrmt(ds.ID, dsa.ID))
 	if err != nil {
 		if strings.Contains(err.Error(), "measurement not found") {
 			// Not an error, No data to delete.
@@ -108,7 +228,7 @@ func (a *InfluxAggr) deleteAggregation(ds registry.DataSource, dsa registry.Aggr
 
 	// Drop Retention Policy
 DROP_RETENTION:
-	_, err = a.influxStorage.QuerySprintf("DROP RETENTION POLICY %s ON %s", a.retention(ds, dsa), a.influxStorage.Database())
+	_, err = a.influxStorage.QuerySprintf("DROP RETENTION POLICY %s ON %s", a.retention(ds.ID, dsa.ID), a.influxStorage.Database())
 	if err != nil {
 		return fmt.Errorf("Error removing the retention policy for source: %v", err.Error())
 	}
@@ -155,8 +275,8 @@ func (a *InfluxAggr) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSo
 			}
 
 			// Backfill aggregated for the historical data
-			_, err = a.influxStorage.QuerySprintf("SELECT %s INTO %s FROM %s WHERE time >= '0001-01-01 00:00:00' GROUP BY time(%s)",
-				a.functions(dsa), a.fqMsrmt(newDS, dsa), a.influxStorage.FQMsrmt(newDS), dsa.Interval)
+			_, err = a.influxStorage.QuerySprintf("SELECT %s INTO %s FROM %s WHERE time >= '%v' GROUP BY time(%s) fill(none)",
+				a.functions(dsa), a.fqMsrmt(newDS.ID, dsa.ID), a.influxStorage.FQMsrmt(newDS), time.Now().AddDate(-1, 0, 0).Format("2006-01-02 15:04:05"), dsa.Interval)
 			if err != nil {
 				callback <- fmt.Errorf("Error backfilling aggregates: %v", err.Error())
 				return
@@ -173,7 +293,8 @@ func (a *InfluxAggr) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSo
 			if dsa.Retention != "" {
 				duration = dsa.Retention
 			}
-			_, err := a.influxStorage.QuerySprintf("ALTER RETENTION POLICY %s ON %s DURATION %v", a.retention(oldDS, dsa), a.influxStorage.Database(), duration)
+			_, err := a.influxStorage.QuerySprintf("ALTER RETENTION POLICY %s ON %s DURATION %v",
+				a.retention(oldDS.ID, dsa.ID), a.influxStorage.Database(), duration)
 			if err != nil {
 				callback <- fmt.Errorf("Error modifying the retention policy for source: %v", err.Error())
 				return
