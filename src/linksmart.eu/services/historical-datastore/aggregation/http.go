@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+
+	"linksmart.eu/lc/core/catalog"
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/data"
 	"linksmart.eu/services/historical-datastore/registry"
@@ -29,15 +31,14 @@ func NewAPI(registryClient registry.Client, storage Aggr) *API {
 	return &API{registryClient, storage}
 }
 
-func (api *API) Index(w http.ResponseWriter, r *http.Request) {
-
+// Retrieve aggregations from registry api
+func (api *API) Aggregations() (map[string]Aggregation, error) {
 	aggrs := make(map[string]Aggregation)
 	perPage := 100
 	for page := 1; ; page++ {
 		datasources, total, err := api.registryClient.GetDataSources(page, perPage)
 		if err != nil {
-			common.ErrorResponse(http.StatusInternalServerError, "Error reading registry: "+err.Error(), w)
-			return
+			return aggrs, err
 		}
 
 		for _, ds := range datasources {
@@ -62,6 +63,17 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	return aggrs, nil
+}
+
+func (api *API) Index(w http.ResponseWriter, r *http.Request) {
+
+	aggrs, err := api.Aggregations()
+	if err != nil {
+		common.ErrorResponse(http.StatusInternalServerError, "Error reading registry: "+err.Error(), w)
+		return
+	}
+
 	var index Index
 	index.Aggrs = make([]Aggregation, 0, len(aggrs))
 	for _, v := range aggrs {
@@ -74,7 +86,44 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/vnd.eu.linksmart.hds+json;version="+common.APIVersion)
+	w.Header().Set("Content-Type", common.DefaultMIMEType)
+	w.WriteHeader(http.StatusOK)
+	w.Write(b)
+}
+
+func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	fpath := params["path"]
+	fop := params["op"]
+	fvalue := params["value"]
+	pathTknz := strings.Split(fpath, ".")
+
+	aggrs, err := api.Aggregations()
+	if err != nil {
+		common.ErrorResponse(http.StatusInternalServerError, "Error reading registry: "+err.Error(), w)
+		return
+	}
+
+	var index Index
+	index.Aggrs = make([]Aggregation, 0, len(aggrs))
+	for _, aggr := range aggrs {
+		matched, err := catalog.MatchObject(aggr, pathTknz, fop, fvalue)
+		if err != nil {
+			common.ErrorResponse(http.StatusInternalServerError, "Error matching aggregation: "+err.Error(), w)
+			return
+		}
+		if matched {
+			index.Aggrs = append(index.Aggrs, aggr)
+		}
+	}
+
+	b, err := json.Marshal(&index)
+	if err != nil {
+		common.ErrorResponse(http.StatusInternalServerError, "Error marshalling: "+err.Error(), w)
+		return
+	}
+
+	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusOK)
 	w.Write(b)
 }
@@ -174,7 +223,7 @@ OUTERLOOP:
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/vnd.eu.linksmart.hds+json;version="+common.APIVersion)
+	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusOK)
 	w.Write(b)
 }

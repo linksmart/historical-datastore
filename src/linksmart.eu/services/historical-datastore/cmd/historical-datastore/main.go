@@ -104,6 +104,7 @@ func main() {
 
 	// aggregation api
 	router.get("/aggr", commonHandlers.ThenFunc(aggrAPI.Index))
+	router.get("/aggr/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(aggrAPI.Filter))
 	router.get("/aggr/{aggrid}/{uuid}", commonHandlers.ThenFunc(aggrAPI.Query))
 
 	// Register in the service catalog(s)
