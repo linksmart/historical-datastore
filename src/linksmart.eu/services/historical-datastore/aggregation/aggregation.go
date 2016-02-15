@@ -10,7 +10,7 @@ import (
 
 type Aggr interface {
 	// Queries data for specified data sources
-	Query(aggr registry.AggregatedDataSource, q data.Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error)
+	Query(aggr registry.Aggregation, q data.Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error)
 
 	// Methods for handling notifications
 	ntfCreated(ds registry.DataSource, callback chan error)
@@ -49,7 +49,6 @@ type RecordSet struct {
 
 type DataSet struct {
 	BaseName      string      `json:"bn,omitempty"`
-	BaseUnit      string      `json:"bu,omitempty"`
 	BaseTimeStart int64       `json:"bts,omitempty"`
 	BaseTimeEnd   int64       `json:"bte,omitempty"`
 	Entries       []DataEntry `json:"e"`
@@ -57,7 +56,6 @@ type DataSet struct {
 
 type DataEntry struct {
 	Name       string
-	Units      string
 	TimeStart  int64
 	TimeEnd    int64
 	Aggregates map[string]float64
@@ -68,9 +66,6 @@ func (e *DataEntry) MarshalJSON() ([]byte, error) {
 
 	if e.Name != "" {
 		x["n"] = e.Name
-	}
-	if e.Units != "" {
-		x["u"] = e.Units
 	}
 	if e.TimeStart != 0 {
 		x["ts"] = e.TimeStart

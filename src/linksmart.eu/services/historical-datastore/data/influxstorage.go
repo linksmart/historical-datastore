@@ -368,7 +368,7 @@ DROP_RETENTION:
 
 // Query influxdb
 func (s *InfluxStorage) QuerySprintf(format string, a ...interface{}) (res []influx.Result, err error) {
-	fmt.Println("QUERY:", fmt.Sprintf(format, a...))
+	log.Println("Influx:", fmt.Sprintf(format, a...))
 	q := influx.Query{
 		Command:  fmt.Sprintf(format, a...),
 		Database: s.config.Database,

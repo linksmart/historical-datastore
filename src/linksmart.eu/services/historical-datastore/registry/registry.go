@@ -42,7 +42,7 @@ type DataSource struct {
 	// Retention is the retention duration for data
 	Retention string `json:"retention"`
 	// Aggregation is an array of configured aggregations
-	Aggregation []AggregatedDataSource `json:"aggregation"`
+	Aggregation []Aggregation `json:"aggregation"`
 	// Type is the values type used in payload
 	Type string `json:"type"`
 	// Format is the MIME type of the payload
@@ -54,8 +54,8 @@ func (ds *DataSource) ParsedResource() *url.URL {
 	return parsedResource
 }
 
-// AggregatedDataSource describes a data aggregatoin for a Data Source
-type AggregatedDataSource struct {
+// Aggregation describes a data aggregatoin for a Data Source
+type Aggregation struct {
 	ID string `json:"id"`
 	// Interval is the aggregation interval
 	Interval string `json:"interval"`

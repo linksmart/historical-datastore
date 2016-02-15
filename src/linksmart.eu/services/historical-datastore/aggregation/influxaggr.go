@@ -32,7 +32,7 @@ func NewInfluxAggr(influxStorage *data.InfluxStorage) (Aggr, chan<- common.Notif
 	return a, ntChan, nil
 }
 
-func (a *InfluxAggr) Query(aggr registry.AggregatedDataSource, q data.Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
+func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
 	points := []DataEntry{}
 	total := 0
 
@@ -73,8 +73,8 @@ func (a *InfluxAggr) Query(aggr registry.AggregatedDataSource, q data.Query, pag
 		}
 
 		// Count total
-		res, err = a.influxStorage.QuerySprintf("SELECT COUNT(value)+COUNT(stringValue)+COUNT(booleanValue) FROM %s WHERE %s",
-			a.fqMsrmt(ds.ID, aggr.ID), timeCond)
+		res, err = a.influxStorage.QuerySprintf("SELECT COUNT(%s) FROM %s WHERE %s",
+			aggr.Aggregates[0], a.fqMsrmt(ds.ID, aggr.ID), timeCond)
 		if err != nil {
 			return DataSet{}, 0, fmt.Errorf("Error counting records for source %v: %v", ds.Resource, err.Error())
 		}
@@ -105,13 +105,135 @@ func (a *InfluxAggr) Query(aggr registry.AggregatedDataSource, q data.Query, pag
 	return dataset, total, nil
 }
 
-func pointsFromRow(r models.Row, aggr registry.AggregatedDataSource, ds registry.DataSource) ([]DataEntry, error) {
+// Handles the creation of a new data source
+func (a *InfluxAggr) ntfCreated(ds registry.DataSource, callback chan error) {
+
+	for _, dsa := range ds.Aggregation {
+		err := a.createRetentionPolicy(ds, dsa)
+		if err != nil {
+			callback <- err
+			return
+		}
+		err = a.createContinuousQuery(ds, dsa)
+		if err != nil {
+			a.dropRetentionPolicy(ds, dsa)
+			callback <- err
+			return
+		}
+	}
+
+	callback <- nil
+}
+
+// Handles updates of a data source
+func (a *InfluxAggr) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
+
+	aggrs := make(map[string]registry.Aggregation)
+	for _, dsa := range oldDS.Aggregation {
+		aggrs[dsa.ID] = dsa
+	}
+
+	for _, dsa := range newDS.Aggregation {
+		oldAds, found := aggrs[dsa.ID]
+
+		// NEW AGGREGATION
+		if !found {
+			// Create Retention Policy
+			err := a.createRetentionPolicy(newDS, dsa)
+			if err != nil {
+				callback <- err
+				return
+			}
+			// Create Continuous Query
+			err = a.createContinuousQuery(newDS, dsa)
+			if err != nil {
+				a.dropRetentionPolicy(newDS, dsa)
+				callback <- err
+				return
+			}
+			// Backfill
+			err = a.backfill(newDS, dsa)
+			if err != nil {
+				callback <- err
+				return
+			}
+
+			continue
+		}
+
+		// UPDATED AGGREGATION
+		if oldAds.Retention != dsa.Retention {
+			// Alter Retention Policy
+			err := a.alterRetentionPolicy(oldDS, dsa)
+			if err != nil {
+				callback <- err
+				return
+			}
+		}
+
+		delete(aggrs, dsa.ID)
+	}
+
+	// DELETED AGGREGATIONS
+	for _, dsa := range aggrs {
+		// Drop Continuous Query
+		err := a.dropContinuousQuery(oldDS, dsa)
+		if err != nil {
+			callback <- err
+			return
+		}
+		// Drop Measurement
+		err = a.dropMeasurement(oldDS, dsa)
+		if err != nil {
+			callback <- err
+			return
+		}
+		// Drop Retention Policy
+		err = a.dropRetentionPolicy(oldDS, dsa)
+		if err != nil {
+			callback <- err
+			return
+		}
+	}
+
+	callback <- nil
+}
+
+// Handles deletion of a data source
+func (a *InfluxAggr) ntfDeleted(ds registry.DataSource, callback chan error) {
+
+	for _, dsa := range ds.Aggregation {
+		// Drop Continuous Query
+		err := a.dropContinuousQuery(ds, dsa)
+		if err != nil {
+			callback <- err
+			return
+		}
+		// Drop Measurement
+		err = a.dropMeasurement(ds, dsa)
+		if err != nil {
+			callback <- err
+			return
+		}
+		// Drop Retention Policy
+		err = a.dropRetentionPolicy(ds, dsa)
+		if err != nil {
+			callback <- err
+			return
+		}
+	}
+
+	callback <- nil
+}
+
+// Utility functions
+
+func pointsFromRow(r models.Row, aggr registry.Aggregation, ds registry.DataSource) ([]DataEntry, error) {
 	var entries []DataEntry
 
 	for _, e := range r.Values {
 		entry := NewDataEntry()
 		entry.Name = ds.Resource
-		// entry.Units ?
 
 		// fields and tags
 		for i, v := range e {
@@ -126,12 +248,12 @@ func pointsFromRow(r models.Row, aggr registry.AggregatedDataSource, ds registry
 					if err != nil {
 						return nil, fmt.Errorf("Invalid time format %v: %v.", val, err)
 					}
-					entry.TimeEnd = t.Unix()
+					entry.TimeStart = t.Unix()
 					dur, err := time.ParseDuration(aggr.Interval)
 					if err != nil {
 						return nil, fmt.Errorf("Invalid aggregation interval %v: %v.", aggr.Interval, err)
 					}
-					entry.TimeStart = t.Add(-dur).Unix()
+					entry.TimeEnd = t.Add(dur).Unix()
 				} else {
 					return nil, errors.New("Interface conversion error. time not string?")
 				}
@@ -154,17 +276,17 @@ func pointsFromRow(r models.Row, aggr registry.AggregatedDataSource, ds registry
 
 // Formatted continuous query name for a given data source
 func (a *InfluxAggr) cq(dsID, aggrID string) string {
-	return fmt.Sprintf("\"cq_%s/%s\"", dsID, aggrID)
+	return fmt.Sprintf("\"cq_%s/%s\"", aggrID, dsID)
 }
 
 // Formatted retention policy name for a given data source
 func (a *InfluxAggr) retention(dsID, aggrID string) string {
-	return fmt.Sprintf("\"policy_%s/%s\"", dsID, aggrID)
+	return fmt.Sprintf("\"aggr_policy_%s/%s\"", aggrID, dsID)
 }
 
 // Formatted measurement name for a given data source
 func (a *InfluxAggr) msrmt(dsID, aggrID string) string {
-	return fmt.Sprintf("\"aggr_%s/%s\"", dsID, aggrID)
+	return fmt.Sprintf("\"aggr_%s/%s\"", aggrID, dsID)
 }
 
 // Fully qualified measurement name
@@ -173,7 +295,7 @@ func (a *InfluxAggr) fqMsrmt(dsID, aggrID string) string {
 }
 
 // e.g. returned string: min(value),max(value)
-func (a *InfluxAggr) functions(dsa registry.AggregatedDataSource) string {
+func (a *InfluxAggr) functions(dsa registry.Aggregation) string {
 	var funcs []string
 	for _, aggr := range dsa.Aggregates {
 		funcs = append(funcs, fmt.Sprintf("%s(value)", aggr))
@@ -181,158 +303,102 @@ func (a *InfluxAggr) functions(dsa registry.AggregatedDataSource) string {
 	return strings.Join(funcs, ",")
 }
 
-// Creates Retention Policy and Continuous Query
-func (a *InfluxAggr) createAggregation(ds registry.DataSource, dsa registry.AggregatedDataSource) error {
-	// Create Retention Policy
+// INFLUX QUERIES
+
+// Backfill aggregates for the historical data
+func (a *InfluxAggr) backfill(ds registry.DataSource, dsa registry.Aggregation) error {
+	_, err := a.influxStorage.QuerySprintf("SELECT %s INTO %s FROM %s WHERE time >= '%v' GROUP BY time(%s) fill(none)",
+		a.functions(dsa), a.fqMsrmt(ds.ID, dsa.ID), a.influxStorage.FQMsrmt(ds), time.Now().AddDate(-1, 0, 0).Format("2006-01-02 15:04:05"), dsa.Interval)
+	if err != nil {
+		return fmt.Errorf("Error backfilling aggregates: %v", err.Error())
+	}
+	log.Printf("InfluxAggr: Backfilled aggregates %s/%s", ds.ID, dsa.ID)
+	return nil
+}
+
+func (a *InfluxAggr) createRetentionPolicy(ds registry.DataSource, dsa registry.Aggregation) error {
 	duration := "INF"
 	if dsa.Retention != "" {
 		duration = dsa.Retention
 	}
+
 	_, err := a.influxStorage.QuerySprintf("CREATE RETENTION POLICY %s ON %s DURATION %v REPLICATION %d",
 		a.retention(ds.ID, dsa.ID), a.influxStorage.Database(), duration, a.influxStorage.Replication())
 	if err != nil {
+		if strings.Contains(err.Error(), "retention policy already exists") {
+			log.Printf("WARNING: %v: %v", err.Error(), a.retention(ds.ID, dsa.ID))
+			return nil
+		}
 		return fmt.Errorf("Error creating retention policy: %v", err.Error())
 	}
-	log.Printf("InfluxAggr: created retention policy %s/%s", ds.ID, dsa.ID)
-
-	// Create Continuous Queries
-	_, err = a.influxStorage.QuerySprintf("CREATE CONTINUOUS QUERY %s ON %s BEGIN SELECT %s INTO %s FROM %s GROUP BY time(%s) END",
-		a.cq(ds.ID, dsa.ID), a.influxStorage.Database(), a.functions(dsa), a.fqMsrmt(ds.ID, dsa.ID), a.influxStorage.FQMsrmt(ds), dsa.Interval)
-	if err != nil {
-		return fmt.Errorf("Error creating aggregation: %v", err.Error())
-	}
-	log.Printf("InfluxAggr: created aggregation %s/%s", ds.ID, dsa.ID)
+	log.Printf("InfluxAggr: created retention policy %s/%s", dsa.ID, ds.ID)
 	return nil
 }
 
-// Drops Continuous Query, Measurement, and Retention Policy
-func (a *InfluxAggr) deleteAggregation(ds registry.DataSource, dsa registry.AggregatedDataSource) error {
-	// Drop Continuous Query
-	_, err := a.influxStorage.QuerySprintf("DROP CONTINUOUS QUERY %s ON %s",
-		a.cq(ds.ID, dsa.ID), a.influxStorage.Database())
+func (a *InfluxAggr) createContinuousQuery(ds registry.DataSource, dsa registry.Aggregation) error {
+	_, err := a.influxStorage.QuerySprintf("CREATE CONTINUOUS QUERY %s ON %s BEGIN SELECT %s INTO %s FROM %s GROUP BY time(%s) END",
+		a.cq(ds.ID, dsa.ID), a.influxStorage.Database(), a.functions(dsa), a.fqMsrmt(ds.ID, dsa.ID), a.influxStorage.FQMsrmt(ds), dsa.Interval)
 	if err != nil {
-		return fmt.Errorf("Error dropping aggregation: %v", err.Error())
+		if strings.Contains(err.Error(), "continuous query already exists") {
+			log.Printf("WARNING: %v: %v", err.Error(), a.cq(ds.ID, dsa.ID))
+			return nil
+		}
+		return fmt.Errorf("Error creating aggregation: %v", err.Error())
 	}
-	log.Printf("InfluxAggr: dropped aggregation %s/%s", ds.ID, dsa.ID)
+	log.Printf("InfluxAggr: created continuous query %s/%s", dsa.ID, ds.ID)
+	return nil
+}
 
-	// Drop Measurement
-	_, err = a.influxStorage.QuerySprintf("DROP MEASUREMENT %s", a.msrmt(ds.ID, dsa.ID))
+func (a *InfluxAggr) alterRetentionPolicy(ds registry.DataSource, dsa registry.Aggregation) error {
+	duration := "INF"
+	if dsa.Retention != "" {
+		duration = dsa.Retention
+	}
+
+	_, err := a.influxStorage.QuerySprintf("ALTER RETENTION POLICY %s ON %s DURATION %v",
+		a.retention(ds.ID, dsa.ID), a.influxStorage.Database(), duration)
+	if err != nil {
+		return fmt.Errorf("Error modifying retention: %v", err.Error())
+	}
+	log.Printf("InfluxAggr: altered retention policy %s/%s", dsa.ID, ds.ID)
+	return nil
+}
+
+func (a *InfluxAggr) dropRetentionPolicy(ds registry.DataSource, dsa registry.Aggregation) error {
+	_, err := a.influxStorage.QuerySprintf("DROP RETENTION POLICY %s ON %s", a.retention(ds.ID, dsa.ID), a.influxStorage.Database())
+	if err != nil {
+		if strings.Contains(err.Error(), "retention policy not found") {
+			log.Printf("WARNING: %v: %v", err.Error(), a.retention(ds.ID, dsa.ID))
+			return nil
+		}
+		return fmt.Errorf("Error removing retention: %v", err.Error())
+	}
+	log.Printf("InfluxAggr: dropped retention policy %s/%s", ds.ID, dsa.ID)
+	return nil
+}
+
+func (a *InfluxAggr) dropContinuousQuery(ds registry.DataSource, dsa registry.Aggregation) error {
+	_, err := a.influxStorage.QuerySprintf("DROP CONTINUOUS QUERY %s ON %s", a.cq(ds.ID, dsa.ID), a.influxStorage.Database())
+	if err != nil {
+		if strings.Contains(err.Error(), "continuous query not found") {
+			log.Printf("WARNING: %v: %v", err.Error(), a.cq(ds.ID, dsa.ID))
+			return nil
+		}
+		return fmt.Errorf("Error dropping continuous query: %v", err.Error())
+	}
+	log.Printf("InfluxAggr: dropped continuous query %s/%s", dsa.ID, ds.ID)
+	return nil
+}
+
+func (a *InfluxAggr) dropMeasurement(ds registry.DataSource, dsa registry.Aggregation) error {
+	_, err := a.influxStorage.QuerySprintf("DROP MEASUREMENT %s", a.msrmt(ds.ID, dsa.ID))
 	if err != nil {
 		if strings.Contains(err.Error(), "measurement not found") {
 			// Not an error, No data to delete.
-			goto DROP_RETENTION
+			return nil
 		}
-		return fmt.Errorf("Error removing the historical data: %v", err.Error())
+		return fmt.Errorf("Error removing historical data: %v", err.Error())
 	}
-	log.Printf("InfluxStorage: dropped measurements for %s/%s", ds.ID, dsa.ID)
-
-	// Drop Retention Policy
-DROP_RETENTION:
-	_, err = a.influxStorage.QuerySprintf("DROP RETENTION POLICY %s ON %s", a.retention(ds.ID, dsa.ID), a.influxStorage.Database())
-	if err != nil {
-		return fmt.Errorf("Error removing the retention policy for source: %v", err.Error())
-	}
-	log.Printf("InfluxStorage: dropped retention policy for %s/%s", ds.ID, dsa.ID)
-
+	log.Printf("InfluxAggr: dropped measurement %s/%s", dsa.ID, ds.ID)
 	return nil
-}
-
-// Handles the creation of a new data source
-func (a *InfluxAggr) ntfCreated(ds registry.DataSource, callback chan error) {
-
-	for _, dsa := range ds.Aggregation {
-		// Create Retention Policy
-		// Create Continuous Queries
-		err := a.createAggregation(ds, dsa)
-		if err != nil {
-			callback <- err
-			return
-		}
-	}
-
-	callback <- nil
-}
-
-// Handles updates of a data source
-func (a *InfluxAggr) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
-
-	aggrs := make(map[string]registry.AggregatedDataSource)
-	for _, dsa := range oldDS.Aggregation {
-		aggrs[dsa.ID] = dsa
-	}
-
-	for _, dsa := range newDS.Aggregation {
-		oldAds, found := aggrs[dsa.ID]
-
-		// NEW AGGREGATION
-		if !found {
-			// Create Retention Policy
-			// Create Continuous Queries
-			err := a.createAggregation(newDS, dsa)
-			if err != nil {
-				callback <- err
-				return
-			}
-
-			// Backfill aggregated for the historical data
-			_, err = a.influxStorage.QuerySprintf("SELECT %s INTO %s FROM %s WHERE time >= '%v' GROUP BY time(%s) fill(none)",
-				a.functions(dsa), a.fqMsrmt(newDS.ID, dsa.ID), a.influxStorage.FQMsrmt(newDS), time.Now().AddDate(-1, 0, 0).Format("2006-01-02 15:04:05"), dsa.Interval)
-			if err != nil {
-				callback <- fmt.Errorf("Error backfilling aggregates: %v", err.Error())
-				return
-			}
-			log.Printf("InfluxAggr: Backfilled aggregates %s/%s", newDS.ID, dsa.ID)
-
-			continue
-		}
-
-		// UPDATED AGGREGATION
-		if oldAds.Retention != dsa.Retention {
-			// Alter retention
-			duration := "INF"
-			if dsa.Retention != "" {
-				duration = dsa.Retention
-			}
-			_, err := a.influxStorage.QuerySprintf("ALTER RETENTION POLICY %s ON %s DURATION %v",
-				a.retention(oldDS.ID, dsa.ID), a.influxStorage.Database(), duration)
-			if err != nil {
-				callback <- fmt.Errorf("Error modifying the retention policy for source: %v", err.Error())
-				return
-			}
-			log.Printf("InfluxAggr: altered retention policy for aggregation %s/%s", oldDS.ID, dsa.ID)
-		}
-
-		delete(aggrs, dsa.ID)
-	}
-
-	// DELETED AGGREGATIONS
-	for _, dsa := range aggrs {
-		// Drop Continuous Query
-		// Drop Measurement
-		// Drop Retention Policy
-		err := a.deleteAggregation(oldDS, dsa)
-		if err != nil {
-			callback <- err
-			return
-		}
-	}
-
-	callback <- nil
-}
-
-// Handles deletion of a data source
-func (a *InfluxAggr) ntfDeleted(ds registry.DataSource, callback chan error) {
-
-	for _, dsa := range ds.Aggregation {
-		// Drop Continuous Query
-		// Drop Measurement
-		// Drop Retention Policy
-		err := a.deleteAggregation(ds, dsa)
-		if err != nil {
-			callback <- err
-			return
-		}
-	}
-
-	callback <- nil
 }

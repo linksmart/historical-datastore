@@ -132,19 +132,13 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	timeStart := time.Now()
 	params := mux.Vars(r)
-
 	aggrID := params["aggrid"]
-
-	var (
-		page, perPage int
-		//recordSet     RecordSet
-	)
 
 	page, err := strconv.Atoi(r.Form.Get("page"))
 	if err != nil {
 		page = 1
 	}
-	perPage, err = strconv.Atoi(r.Form.Get("per_page"))
+	perPage, err := strconv.Atoi(r.Form.Get("per_page"))
 	if err != nil {
 		perPage = MaxPerPage
 	}
@@ -158,7 +152,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var aggr registry.AggregatedDataSource
+	var aggr registry.Aggregation
 	var sources []registry.DataSource
 OUTERLOOP:
 	for _, id := range ids {
