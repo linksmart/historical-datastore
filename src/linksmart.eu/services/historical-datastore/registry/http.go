@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
 	"linksmart.eu/services/historical-datastore/common"
@@ -49,9 +48,11 @@ func NewWriteableAPI(storage Storage) *WriteableAPI {
 // Index is a handler for the registry index
 func (regAPI *ReadableAPI) Index(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	page, _ := strconv.Atoi(r.Form.Get(common.GetParamPage))
-	perPage, _ := strconv.Atoi(r.Form.Get(common.GetParamPerPage))
-	page, perPage = common.ValidatePagingParams(page, perPage, common.MaxPerPage)
+	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage))
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
+	}
 
 	datasources, total, err := regAPI.storage.getMany(page, perPage)
 	if err != nil {
@@ -218,9 +219,11 @@ func (regAPI *ReadableAPI) Filter(w http.ResponseWriter, r *http.Request) {
 	fvalue := params["value"]
 
 	r.ParseForm()
-	page, _ := strconv.Atoi(r.Form.Get(common.GetParamPage))
-	perPage, _ := strconv.Atoi(r.Form.Get(common.GetParamPerPage))
-	page, perPage = common.ValidatePagingParams(page, perPage, common.MaxPerPage)
+	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage))
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
+	}
 
 	var body []byte
 	switch ftype {

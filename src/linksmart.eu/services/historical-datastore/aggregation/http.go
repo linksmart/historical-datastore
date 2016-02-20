@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -82,7 +81,7 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 
 	b, err := json.Marshal(&index)
 	if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, "Error marshalling: "+err.Error(), w)
+		common.ErrorResponse(http.StatusInternalServerError, "Error Marshalling: "+err.Error(), w)
 		return
 	}
 
@@ -134,15 +133,11 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	aggrID := params["aggrid"]
 
-	page, err := strconv.Atoi(r.Form.Get("page"))
+	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage))
 	if err != nil {
-		page = 1
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
 	}
-	perPage, err := strconv.Atoi(r.Form.Get("per_page"))
-	if err != nil {
-		perPage = MaxPerPage
-	}
-	page, perPage = common.ValidatePagingParams(page, perPage, MaxPerPage)
 
 	// Parse id(s) and get sources from registry
 	ids := strings.Split(params["uuid"], common.IDSeparator)
@@ -177,10 +172,9 @@ OUTERLOOP:
 	// Parse query
 	q := data.ParseQueryParameters(r.Form)
 
-	// perPage should be at least len(sources), i.e., one point per resource
-	if perPage < len(sources) {
-		common.ErrorResponse(http.StatusBadRequest,
-			"per_page must be greater than the number of queried sources.", w)
+	err = common.ValidatePerItemLimit(q.Limit, perPage, len(sources))
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
 		return
 	}
 
@@ -191,17 +185,17 @@ OUTERLOOP:
 	}
 
 	v := url.Values{}
-	v.Add("start", q.Start.Format(time.RFC3339))
+	v.Add(common.ParamStart, q.Start.Format(time.RFC3339))
 	// Omit end in open-ended queries
 	if q.End.After(q.Start) {
-		v.Add("end", q.End.Format(time.RFC3339))
+		v.Add(common.ParamEnd, q.End.Format(time.RFC3339))
 	}
-	v.Add("sort", q.Sort)
+	v.Add(common.ParamSort, q.Sort)
 	if q.Limit > 0 { // non-positive limit is ignored
-		v.Add("limit", fmt.Sprintf("%d", q.Limit))
+		v.Add(common.ParamLimit, fmt.Sprintf("%d", q.Limit))
 	}
-	v.Add("page", fmt.Sprintf("%d", page))
-	v.Add("per_page", fmt.Sprintf("%d", perPage))
+	v.Add(common.ParamPage, fmt.Sprintf("%d", page))
+	v.Add(common.ParamPerPage, fmt.Sprintf("%d", perPage))
 	recordSet := RecordSet{
 		URL:     fmt.Sprintf("%s?%s", r.URL.Path, v.Encode()),
 		Data:    dataset,

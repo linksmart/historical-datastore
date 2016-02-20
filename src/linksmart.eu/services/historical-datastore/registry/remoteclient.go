@@ -42,7 +42,7 @@ func StripReadOnly(ds DataSource) *DataSource {
 
 func (c *RemoteClient) Index(page int, perPage int) (*Registry, error) {
 	res, err := catalog.HTTPRequest("GET",
-		fmt.Sprintf("%v?%v=%v&%v=%v", c.serverEndpoint, common.GetParamPage, page, common.GetParamPerPage, perPage),
+		fmt.Sprintf("%v?%v=%v&%v=%v", c.serverEndpoint, common.ParamPage, page, common.ParamPerPage, perPage),
 		nil,
 		nil,
 		c.ticket,
