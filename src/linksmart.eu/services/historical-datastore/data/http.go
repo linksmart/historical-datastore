@@ -46,7 +46,7 @@ func NewReadableAPI(registryClient registry.Client, storage Storage) *ReadableAP
 	}
 }
 
-func parseQueryParameters(form url.Values) Query {
+func ParseQueryParameters(form url.Values) Query {
 	q := Query{}
 	var err error
 
@@ -70,8 +70,8 @@ func parseQueryParameters(form url.Values) Query {
 
 	// sort shall be asc or desc
 	q.Sort = form.Get("sort")
-	if q.Sort == "" || q.Sort != ASC {
-		q.Sort = DESC
+	if q.Sort == "" || q.Sort != common.ASC {
+		q.Sort = common.DESC
 	}
 	return q
 }
@@ -236,7 +236,7 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 
 	} else {
 		// Parse query
-		q := parseQueryParameters(r.Form)
+		q := ParseQueryParameters(r.Form)
 
 		// perPage should be at least len(sources), i.e., one point per resource
 		if perPage < len(sources) {

@@ -7,11 +7,18 @@ import (
 )
 
 // Sends a Notification{} to channel
-func sendNotification(payload interface{}, ntType common.NotificationType, ntChan chan<- common.Notification) chan error {
+func sendNotification(payload interface{}, ntType common.NotificationType, ntChan chan<- common.Notification) error {
 	if ntChan == nil {
 		log.Panicln("Notification channel not initialized!")
 	}
-	clbk := make(chan error)
+	clbk := make(chan error, 2)
 	ntChan <- common.Notification{Type: ntType, Payload: payload, Callback: clbk}
-	return clbk
+	for c := 0; c < common.Subscribers(); c++ {
+		if err := <-clbk; err != nil {
+			return err
+		}
+	}
+	close(clbk)
+
+	return nil
 }

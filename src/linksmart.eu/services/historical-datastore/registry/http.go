@@ -129,7 +129,7 @@ func (regAPI *ReadableAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 
 	ds, err := regAPI.storage.get(id)
 	if err == ErrorNotFound {
-		common.ErrorResponse(http.StatusNotFound, "Error: "+err.Error(), w)
+		common.ErrorResponse(http.StatusNotFound, err.Error(), w)
 		return
 	} else if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error requesting registry: "+err.Error(), w)
@@ -173,8 +173,11 @@ func (regAPI *WriteableAPI) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = regAPI.storage.update(id, ds)
-	if err != nil {
+	if err == ErrorNotFound {
 		common.ErrorResponse(http.StatusNotFound, err.Error(), w)
+		return
+	} else if err != nil {
+		common.ErrorResponse(http.StatusInternalServerError, err.Error(), w)
 		return
 	}
 
@@ -194,8 +197,11 @@ func (regAPI *WriteableAPI) Delete(w http.ResponseWriter, r *http.Request) {
 	id := params["id"]
 
 	err := regAPI.storage.delete(id)
-	if err != nil {
+	if err == ErrorNotFound {
 		common.ErrorResponse(http.StatusNotFound, err.Error(), w)
+		return
+	} else if err != nil {
+		common.ErrorResponse(http.StatusInternalServerError, err.Error(), w)
 		return
 	}
 

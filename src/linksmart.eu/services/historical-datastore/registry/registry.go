@@ -42,7 +42,7 @@ type DataSource struct {
 	// Retention is the retention duration for data
 	Retention string `json:"retention"`
 	// Aggregation is an array of configured aggregations
-	Aggregation []AggregatedDataSource `json:"aggregation"`
+	Aggregation []Aggregation `json:"aggregation"`
 	// Type is the values type used in payload
 	Type string `json:"type"`
 	// Format is the MIME type of the payload
@@ -54,16 +54,13 @@ func (ds *DataSource) ParsedResource() *url.URL {
 	return parsedResource
 }
 
-// AggregatedDataSource describes a data aggregatoin for a Data Source
-type AggregatedDataSource struct {
-	// ID is a unique ID of the aggregated data source
+// Aggregation describes a data aggregatoin for a Data Source
+type Aggregation struct {
 	ID string `json:"id"`
-	// Data is the URL to the data in the Aggregate API
-	Data string `json:"data"`
-	// Source is the id of the parent DataSource
-	Source string `json:"source"`
 	// Interval is the aggregation interval
 	Interval string `json:"interval"`
+	// Data is the URL to the data in the Aggregate API
+	Data string `json:"data"`
 	// Aggregates is an array of aggregates calculated on each interval
 	// Valid values: mean, stddev, sum, min, max, median
 	Aggregates []string `json:"aggregates"`
@@ -193,7 +190,7 @@ func validateDataSource(ds *DataSource, context uint8) error {
 	}
 	// valid
 	if ds.Type != "" {
-		if !stringInSlice(ds.Type, common.SupportedTypes()) {
+		if !common.SupportedType(ds.Type) {
 			invalidKeys = append(invalidKeys, fmt.Sprintf("type<%s>",
 				strings.Join(common.SupportedTypes(), ",")))
 		}
@@ -224,13 +221,4 @@ func validateDataSource(ds *DataSource, context uint8) error {
 		return errors.New(strings.Join(_errors, ". "))
 	}
 	return nil
-}
-
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
 }

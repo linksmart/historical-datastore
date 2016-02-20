@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/context"
 	"github.com/justinas/alice"
 
+	"linksmart.eu/services/historical-datastore/aggregation"
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/data"
 	"linksmart.eu/services/historical-datastore/registry"
@@ -51,17 +52,18 @@ func main() {
 	}
 
 	regAPI := registry.NewWriteableAPI(regStorage)
+	registryClient := registry.NewLocalClient(regStorage)
 
 	// data
-	dataStorage, ntRcvDataCh, _ := data.NewInfluxStorage(conf.Data.Backend.DSN)
-	registryClient := registry.NewLocalClient(regStorage)
-	dataAPI := data.NewWriteableAPI(registryClient, dataStorage)
+	influxStorage, ntRcvDataCh, _ := data.NewInfluxStorage(conf.Data.Backend.DSN)
+	dataAPI := data.NewWriteableAPI(registryClient, influxStorage)
 
 	// aggregation
-	// TODO
+	dataAggr, ntRcvAggrCh, _ := aggregation.NewInfluxAggr(influxStorage)
+	aggrAPI := aggregation.NewAPI(registryClient, dataAggr)
 
 	// Start the notifier
-	common.StartNotifier(ntSndRegCh, ntRcvDataCh)
+	common.StartNotifier(ntSndRegCh, ntRcvDataCh, ntRcvAggrCh)
 
 	commonHandlers := alice.New(
 		context.ClearHandler,
@@ -101,7 +103,9 @@ func main() {
 	router.get("/data/{id}", commonHandlers.ThenFunc(dataAPI.Query))
 
 	// aggregation api
-	// TODO
+	router.get("/aggr", commonHandlers.ThenFunc(aggrAPI.Index))
+	router.get("/aggr/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(aggrAPI.Filter))
+	router.get("/aggr/{aggrid}/{uuid}", commonHandlers.ThenFunc(aggrAPI.Query))
 
 	// Register in the service catalog(s)
 	var wg sync.WaitGroup

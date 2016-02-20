@@ -18,6 +18,7 @@ type Notification struct {
 
 // Constructs notifier and starts multicasting
 func StartNotifier(in *chan Notification, out ...chan<- Notification) {
+	subscribers = len(out)
 
 	// Multicasts sender messages to receivers
 	go func() {
@@ -31,4 +32,11 @@ func StartNotifier(in *chan Notification, out ...chan<- Notification) {
 
 	// Open the sender
 	*in = make(chan Notification)
+}
+
+// Number of subscribers (= expected number of callbacks)
+var subscribers int
+
+func Subscribers() int {
+	return subscribers
 }
