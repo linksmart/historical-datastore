@@ -204,7 +204,6 @@ func pointsFromRow(r models.Row) ([]DataPoint, error) {
 func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
 	points := []DataPoint{}
 	total := 0
-	//perEach := perPage / len(sources)
 
 	// If q.End is not set, make the query open-ended
 	var timeCond string
@@ -223,14 +222,22 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 	}
 
 	for i, ds := range sources {
+		// Count total
+		count, err := s.CountSprintf("SELECT COUNT(value)+COUNT(stringValue)+COUNT(booleanValue) FROM %s WHERE %s",
+			s.FQMsrmt(ds), timeCond)
+		if err != nil {
+			return NewDataSet(), 0, fmt.Errorf("Error counting records for source %v: %v", ds.Resource, err.Error())
+		}
+		if count < 1 {
+			log.Printf("There is no data for source %v", ds.Resource)
+			continue
+		}
+		total += int(count)
+
 		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
 			s.FQMsrmt(ds), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
 			return NewDataSet(), 0, fmt.Errorf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
-		}
-		if len(res) < 1 || len(res[0].Series) < 1 {
-			log.Printf("There is no data for source %v", ds.Resource)
-			continue
 		}
 
 		if len(res[0].Series) > 1 {
@@ -241,24 +248,6 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 		if err != nil {
 			return NewDataSet(), 0, fmt.Errorf("Error parsing points for source %v: %v", ds.Resource, err.Error())
 		}
-
-		// Count total
-		res, err = s.QuerySprintf("SELECT COUNT(value)+COUNT(stringValue)+COUNT(booleanValue) FROM %s WHERE %s",
-			s.FQMsrmt(ds), timeCond)
-		if err != nil {
-			return NewDataSet(), 0, fmt.Errorf("Error counting records for source %v: %v", ds.Resource, err.Error())
-		}
-		if len(res) < 1 ||
-			len(res[0].Series) < 1 ||
-			len(res[0].Series[0].Values) < 1 ||
-			len(res[0].Series[0].Values[0]) < 2 {
-			return NewDataSet(), 0, fmt.Errorf("Unable to count records for source %v", ds.Resource)
-		}
-		count, err := res[0].Series[0].Values[0][1].(json.Number).Int64()
-		if err != nil {
-			log.Println(err.Error())
-		}
-		total += int(count)
 
 		if perItems[i] != 0 { // influx ignores `limit 0`
 			points = append(points, pds...)
@@ -352,6 +341,30 @@ func (s *InfluxStorage) QuerySprintf(format string, a ...interface{}) (res []inf
 		return res, err
 	}
 	return res, nil
+}
+
+func (s *InfluxStorage) CountSprintf(format string, a ...interface{}) (int64, error) {
+	res, err := s.QuerySprintf(format, a...)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(res) < 1 {
+		return 0, fmt.Errorf("Unable to get count from database: response empty")
+	}
+	if len(res[0].Series) < 1 {
+		// No data
+		return 0, nil
+	}
+	if len(res[0].Series[0].Values) < 1 ||
+		len(res[0].Series[0].Values[0]) < 2 {
+		return 0, fmt.Errorf("Unable to get count from database: bad response")
+	}
+	count, err := res[0].Series[0].Values[0][1].(json.Number).Int64()
+	if err != nil {
+		return 0, fmt.Errorf("Unable to parse count from database response.")
+	}
+	return count, nil
 }
 
 // InfluxStorageConfig configuration

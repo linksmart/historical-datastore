@@ -53,14 +53,22 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 	}
 
 	for i, ds := range sources {
+		// Count total
+		count, err := a.influxStorage.CountSprintf("SELECT COUNT(%s) FROM %s WHERE %s",
+			aggr.Aggregates[0], a.fqMsrmt(ds.ID, aggr.ID), timeCond)
+		if err != nil {
+			return DataSet{}, 0, fmt.Errorf("Error counting records for source %v: %v", ds.Resource, err.Error())
+		}
+		if count < 1 {
+			log.Printf("There is no data for source %v", ds.Resource)
+			continue
+		}
+		total += int(count)
+
 		res, err := a.influxStorage.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
 			a.fqMsrmt(ds.ID, aggr.ID), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
 			return DataSet{}, 0, fmt.Errorf("Error retrieving aggregated data records for source %v: %v", ds.Resource, err.Error())
-		}
-		if len(res) < 1 || len(res[0].Series) < 1 {
-			log.Printf("There is no data for source %v", ds.Resource)
-			continue
 		}
 
 		if len(res[0].Series) > 1 {
@@ -71,24 +79,6 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 		if err != nil {
 			return DataSet{}, 0, fmt.Errorf("Error parsing records for source %v: %v", ds.Resource, err.Error())
 		}
-
-		// Count total
-		res, err = a.influxStorage.QuerySprintf("SELECT COUNT(%s) FROM %s WHERE %s",
-			aggr.Aggregates[0], a.fqMsrmt(ds.ID, aggr.ID), timeCond)
-		if err != nil {
-			return DataSet{}, 0, fmt.Errorf("Error counting records for source %v: %v", ds.Resource, err.Error())
-		}
-		if len(res) < 1 ||
-			len(res[0].Series) < 1 ||
-			len(res[0].Series[0].Values) < 1 ||
-			len(res[0].Series[0].Values[0]) < 2 {
-			return DataSet{}, 0, fmt.Errorf("Unable to count records for source %v", ds.Resource)
-		}
-		count, err := res[0].Series[0].Values[0][1].(json.Number).Int64()
-		if err != nil {
-			log.Println(err.Error())
-		}
-		total += int(count)
 
 		if perItems[i] != 0 { // influx ignores `limit 0`
 			points = append(points, pds...)
