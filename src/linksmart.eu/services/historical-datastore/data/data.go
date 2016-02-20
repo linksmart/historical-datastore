@@ -90,8 +90,6 @@ type Storage interface {
 	// sources is a map where keys are data source ids
 	Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error
 
-	// Retrieves last data point of every data source
-	GetLast(sources ...registry.DataSource) (DataSet, error)
 	// Queries data for specified data sources
 	Query(q Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error)
 

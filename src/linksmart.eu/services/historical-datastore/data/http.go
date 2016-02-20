@@ -213,61 +213,47 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// no parameters - return last values
-	if len(r.Form) == 0 {
-		data, err := d.storage.GetLast(sources...)
-		if err != nil {
-			common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
-			return
-		}
+	// Parse query
+	q := ParseQueryParameters(r.Form)
 
-		recordSet = RecordSet{
-			URL:     fmt.Sprintf("%s", r.URL.Path),
-			Data:    data,
-			Time:    time.Since(timeStart).Seconds() * 1000,
-			Page:    page,
-			PerPage: perPage,
-			Total:   len(data.Entries),
-		}
-
-	} else {
-		// Parse query
-		q := ParseQueryParameters(r.Form)
-
-		err := common.ValidatePerItemLimit(q.Limit, perPage, len(sources))
-		if err != nil {
-			common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
-			return
-		}
-
-		data, total, err := d.storage.Query(q, page, perPage, sources...)
-		if err != nil {
-			common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
-			return
-		}
-
-		v := url.Values{}
-		v.Add(common.ParamStart, q.Start.Format(time.RFC3339))
-		// Omit end in open-ended queries
-		if q.End.After(q.Start) {
-			v.Add(common.ParamEnd, q.End.Format(time.RFC3339))
-		}
-		v.Add(common.ParamSort, q.Sort)
-		if q.Limit > 0 { // non-positive limit is ignored
-			v.Add(common.ParamLimit, fmt.Sprintf("%d", q.Limit))
-		}
-		v.Add(common.ParamPage, fmt.Sprintf("%d", page))
-		v.Add(common.ParamPerPage, fmt.Sprintf("%d", perPage))
-		recordSet = RecordSet{
-			URL:     fmt.Sprintf("%s?%s", r.URL.Path, v.Encode()),
-			Data:    data,
-			Time:    time.Since(timeStart).Seconds() * 1000,
-			Page:    page,
-			PerPage: perPage,
-			Total:   total,
-		}
+	err = common.ValidatePerItemLimit(q.Limit, perPage, len(sources))
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
 	}
-	b, _ := json.Marshal(recordSet)
+
+	data, total, err := d.storage.Query(q, page, perPage, sources...)
+	if err != nil {
+		common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
+		return
+	}
+
+	v := url.Values{}
+	v.Add(common.ParamStart, q.Start.Format(time.RFC3339))
+	// Omit end in open-ended queries
+	if q.End.After(q.Start) {
+		v.Add(common.ParamEnd, q.End.Format(time.RFC3339))
+	}
+	v.Add(common.ParamSort, q.Sort)
+	if q.Limit > 0 { // non-positive limit is ignored
+		v.Add(common.ParamLimit, fmt.Sprintf("%d", q.Limit))
+	}
+	v.Add(common.ParamPage, fmt.Sprintf("%d", page))
+	v.Add(common.ParamPerPage, fmt.Sprintf("%d", perPage))
+	recordSet = RecordSet{
+		URL:     fmt.Sprintf("%s?%s", r.URL.Path, v.Encode()),
+		Data:    data,
+		Time:    time.Since(timeStart).Seconds() * 1000,
+		Page:    page,
+		PerPage: perPage,
+		Total:   total,
+	}
+
+	b, err := json.Marshal(recordSet)
+	if err != nil {
+		common.ErrorResponse(http.StatusInternalServerError, "Error marshalling recordset: "+err.Error(), w)
+		return
+	}
 
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusOK)

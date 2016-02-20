@@ -200,36 +200,6 @@ func pointsFromRow(r models.Row) ([]DataPoint, error) {
 	return points, nil
 }
 
-// Retrieves last data point of every data source
-func (s *InfluxStorage) GetLast(sources ...registry.DataSource) (DataSet, error) {
-	points := []DataPoint{}
-	for _, ds := range sources {
-
-		res, err := s.QuerySprintf("SELECT * FROM %s ORDER BY time DESC LIMIT 1", s.FQMsrmt(ds))
-		if err != nil {
-			return NewDataSet(), fmt.Errorf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
-		}
-		if len(res) < 1 || len(res[0].Series) < 1 {
-			log.Printf("There is no data for source %v", ds.Resource)
-			continue
-		}
-
-		if len(res[0].Series) > 1 {
-			return NewDataSet(), fmt.Errorf("Unrecognized/Corrupted database schema.")
-		}
-
-		pds, err := pointsFromRow(res[0].Series[0])
-		if err != nil {
-			return NewDataSet(), fmt.Errorf("Error parsing points for source %v: %v", ds.Resource, err.Error())
-		}
-
-		points = append(points, pds[0])
-	}
-	dataset := NewDataSet()
-	dataset.Entries = points
-	return dataset, nil
-}
-
 // Queries data for specified data sources
 func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
 	points := []DataPoint{}
@@ -247,9 +217,9 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 	perItems, offsets := common.PerItemPagination(q.Limit, page, perPage, len(sources))
 
 	// Initialize sort order
-	sort := "ASC"
-	if q.Sort == common.DESC {
-		sort = "DESC"
+	sort := "DESC"
+	if q.Sort == common.ASC {
+		sort = "ASC"
 	}
 
 	for i, ds := range sources {
