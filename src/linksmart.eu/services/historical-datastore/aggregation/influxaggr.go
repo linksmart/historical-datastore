@@ -326,7 +326,7 @@ func (a *InfluxAggr) createRetentionPolicy(ds registry.DataSource, dsa registry.
 }
 
 func (a *InfluxAggr) createContinuousQuery(ds registry.DataSource, dsa registry.Aggregation) error {
-	_, err := a.influxStorage.QuerySprintf("CREATE CONTINUOUS QUERY %s ON %s BEGIN SELECT %s INTO %s FROM %s GROUP BY time(%s) END",
+	_, err := a.influxStorage.QuerySprintf("CREATE CONTINUOUS QUERY %s ON %s BEGIN SELECT %s INTO %s FROM %s GROUP BY time(%s) fill(none) END",
 		a.cq(ds.ID, dsa.ID), a.influxStorage.Database(), a.functions(dsa), a.fqMsrmt(ds.ID, dsa.ID), a.influxStorage.FQMsrmt(ds), dsa.Interval)
 	if err != nil {
 		if strings.Contains(err.Error(), "continuous query already exists") {
