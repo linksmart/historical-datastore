@@ -85,7 +85,7 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", common.DefaultMIMEType)
+	w.Header().Add("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusOK)
 	w.Write(b)
 }

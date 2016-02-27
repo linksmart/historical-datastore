@@ -70,9 +70,8 @@ func (regAPI *ReadableAPI) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	b, _ := json.Marshal(&registry)
-	w.Header().Set("Content-Type", common.DefaultMIMEType)
+	w.Header().Add("Content-Type", common.DefaultMIMEType)
 	w.Write(b)
-
 	return
 }
 

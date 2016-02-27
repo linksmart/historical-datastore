@@ -1,0 +1,519 @@
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+		<meta name="description" content="">
+		<meta name="author" content="">
+		<link rel="icon" href="../../favicon.ico">
+
+		<title>Historical Datastore</title>
+
+		<!-- JS -->
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/URI.js/1.17.0/URI.min.js"></script>
+		<script src="lib/tablefilter/tablefilter.js"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+		<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/css/bootstrap-dialog.min.css" rel="stylesheet" type="text/css" />
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/js/bootstrap-dialog.min.js"></script>
+		<script type="text/javascript" src="http://momentjs.com/downloads/moment.js"></script>
+		<script src="lib/datetimepicker/js/bootstrap-datetimepicker.min.js"></script>
+
+
+		<!-- CSS -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css" integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r" crossorigin="anonymous">
+		<link rel="stylesheet" href="lib/datetimepicker/css/bootstrap-datetimepicker.min.css" />
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
+		<link rel="stylesheet" href="style.css">
+
+	</head>
+
+	<body>
+
+
+		<nav class="navbar navbar-inverse navbar-fixed-top">
+			<div class="container">
+				<div class="navbar-header">
+					<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+						<span class="sr-only">Toggle navigation</span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+					</button>
+					<a class="navbar-brand" href="#">Historical-Datastore</a>
+				</div>
+				<div id="navbar" class="collapse navbar-collapse">
+					<ul class="nav navbar-nav">
+						<li class="active"><a href="#">Registry</a></li>
+						<li class="disabled"><a href="#">Data</a></li>
+						<li class="disabled"><a href="#">Aggregation</a></li>
+					</ul>
+					<p class="navbar-text navbar-right"><a href="#" id="login" class="navbar-link"><!--Set dynamically--></a></p>
+				</div><!--/.nav-collapse -->
+			</div>
+		</nav>
+
+		<div class="container">
+
+			<h1>Registry<i class="fa fa-cog fa-spin loading-h1"></i></h1>
+
+			<button class="btn btn-default" data-toggle="modal" data-target="#registryExport" disabled="disabled">Export registry</button>
+			<button class="btn btn-default" data-toggle="modal" data-target="#dataExport">Export data</button>
+			<button class="btn btn-default" data-toggle="modal" data-target="#aggrExport" disabled="disabled">Export aggregations</button>
+			<table id="entries" class="center-block">
+				<thead>
+					<tr>
+						<!-- Added dynamically -->
+					</tr>
+				</thead>
+				<tbody>
+					<!-- Added dynamically -->
+				</tbody>
+			</table>
+
+			<!-- Modal -->
+			<div class="modal fade" id="dataExport" role="dialog">
+				<div class="modal-dialog">
+
+					<!-- Modal content-->
+					<div class="modal-content">
+						<div class="modal-header">
+							<button type="button" class="close" data-dismiss="modal">&times;</button>
+							<h4 class="modal-title">Export data</h4>
+						</div>
+						<div class="modal-body">
+							<label>Interval:</label>
+							<div class="row">
+								<div class='col-md-6'>
+									<div class="form-group">
+										<div class='input-group date' id='datetimepickerStart'>
+											<input type='text' class="form-control" />
+											<span class="input-group-addon">
+												<span class="glyphicon glyphicon-calendar"></span>
+											</span>
+										</div>
+									</div>
+								</div>
+								<div class='col-md-6'>
+									<div class="form-group">
+										<div class='input-group date' id='datetimepickerEnd'>
+											<input type='text' class="form-control" />
+											<span class="input-group-addon">
+												<span class="glyphicon glyphicon-calendar"></span>
+											</span>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<label>Attributes:</label>
+							<div class="row">
+								<div class='col-md-6'>
+									<input id="attributes" class="form-control" type="text" value="t,n,v,u" />
+								</div>
+							</div>
+
+							<br />
+							<label>File:</label>
+							<div class="row">
+								<div class="col-md-6 checkbox">
+									<label><input id="exportSingleFile" type="checkbox" value="">Export as a single file</label>
+								</div>	
+							</div>	
+
+							<script type="text/javascript">
+								$(function () {
+									$('#datetimepickerStart').datetimepicker({
+										format: "YYYY-MM-DDTHH:mm:ssZ"
+									});
+									$('#datetimepickerEnd').datetimepicker({
+						            useCurrent: false, //Important! See issue #1075
+						            format: "YYYY-MM-DDTHH:mm:ssZ"
+						        });
+									$("#datetimepickerStart").on("dp.change", function (e) {
+										$('#datetimepickerEnd').data("DateTimePicker").minDate(e.date);
+									});
+									$("#datetimepickerEnd").on("dp.change", function (e) {
+										$('#datetimepickerStart').data("DateTimePicker").maxDate(e.date);
+									});
+								});
+							</script>
+
+
+						</div>
+						<div class="modal-footer">
+							<button type="button" class="btn btn-primary" onclick="exportData();">Export</button>
+							<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						</div>
+					</div>
+
+				</div>
+			</div>
+
+
+
+		</div><!-- /.container -->
+
+		<div class="footer">
+		    © 2016 LinkSmart <a href="https://linksmart.eu/redmine/projects/historical-datastore">Historical-Datastore</a> | Hosted by <a href="http://www.fit.fraunhofer.de">Fraunhofer FIT</a> | <a href="http://www.fit.fraunhofer.de/en/imprint.html">Imprint</a> | <a href="http://www.fit.fraunhofer.de/en/data_protection.html">Data Protection Policy</a>
+		</div>
+
+		<script>
+			// Global variables
+			var serviceID = "http://localhost:4000/";
+			var loginURL = "https://dimmer.fit.fraunhofer.de/cas/login?service=" + serviceID;
+			var logoutURL = "https://dimmer.fit.fraunhofer.de/cas/logout";
+			var dataAttributes = ["n", "t", "u", "v"];
+			var omitAttrs = ["url", "data", "retention", "aggregation"];
+			var entriesTable;
+
+			function main(){
+				// Check support for HTML5 Local Storage
+				if(typeof(Storage) == "undefined") {
+					BootstrapDialog.show({
+						type: BootstrapDialog.TYPE_DANGER,
+						closable: false,
+						title: 'Unsupported Browser',
+						message: 'Please use:\n Chrome > 4.0\n IE > 8.0\n FireFox > 3.5\n Safari > 4.0\n Opera > 11.5',
+					});
+					return;
+				}
+
+				var loggedIn = false;
+				if(localStorage.getItem("ticket") == null) {
+					$('#login').text("Login");
+					$("#login").attr("href", loginURL);
+
+					BootstrapDialog.show({
+						type: BootstrapDialog.TYPE_WARNING,
+						closable: false,
+						title: '401 Unauthorized',
+						message: 'Please login to continue.',
+						buttons: [{
+							label: 'Login',
+							action: function(dialog) {
+								window.location = loginURL;
+							}
+						}]
+					});
+				} else {
+					loggedIn = true;
+					$('#login').text("Logout");
+					$("#login").attr("href", logoutURL);
+				}
+				
+				console.log(window.location.href);
+				var uri = new URI(window.location.href);
+				if(uri.hasQuery("ticket")){
+					console.log(uri);
+					var query = URI.parseQuery(URI.parse(window.location.href).query);
+					uri.removeSearch("ticket");
+					location.replace(uri);
+					console.log(query.ticket);
+					
+					// Store
+					localStorage.setItem("ticket", query.ticket);
+				}
+				console.log("stored", localStorage.getItem("ticket"));
+
+
+				if(loggedIn){
+					var registry = [];
+					getRegistryPage(registry, 1);
+				}
+
+			} // end main
+			main();
+
+			function getRegistryPage(registry, page){
+				var per_page = 100;
+				$.ajax({
+					type: "GET",
+					headers: {'X-Auth-Token': localStorage.getItem("ticket")},
+					url: "http://localhost:8085/registry?per_page=" + per_page + "&page=" + page,
+					dataType:"json",
+					success: function(res) {
+						console.log(res);
+
+						if(res.total == 0){
+							BootstrapDialog.show({
+								type: BootstrapDialog.TYPE_INFO,
+								closable: true,
+								title: 'Empty registry',
+								message: 'The registry contains no data sources.',
+								buttons: [{
+									label: 'Close',
+									action: function(dialogItself){
+										dialogItself.close();
+									}
+								}]
+							});
+							$('.loading-h1').hide();
+							return;
+						}
+
+						$.merge(registry, res.entries);
+						console.log(registry);
+
+						if(res.total>per_page*page){
+							getRegistryPage(registry, page+1);
+						} else {
+							fillTable(registry);
+						}
+					},
+					error: function(e) {
+						console.error("Request error:", e.responseText);
+						var err = jQuery.parseJSON(e.responseText);
+						if (err.code == 401){
+							localStorage.removeItem('ticket');
+							console.log("ticket expired / invalid");
+							BootstrapDialog.show({
+								type: BootstrapDialog.TYPE_WARNING,
+								closable: false,
+								title: '401 Unauthorized',
+								message: 'Session is expired. Please login again.',
+								buttons: [{
+									label: 'Login',
+									action: function(dialog) {
+										window.location = loginURL;
+									}
+								}]
+							});
+						} else {
+							BootstrapDialog.show({
+								type: BootstrapDialog.TYPE_WARNING,
+								closable: false,
+								title: 'Error ' + err.code,
+								message: err.message,
+								buttons: [{
+									label: 'Close',
+									action: function(dialogItself){
+										dialogItself.close();
+									}
+								}]
+							});
+						}
+						$('.loading-h1').hide();
+					}
+				}); 
+			}
+
+			function fillTable(entries){	
+
+				// Set header
+				$.each(entries[0], function(key, value){
+					if($.inArray(key, omitAttrs) == -1){
+						console.log(key + ':' + value, $.type(value));
+
+						switch($.type(value)) {
+							case "array":
+							console.error("json array is currently not supported.");
+							break;
+							case "object":
+						    	// Nested object
+						    	entry = ""
+						    	$.each(value, function(nKey, nValue){
+						    		entry += "<th class='table-meta'>" + nKey + "</th>";
+						    	});
+						    	break;
+						    	default:
+						    	entry = "<th>" + key + "</th>";
+						    } 
+						    $("#entries thead tr").append(entry);	
+						}
+					});
+
+				// Fill data
+				entries.forEach(function(entry) {
+					tr = "<tr>";
+					$.each(entry, function(key, value){
+						if($.inArray(key, omitAttrs) == -1){
+
+
+
+							switch($.type(value)) {
+								case "array":
+								console.error("json array is currently not supported.");
+								break;
+								case "object":
+							    	// Nested object
+							    	$.each(value, function(nKey, nValue){
+							    		tr += "<td>" + nValue + "</td>";
+							    	});
+							    	break;
+							    	default:
+							    	tr += "<td>" + value + "</td>";
+							    }
+							}
+						});
+					tr += "</tr>";
+					$("#entries tbody").append(tr);	
+				});
+				
+
+
+
+				// Configure table
+				var filtersConfig = {
+					base_path: 'lib/tablefilter/',
+					alternate_rows: true,
+					rows_counter: true,
+					btn_reset: true,
+					loader: true,
+					mark_active_columns: true,
+					highlight_keywords: true,
+					extensions: [{
+						name: 'sort',
+						images_path: 'https://koalyptus.github.io/TableFilter/tablefilter/style/themes/'
+					},
+					{
+						name: 'colsVisibility',
+						at_start: [],
+						text: 'Hide Columns: ',
+						enable_tick_all: false
+					}
+					]
+				};
+				entriesTable = new TableFilter('entries', filtersConfig);
+				entriesTable.init();
+				$('.loading-h1').hide();
+			}
+
+			function exportData(){
+				var valid = true;
+				attributes = $('#attributes').val().split(',');
+				attributes.forEach(function(attr) {
+					if($.inArray(attr, dataAttributes) == '-1'){
+						BootstrapDialog.show({
+							type: BootstrapDialog.TYPE_DANGER,
+							closable: true,
+							title: 'Invalid Attribute',
+							message: attr + ' is not a valid attribute.',
+							buttons: [{
+								label: 'Close',
+								action: function(dialogItself){
+									dialogItself.close();
+								}
+							}]
+						});
+						valid = false;
+						return;
+					}
+				});
+				if(!valid){
+					return; 
+				}
+
+				var exportSingleFile = $("#exportSingleFile").prop('checked')
+
+				var IDs = entriesTable.getFilteredDataCol(0);
+				console.log(IDs);
+				var start = $('#datetimepickerStart input').val();
+				var end = $('#datetimepickerEnd input').val();
+				
+				console.log(start, end, exportSingleFile);
+				console.log("http://localhost:8085/data/" + IDs + "?start=" + start + "&end=" + end);
+
+				var csvData = [];
+				var wait = IDs.length;
+				IDs.forEach(function(id) {
+					$.ajax({
+						type: "GET",
+						headers: {'X-Auth-Token': localStorage.getItem("ticket")},
+						url: "http://localhost:8085/data/" + id + "?start=" + start + "&end=" + end,
+						dataType:"json",
+						success: function(res) {
+							console.log(res);
+							var csvFile = [];
+							for (var i = 0; i < res.data.e.length; i++) {
+								var csvRow = new Array(attributes.length);
+								$.each(res.data.e[i], function(key, value){
+									csvRow[$.inArray(key, attributes)] = value;
+								});
+								csvFile.push(csvRow);
+							}		
+							var obj = {};
+							obj[id] = csvFile;
+							csvData.push(obj);
+						},
+						error: function(e) {
+							console.error("Request error:", e.responseText);
+							var err = jQuery.parseJSON(e.responseText);
+							if (err.code == 401){
+								localStorage.removeItem('ticket');
+								console.log("ticket expired / invalid");
+								BootstrapDialog.show({
+									type: BootstrapDialog.TYPE_WARNING,
+									closable: false,
+									title: '401 Unauthorized',
+									message: 'Session is expired. Please login again.',
+									buttons: [{
+										label: 'Login',
+										action: function(dialog) {
+											window.location = loginURL;
+										}
+									}]
+								});
+							}								
+							return;
+						},
+						complete: function() {
+							wait--;
+						}
+					});
+				});
+
+				waitForAjax = setInterval(function(){
+					if(wait<=0){
+						saveCSV(exportSingleFile, csvData);
+						clearInterval(waitForAjax);
+					}
+				}, 200);
+			}
+
+			function saveCSV(singleFile, data){
+				console.log(data);
+
+				var csvContent = "data:text/csv;charset=utf-8,";
+				for (var i = 0; i < data.length; i++) {
+					$.each(data[i], function(key, value){
+						if(singleFile){
+							value.forEach(function(infoArray, index){
+								var dataString = infoArray.join(",");
+								csvContent += index < value.length ? dataString+ "\n" : dataString;
+							}); 
+						} else {
+							var csvContentSingle= "data:text/csv;charset=utf-8,";
+							value.forEach(function(infoArray, index){
+								var dataString = infoArray.join(",");
+								csvContentSingle += index < value.length ? dataString+ "\n" : dataString;
+							}); 
+							var encodedUri = encodeURI(csvContentSingle);
+							var link = document.createElement("a");
+							link.setAttribute("href", encodedUri);
+							link.setAttribute("download", key+".csv");
+							link.style.visibility = 'hidden';
+							document.body.appendChild(link);
+							link.click();
+							document.body.removeChild(link);
+						}
+					});
+				}
+
+				if(singleFile){
+					var encodedUri = encodeURI(csvContent);
+					var link = document.createElement("a");
+					link.setAttribute("href", encodedUri);
+					link.setAttribute("download", "data.csv");
+					link.style.visibility = 'hidden';
+					document.body.appendChild(link);
+					link.click();
+					document.body.removeChild(link);
+				}
+			}
+		</script>
+	</body>
+	</html>

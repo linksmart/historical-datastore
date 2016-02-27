@@ -69,6 +69,7 @@ func main() {
 		context.ClearHandler,
 		loggingHandler,
 		recoverHandler,
+		setHeaders,
 	)
 
 	// Append auth handler if enabled
@@ -89,6 +90,7 @@ func main() {
 	// generic handlers
 	router.get("/health", commonHandlers.ThenFunc(healthHandler))
 	router.get("/", commonHandlers.ThenFunc(indexHandler))
+	router.options("/{ignore:.*}", commonHandlers.ThenFunc(Options))
 
 	// registry api
 	router.get("/registry", commonHandlers.ThenFunc(regAPI.Index))
@@ -138,6 +140,17 @@ func main() {
 
 		fmt.Println("Stopped.")
 		os.Exit(0)
+	}()
+
+	mux := http.NewServeMux()
+	fs := http.FileServer(http.Dir("web"))
+	mux.Handle("/", fs)
+	go func() {
+		err = http.ListenAndServe(":4000", mux)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
 	}()
 
 	// start http server
