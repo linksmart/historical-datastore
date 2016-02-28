@@ -58,7 +58,7 @@
 
 		<div class="container">
 
-			<h1>Registry<i class="fa fa-cog fa-spin loading-h1"></i></h1>
+			<h1>Registry<i class="fa fa-cog fa-spin spinner-h1 hidden"></i></h1>
 
 			<button class="btn btn-default" data-toggle="modal" data-target="#registryExport" disabled="disabled">Export registry</button>
 			<button class="btn btn-default" data-toggle="modal" data-target="#dataExport">Export data</button>
@@ -145,7 +145,7 @@
 
 						</div>
 						<div class="modal-footer">
-							<button type="button" class="btn btn-primary" onclick="exportData();">Export</button>
+							<button type="button" class="btn btn-primary" onclick="exportData();">Export<i class="fa fa-cog fa-spin spinner-button hidden"></i></button>
 							<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
 						</div>
 					</div>
@@ -158,22 +158,60 @@
 		</div><!-- /.container -->
 
 		<div class="footer">
-		    © 2016 LinkSmart <a href="https://linksmart.eu/redmine/projects/historical-datastore">Historical-Datastore</a> | Hosted by <a href="http://www.fit.fraunhofer.de">Fraunhofer FIT</a> | <a href="http://www.fit.fraunhofer.de/en/imprint.html">Imprint</a> | <a href="http://www.fit.fraunhofer.de/en/data_protection.html">Data Protection Policy</a>
+			© 2016 LinkSmart <a href="https://linksmart.eu/redmine/projects/historical-datastore">Historical-Datastore</a> | Hosted by <a href="http://www.fit.fraunhofer.de">Fraunhofer FIT</a> | <a href="http://www.fit.fraunhofer.de/en/imprint.html">Imprint</a> | <a href="http://www.fit.fraunhofer.de/en/data_protection.html">Data Protection Policy</a>
 		</div>
 
 		<script>
 			// Global variables
-			var serviceID = "http://localhost:4000/";
-			var loginURL = "https://dimmer.fit.fraunhofer.de/cas/login?service=" + serviceID;
+			var serviceID;
+			var hdsURL;
+			var loginURL = "https://dimmer.fit.fraunhofer.de/cas/login?service=";
 			var logoutURL = "https://dimmer.fit.fraunhofer.de/cas/logout";
 			var dataAttributes = ["n", "t", "u", "v"];
 			var omitAttrs = ["url", "data", "retention", "aggregation"];
 			var entriesTable;
 
+			$.ajax({
+				dataType: "json",
+				url: "web-conf.json",
+				success: function(json) {
+					console.log(json);
+					hdsURL = json.hdsEndpoint;
+					serviceID = json.serviceID;
+					main();
+				},
+				error: function(e) {
+					console.log(e);
+					if(e.status==200){
+						bootstrapDialog({
+							type: BootstrapDialog.TYPE_DANGER,
+							closable: false,
+							title: 'Configuration Error',
+							message: 'Unable to parse configuration file: web-conf.json'
+						});
+					} else {
+						bootstrapDialog({
+							type: BootstrapDialog.TYPE_DANGER,
+							closable: false,
+							title: 'Configuration Error: ' + e.status + ' ' + e.statusText,
+							message: 'Unable to load configuration file: web-conf.json'
+						});
+					}
+				}
+			});
+
+
+
+			function clearSession(){
+				$('#login').text("Login");
+				$("#login").attr("href", loginURL+serviceID);
+				localStorage.removeItem('ticket');
+			}
+
 			function main(){
 				// Check support for HTML5 Local Storage
 				if(typeof(Storage) == "undefined") {
-					BootstrapDialog.show({
+					bootstrapDialog({
 						type: BootstrapDialog.TYPE_DANGER,
 						closable: false,
 						title: 'Unsupported Browser',
@@ -184,18 +222,20 @@
 
 				var loggedIn = false;
 				if(localStorage.getItem("ticket") == null) {
+					$(".spinner-h1").addClass('hidden');
 					$('#login').text("Login");
-					$("#login").attr("href", loginURL);
+					$("#login").attr("href", loginURL+serviceID);
 
-					BootstrapDialog.show({
+					bootstrapDialog({
 						type: BootstrapDialog.TYPE_WARNING,
-						closable: false,
+						closable: true,
 						title: '401 Unauthorized',
 						message: 'Please login to continue.',
 						buttons: [{
 							label: 'Login',
 							action: function(dialog) {
-								window.location = loginURL;
+								dialog.close();
+								window.location = loginURL+serviceID;
 							}
 						}]
 					});
@@ -205,7 +245,6 @@
 					$("#login").attr("href", logoutURL);
 				}
 				
-				console.log(window.location.href);
 				var uri = new URI(window.location.href);
 				if(uri.hasQuery("ticket")){
 					console.log(uri);
@@ -226,37 +265,38 @@
 				}
 
 			} // end main
-			main();
+			
 
 			function getRegistryPage(registry, page){
+				$(".spinner-h1").removeClass('hidden');
 				var per_page = 100;
 				$.ajax({
 					type: "GET",
 					headers: {'X-Auth-Token': localStorage.getItem("ticket")},
-					url: "http://localhost:8085/registry?per_page=" + per_page + "&page=" + page,
+					url: hdsURL + "/registry?per_page=" + per_page + "&page=" + page,
 					dataType:"json",
 					success: function(res) {
-						console.log(res);
+						//console.log(res);
 
 						if(res.total == 0){
-							BootstrapDialog.show({
+							bootstrapDialog({
 								type: BootstrapDialog.TYPE_INFO,
 								closable: true,
 								title: 'Empty registry',
 								message: 'The registry contains no data sources.',
 								buttons: [{
 									label: 'Close',
-									action: function(dialogItself){
-										dialogItself.close();
+									action: function(dialog){
+										dialog.close();
 									}
 								}]
 							});
-							$('.loading-h1').hide();
+							$(".spinner-h1").addClass('hidden');
 							return;
 						}
 
 						$.merge(registry, res.entries);
-						console.log(registry);
+						//console.log(registry);
 
 						if(res.total>per_page*page){
 							getRegistryPage(registry, page+1);
@@ -265,38 +305,51 @@
 						}
 					},
 					error: function(e) {
-						console.error("Request error:", e.responseText);
 						var err = jQuery.parseJSON(e.responseText);
-						if (err.code == 401){
-							localStorage.removeItem('ticket');
-							console.log("ticket expired / invalid");
-							BootstrapDialog.show({
+						if (e.status == 401){
+							clearSession();
+							bootstrapDialog({
 								type: BootstrapDialog.TYPE_WARNING,
 								closable: false,
-								title: '401 Unauthorized',
+								title: 'Error ' + e.status + ': ' + e.statusText,
 								message: 'Session is expired. Please login again.',
 								buttons: [{
 									label: 'Login',
 									action: function(dialog) {
-										window.location = loginURL;
+										dialog.close();
+										window.location = loginURL+serviceID;
+									}
+								}]
+							});
+						} else if (e.responseText != "") {
+							var err = jQuery.parseJSON(e.responseText);
+							bootstrapDialog({
+								type: BootstrapDialog.TYPE_WARNING,
+								closable: true,
+								title: 'Error ' + e.status + ': ' + e.statusText,
+								message: err.message,
+								buttons: [{
+									label: 'Close',
+									action: function(dialog){
+										dialog.close();
 									}
 								}]
 							});
 						} else {
-							BootstrapDialog.show({
-								type: BootstrapDialog.TYPE_WARNING,
-								closable: false,
-								title: 'Error ' + err.code,
-								message: err.message,
+							bootstrapDialog({
+								type: BootstrapDialog.TYPE_DANGER,
+								closable: true,
+								title: 'Error ' + e.status + ': ' + e.statusText,
+								message: 'Request could not be initialized.',
 								buttons: [{
 									label: 'Close',
-									action: function(dialogItself){
-										dialogItself.close();
+									action: function(dialog){
+										dialog.close();
 									}
 								}]
 							});
-						}
-						$('.loading-h1').hide();
+						}	
+						$(".spinner-h1").addClass('hidden');
 					}
 				}); 
 			}
@@ -331,8 +384,6 @@
 					tr = "<tr>";
 					$.each(entry, function(key, value){
 						if($.inArray(key, omitAttrs) == -1){
-
-
 
 							switch($.type(value)) {
 								case "array":
@@ -379,23 +430,24 @@
 				};
 				entriesTable = new TableFilter('entries', filtersConfig);
 				entriesTable.init();
-				$('.loading-h1').hide();
+				$(".spinner-h1").addClass('hidden');
 			}
 
 			function exportData(){
+				$(".spinner-button").removeClass('hidden');
 				var valid = true;
 				attributes = $('#attributes').val().split(',');
 				attributes.forEach(function(attr) {
 					if($.inArray(attr, dataAttributes) == '-1'){
-						BootstrapDialog.show({
+						bootstrapDialog({
 							type: BootstrapDialog.TYPE_DANGER,
 							closable: true,
 							title: 'Invalid Attribute',
 							message: attr + ' is not a valid attribute.',
 							buttons: [{
 								label: 'Close',
-								action: function(dialogItself){
-									dialogItself.close();
+								action: function(dialog){
+									dialog.close();
 								}
 							}]
 						});
@@ -413,20 +465,18 @@
 				console.log(IDs);
 				var start = $('#datetimepickerStart input').val();
 				var end = $('#datetimepickerEnd input').val();
-				
-				console.log(start, end, exportSingleFile);
-				console.log("http://localhost:8085/data/" + IDs + "?start=" + start + "&end=" + end);
 
 				var csvData = [];
 				var wait = IDs.length;
 				IDs.forEach(function(id) {
+					console.log(hdsURL + "/data/" + id + "?start=" + start + "&end=" + end);
 					$.ajax({
 						type: "GET",
 						headers: {'X-Auth-Token': localStorage.getItem("ticket")},
-						url: "http://localhost:8085/data/" + id + "?start=" + start + "&end=" + end,
+						url: hdsURL + "/data/" + id + "?start=" + start + "&end=" + end,
 						dataType:"json",
 						success: function(res) {
-							console.log(res);
+							//console.log(res);
 							var csvFile = [];
 							for (var i = 0; i < res.data.e.length; i++) {
 								var csvRow = new Array(attributes.length);
@@ -440,20 +490,46 @@
 							csvData.push(obj);
 						},
 						error: function(e) {
-							console.error("Request error:", e.responseText);
-							var err = jQuery.parseJSON(e.responseText);
-							if (err.code == 401){
-								localStorage.removeItem('ticket');
-								console.log("ticket expired / invalid");
-								BootstrapDialog.show({
+							//console.log(e);
+							if (e.status == 401){
+								clearSession();
+								bootstrapDialog({
 									type: BootstrapDialog.TYPE_WARNING,
-									closable: false,
-									title: '401 Unauthorized',
+									closable: true,
+									title: 'Error ' + e.status + ': ' + e.statusText,
 									message: 'Session is expired. Please login again.',
 									buttons: [{
 										label: 'Login',
 										action: function(dialog) {
-											window.location = loginURL;
+											dialog.close();
+											window.location = loginURL+serviceID;
+										}
+									}]
+								});
+							} else if (e.responseText != "") {
+								var err = jQuery.parseJSON(e.responseText);
+								bootstrapDialog({
+									type: BootstrapDialog.TYPE_WARNING,
+									closable: true,
+									title: 'Error ' + e.status + ': ' + e.statusText,
+									message: err.message,
+									buttons: [{
+										label: 'Close',
+										action: function(dialog){
+											dialog.close();
+										}
+									}]
+								});
+							} else {
+								bootstrapDialog({
+									type: BootstrapDialog.TYPE_DANGER,
+									closable: true,
+									title: 'Error ' + e.status + ': ' + e.statusText,
+									message: 'Request could not be initialized.',
+									buttons: [{
+										label: 'Close',
+										action: function(dialog){
+											dialog.close();
 										}
 									}]
 								});
@@ -462,6 +538,7 @@
 						},
 						complete: function() {
 							wait--;
+							$(".spinner-button").addClass('hidden');
 						}
 					});
 				});
@@ -475,8 +552,10 @@
 			}
 
 			function saveCSV(singleFile, data){
-				console.log(data);
-
+				//console.log(data);
+				if(data.length<1){
+					return;
+				}
 				var csvContent = "data:text/csv;charset=utf-8,";
 				for (var i = 0; i < data.length; i++) {
 					$.each(data[i], function(key, value){
@@ -512,6 +591,14 @@
 					document.body.appendChild(link);
 					link.click();
 					document.body.removeChild(link);
+				}
+				$(".spinner-button").addClass('hidden');
+			}
+
+			// Prevents multipe error popups
+			function bootstrapDialog(dialog){
+				if($.isEmptyObject(BootstrapDialog.dialogs)) {
+					BootstrapDialog.show(dialog);
 				}
 			}
 		</script>

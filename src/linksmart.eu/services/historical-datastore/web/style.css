@@ -10,8 +10,11 @@ body {
 	background-color: #bdbdbd !important;
 }
 
-.loading-h1{
-	
+.spinner-h1{
+	margin-left: 10pt;
+}
+
+.spinner-button{
 	margin-left: 10pt;
 }
 
