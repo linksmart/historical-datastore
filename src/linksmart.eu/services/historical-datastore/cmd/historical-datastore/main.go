@@ -146,7 +146,7 @@ func main() {
 	fs := http.FileServer(http.Dir("web"))
 	mux.Handle("/", fs)
 	go func() {
-		err = http.ListenAndServe(":4000", mux)
+		err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.WebPort), mux)
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)

@@ -2,7 +2,8 @@
   "http": {
     "publicEndpoint": "http://localhost:8085",
     "bindAddr": "0.0.0.0",
-    "bindPort": 8085
+    "bindPort": 8085,
+    "web": 8086
   },
   "registry": {
     "backend": {
