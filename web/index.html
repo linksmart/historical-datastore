@@ -35,7 +35,7 @@
 
 
 		<nav class="navbar navbar-inverse navbar-fixed-top">
-			<div class="container">
+			<div class="container-fluid">
 				<div class="navbar-header">
 					<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
 						<span class="sr-only">Toggle navigation</span>
@@ -51,12 +51,14 @@
 						<li class="disabled"><a href="#">Data</a></li>
 						<li class="disabled"><a href="#">Aggregation</a></li>
 					</ul>
-					<p class="navbar-text navbar-right"><a href="#" id="login" class="navbar-link"><!--Set dynamically--></a></p>
-				</div><!--/.nav-collapse -->
+					<ul class="nav navbar-nav navbar-right">
+						<li><a href="#" id="login" class="navbar-link" onclick="localStorage.removeItem('ticket');"><!--Set dynamically--></a></li>
+					</ul>
+				</div>
 			</div>
 		</nav>
 
-		<div class="container">
+		<div class="container-fluid">
 
 			<h1>Registry<i class="fa fa-cog fa-spin spinner-h1 hidden"></i></h1>
 
@@ -78,7 +80,6 @@
 			<div class="modal fade" id="dataExport" role="dialog">
 				<div class="modal-dialog">
 
-					<!-- Modal content-->
 					<div class="modal-content">
 						<div class="modal-header">
 							<button type="button" class="close" data-dismiss="modal">&times;</button>
@@ -109,10 +110,10 @@
 								</div>
 							</div>
 
-							<label>Attributes:</label>
+							<label>Attributes:</label><div id="sampleAttributes"></div>
 							<div class="row">
 								<div class='col-md-6'>
-									<input id="attributes" class="form-control" type="text" value="t,n,v,u" />
+									<input id="attributes" class="form-control" type="text" value="time,name,value,unit" />
 								</div>
 							</div>
 
@@ -163,49 +164,78 @@
 
 		<script>
 			// Global variables
-			var serviceID;
-			var hdsURL;
-			var loginURL = "https://dimmer.fit.fraunhofer.de/cas/login?service=";
-			var logoutURL = "https://dimmer.fit.fraunhofer.de/cas/logout";
-			var dataAttributes = ["n", "t", "u", "v"];
+			var dataAttributes = {
+				"name": "n",
+				"time": "t",
+				"value": "v",
+				"unit": "u"
+			}
 			var omitAttrs = ["url", "data", "retention", "aggregation"];
+			var configFile = "conf/autogen_config.json";
+			
+			// DO NOT CHANGE
+			var hdsURL;
+			var loginURL;
+			var logoutURL;
 			var entriesTable;
 
 			$.ajax({
 				dataType: "json",
-				url: "web-conf.json",
+				url: configFile,
 				success: function(json) {
-					console.log(json);
 					hdsURL = json.hdsEndpoint;
-					serviceID = json.serviceID;
+					
+					if(json.authEnabled){
+						switch(json.authProvider) {
+							case 'cas':
+								loginURL = json.authProviderURL + "/login?service=" + json.authServiceID;
+								logoutURL =  json.authProviderURL + "/logout";
+								break;
+							default:
+								bootstrapDialog({
+									type: BootstrapDialog.TYPE_DANGER,
+									closable: false,
+									title: 'Unsupported authenticator',
+									message: 'Authentication provider is not supported: ' + json.provider
+								});
+						}
+						$("#login").text("Login");
+						$("#login").attr("href", loginURL);
+					}
+					
 					main();
 				},
 				error: function(e) {
-					console.log(e);
-					if(e.status==200){
-						bootstrapDialog({
-							type: BootstrapDialog.TYPE_DANGER,
-							closable: false,
-							title: 'Configuration Error',
-							message: 'Unable to parse configuration file: web-conf.json'
-						});
-					} else {
-						bootstrapDialog({
-							type: BootstrapDialog.TYPE_DANGER,
-							closable: false,
-							title: 'Configuration Error: ' + e.status + ' ' + e.statusText,
-							message: 'Unable to load configuration file: web-conf.json'
-						});
-					}
+					console.error(e);
+					bootstrapDialog({
+						type: BootstrapDialog.TYPE_DANGER,
+						closable: false,
+						title: 'Configuration Error: ' + e.status + ' ' + e.statusText,
+						message: 'Unable to load configuration file: ' + configFile
+					});
 				}
 			});
 
 
 
-			function clearSession(){
-				$('#login').text("Login");
-				$("#login").attr("href", loginURL+serviceID);
+			function error_401(){
+				$("#login").text("Login");
+				$("#login").attr("href", loginURL);
 				localStorage.removeItem('ticket');
+				
+				bootstrapDialog({
+					type: BootstrapDialog.TYPE_WARNING,
+					closable: true,
+					title: '401 Unauthorized',
+					message: 'No active session. Please login.',
+					buttons: [{
+						label: 'Login',
+						action: function(dialog) {
+							dialog.close();
+							window.location = loginURL;
+						}
+					}]
+				});
 			}
 
 			function main(){
@@ -219,30 +249,12 @@
 					});
 					return;
 				}
-
-				var loggedIn = false;
-				if(localStorage.getItem("ticket") == null) {
-					$(".spinner-h1").addClass('hidden');
-					$('#login').text("Login");
-					$("#login").attr("href", loginURL+serviceID);
-
-					bootstrapDialog({
-						type: BootstrapDialog.TYPE_WARNING,
-						closable: true,
-						title: '401 Unauthorized',
-						message: 'Please login to continue.',
-						buttons: [{
-							label: 'Login',
-							action: function(dialog) {
-								dialog.close();
-								window.location = loginURL+serviceID;
-							}
-						}]
-					});
-				} else {
-					loggedIn = true;
+				
+				
+				if(localStorage.getItem("ticket") != null) {
 					$('#login').text("Logout");
 					$("#login").attr("href", logoutURL);
+					$("#login").on
 				}
 				
 				var uri = new URI(window.location.href);
@@ -253,17 +265,19 @@
 					location.replace(uri);
 					console.log(query.ticket);
 					
-					// Store
+					// Store the ticket
 					localStorage.setItem("ticket", query.ticket);
 				}
-				console.log("stored", localStorage.getItem("ticket"));
+				//console.log("Ticket:", localStorage.getItem("ticket"));
+				
+				var attrs = [];
+				$.each(dataAttributes, function(key, value){
+					attrs.push(key);					
+				});
+				$("#sampleAttributes").append("Comma separated list from [" + attrs.join(',') + "]");
+				
 
-
-				if(loggedIn){
-					var registry = [];
-					getRegistryPage(registry, 1);
-				}
-
+				getRegistryPage([], 1);
 			} // end main
 			
 
@@ -307,20 +321,7 @@
 					error: function(e) {
 						var err = jQuery.parseJSON(e.responseText);
 						if (e.status == 401){
-							clearSession();
-							bootstrapDialog({
-								type: BootstrapDialog.TYPE_WARNING,
-								closable: false,
-								title: 'Error ' + e.status + ': ' + e.statusText,
-								message: 'Session is expired. Please login again.',
-								buttons: [{
-									label: 'Login',
-									action: function(dialog) {
-										dialog.close();
-										window.location = loginURL+serviceID;
-									}
-								}]
-							});
+							error_401();
 						} else if (e.responseText != "") {
 							var err = jQuery.parseJSON(e.responseText);
 							bootstrapDialog({
@@ -359,7 +360,7 @@
 				// Set header
 				$.each(entries[0], function(key, value){
 					if($.inArray(key, omitAttrs) == -1){
-						console.log(key + ':' + value, $.type(value));
+						//console.log(key + ':' + value, $.type(value));
 
 						switch($.type(value)) {
 							case "array":
@@ -436,9 +437,11 @@
 			function exportData(){
 				$(".spinner-button").removeClass('hidden');
 				var valid = true;
-				attributes = $('#attributes').val().split(',');
+				attributes = $('#attributes').val();
+				attributes = attributes.replace(/ /g,'').split(','); // remove whitespaces and split
+				senmlKeys = [];
 				attributes.forEach(function(attr) {
-					if($.inArray(attr, dataAttributes) == '-1'){
+					if(!dataAttributes.hasOwnProperty(attr)){
 						bootstrapDialog({
 							type: BootstrapDialog.TYPE_DANGER,
 							closable: true,
@@ -454,8 +457,10 @@
 						valid = false;
 						return;
 					}
+					senmlKeys.push(dataAttributes[attr]);
 				});
 				if(!valid){
+					$(".spinner-button").addClass('hidden');
 					return; 
 				}
 
@@ -481,7 +486,8 @@
 							for (var i = 0; i < res.data.e.length; i++) {
 								var csvRow = new Array(attributes.length);
 								$.each(res.data.e[i], function(key, value){
-									csvRow[$.inArray(key, attributes)] = value;
+									console.log(dataAttributes[attributes]);
+									csvRow[$.inArray(key, senmlKeys)] = value;
 								});
 								csvFile.push(csvRow);
 							}		
@@ -492,20 +498,7 @@
 						error: function(e) {
 							//console.log(e);
 							if (e.status == 401){
-								clearSession();
-								bootstrapDialog({
-									type: BootstrapDialog.TYPE_WARNING,
-									closable: true,
-									title: 'Error ' + e.status + ': ' + e.statusText,
-									message: 'Session is expired. Please login again.',
-									buttons: [{
-										label: 'Login',
-										action: function(dialog) {
-											dialog.close();
-											window.location = loginURL+serviceID;
-										}
-									}]
-								});
+								error_401();
 							} else if (e.responseText != "") {
 								var err = jQuery.parseJSON(e.responseText);
 								bootstrapDialog({

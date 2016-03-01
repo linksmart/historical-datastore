@@ -26,6 +26,8 @@ type Config struct {
 	ServiceID string `json:"serviceID"`
 	// HDS API addr
 	HTTP HTTPConf `json:"http"`
+	// Web GUI
+	Web WebConfig `json:"web"`
 	// Registry API Config
 	Reg RegConf `json:"registry"`
 	// Data API Config
@@ -43,7 +45,13 @@ type HTTPConf struct {
 	PublicEndpoint string `json:"publicEndpoint"`
 	BindAddr       string `json:"bindAddr"`
 	BindPort       uint16 `json:"bindPort"`
-	WebPort        uint16 `json:"webPort"`
+}
+
+// Web GUI Config
+type WebConfig struct {
+	BindAddr  string `json:"bindAddr"`
+	BindPort  uint16 `json:"bindPort"`
+	StaticDir string `json:"staticDir"`
 }
 
 // Registry config
@@ -93,8 +101,13 @@ func loadConfig(confPath *string) (*Config, error) {
 	}
 
 	// VALIDATE HTTP
-	if conf.HTTP.BindAddr == "" || conf.HTTP.BindPort == 0 || conf.HTTP.PublicEndpoint == "" || conf.HTTP.WebPort == 0 {
-		return nil, fmt.Errorf("HTTP bindAddr, publicEndpoint, bindPort, and webPort have to be defined")
+	if conf.HTTP.BindAddr == "" || conf.HTTP.BindPort == 0 || conf.HTTP.PublicEndpoint == "" {
+		return nil, fmt.Errorf("HTTP bindAddr, publicEndpoint, and bindPort have to be defined")
+	}
+
+	// VALIDATE Web Config
+	if conf.Web.BindAddr == "" || conf.Web.BindPort == 0 {
+		return nil, fmt.Errorf("Web bindAddr and bindPort have to be defined")
 	}
 
 	_, err = url.Parse(conf.HTTP.PublicEndpoint)
