@@ -69,11 +69,11 @@
 		<h1>Registry<i class="fa fa-cog fa-spin spinner-h1 hidden"></i></h1>
 
 		<!--<button class="btn btn-default" data-toggle="modal" data-target="#registryExport" disabled="disabled">Export registry</button>-->
-		<button class="btn btn-default" data-toggle="modal" data-target="#dataExport" onclick="getTotalFiltered();">Export data</button>
-		<!--<button class="btn btn-default" data-toggle="modal" data-target="#aggrExport" disabled="disabled">Export aggregations</button>-->
+		<button class="btn btn-default" data-toggle="modal" data-target="#dataExport" onclick="setupDataExportModal();">Export data</button>
+		<button class="btn btn-default" data-toggle="modal" data-target="#aggrExport" onclick="setupAggrExportModal();" disabled="disabled">Export aggregations</button>
 		<table id="entries" class="center-block">
 			<thead>
-				<tr>
+				<tr class="thead-tr">
 					<!-- Added dynamically -->
 				</tr>
 			</thead>
@@ -82,7 +82,7 @@
 			</tbody>
 		</table>
 
-		<!-- Modal -->
+		<!-- Modal: Export Data -->
 		<div class="modal fade" id="dataExport" role="dialog">
 			<div class="modal-dialog">
 
@@ -97,7 +97,7 @@
 							<div class='col-md-6'>
 								<div class="form-group">
 									<div class='input-group date' id='datetimepickerStart'>
-										<input type='text' class="form-control" />
+										<input type='text' class="form-control" placeholder="Start" />
 										<span class="input-group-addon">
 											<span class="glyphicon glyphicon-calendar"></span>
 										</span>
@@ -107,7 +107,7 @@
 							<div class='col-md-6'>
 								<div class="form-group">
 									<div class='input-group date' id='datetimepickerEnd'>
-										<input type='text' class="form-control" />
+										<input type='text' class="form-control" placeholder="End" />
 										<span class="input-group-addon">
 											<span class="glyphicon glyphicon-calendar"></span>
 										</span>
@@ -120,6 +120,87 @@
 						<div class="row">
 							<div class='col-md-12'>
 								<input id="attributes" class="form-control" type="text" value="time,name,value,unit" />
+							</div>
+						</div>
+
+						<br />
+						<label>Output:</label>
+						<div class="row">
+							<div class="col-md-6 checkbox">
+
+								<div class="dropdown">
+									<button class="btn btn-default dropdown-toggle" type="button" id="exportFormat" data-toggle="dropdown">CSV<span class="caret"></span></button>
+									<ul class="dropdown-menu" role="menu" aria-labelledby="menu1">
+										<li class="dropdown-header">Format</li>
+										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">CSV</a></li>
+									</ul>
+								</div>
+							</div>	
+						</div>
+						<div class="row">
+							<div class="col-md-6 checkbox">
+
+								<div class="dropdown">
+									<button class="btn btn-default dropdown-toggle" type="button" id="exportType" data-toggle="dropdown">One file per source (zipped)<span class="caret"></span></button>
+									<ul class="dropdown-menu" role="menu" aria-labelledby="menu1">
+										<li class="dropdown-header">Mode</li>
+										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">One file per source (zipped)</a></li>
+										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">All sources in a single file</a></li>
+									</ul>
+								</div>
+							</div>	
+						</div>	
+
+					</div>
+
+					<div class="modal-footer">
+						<button type="button" class="btn btn-primary" onclick="exportData();">Export<i class="fa fa-cog fa-spin spinner-button hidden"></i></button>
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+					</div>
+				</div>
+
+			</div>
+		</div>
+
+
+		<!-- Modal: Export Aggregation -->
+		<div class="modal fade" id="aggrExport" role="dialog">
+			<div class="modal-dialog">
+
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal">&times;</button>
+						<h4 class="modal-title">Export aggregations <em class="modalStat"></em></h4>
+					</div>
+					<div class="modal-body">
+						<label>Interval:</label>
+						<div class="row">
+							<div class='col-md-6'>
+								<div class="form-group">
+									<div class='input-group date' id='datetimepickerStart'>
+										<input type='text' class="form-control" placeholder="Start" />
+										<span class="input-group-addon">
+											<span class="glyphicon glyphicon-calendar"></span>
+										</span>
+									</div>
+								</div>
+							</div>
+							<div class='col-md-6'>
+								<div class="form-group">
+									<div class='input-group date' id='datetimepickerEnd'>
+										<input type='text' class="form-control" placeholder="End" />
+										<span class="input-group-addon">
+											<span class="glyphicon glyphicon-calendar"></span>
+										</span>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<label>Attributes:</label><em><div id="sampleAttributes"><!--Set dynamically--></div></em>
+						<div class="row">
+							<div class='col-md-12'>
+								<input id="attributes" class="form-control" type="text" value="" />
 							</div>
 						</div>
 

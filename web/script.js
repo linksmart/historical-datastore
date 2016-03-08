@@ -5,7 +5,13 @@ var dataAttributes = {
 	"value": "v",
 	"unit": "u"
 }
-var omitAttrs = ["url", "data", "retention", "aggregation"];
+var aggrAttributes = {
+	"name": "n",
+	"time": "t",
+	"value": "v",
+	"unit": "u"
+}
+var hideAttrs = ["url", "data", "retention", "aggregation", "format"];
 var configFile = "conf/autogen_config.json";
 
 // DO NOT CHANGE
@@ -13,6 +19,7 @@ var hdsURL;
 var loginURL;
 var logoutURL;
 var entriesTable;
+var columns = {};
 
 $(document).ready(function(){
 
@@ -131,12 +138,6 @@ function main(){
 	}
 	//console.log("Ticket:", localStorage.getItem("ticket"));
 	
-	var attrs = [];
-	$.each(dataAttributes, function(key, value){
-		attrs.push(key);					
-	});
-	$("#sampleAttributes").append("Comma separated list. Choices are: " + attrs.join(','));
-	
 	getRegistry();
 } // end main
 
@@ -223,56 +224,66 @@ function getRegistry(){
 
 function fillTable(entries){	
 
+	var column = 0;
+	
 	// Set header
 	$.each(entries[0], function(key, value){
-		if($.inArray(key, omitAttrs) == -1){
-			//console.log(key + ':' + value, $.type(value));
+		//console.log(key + ':' + value, $.type(value));
 
-			switch($.type(value)) {
-				case "array":
-				console.error("json array is currently not supported.");
-				break;
-				case "object":
-			    	// Nested object
-			    	entry = ""
-			    	$.each(value, function(nKey, nValue){
-			    		entry += "<th class='table-meta'>" + nKey + "</th>";
-			    	});
-			    	break;
-			    	default:
-			    	entry = "<th>" + key + "</th>";
-			    } 
-			    $("#entries thead tr").append(entry);	
-			}
-		});
+		switch($.type(value)) {
+			case "array":
+			console.warn("json array is currently not supported.");
+			entry = "<th>" + key + "</th>";
+			columns[key] = column++;	
+			break;
+		
+			case "object":
+		   	// Nested object
+		   	entry = ""
+		   	$.each(value, function(nKey, nValue){
+		   		entry += "<th class='table-meta'>" + nKey + "</th>";
+		   		columns[nKey] = column++;	
+		   	});
+		   	break;
+		
+		   	default:
+		   	entry = "<th>" + key + "</th>";
+		   	columns[key] = column++;	
+		} 
+		$("#entries thead tr").append(entry);
+	});
+
+	console.log(JSON.stringify(columns, null, 4));
 
 	// Fill data
 	entries.forEach(function(entry) {
 		tr = "<tr>";
 		$.each(entry, function(key, value){
-			if($.inArray(key, omitAttrs) == -1){
-
-				switch($.type(value)) {
-					case "array":
-					console.error("json array is currently not supported.");
-					break;
-					case "object":
-				    	// Nested object
-				    	$.each(value, function(nKey, nValue){
-				    		tr += "<td>" + nValue + "</td>";
-				    	});
-				    	break;
-				    	default:
-				    	tr += "<td>" + value + "</td>";
-				    }
-				}
-			});
+			switch($.type(value)) {
+				case "array":
+				tr += "<td>" + JSON.stringify(value) + "</td>";
+				break;
+	
+				case "object":
+			    // Nested object
+			    $.each(value, function(nKey, nValue){
+			    	tr += "<td>" + nValue + "</td>";
+			    });
+			    break;
+		
+			    default:
+			    tr += "<td>" + value + "</td>";
+			}
+		});
 		tr += "</tr>";
 		$("#entries tbody").append(tr);	
 	});
-	
 
-
+	// Get index of hideAttrs for table config
+	var hideAttrsIndx = [];
+	hideAttrs.forEach(function(attr){
+		hideAttrsIndx.push(columns[attr]);
+	});
 
 	// Configure table
 	var filtersConfig = {
@@ -289,7 +300,7 @@ function fillTable(entries){
 		},
 		{
 			name: 'colsVisibility',
-			at_start: [],
+			at_start: hideAttrsIndx,
 			text: 'Hide Columns: ',
 			enable_tick_all: false
 		}
@@ -300,8 +311,28 @@ function fillTable(entries){
 	$(".spinner-h1").addClass('hidden');
 }
 
-function getTotalFiltered(){
-	$(".modalStat").text("(" + entriesTable.getFilteredDataCol(0).length + " rows)");
+function setupDataExportModal(){
+	$(".modalStat").text("(" + entriesTable.getFilteredDataCol(0).length + " sources)");
+
+	var attrs = [];
+	$.each(dataAttributes, function(key, value){
+		attrs.push(key);					
+	});
+	$("#dataExport #sampleAttributes").append("Comma separated list: " + attrs.join(', '));
+}
+
+function setupAggrExportModal(){
+	var i = columns["aggregation"];
+	var allAggrs = entriesTable.getFilteredDataCol(i);
+	//console.log(aggrs);
+
+	// for now assume that the same aggr is used for all sources (only 1 aggr)
+	var aggrs = allAggrs[0];
+	aggrs = JSON.parse(aggrs);
+	var id = aggrs[0].id;
+	var aggregates = aggrs[0].aggregates;
+	console.log(aggregates);
+	$("#aggrExport #sampleAttributes").text("Aggregation(" + id + "): " + aggregates.join(', '));
 }
 
 function exportData(){

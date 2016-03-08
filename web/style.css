@@ -36,3 +36,8 @@ body {
 .caret{
 	margin-left: 5pt !important;
 }
+
+.thead-tr{
+	/* Align header text to top. Workaround for sort icon newline */
+	vertical-align: baseline;
+}
