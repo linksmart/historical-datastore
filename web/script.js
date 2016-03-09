@@ -11,7 +11,7 @@ var aggrAttributes = {
 	"value": "v",
 	"unit": "u"
 }
-var hideAttrs = ["url", "data", "retention", "aggregation", "format"];
+var hideAttrs = ["url", "data", "retention", "format"];
 var configFile = "conf/autogen_config.json";
 
 // DO NOT CHANGE
@@ -20,6 +20,9 @@ var loginURL;
 var logoutURL;
 var entriesTable;
 var columns = {};
+var filesaver;
+var abortExporting;
+
 
 $(document).ready(function(){
 
@@ -239,11 +242,15 @@ function fillTable(entries){
 		
 			case "object":
 		   	// Nested object
+		   	/*
 		   	entry = ""
 		   	$.each(value, function(nKey, nValue){
 		   		entry += "<th class='table-meta'>" + nKey + "</th>";
 		   		columns[nKey] = column++;	
 		   	});
+		   	*/
+		   	entry = "<th>" + key + "</th>";
+		   	columns[key] = column++;
 		   	break;
 		
 		   	default:
@@ -255,20 +262,30 @@ function fillTable(entries){
 
 	console.log(JSON.stringify(columns, null, 4));
 
+	function replacer(key, value) {
+		if (key== "data") {
+			return undefined;
+		}
+		return value;
+	}
+
 	// Fill data
 	entries.forEach(function(entry) {
 		tr = "<tr>";
 		$.each(entry, function(key, value){
 			switch($.type(value)) {
 				case "array":
-				tr += "<td>" + JSON.stringify(value) + "</td>";
+				tr += "<td><div style='line-height: 1.2em; font-size: 90%;''>" + JSON.stringify(value, replacer, 2) + "</div></td>";
 				break;
 	
 				case "object":
 			    // Nested object
+			    /*
 			    $.each(value, function(nKey, nValue){
 			    	tr += "<td>" + nValue + "</td>";
 			    });
+			    */
+			    tr += "<td><div style='line-height: 1.2em; font-size: 90%;''>" + JSON.stringify(value, null, 2) + "</div></td>";
 			    break;
 		
 			    default:
@@ -294,6 +311,7 @@ function fillTable(entries){
 		loader: true,
 		mark_active_columns: true,
 		highlight_keywords: true,
+		//col_widths: [null, null, '30%'],
 		extensions: [{
 			name: 'sort',
 			images_path: 'https://koalyptus.github.io/TableFilter/tablefilter/style/themes/'
@@ -301,7 +319,7 @@ function fillTable(entries){
 		{
 			name: 'colsVisibility',
 			at_start: hideAttrsIndx,
-			text: 'Hide Columns: ',
+			text: 'Columns: ',
 			enable_tick_all: false
 		}
 		]
@@ -312,33 +330,56 @@ function fillTable(entries){
 }
 
 function setupDataExportModal(){
-	$(".modalStat").text("(" + entriesTable.getFilteredDataCol(0).length + " sources)");
+	setProgressbarMain(-1);
+	setProgressbarSub(-1);
+	$("#dataExport .modalStat").text("(" + entriesTable.getFilteredDataCol(0).length + " sources)");
 
 	var attrs = [];
 	$.each(dataAttributes, function(key, value){
 		attrs.push(key);					
 	});
-	$("#dataExport #sampleAttributes").append("Comma separated list: " + attrs.join(', '));
+	$("#dataExport #sampleAttributes").text("Comma separated list: " + attrs.join(', '));
 }
 
 function setupAggrExportModal(){
+	$("#aggrExport .modalStat").text("(" + entriesTable.getFilteredDataCol(0).length + " sources)");
+
 	var i = columns["aggregation"];
 	var allAggrs = entriesTable.getFilteredDataCol(i);
-	//console.log(aggrs);
+	console.log(allAggrs);
 
+	var aggregates = {};
+
+	allAggrs.forEach(function(aggrs){
+		console.log(aggrs);
+		
+	});
+
+	console.log(JSON.stringify(aggregates));
+/*
 	// for now assume that the same aggr is used for all sources (only 1 aggr)
 	var aggrs = allAggrs[0];
 	aggrs = JSON.parse(aggrs);
 	var id = aggrs[0].id;
+	var interval = aggrs[0].interval;
+	var retention = aggrs[0].retention;
 	var aggregates = aggrs[0].aggregates;
 	console.log(aggregates);
-	$("#aggrExport #sampleAttributes").text("Aggregation(" + id + "): " + aggregates.join(', '));
+	$("#aggrExport #sampleAttributes").text("Interval: " + interval + ", Retention: " + retention + ", Aggregates: " + aggregates.join(', '));
+	*/
+}
+
+function abortExport(){
+	abortExporting = true;
+	if (typeof filesaver != 'undefined'){
+		filesaver.abort();
+	}
 }
 
 function exportData(){
-	$(".spinner-button").removeClass('hidden');
+	abortExporting = false;
 	var valid = true;
-	attributes = $('#attributes').val();
+	attributes = $('#dataExport #attributes').val();
 	attributes = attributes.replace(/ /g,'').split(','); // remove whitespaces and split
 	senmlKeys = [];
 	attributes.forEach(function(attr) {
@@ -361,9 +402,12 @@ function exportData(){
 		senmlKeys.push(dataAttributes[attr]);
 	});
 	if(!valid){
-		$(".spinner-button").addClass('hidden');
 		return; 
 	}
+
+	$("#dataExport .export-btn").addClass('hidden');
+	$("#dataExport .abort-btn").removeClass('hidden');
+	$('#dataExport .close-btn').prop('disabled', true);
 
 	var IDs = entriesTable.getFilteredDataCol(0);
 	console.log(IDs);
@@ -371,22 +415,48 @@ function exportData(){
 	var end = $('#datetimepickerEnd input').val();
 
 	csvData = [];
+	totalIDs = entriesTable.getFilteredDataCol(0).length;
 	dfd = $.Deferred();
 	processItems(IDs, start, end).then(function(){
 		// all done
 		console.log("all done");
 		//console.log(csvData);
 		saveCSV(csvData);
-	}, function(){ // rejected
-		console.log("rejected");
-		$(".spinner-button").addClass('hidden');
+	}, function(reason){ // rejected / aborted
+		console.warn(reason);
+		$("#dataExport .export-btn").removeClass('hidden');
+		$("#dataExport .abort-btn").addClass('hidden');
+		$('#dataExport .close-btn').prop('disabled', false);
 	});
+}
 
+function progressbarActive(state){
+	if(state==true){
+		$('.progress-main > .progress-bar').addClass('progress-bar-striped active');
+	} else {
+		$('.progress-main > .progress-bar').removeClass('progress-bar-striped active');
+	}
+}
+
+function setProgressbarMain(value){
+	value = Math.round(value*100);
+	if(value<0){
+		$('.progress-main > .progress-bar').css({'width': '0%', 'min-width': '0em'}).attr('aria-valuenow', value).text('0%');	
+	} else {
+		$('.progress-main > .progress-bar').css({'width': value+'%', 'min-width': '2em'}).attr('aria-valuenow', value).text(value+'%');
+	}
+}
+
+function setProgressbarSub(value){
+	value = value*100;
+	$('.progress-sub > .progress-bar').css('width', value+'%').attr('aria-valuenow', value).text(value+'%');
 }
 
 // Recursively query data for all IDs
 function processItems(IDs, start, end) {
 	//console.log('called processItem');
+
+	setProgressbarMain(1 - IDs.length/totalIDs);
 
 	if(IDs.length == 0){
 		// Done with all items
@@ -399,6 +469,11 @@ function processItems(IDs, start, end) {
 	var pageData = [];
 	// Recursively query all pages starting from page
 	function getDataPages(page){
+		if(abortExporting){
+			dfd.reject("aborted");
+			return;
+		}
+
 		var per_page = 100;
 		console.log("/data/" + id + "?start=" + start + "Z&end=" + end + "Z&per_page=" + per_page + "&page=" + page);
 
@@ -409,6 +484,7 @@ function processItems(IDs, start, end) {
 			dataType:"json",
 			success: function(res) {
 				//console.log(res);
+				setProgressbarSub((per_page*page)/res.total)
 
 				if(res.total != 0){
 					for (var i = 0; i < res.data.e.length; i++) {
@@ -463,7 +539,7 @@ function processItems(IDs, start, end) {
 						}]
 					});
 				}	
-				dfd.reject();							
+				dfd.reject(e.status);							
 			}
 		}); 
 	}
@@ -474,9 +550,10 @@ function processItems(IDs, start, end) {
 
 
 function saveCSV(data){
+	progressbarActive(true);
 
-	var mode = $('#exportType').text();
-	var fs;
+	var mode = $('#dataExport #exportType').text();
+	
 	if (mode == "All sources in a single file") {
 
 		var csvContent = "";
@@ -490,7 +567,7 @@ function saveCSV(data){
 			});
 		}
 		var content = new Blob([csvContent], {type: "text/csv;charset=utf-8"});
-		fs = saveAs(content, "export.csv");
+		filesaver = saveAs(content, "export.csv");
 
 	} else {
 
@@ -509,12 +586,15 @@ function saveCSV(data){
 			});
 		}
 		var content = zip.generate({type:"blob"});
-		fs = saveAs(content, "export.zip");
+		filesaver = saveAs(content, "export.zip");
 	}
 
 	// FileSaver callback
-	fs.onwriteend = function() {
-		$(".spinner-button").addClass('hidden');
+	filesaver.onwriteend = function() {
+		$("#dataExport .export-btn").removeClass('hidden');
+		$("#dataExport .abort-btn").addClass('hidden');
+		$('#dataExport .close-btn').prop('disabled', false);
+		progressbarActive(false);
 	};
 }
 

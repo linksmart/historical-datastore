@@ -1,6 +1,11 @@
 body {
 	padding-top: 50px;
 }
+
+td { 
+	white-space:pre;
+}
+
 .starter-template {
 	padding: 40px 15px;
 	text-align: center;
@@ -41,3 +46,21 @@ body {
 	/* Align header text to top. Workaround for sort icon newline */
 	vertical-align: baseline;
 }
+
+
+.progress-main{
+	margin-top: 4px;
+	margin-bottom: 1px !important;
+	border-radius: 4px 4px 0 0 !important;
+}
+
+.progress-sub{
+	height: 5px;
+	margin-bottom: 0 !important;
+	border-radius: 0 0 4px 4px !important;
+}
+
+/* Toggle hide columns style */
+.cols_checklist_slc_item{ text-decoration: line-through; color:#A7A7A7 !important;}
+ul.cols_checklist input { display: none; }
+li.cols_checklist_item { color: black; font-size: larger; }
