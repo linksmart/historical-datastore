@@ -2,6 +2,7 @@ package data
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	"linksmart.eu/lc/core/catalog"
 	"linksmart.eu/lc/sec/auth/obtainer"
+	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
@@ -64,34 +66,52 @@ func (c *RemoteClient) Submit(senmlMsg *senml.Message, id ...string) error {
 	return nil
 }
 
-// func (c *RemoteClient) Query(id ...string) (*registry.DataSource, error) {
-// 	res, err := catalog.HTTPRequest("GET",
-// 		fmt.Sprintf("%v/%v", c.serverEndpoint, id),
-// 		nil,
-// 		nil,
-// 		c.ticket,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer res.Body.Close()
+func (c *RemoteClient) Query(q Query, page, perPage int, id ...string) (*RecordSet, error) {
+	var query string
+	if q.Sort != "" {
+		query += fmt.Sprintf("&%v=%v", common.ParamSort, q.Sort)
+	}
+	if q.Limit != 0 {
+		query += fmt.Sprintf("&%v=%v", common.ParamLimit, q.Limit)
+	}
+	if !q.Start.IsZero() {
+		query += fmt.Sprintf("&%v=%v", common.ParamStart, q.Start.Format("2006-01-02T15:04:05Z"))
+	}
+	if !q.End.IsZero() {
+		query += fmt.Sprintf("&%v=%v", common.ParamEnd, q.End.Format("2006-01-02T15:04:05Z"))
+	}
 
-// 	if res.StatusCode == http.StatusNotFound {
-// 		return nil, ErrorNotFound
-// 	} else if res.StatusCode != http.StatusOK {
-// 		return nil, fmt.Errorf("%v", res.StatusCode)
-// 	}
+	res, err := catalog.HTTPRequest("GET",
+		fmt.Sprintf("%v/%v?%v=%v&%v=%v%v",
+			c.serverEndpoint,
+			strings.Join(id, common.IDSeparator),
+			common.ParamPage, page,
+			common.ParamPerPage, perPage,
+			query,
+		),
+		nil,
+		nil,
+		c.ticket,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
 
-// 	body, err := ioutil.ReadAll(res.Body)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to read body of response: %v", err.Error())
+	}
 
-// 	var ds registry.DataSource
-// 	err = json.Unmarshal(body, &ds)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%v: %v", res.Status, string(body))
+	}
 
-// 	return &ds, nil
-// }
+	var rs RecordSet
+	err = json.Unmarshal(body, &rs)
+	if err != nil {
+		return nil, err
+	}
+	return &rs, nil
+
+}
