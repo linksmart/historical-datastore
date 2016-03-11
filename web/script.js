@@ -413,6 +413,7 @@ function exportData(){
 	console.log(IDs);
 	var start = $('#datetimepickerStart input').val();
 	var end = $('#datetimepickerEnd input').val();
+	timeFormat = $('#dataExport #timeFormat').text(); // if local var, it passes the button to recursive function!
 
 	csvData = [];
 	totalIDs = entriesTable.getFilteredDataCol(0).length;
@@ -490,6 +491,11 @@ function processItems(IDs, start, end) {
 					for (var i = 0; i < res.data.e.length; i++) {
 						var csvRow = new Array(attributes.length);
 						$.each(res.data.e[i], function(key, value){
+							if(key=="t"){
+								if(timeFormat=="ISO 8601"){
+									value = new Date(value*1000).toISOString();
+								}
+							}	
 							csvRow[$.inArray(key, senmlKeys)] = value;
 						});
 						pageData.push(csvRow);
