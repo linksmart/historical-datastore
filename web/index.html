@@ -70,7 +70,7 @@
 
 		<!--<button class="btn btn-default" data-toggle="modal" data-target="#registryExport" disabled="disabled">Export registry</button>-->
 		<button class="btn btn-default" data-toggle="modal" data-target="#dataExport" onclick="setupDataExportModal();">Export data</button>
-		<button class="btn btn-default" data-toggle="modal" data-target="#aggrExport" onclick="setupAggrExportModal();" disabled="disabled">Export aggregations</button>
+		<button class="btn btn-default" data-toggle="modal" data-target="#aggrExport" onclick="setupAggrExportModal();">Export aggregations</button>
 		<table id="entries" class="center-block">
 			<thead>
 				<tr class="thead-tr">
@@ -133,7 +133,7 @@
 									<ul class="dropdown-menu" role="menu" aria-labelledby="menu1">
 										<li class="dropdown-header">Timestamp format</li>
 										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">Unix Timestamp</a></li>
-										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">ISO 8601</a></li>
+										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">ISO 8601 Timestamp</a></li>
 									</ul>
 								</div>
 							</div>	
@@ -221,15 +221,26 @@
 							</div>
 						</div>
 
-						<label>Attributes:</label><em><div id="sampleAttributes"><!--Set dynamically--></div></em>
+						<label>Aggregations:</label>
 						<div class="row">
-							<div class='col-md-12'>
-								<input id="attributes" class="form-control" type="text" value="" />
-							</div>
+							<div id="aggregations" class='col-md-12'><!--Added dynamically--></div>
 						</div>
 
 						<br />
 						<label>Output:</label>
+						<div class="row">
+							<div class="col-md-6 checkbox">
+
+								<div class="dropdown">
+									<button class="btn btn-default dropdown-toggle" type="button" id="timeFormat" data-toggle="dropdown">Unix Timestamp<span class="caret"></span></button>
+									<ul class="dropdown-menu" role="menu" aria-labelledby="menu1">
+										<li class="dropdown-header">Timestamp format</li>
+										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">Unix Timestamp</a></li>
+										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">ISO 8601 Timestamp</a></li>
+									</ul>
+								</div>
+							</div>	
+						</div>
 						<div class="row">
 							<div class="col-md-6 checkbox">
 
@@ -246,11 +257,11 @@
 							<div class="col-md-6 checkbox">
 
 								<div class="dropdown">
-									<button class="btn btn-default dropdown-toggle" type="button" id="exportType" data-toggle="dropdown">One file per source (zipped)<span class="caret"></span></button>
+									<button class="btn btn-default dropdown-toggle" type="button" id="exportType" data-toggle="dropdown">One file per source/aggregation (zipped)<span class="caret"></span></button>
 									<ul class="dropdown-menu" role="menu" aria-labelledby="menu1">
 										<li class="dropdown-header">Mode</li>
-										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">One file per source (zipped)</a></li>
-										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">All sources in a single file</a></li>
+										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">One file per source/aggregation (zipped)</a></li>
+										<li role="presentation"><a role="menuitem" tabindex="-1" href="#">One file per aggregation (zipped)</a></li>
 									</ul>
 								</div>
 							</div>	
@@ -259,8 +270,19 @@
 					</div>
 
 					<div class="modal-footer">
-						<button type="button" class="btn btn-primary" onclick="exportData();">Export<i class="fa fa-cog fa-spin spinner-button hidden"></i></button>
-						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+						<div class="col-md-8">
+							<div class="progress progress-main">
+	  							<div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">0%</div>
+							</div>
+							<div class="progress progress-sub">
+								<div class="progress-bar progress-bar-info" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<button type="button" class="btn btn-primary export-btn" onclick="exportAggr();">Export</button>
+							<button type="button" class="btn btn-danger abort-btn hidden" onclick="abortExport();">Abort</button>
+							<button type="button" class="btn btn-default close-btn" data-dismiss="modal">Close</button>
+						</div>
 					</div>
 				</div>
 

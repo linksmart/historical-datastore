@@ -4,13 +4,12 @@ var dataAttributes = {
 	"time": "t",
 	"value": "v",
 	"unit": "u"
-}
-var aggrAttributes = {
-	"name": "n",
-	"time": "t",
-	"value": "v",
-	"unit": "u"
-}
+};
+var AGGR_ATTRIBUTES = {
+	"name": "n", 
+	"starttime": "ts",
+	"endtime": "te"
+};
 var hideAttrs = ["url", "data", "retention", "format"];
 var configFile = "conf/autogen_config.json";
 
@@ -62,9 +61,6 @@ $(document).ready(function(){
 			});
 		}
 	});
-
-	setupModal();
-
 });
 
 function error_401(){
@@ -87,24 +83,24 @@ function error_401(){
 	});
 }
 
-function setupModal(){
+function setupModal(id){
 	// Datetime picker
-	$('#datetimepickerStart').datetimepicker({
+	$(id + ' #datetimepickerStart').datetimepicker({
 		format: "YYYY-MM-DDTHH:mm:ss"
 	});
-	$('#datetimepickerEnd').datetimepicker({
+	$(id + ' #datetimepickerEnd').datetimepicker({
 		useCurrent: false, //Important! See issue #1075
 		format: "YYYY-MM-DDTHH:mm:ss"
 	});
-	$("#datetimepickerStart").on("dp.change", function (e) {
+	$(id + ' #datetimepickerStart').on("dp.change", function (e) {
 		$('#datetimepickerEnd').data("DateTimePicker").minDate(e.date);
 	});
-	$("#datetimepickerEnd").on("dp.change", function (e) {
+	$(id + ' #datetimepickerEnd').on("dp.change", function (e) {
 		$('#datetimepickerStart').data("DateTimePicker").maxDate(e.date);
 	});
 
 	// Dropdown 
-	$(".dropdown-menu li a").click(function(){
+	$(id + ' .dropdown-menu li a').click(function(){
 		$(this).parents('.dropdown').find('.dropdown-toggle').html($(this).text()+'<span class="caret"></span>');
 	});
 }
@@ -330,6 +326,7 @@ function fillTable(entries){
 }
 
 function setupDataExportModal(){
+	setupModal('#dataExport');
 	setProgressbarMain(-1);
 	setProgressbarSub(-1);
 	$("#dataExport .modalStat").text("(" + entriesTable.getFilteredDataCol(0).length + " sources)");
@@ -342,31 +339,67 @@ function setupDataExportModal(){
 }
 
 function setupAggrExportModal(){
+	setupModal('#aggrExport');
+	setProgressbarMain(-1);
+	setProgressbarSub(-1);
 	$("#aggrExport .modalStat").text("(" + entriesTable.getFilteredDataCol(0).length + " sources)");
 
-	var i = columns["aggregation"];
-	var allAggrs = entriesTable.getFilteredDataCol(i);
-	console.log(allAggrs);
+	var aggrCol = columns["aggregation"];
+	var allAggrs = entriesTable.getFilteredDataCol(aggrCol);
+	var IDs = entriesTable.getFilteredDataCol(0);
+	//console.log(allAggrs);
 
-	var aggregates = {};
+	AggrsMap = {};
+	var retentions = {};
 
-	allAggrs.forEach(function(aggrs){
-		console.log(aggrs);
-		
+	allAggrs.forEach(function(aggrs, i){
+		aggrs = JSON.parse(aggrs);
+		aggrs.forEach(function(aggr){
+			//console.log(JSON.stringify(aggr));
+			if(!AggrsMap.hasOwnProperty(aggr.id)){ // first occurance
+				AggrsMap[aggr.id] = aggr;
+				AggrsMap[aggr.id].sources = new Array(IDs[i]);
+				retentions[aggr.id] = aggr.retention;
+			} else {
+				AggrsMap[aggr.id].sources.push(IDs[i]);
+				if(retentions[aggr.id] != aggr.retention){
+					// same aggregation but different retentions
+					retentions[aggr.id] = "multiple durations";
+				}
+			}
+		});
+	});
+	//console.warn(JSON.stringify(retentions));
+
+	var attrs = [];
+	$.each(AGGR_ATTRIBUTES, function(key, value){
+		attrs.push(key);					
 	});
 
-	console.log(JSON.stringify(aggregates));
-/*
-	// for now assume that the same aggr is used for all sources (only 1 aggr)
-	var aggrs = allAggrs[0];
-	aggrs = JSON.parse(aggrs);
-	var id = aggrs[0].id;
-	var interval = aggrs[0].interval;
-	var retention = aggrs[0].retention;
-	var aggregates = aggrs[0].aggregates;
-	console.log(aggregates);
-	$("#aggrExport #sampleAttributes").text("Interval: " + interval + ", Retention: " + retention + ", Aggregates: " + aggregates.join(', '));
-	*/
+	$("#aggrExport #aggregations").empty();
+	$.each(AggrsMap, function(aggrID, aggr){
+		$("#aggrExport #aggregations").append('\
+			<div id="'+aggrID+'" class="panel panel-primary">\
+				<div class="panel-heading"><input class="checkboxPanel" type="checkbox" checked />\
+				<em>'+aggr.aggregates.join(", ")+'</em> every <em>'+aggr.interval+'</em>. Retention: <em>'+retentions[aggrID]+'</em>\
+				<span class="badge pull-right">'+aggr.sources.length+' sources</span></div>\
+				<div class="panel-body">Selected attributes:\
+				<input class="attributes form-control" type="text" value="'+attrs.join(",")+','+aggr.aggregates.join(",")+'" /></div>\
+			</div>\
+		');
+		$('#'+aggrID+' .checkboxPanel').click(function() {
+			if($('#'+aggrID+' .checkboxPanel').is(':checked')){
+				//$('#'+aggrID+' .checkboxPanel').prop('checked', false);
+				$('#'+aggrID).removeClass('panel-default');
+				$('#'+aggrID).addClass('panel-primary');
+			} else {
+				//$('#'+aggrID+' .checkboxPanel').prop('checked', true);
+				$('#'+aggrID).removeClass('panel-primary');
+				$('#'+aggrID).addClass('panel-default');
+			}
+		});
+	});
+	//console.log(JSON.stringify(AggrsMap));
 }
 
 function abortExport(){
@@ -415,14 +448,21 @@ function exportData(){
 	var end = $('#datetimepickerEnd input').val();
 	timeFormat = $('#dataExport #timeFormat').text(); // if local var, it passes the button to recursive function!
 
-	csvData = [];
+	csvData = {};
 	totalIDs = entriesTable.getFilteredDataCol(0).length;
-	dfd = $.Deferred();
+	Dfd = $.Deferred();
 	processItems(IDs, start, end).then(function(){
 		// all done
 		console.log("all done");
 		//console.log(csvData);
-		saveCSV(csvData);
+		progressbarActive(true);
+		let zip = ($('#dataExport #exportType').text()=="One file per source (zipped)")? true : false;
+		saveCSV(csvData, zip, function() {
+			$("#dataExport .export-btn").removeClass('hidden');
+			$("#dataExport .abort-btn").addClass('hidden');
+			$('#dataExport .close-btn').prop('disabled', false);
+			progressbarActive(false);
+		});
 	}, function(reason){ // rejected / aborted
 		console.warn(reason);
 		$("#dataExport .export-btn").removeClass('hidden');
@@ -430,6 +470,231 @@ function exportData(){
 		$('#dataExport .close-btn').prop('disabled', false);
 	});
 }
+
+function exportAggr(){
+	abortExporting = false;
+	var valid = true;
+	var totalChecked = 0;
+
+	//console.log(JSON.stringify(AggrsMap));
+	var items = []; // one element per source/aggregation
+	
+	$.each(AggrsMap, function(aggrID, aggr){
+
+		let checked = $('#'+aggrID+' .checkboxPanel').is(':checked');
+		if(checked){
+			totalChecked++;
+			let selectedAttributes = $('#'+aggrID+' .attributes').val().replace(/ /g,'').split(','); // remove whitespaces and split
+
+			if(selectedAttributes.length<1 || selectedAttributes[0]==''){
+				bootstrapDialog({
+					type: BootstrapDialog.TYPE_DANGER,
+					closable: true,
+					title: 'No Attributes',
+					message: 'No attributes specified for an aggregation.',
+					buttons: [{
+						label: 'Close',
+						action: function(dialog){
+							dialog.close();
+						}
+					}]
+				});
+				valid = false;
+				return;
+			}
+
+			var attrs = [];
+			$.each(AGGR_ATTRIBUTES, function(key, value){
+				attrs.push(key);					
+			});
+			
+			senmlKeys = [];
+			selectedAttributes.forEach(function(attr){
+				if($.inArray(attr, aggr.aggregates)==-1 && $.inArray(attr, attrs)==-1){
+					bootstrapDialog({
+						type: BootstrapDialog.TYPE_DANGER,
+						closable: true,
+						title: 'Invalid Attribute',
+						message: attr + ' is not a valid attribute.',
+						buttons: [{
+							label: 'Close',
+							action: function(dialog){
+								dialog.close();
+							}
+						}]
+					});
+					valid = false;
+					return;
+				}
+				if(AGGR_ATTRIBUTES.hasOwnProperty(attr)){
+					senmlKeys.push(AGGR_ATTRIBUTES[attr]);
+				} else {
+					senmlKeys.push(attr);
+				}
+			});
+
+			aggr.sources.forEach(function(sourceID){
+				items.push({
+					'aggrID': aggrID,
+					'sourceID': sourceID,
+					'attributes': senmlKeys
+				});
+			});
+		}
+    });
+	if(!valid || totalChecked==0){
+		return; 
+	}
+
+	$("#aggrExport .export-btn").addClass('hidden');
+	$("#aggrExport .abort-btn").removeClass('hidden');
+	$('#aggrExport .close-btn').prop('disabled', true);
+
+	var start = $('#datetimepickerStart input').val();
+	var end = $('#datetimepickerEnd input').val();
+	timeFormat = $('#aggrExport #timeFormat').text(); // if local var, it passes the button to recursive function!
+
+	CsvData = {};
+	TotalItems = items.length;
+	Dfd = $.Deferred();
+	processAggrs(items, start, end).then(function(){
+		// all done
+		console.log("all done");
+		//console.log(csvData);
+		progressbarActive(true);
+
+		if($('#aggrExport #exportType').text()=="One file per aggregation (zipped)"){
+			let merged = {};
+			$.each(CsvData, function(key, value){
+				aggrID = key.split("_", 1)[0];
+				if(!merged.hasOwnProperty(aggrID)){
+					merged[aggrID] = value;
+				} else {
+					//merged[aggrID].push(value);
+					$.merge(merged[aggrID], value);
+				}
+			});
+			CsvData = merged;
+		}
+		
+		saveCSV(CsvData, true, function() {
+			$("#aggrExport .export-btn").removeClass('hidden');
+			$("#aggrExport .abort-btn").addClass('hidden');
+			$('#aggrExport .close-btn').prop('disabled', false);
+			progressbarActive(false);
+		});
+	}, function(reason){ // rejected / aborted
+		console.warn(reason);
+		$("#aggrExport .export-btn").removeClass('hidden');
+		$("#aggrExport .abort-btn").addClass('hidden');
+		$('#aggrExport .close-btn').prop('disabled', false);
+	});
+}
+
+
+// Recursively query aggr data
+function processAggrs(items, start, end) {
+	//console.log('called processItem');
+
+	setProgressbarMain(1 - items.length/TotalItems);
+
+	if(items.length == 0){
+		// Done with all items
+		Dfd.resolve();
+		console.log("finishing up");
+		return;
+	}
+	item = items.shift(); // pop front
+
+	var pageData = [];
+	// Recursively query all pages starting from page
+	function getAggrPages(page){
+		if(abortExporting){
+			Dfd.reject("aborted");
+			return;
+		}
+
+		var per_page = 100;
+		let url = hdsURL + "/aggr/" + item.aggrID + "/" + item.sourceID + "?start=" + start + "Z&end=" + end + "Z&per_page=" + per_page + "&page=" + page
+		console.log(url);
+
+		$.ajax({
+			type: "GET",
+			headers: {'X-Auth-Token': localStorage.getItem("ticket")},
+			url: url,
+			dataType:"json",
+			success: function(res) {
+				//console.log(res);
+				setProgressbarSub((per_page*page)/res.total)
+
+				if(res.total != 0){
+					for (var i = 0; i < res.data.e.length; i++) {
+						let csvRow = new Array(item.attributes.length);
+						$.each(res.data.e[i], function(key, value){
+							if(key=="ts" || key=="te"){
+								if(timeFormat=="ISO 8601 Timestamp"){
+									value = new Date(value*1000).toISOString();
+								}
+							}	
+							csvRow[$.inArray(key, item.attributes)] = value;
+						});
+						pageData.push(csvRow);
+					}		
+					//console.log(pageData);
+				}
+
+				if(res.total>per_page*page){
+					// Process next page
+					getDataPages(page+1);
+				} else {
+					//let obj = {};
+					//obj[item.aggrID + '_' + item.sourceID] = pageData;
+					//CsvData.push(obj);
+					CsvData[item.aggrID + '_' + item.sourceID] = pageData;
+					// Process next item
+					processAggrs(items, start, end);
+				}
+			},
+			error: function(e) {
+				if (e.status == 401){
+					error_401();
+				} else if (e.responseText != "") {
+					let err = jQuery.parseJSON(e.responseText);
+					bootstrapDialog({
+						type: BootstrapDialog.TYPE_WARNING,
+						closable: true,
+						title: 'Error ' + e.status + ': ' + e.statusText,
+						message: err.message,
+						buttons: [{
+							label: 'Close',
+							action: function(dialog){
+								dialog.close();
+							}
+						}]
+					});
+				} else {
+					bootstrapDialog({
+						type: BootstrapDialog.TYPE_DANGER,
+						closable: true,
+						title: 'Error ' + e.status + ': ' + e.statusText,
+						message: 'Request could not be initialized.',
+						buttons: [{
+							label: 'Close',
+							action: function(dialog){
+								dialog.close();
+							}
+						}]
+					});
+				}	
+				Dfd.reject(e.status);							
+			}
+		}); 
+	}
+	// Start with first page and call recursively till reaching last
+	getAggrPages(1); 
+	return Dfd.promise();
+}
+
 
 function progressbarActive(state){
 	if(state==true){
@@ -461,7 +726,7 @@ function processItems(IDs, start, end) {
 
 	if(IDs.length == 0){
 		// Done with all items
-		dfd.resolve();
+		Dfd.resolve();
 		console.log("finishing up");
 		return;
 	}
@@ -471,7 +736,7 @@ function processItems(IDs, start, end) {
 	// Recursively query all pages starting from page
 	function getDataPages(page){
 		if(abortExporting){
-			dfd.reject("aborted");
+			Dfd.reject("aborted");
 			return;
 		}
 
@@ -507,9 +772,10 @@ function processItems(IDs, start, end) {
 					// Process next page
 					getDataPages(page+1);
 				} else {
-					var obj = {};
-					obj[id] = pageData;
-					csvData.push(obj);
+					//var obj = {};
+					//obj[id] = pageData;
+					//csvData.push(obj);
+					csvData[id] = pageData
 					// Process next item
 					processItems(IDs, start, end);
 				}
@@ -545,63 +811,46 @@ function processItems(IDs, start, end) {
 						}]
 					});
 				}	
-				dfd.reject(e.status);							
+				Dfd.reject(e.status);							
 			}
 		}); 
 	}
 	// Start with first page and call recursively till reaching last
 	getDataPages(1); 
-	return dfd.promise();
+	return Dfd.promise();
 }
 
 
-function saveCSV(data){
-	progressbarActive(true);
-
-	var mode = $('#dataExport #exportType').text();
+function saveCSV(data, zip, callback){
 	
-	if (mode == "All sources in a single file") {
-
-		var csvContent = "";
-		for (var i = 0; i < data.length; i++) {
-
-			$.each(data[i], function(key, value){
-				value.forEach(function(infoArray, index){
-					var dataString = infoArray.join(",");
-					csvContent += index < value.length ? dataString+ "\n" : dataString;
-				}); 
-			});
-		}
-		var content = new Blob([csvContent], {type: "text/csv;charset=utf-8"});
-		filesaver = saveAs(content, "export.csv");
-
-	} else {
-
+	if (zip) {
 		var zip = new JSZip();
-		for (var i = 0; i < data.length; i++) {
-
-			$.each(data[i], function(key, value){
-				var csvContentSingle= "";
-				//if(value.length != 0){ // Store empty CSV?
-					value.forEach(function(infoArray, index){
-						var dataString = infoArray.join(",");
-						csvContentSingle += index < value.length ? dataString+ "\n" : dataString;
-					}); 
-					zip.file(key+".csv", csvContentSingle);
-				//}
-			});
-		}
+		$.each(data, function(key, value){
+			var csvContentSingle= "";
+			value.forEach(function(infoArray, index){
+				var dataString = infoArray.join(",");
+				csvContentSingle += index < value.length ? dataString+ "\n" : dataString;
+			}); 
+			//var filename = key.replace(/[^A-Za-z0-9._-]/g,'_');
+			var filename = key;
+			zip.file(filename+".csv", csvContentSingle);
+		});
 		var content = zip.generate({type:"blob"});
 		filesaver = saveAs(content, "export.zip");
+	} else {
+		var csvContent = "";
+		$.each(data, function(key, value){
+			value.forEach(function(infoArray, index){
+				var dataString = infoArray.join(",");
+				csvContent += index < value.length ? dataString+ "\n" : dataString;
+			}); 
+		});
+		var content = new Blob([csvContent], {type: "text/csv;charset=utf-8"});
+		filesaver = saveAs(content, "export.csv");
 	}
 
 	// FileSaver callback
-	filesaver.onwriteend = function() {
-		$("#dataExport .export-btn").removeClass('hidden');
-		$("#dataExport .abort-btn").addClass('hidden');
-		$('#dataExport .close-btn').prop('disabled', false);
-		progressbarActive(false);
-	};
+	filesaver.onwriteend = callback;
 }
 
 // Prevents multipe error popups

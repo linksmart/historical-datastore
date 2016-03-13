@@ -64,3 +64,8 @@ td {
 .cols_checklist_slc_item{ text-decoration: line-through; color:#A7A7A7 !important;}
 ul.cols_checklist input { display: none; }
 li.cols_checklist_item { color: black; font-size: larger; }
+
+
+.checkboxPanel{
+	margin-right: 5px !important;
+}
