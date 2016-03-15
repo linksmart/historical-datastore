@@ -46,34 +46,52 @@ func NewReadableAPI(registryClient registry.Client, storage Storage) *ReadableAP
 	}
 }
 
-func ParseQueryParameters(form url.Values) Query {
+func ParseQueryParameters(form url.Values) (Query, error) {
 	q := Query{}
 	var err error
 
-	// if erroneous time specified for start use 'zero time'
-	q.Start, err = time.Parse(time.RFC3339, form.Get(common.ParamStart))
-	if err != nil {
+	// start time
+	if form.Get(common.ParamStart) == "" {
+		// Open-ended query
 		q.Start = time.Time{}
+	} else {
+		q.Start, err = time.Parse(time.RFC3339, form.Get(common.ParamStart))
+		if err != nil {
+			return Query{}, fmt.Errorf("Error parsing start argument: %v", err.Error())
+		}
 	}
 
-	// if erroneous time specified for end use 'now'
-	q.End, err = time.Parse(time.RFC3339, form.Get(common.ParamEnd))
-	if err != nil {
-		q.End = time.Time{}
+	// end time
+	if form.Get(common.ParamEnd) == "" {
+		// Open-ended query
+		q.End = time.Now().UTC()
+	} else {
+		q.End, err = time.Parse(time.RFC3339, form.Get(common.ParamEnd))
+		if err != nil {
+			return Query{}, fmt.Errorf("Error parsing end argument: %v", err.Error())
+		}
 	}
 
-	// limit shall be int
-	q.Limit, err = strconv.Atoi(form.Get(common.ParamLimit))
-	if err != nil {
+	// limit
+	if form.Get(common.ParamLimit) == "" {
 		q.Limit = -1
+	} else {
+		q.Limit, err = strconv.Atoi(form.Get(common.ParamLimit))
+		if err != nil {
+			return Query{}, fmt.Errorf("Error parsing limit argument: %v", err.Error())
+		}
 	}
 
-	// sort shall be asc or desc
+	// sort
 	q.Sort = form.Get(common.ParamSort)
-	if q.Sort == "" || q.Sort != common.ASC {
+	if q.Sort == "" {
+		// default sorting order
 		q.Sort = common.DESC
+	} else if q.Sort != common.ASC && q.Sort != common.DESC {
+		return Query{}, fmt.Errorf("Invalid sort argument: %v", q.Sort)
 	}
-	return q
+
+	return q, nil
 }
 
 // Submit is a handler for submitting a new data point: not supported by Readable API
@@ -214,7 +232,11 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse query
-	q := ParseQueryParameters(r.Form)
+	q, err := ParseQueryParameters(r.Form)
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
+	}
 
 	err = common.ValidatePerItemLimit(q.Limit, perPage, len(sources))
 	if err != nil {

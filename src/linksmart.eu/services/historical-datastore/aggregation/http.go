@@ -170,7 +170,11 @@ OUTERLOOP:
 	}
 
 	// Parse query
-	q := data.ParseQueryParameters(r.Form)
+	q, err := data.ParseQueryParameters(r.Form)
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
+	}
 
 	err = common.ValidatePerItemLimit(q.Limit, perPage, len(sources))
 	if err != nil {
