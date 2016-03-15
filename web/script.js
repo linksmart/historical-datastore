@@ -90,6 +90,7 @@ function setupModal(id){
 	});
 	$(id + ' #datetimepickerEnd').datetimepicker({
 		useCurrent: false, //Important! See issue #1075
+		showTodayButton: true,
 		format: "YYYY-MM-DDTHH:mm:ss"
 	});
 	$(id + ' #datetimepickerStart').on("dp.change", function (e) {
@@ -329,7 +330,7 @@ function setupDataExportModal(){
 	setupModal('#dataExport');
 	setProgressbarMain(-1);
 	setProgressbarSub(-1);
-	$("#dataExport .modalStat").text("(" + entriesTable.getFilteredDataCol(0).length + " sources)");
+	$("#dataExport .modalStat").text(entriesTable.getFilteredDataCol(0).length + " sources");
 
 	var attrs = [];
 	$.each(dataAttributes, function(key, value){
@@ -342,7 +343,7 @@ function setupAggrExportModal(){
 	setupModal('#aggrExport');
 	setProgressbarMain(-1);
 	setProgressbarSub(-1);
-	$("#aggrExport .modalStat").text("(" + entriesTable.getFilteredDataCol(0).length + " sources)");
+	$("#aggrExport .modalStat").text(entriesTable.getFilteredDataCol(0).length + " sources");
 
 	var aggrCol = columns["aggregation"];
 	var allAggrs = entriesTable.getFilteredDataCol(aggrCol);
@@ -444,8 +445,10 @@ function exportData(){
 
 	var IDs = entriesTable.getFilteredDataCol(0);
 	console.log(IDs);
-	var start = $('#datetimepickerStart input').val();
-	var end = $('#datetimepickerEnd input').val();
+	var start = $('#dataExport #datetimepickerStart input').val();
+	var end = $('#dataExport #datetimepickerEnd input').val();
+	start = (start==""?"":start+"Z");
+	end = (end==""?"":end+"Z");
 	timeFormat = $('#dataExport #timeFormat').text(); // if local var, it passes the button to recursive function!
 
 	csvData = {};
@@ -550,8 +553,10 @@ function exportAggr(){
 	$("#aggrExport .abort-btn").removeClass('hidden');
 	$('#aggrExport .close-btn').prop('disabled', true);
 
-	var start = $('#datetimepickerStart input').val();
-	var end = $('#datetimepickerEnd input').val();
+	var start = $('#aggrExport #datetimepickerStart input').val();
+	var end = $('#aggrExport #datetimepickerEnd input').val();
+	start = (start==""?"":start+"Z");
+	end = (end==""?"":end+"Z");
 	timeFormat = $('#aggrExport #timeFormat').text(); // if local var, it passes the button to recursive function!
 
 	CsvData = {};
@@ -615,7 +620,7 @@ function processAggrs(items, start, end) {
 		}
 
 		var per_page = 100;
-		let url = hdsURL + "/aggr/" + item.aggrID + "/" + item.sourceID + "?start=" + start + "Z&end=" + end + "Z&per_page=" + per_page + "&page=" + page
+		let url = hdsURL + "/aggr/" + item.aggrID + "/" + item.sourceID + "?start=" + start + "&end=" + end + "&per_page=" + per_page + "&page=" + page;
 		console.log(url);
 
 		$.ajax({
@@ -645,7 +650,7 @@ function processAggrs(items, start, end) {
 
 				if(res.total>per_page*page){
 					// Process next page
-					getDataPages(page+1);
+					getAggrPages(page+1);
 				} else {
 					//let obj = {};
 					//obj[item.aggrID + '_' + item.sourceID] = pageData;
@@ -741,12 +746,13 @@ function processItems(IDs, start, end) {
 		}
 
 		var per_page = 100;
-		console.log("/data/" + id + "?start=" + start + "Z&end=" + end + "Z&per_page=" + per_page + "&page=" + page);
+		let url = "/data/" + id + "?start=" + start + "&end=" + end + "&per_page=" + per_page + "&page=" + page;
+		console.log(url);
 
 		$.ajax({
 			type: "GET",
 			headers: {'X-Auth-Token': localStorage.getItem("ticket")},
-			url: hdsURL + "/data/" + id + "?start=" + start + "Z&end=" + end + "Z&per_page=" + per_page + "&page=" + page,
+			url: hdsURL + url,
 			dataType:"json",
 			success: function(res) {
 				//console.log(res);

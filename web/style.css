@@ -69,3 +69,10 @@ li.cols_checklist_item { color: black; font-size: larger; }
 .checkboxPanel{
 	margin-right: 5px !important;
 }
+
+/* Make transition effect faster */
+.progress-bar {
+	-webkit-transition: width .1s linear !important;
+	-o-transition: width .1s linear !important;
+	transition: width .1s linear !important;
+}
