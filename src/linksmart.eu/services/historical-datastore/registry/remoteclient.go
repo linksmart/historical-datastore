@@ -31,15 +31,6 @@ func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) *RemoteClie
 	}
 }
 
-func StripReadOnly(ds DataSource) *DataSource {
-	ds.ID = ""
-	ds.URL = ""
-	ds.Data = ""
-	ds.Resource = ""
-	ds.Type = ""
-	return &ds
-}
-
 func (c *RemoteClient) Index(page int, perPage int) (*Registry, error) {
 	res, err := catalog.HTTPRequest("GET",
 		fmt.Sprintf("%v?%v=%v&%v=%v", c.serverEndpoint, common.ParamPage, page, common.ParamPerPage, perPage),
@@ -108,7 +99,7 @@ func (c *RemoteClient) Get(id string) (*DataSource, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode == http.StatusNotFound {
-		return nil, ErrorNotFound
+		return nil, ErrNotFound
 	} else if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%v", res.StatusCode)
 	}
@@ -146,7 +137,7 @@ func (c *RemoteClient) Update(id string, d *DataSource) error {
 	}
 
 	if res.StatusCode == http.StatusNotFound {
-		return ErrorNotFound
+		return ErrNotFound
 	} else if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("%v: %v", res.StatusCode, string(body))
 	}
@@ -165,7 +156,7 @@ func (c *RemoteClient) Delete(id string) error {
 	}
 
 	if res.StatusCode == http.StatusNotFound {
-		return ErrorNotFound
+		return ErrNotFound
 	} else if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("%v", res.StatusCode)
 	}
@@ -185,7 +176,7 @@ func (c *RemoteClient) FilterOne(path, op, value string) (*DataSource, error) {
 	}
 
 	if res.StatusCode == http.StatusNotFound {
-		return nil, ErrorNotFound
+		return nil, ErrNotFound
 	} else if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%v", res.StatusCode)
 	}

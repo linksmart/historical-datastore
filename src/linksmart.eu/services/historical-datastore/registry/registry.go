@@ -2,12 +2,11 @@
 package registry
 
 import (
-	"errors"
 	"fmt"
+	"hash/crc32"
 	"net/url"
-	"regexp"
+	"sort"
 	"strings"
-	//"time"
 
 	"linksmart.eu/services/historical-datastore/common"
 )
@@ -68,6 +67,14 @@ type Aggregation struct {
 	Retention string `json:"retention"`
 }
 
+// Generate ID and Data attributes for a given aggregation
+// ID is the checksum of aggregation interval and all its aggregates
+func (a *Aggregation) Make(dsID string) {
+	sort.Strings(a.Aggregates)
+	a.ID = fmt.Sprintf("%x", crc32.ChecksumIEEE([]byte(a.Interval+strings.Join(a.Aggregates, ""))))
+	a.Data = fmt.Sprintf("%s/%s/%s", common.AggrAPILoc, a.ID, dsID)
+}
+
 // Storage is an interface of a Registry storage backend
 type Storage interface {
 	// CRUD
@@ -103,122 +110,4 @@ type Client interface {
 
 	// Returns a slice of DataSources given: path, operation, value, page, perPage
 	FindDataSources(path, op, value string, page, perPage int) ([]DataSource, int, error)
-}
-
-// Validation /////////////////////////////////////////////////////////////////////
-
-const (
-	CREATE uint8 = iota
-	UPDATE
-)
-
-// Validate the DataSource items:
-// id: r-o
-// url: r-o
-// data: r-o
-// resource: mandatory, fixed, valid
-// meta: n/a
-// retention: valid
-// aggregation: tba
-// type: mandatory, fixed, valid
-// format: mandatory
-func validateDataSource(ds *DataSource, context uint8) error {
-	var _errors []string
-	var readOnlyKeys, mandatoryKeys, invalidKeys []string
-
-	// VALIDATE ID `json:"id"` /////////////////////////////////////////////////////
-	// system-generated (read-only)
-	if ds.ID != "" {
-		readOnlyKeys = append(readOnlyKeys, "id")
-	}
-
-	// VALIDATE URL `json:"url"` //////////////////////////////////////////////////////
-	// system-generated (read-only)
-	if ds.URL != "" {
-		readOnlyKeys = append(readOnlyKeys, "url")
-	}
-
-	// VALIDATE DATA `json:"data"` /////////////////////////////////////////////////////
-	// system-generated (read-only)
-	if ds.Data != "" {
-		readOnlyKeys = append(readOnlyKeys, "data")
-	}
-
-	// VALIDATE RESOURCE `json:"resource"` /////////////////////////////////////////////////
-	// mandatory for creation
-	if ds.Resource == "" && context == CREATE {
-		mandatoryKeys = append(mandatoryKeys, "resource")
-	}
-	// fixed (read-only once created)
-	if ds.Resource != "" && context == UPDATE {
-		readOnlyKeys = append(readOnlyKeys, "resource")
-	}
-	// valid
-	if ds.Resource != "" {
-		_, err := url.Parse(ds.Resource)
-		if err != nil {
-			invalidKeys = append(invalidKeys, "resource")
-		}
-	}
-
-	// VALIDATE META `json:"meta"` /////////////////////////////////////////////////////
-
-	// VALIDATE RETENTION `json:"retention"` ////////////////////////////////////////////////
-	// valid
-	if ds.Retention != "" {
-		// Create regexp: ^[0-9]*(h|d|w|m)$
-		retPeriods := strings.Join(common.RetentionPeriods(), "|")
-		re := regexp.MustCompile("^[0-9]*(" + retPeriods + ")$")
-		if !re.MatchString(ds.Retention) {
-			invalidKeys = append(invalidKeys, fmt.Sprintf("retention %s", re.String()))
-		}
-	}
-
-	// VALIDATE `json:"aggregation"` //////////////////////////////////////////////
-	// Todo: Validate ds.Aggregation
-	// common.SupportedAggregates()
-	// only if format=float
-
-	// VALIDATE TYPE `json:"type"` /////////////////////////////////////////////////////
-	// mandatory for creation
-	if ds.Type == "" && context == CREATE {
-		mandatoryKeys = append(mandatoryKeys, "type")
-	}
-	// fixed (read-only once created)
-	if ds.Type != "" && context == UPDATE {
-		readOnlyKeys = append(readOnlyKeys, "type")
-	}
-	// valid
-	if ds.Type != "" {
-		if !common.SupportedType(ds.Type) {
-			invalidKeys = append(invalidKeys, fmt.Sprintf("type<%s>",
-				strings.Join(common.SupportedTypes(), ",")))
-		}
-	}
-
-	// VALIDATE FORMAT `json:"format"` ///////////////////////////////////////////////////
-	// mandatory for creation
-	if ds.Format == "" && context == CREATE {
-		mandatoryKeys = append(mandatoryKeys, "format")
-	}
-
-	///////////////////////////////////////////////////////////////////////////////
-	if len(readOnlyKeys) > 0 {
-		_errors = append(_errors, "Ambitious assignment to read-only attribute(s): "+
-			strings.Join(readOnlyKeys, ", "))
-	}
-	if len(mandatoryKeys) > 0 {
-		_errors = append(_errors, "Missing mandatory value(s) of: "+
-			strings.Join(mandatoryKeys, ", "))
-	}
-	if len(invalidKeys) > 0 {
-		_errors = append(_errors, "Invalid value(s) for: "+
-			strings.Join(invalidKeys, ", "))
-	}
-
-	///// return if any errors
-	if len(_errors) > 0 {
-		return errors.New(strings.Join(_errors, ". "))
-	}
-	return nil
 }

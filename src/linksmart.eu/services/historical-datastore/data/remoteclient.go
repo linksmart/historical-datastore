@@ -54,7 +54,7 @@ func (c *RemoteClient) Submit(senmlMsg *senml.Message, id ...string) error {
 	defer res.Body.Close()
 
 	if res.StatusCode == http.StatusNotFound {
-		return registry.ErrorNotFound
+		return registry.ErrNotFound
 	} else if res.StatusCode != http.StatusAccepted {
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {

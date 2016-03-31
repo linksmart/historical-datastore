@@ -2,8 +2,10 @@ package registry
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"linksmart.eu/services/historical-datastore/common"
@@ -18,6 +20,15 @@ const (
 //	FOpSuffix   = "suffix"
 //	FOpContains = "contains"
 )
+
+var (
+	ErrNotFound = errors.New("Not Found")
+	ErrConflict = errors.New("Conflict")
+)
+
+func ErrType(err, e error) bool {
+	return strings.Contains(err.Error(), e.Error())
+}
 
 // Read-only HTTP Registry API
 type ReadableAPI struct {
@@ -99,16 +110,13 @@ func (regAPI *WriteableAPI) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate the unmarshalled DataSource
-	err = validateDataSource(&ds, CREATE)
-	if err != nil {
-		common.ErrorResponse(http.StatusConflict, err.Error(), w)
-		return
-	}
-
 	addedDS, err := regAPI.storage.add(ds)
 	if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, "Error storing the datasource: "+err.Error(), w)
+		if ErrType(err, ErrConflict) {
+			common.ErrorResponse(http.StatusConflict, err.Error(), w)
+		} else {
+			common.ErrorResponse(http.StatusInternalServerError, "Error storing data source: "+err.Error(), w)
+		}
 		return
 	}
 
@@ -128,11 +136,12 @@ func (regAPI *ReadableAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 	id := params["id"]
 
 	ds, err := regAPI.storage.get(id)
-	if err == ErrorNotFound {
-		common.ErrorResponse(http.StatusNotFound, err.Error(), w)
-		return
-	} else if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, "Error requesting registry: "+err.Error(), w)
+	if err != nil {
+		if ErrType(err, ErrNotFound) {
+			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
+		} else {
+			common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data source: "+err.Error(), w)
+		}
 		return
 	}
 
@@ -165,19 +174,15 @@ func (regAPI *WriteableAPI) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate the unmarshalled DataSource
-	err = validateDataSource(&ds, UPDATE)
-	if err != nil {
-		common.ErrorResponse(http.StatusConflict, err.Error(), w)
-		return
-	}
-
 	_, err = regAPI.storage.update(id, ds)
-	if err == ErrorNotFound {
-		common.ErrorResponse(http.StatusNotFound, err.Error(), w)
-		return
-	} else if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, err.Error(), w)
+	if err != nil {
+		if ErrType(err, ErrConflict) {
+			common.ErrorResponse(http.StatusConflict, err.Error(), w)
+		} else if ErrType(err, ErrNotFound) {
+			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
+		} else {
+			common.ErrorResponse(http.StatusInternalServerError, "Error updating data source: "+err.Error(), w)
+		}
 		return
 	}
 
@@ -197,11 +202,12 @@ func (regAPI *WriteableAPI) Delete(w http.ResponseWriter, r *http.Request) {
 	id := params["id"]
 
 	err := regAPI.storage.delete(id)
-	if err == ErrorNotFound {
-		common.ErrorResponse(http.StatusNotFound, err.Error(), w)
-		return
-	} else if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, err.Error(), w)
+	if err != nil {
+		if ErrType(err, ErrNotFound) {
+			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
+		} else {
+			common.ErrorResponse(http.StatusInternalServerError, "Error deleting data source: "+err.Error(), w)
+		}
 		return
 	}
 
