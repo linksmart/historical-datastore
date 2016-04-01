@@ -83,7 +83,11 @@ func TestLevelDBUpdate(t *testing.T) {
 	defer clean()
 	defer closeDB()
 
-	ID := generateDummyData(1, NewLocalClient(storage))[0]
+	IDs, err := generateDummyData(1, NewLocalClient(storage))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	ID := IDs[0]
 
 	ds, err := storage.get(ID)
 	if err != nil {
@@ -118,7 +122,11 @@ func TestLevelDBDelete(t *testing.T) {
 	defer clean()
 	defer closeDB()
 
-	ID := generateDummyData(1, NewLocalClient(storage))[0]
+	IDs, err := generateDummyData(1, NewLocalClient(storage))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	ID := IDs[0]
 
 	err = storage.delete(ID)
 	if err != nil {
@@ -205,7 +213,11 @@ func TestLevelDBPathFilterOne(t *testing.T) {
 	defer clean()
 	defer closeDB()
 
-	ID := generateDummyData(10, NewLocalClient(storage))[0]
+	IDs, err := generateDummyData(10, NewLocalClient(storage))
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	ID := IDs[0]
 
 	targetDS, _ := storage.get(ID)
 	matchedDS, err := storage.pathFilterOne("id", "equals", targetDS.ID)
@@ -229,7 +241,10 @@ func TestLevelDBPathFilter(t *testing.T) {
 	defer clean()
 	defer closeDB()
 
-	IDs := generateDummyData(10, NewLocalClient(storage))
+	IDs, err := generateDummyData(10, NewLocalClient(storage))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	expected := 3
 
 	// Modify some of them

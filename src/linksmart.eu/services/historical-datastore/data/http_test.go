@@ -14,45 +14,18 @@ import (
 
 type dummyDataStorage struct{}
 
-// data is a map where keys are data source ids
 func (s *dummyDataStorage) Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
 	return nil
 }
-
-// Retrieves last data point of every data source
-func (s *dummyDataStorage) GetLast(ds ...registry.DataSource) (DataSet, error) {
-	return DataSet{}, nil
-}
-
 func (s *dummyDataStorage) Query(q Query, page, perPage int, ds ...registry.DataSource) (DataSet, int, error) {
 	return DataSet{}, 0, nil
 }
-
-func (s *dummyDataStorage) ntfCreated(ds registry.DataSource, callback chan error) {}
+func (s *dummyDataStorage) ntfCreated(ds registry.DataSource, callback chan error) {
+}
 func (s *dummyDataStorage) ntfUpdated(old registry.DataSource, new registry.DataSource, callback chan error) {
 }
-func (s *dummyDataStorage) ntfDeleted(ds registry.DataSource, callback chan error) {}
-
-// func setupWritableAPI() *mux.Router {
-// 	ntSndRegCh := make(chan common.Notification)
-// 	ntRcvDataCh := make(chan common.Notification)
-// 	// nrAggrCh := make(chan int)
-// 	common.NewNotifier(ntSndRegCh, ntRcvDataCh)
-// 	u, _ := url.Parse("http://localhost:8086")
-// 	storageCfg := InfluxStorageConfig{
-// 		URL:      *u,
-// 		Database: "test",
-// 	}
-// 	storage, _ := NewInfluxStorage(&storageCfg)
-// 	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
-
-// 	api := NewWriteableAPI(registryClient, Storage, ntRcvDataCh)
-
-// 	r := mux.NewRouter().StrictSlash(true)
-// 	r.Methods("POST").Path("/data/{id}").HandlerFunc(api.Submit)
-// 	r.Methods("GET").Path("/data/{id}").HandlerFunc(api.Query)
-// 	return r
-// }
+func (s *dummyDataStorage) ntfDeleted(ds registry.DataSource, callback chan error) {
+}
 
 func setupWritableAPI() *mux.Router {
 	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
@@ -153,20 +126,21 @@ func TestHttpQuery(t *testing.T) {
 	ts := httptest.NewServer(setupWritableAPI())
 	defer ts.Close()
 
-	res, err := http.Get(ts.URL + "/data/12345,67890,1337?limit=3&start=2015-04-24T11:56:51Z&page=1&per_page=10")
+	res, err := http.Get(ts.URL + "/data/12345,67890,1337?limit=3&start=2015-04-24T11:56:51Z&page=1&per_page=12")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := ioutil.ReadAll(res.Body)
+	defer res.Body.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if res.StatusCode != http.StatusOK {
-		t.Errorf("Server response is not %v but %v", http.StatusOK, res.StatusCode)
+		t.Errorf("Server response is not %v but %v. \nResponse body:%s", http.StatusOK, res.StatusCode, string(b))
 	}
 
-	_, err = ioutil.ReadAll(res.Body)
-	defer res.Body.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-	// TODO
-	// t.Error("TODO: check response body")
+	//TODO
+	//t.Error("TODO: check response body")
 }

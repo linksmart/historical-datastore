@@ -11,11 +11,38 @@ import (
 	"linksmart.eu/services/historical-datastore/common"
 )
 
+// Generate dummy data sources
+func generateDummyData(quantity int, c Client) ([]string, error) {
+	rand.Seed(time.Now().UTC().UnixNano())
+	randInt := func(min int, max int) int {
+		return min + rand.Intn(max-min)
+	}
+
+	var IDs []string
+	for i := 1; i <= quantity; i++ {
+		var ds DataSource
+		ds.Resource = fmt.Sprintf("http://example.com/sensor%d", i)
+		ds.Meta = make(map[string]interface{})
+		ds.Meta["SerialNumber"] = randInt(10000, 99999)
+		ds.Retention = fmt.Sprintf("%d%s", randInt(1, 20), []string{"m", "h", "d", "w"}[randInt(0, 3)])
+		//ds.Aggregation TODO
+		ds.Type = []string{"float", "bool", "string"}[randInt(0, 2)]
+		ds.Format = "application/senml+json"
+
+		newDS, err := c.Add(ds)
+		if err != nil {
+			return nil, fmt.Errorf("Error adding dummy: %s", err)
+		}
+		IDs = append(IDs, newDS.ID) // add the generated id
+	}
+
+	return IDs, nil
+}
+
 func dummyListener() chan<- common.Notification {
 	ntChan := make(chan common.Notification)
 	go func() {
-		for {
-			nt := <-ntChan
+		for nt := range ntChan {
 			nt.Callback <- nil
 		}
 	}()
@@ -63,7 +90,11 @@ func TestMemstorageGet(t *testing.T) {
 
 func TestMemstorageUpdate(t *testing.T) {
 	storage := setupMemStorage()
-	ID := generateDummyData(1, NewLocalClient(storage))[0]
+	IDs, err := generateDummyData(1, NewLocalClient(storage))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	ID := IDs[0]
 
 	ds, err := storage.get(ID)
 	if err != nil {
@@ -90,16 +121,21 @@ func TestMemstorageUpdate(t *testing.T) {
 
 func TestMemstorageDelete(t *testing.T) {
 	storage := setupMemStorage()
-	ID := generateDummyData(1, NewLocalClient(storage))[0]
 
-	err := storage.delete(ID)
+	IDs, err := generateDummyData(1, NewLocalClient(storage))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	ID := IDs[0]
+
+	err = storage.delete(ID)
 	if err != nil {
 		t.Error("Unexpected error on delete: %v", err.Error())
 	}
 
 	err = storage.delete(ID)
-	if err != ErrorNotFound {
-		t.Error("The previous call hasn't deleted the Service!")
+	if err == nil {
+		t.Error("The previous call hasn't deleted the data source: %v", err.Error())
 	}
 }
 
@@ -148,7 +184,12 @@ func TestMemstorageGetCount(t *testing.T) {
 
 func TestMemstoragePathFilterOne(t *testing.T) {
 	storage := setupMemStorage()
-	ID := generateDummyData(10, NewLocalClient(storage))[0]
+
+	IDs, err := generateDummyData(10, NewLocalClient(storage))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	ID := IDs[0]
 
 	targetDS, _ := storage.get(ID)
 	matchedDS, err := storage.pathFilterOne("id", "equals", targetDS.ID)
@@ -164,7 +205,11 @@ func TestMemstoragePathFilterOne(t *testing.T) {
 
 func TestMemstoragePathFilter(t *testing.T) {
 	storage := setupMemStorage()
-	IDs := generateDummyData(10, NewLocalClient(storage))
+
+	IDs, err := generateDummyData(10, NewLocalClient(storage))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	expected := 3
 
 	// Modify some of them
@@ -186,30 +231,4 @@ func TestMemstoragePathFilter(t *testing.T) {
 	if total != expected {
 		t.Fatalf("Returned %d matches instead of %d", total, expected)
 	}
-}
-
-// Generate dummy data sources
-func generateDummyData(quantity int, c Client) []string {
-	rand.Seed(time.Now().UTC().UnixNano())
-
-	randInt := func(min int, max int) int {
-		return min + rand.Intn(max-min)
-	}
-
-	var IDs []string
-	for i := 1; i <= quantity; i++ {
-		var ds DataSource
-		ds.Resource = fmt.Sprintf("http://example.com/sensor%d", i)
-		ds.Meta = make(map[string]interface{})
-		ds.Meta["SerialNumber"] = randInt(10000, 99999)
-		ds.Retention = fmt.Sprintf("%d%s", randInt(1, 20), common.RetentionPeriods()[randInt(0, 3)])
-		//ds.Aggregation TODO
-		ds.Type = common.SupportedTypes()[randInt(0, 2)]
-		ds.Format = "application/senml+json"
-
-		newDS, _ := c.Add(ds)
-		IDs = append(IDs, newDS.ID) // add the generated id
-	}
-
-	return IDs
 }

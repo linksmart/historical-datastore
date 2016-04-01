@@ -53,7 +53,7 @@ func TestHttpIndex(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
 	// Create some dummy data
-	totalDummy := 555
+	totalDummy := 55
 	generateDummyData(totalDummy, registryClient)
 
 	ts := httptest.NewServer(setupRouter(regAPI))
@@ -90,7 +90,7 @@ func TestHttpIndex(t *testing.T) {
 
 	// Compare created and returned data sources
 	totalReturnedDS := 0
-	perPage := 100
+	perPage := 10
 	pages := int(math.Ceil(float64(totalDummy) / float64(perPage)))
 	for page := 1; page <= pages; page++ {
 		// Get the specific page
@@ -192,7 +192,7 @@ func TestHttpCreate(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	if res.StatusCode != http.StatusCreated {
-		t.Errorf("Server response is not %v but %v", http.StatusCreated, res.StatusCode)
+		t.Fatalf("Server response is not %v but %v", http.StatusCreated, res.StatusCode)
 	}
 	// Get response's url (including new uuid)
 	url, err := res.Location()
@@ -237,7 +237,12 @@ func TestHttpCreate(t *testing.T) {
 func TestHttpRetrieve(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
-	ID := generateDummyData(1, registryClient)[0]
+	IDs, err := generateDummyData(1, registryClient)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	ID := IDs[0]
+
 	aDataSource, _ := registryClient.Get(ID)
 
 	ts := httptest.NewServer(setupRouter(regAPI))
@@ -267,7 +272,11 @@ func TestHttpUpdate(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
 	// Create a dummy data source
-	ID := generateDummyData(1, registryClient)[0]
+	IDs, err := generateDummyData(1, registryClient)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	ID := IDs[0]
 
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
@@ -296,17 +305,21 @@ func TestHttpUpdate(t *testing.T) {
 			t.Fatalf("Server response is not %v but %v :\n%v", http.StatusConflict, res.StatusCode, invalidBodyStr)
 		}
 		res.Body.Close()
+		break
 	}
 
-	// try a good one
-	b := []byte(`
-		{
-			"meta": {},
-			"retention": "1m",
-			"aggregation": [],
-			"format": "any_format"
-		}
-		`)
+	// Retrieve the stored ds
+	ds, err := registryClient.Get(ID)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	ds.Retention = "3h"
+	ds.Format = "some_other_format"
+	b, err := json.Marshal(&ds)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
 	res, err = httpRequestClient("PUT", url, bytes.NewReader(b))
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -318,26 +331,11 @@ func TestHttpUpdate(t *testing.T) {
 
 	// Retrieve the updated data source
 	updatedDS, _ := registryClient.Get(ID)
-
-	// Manually construct the expected updated(PUT) data source
-	var putDS DataSource
-	err = json.Unmarshal(b, &putDS)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	putDS.ID = ID
-	putDS.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, putDS.ID)
-	putDS.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, putDS.ID)
-	putDS.Resource = updatedDS.Resource
-	putDS.Type = updatedDS.Type
-
-	// marshal the stored data source for comparison
-	putDS_b, _ := json.Marshal(&putDS)
-	updatedDS_b, _ := json.Marshal(&updatedDS)
+	updated_b, _ := json.Marshal(&updatedDS)
 
 	// compare updated(PUT) data source with the one in memory
-	if string(putDS_b) != string(updatedDS_b) {
-		t.Errorf("The submitted PUT:\n%s\n mismatch the stored data:\n%s\n", string(putDS_b), string(updatedDS_b))
+	if string(b) != string(updated_b) {
+		t.Errorf("The submitted PUT:\n%s\n mismatch the stored data:\n%s\n", string(b), string(updated_b))
 	}
 }
 
@@ -345,7 +343,11 @@ func TestHttpDelete(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
 	// Create a dummy data source
-	ID := generateDummyData(1, registryClient)[0]
+	IDs, err := generateDummyData(1, registryClient)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	ID := IDs[0]
 
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
