@@ -30,9 +30,6 @@ const (
 	// Values for ParamSort
 	ASC  = "asc"  // ascending
 	DESC = "desc" // descending
-
-	// Maximum entries displayed in each page
-	MaxPerPage = 100
 )
 
 // Data source types

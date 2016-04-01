@@ -15,10 +15,7 @@ const (
 	FTypeOne  = "one"
 	FTypeMany = "many"
 
-//	FOpEquals   = "equals"
-//	FOpPrefix   = "prefix"
-//	FOpSuffix   = "suffix"
-//	FOpContains = "contains"
+	MaxPerPage = 100
 )
 
 var (
@@ -59,7 +56,7 @@ func NewWriteableAPI(storage Storage) *WriteableAPI {
 // Index is a handler for the registry index
 func (regAPI *ReadableAPI) Index(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage))
+	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage), MaxPerPage)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
 		return
@@ -224,7 +221,7 @@ func (regAPI *ReadableAPI) Filter(w http.ResponseWriter, r *http.Request) {
 	fvalue := params["value"]
 
 	r.ParseForm()
-	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage))
+	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage), MaxPerPage)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
 		return

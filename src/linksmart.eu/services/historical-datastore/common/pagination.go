@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-func ParsePagingParams(page, perPage string) (int, int, error) {
+func ParsePagingParams(page, perPage string, maxPerPage int) (int, int, error) {
 	var parsedPage, parsedPerPage int
 	var err error
 
@@ -20,7 +20,7 @@ func ParsePagingParams(page, perPage string) (int, int, error) {
 	}
 
 	if perPage == "" {
-		parsedPerPage = MaxPerPage
+		parsedPerPage = 100
 	} else {
 		parsedPerPage, err = strconv.Atoi(perPage)
 		if err != nil {
@@ -28,7 +28,7 @@ func ParsePagingParams(page, perPage string) (int, int, error) {
 		}
 	}
 
-	return parsedPage, parsedPerPage, ValidatePagingParams(parsedPage, parsedPerPage, MaxPerPage)
+	return parsedPage, parsedPerPage, ValidatePagingParams(parsedPage, parsedPerPage, maxPerPage)
 }
 
 func ValidatePagingParams(page, perPage, maxPerPage int) error {

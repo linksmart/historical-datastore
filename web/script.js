@@ -12,6 +12,10 @@ var AGGR_ATTRIBUTES = {
 };
 var hideAttrs = ["url", "data", "retention", "format"];
 var configFile = "conf/autogen_config.json";
+const REG_PER_PAGE = 100;
+const DATA_PER_PAGE = 1000;
+const AGGR_PER_PAGE = 1000;
+
 
 // DO NOT CHANGE
 var hdsURL;
@@ -148,11 +152,10 @@ function getRegistry(){
 	// Recursively query all pages of registry starting from page
 	function getRegistryPages(page){
 		$(".spinner-h1").removeClass('hidden');
-		var per_page = 100;
 		$.ajax({
 			type: "GET",
 			headers: {'X-Auth-Token': localStorage.getItem("ticket")},
-			url: hdsURL + "/registry?per_page=" + per_page + "&page=" + page,
+			url: hdsURL + "/registry?per_page=" + REG_PER_PAGE + "&page=" + page,
 			dataType:"json",
 			success: function(res) {
 				//console.log(res);
@@ -177,7 +180,7 @@ function getRegistry(){
 				$.merge(registry, res.entries);
 				//console.log(registry);
 
-				if(res.total>per_page*page){
+				if(res.total>REG_PER_PAGE*page){
 					getRegistryPages(page+1);
 				} else {
 					fillTable(registry);
@@ -619,8 +622,7 @@ function processAggrs(items, start, end) {
 			return;
 		}
 
-		var per_page = 100;
-		let url = hdsURL + "/aggr/" + item.aggrID + "/" + item.sourceID + "?start=" + start + "&end=" + end + "&per_page=" + per_page + "&page=" + page;
+		let url = hdsURL + "/aggr/" + item.aggrID + "/" + item.sourceID + "?start=" + start + "&end=" + end + "&per_page=" + AGGR_PER_PAGE + "&page=" + page;
 		console.log(url);
 
 		$.ajax({
@@ -630,7 +632,7 @@ function processAggrs(items, start, end) {
 			dataType:"json",
 			success: function(res) {
 				//console.log(res);
-				setProgressbarSub((per_page*page)/res.total)
+				setProgressbarSub((AGGR_PER_PAGE*page)/res.total)
 
 				if(res.total != 0){
 					for (var i = 0; i < res.data.e.length; i++) {
@@ -648,7 +650,7 @@ function processAggrs(items, start, end) {
 					//console.log(pageData);
 				}
 
-				if(res.total>per_page*page){
+				if(res.total>AGGR_PER_PAGE*page){
 					// Process next page
 					getAggrPages(page+1);
 				} else {
@@ -745,8 +747,7 @@ function processItems(IDs, start, end) {
 			return;
 		}
 
-		var per_page = 100;
-		let url = "/data/" + id + "?start=" + start + "&end=" + end + "&per_page=" + per_page + "&page=" + page;
+		let url = "/data/" + id + "?start=" + start + "&end=" + end + "&per_page=" + DATA_PER_PAGE + "&page=" + page;
 		console.log(url);
 
 		$.ajax({
@@ -756,7 +757,7 @@ function processItems(IDs, start, end) {
 			dataType:"json",
 			success: function(res) {
 				//console.log(res);
-				setProgressbarSub((per_page*page)/res.total)
+				setProgressbarSub((DATA_PER_PAGE*page)/res.total)
 
 				if(res.total != 0){
 					for (var i = 0; i < res.data.e.length; i++) {
@@ -774,7 +775,7 @@ function processItems(IDs, start, end) {
 					//console.log(pageData);
 				}
 
-				if(res.total>per_page*page){
+				if(res.total>DATA_PER_PAGE*page){
 					// Process next page
 					getDataPages(page+1);
 				} else {

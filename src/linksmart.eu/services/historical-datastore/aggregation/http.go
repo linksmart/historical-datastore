@@ -17,8 +17,7 @@ import (
 )
 
 const (
-	// MaxPerPage defines the maximum number of results returned per page
-	MaxPerPage = 100
+	MaxPerPage = 1000
 )
 
 type API struct {
@@ -133,7 +132,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	aggrID := params["aggrid"]
 
-	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage))
+	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage), MaxPerPage)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
 		return

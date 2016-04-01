@@ -200,7 +200,7 @@ func (s *LevelDBStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	// LevelDB keys are sorted
 
 	// Get the queried page
-	offset, limit := GetPageOfSlice(keys, page, perPage, common.MaxPerPage)
+	offset, limit := GetPageOfSlice(keys, page, perPage, MaxPerPage)
 
 	// page/registry is empty
 	if limit == 0 {
@@ -332,7 +332,7 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 	}
 
 	// Apply pagination
-	slice := catalog.GetPageOfSlice(matchedIDs, page, perPage, common.MaxPerPage)
+	slice := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
 
 	// page/registry is empty
 	if len(slice) == 0 {
