@@ -18,17 +18,17 @@ type RemoteClient struct {
 	ticket         *obtainer.Client
 }
 
-func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) *RemoteClient {
+func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) (*RemoteClient, error) {
 	// Check if serverEndpoint is a correct URL
 	endpointUrl, err := url.Parse(serverEndpoint)
 	if err != nil {
-		return &RemoteClient{}
+		return nil, err
 	}
 
 	return &RemoteClient{
 		serverEndpoint: endpointUrl,
 		ticket:         ticket,
-	}
+	}, nil
 }
 
 func (c *RemoteClient) Index(page int, perPage int) (*Registry, error) {
@@ -154,6 +154,7 @@ func (c *RemoteClient) Delete(id string) error {
 	if err != nil {
 		return err
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode == http.StatusNotFound {
 		return ErrNotFound
@@ -174,16 +175,17 @@ func (c *RemoteClient) FilterOne(path, op, value string) (*DataSource, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if res.StatusCode == http.StatusNotFound {
-		return nil, ErrNotFound
-	} else if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%v", res.StatusCode)
-	}
+	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	if res.StatusCode == http.StatusNotFound {
+		return nil, ErrNotFound
+	} else if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%v: %v", res.StatusCode, string(body))
 	}
 
 	var ds DataSource
@@ -195,89 +197,34 @@ func (c *RemoteClient) FilterOne(path, op, value string) (*DataSource, error) {
 	return &ds, nil
 }
 
-// func (c *RemoteCatalogClient) GetResource(id string) (*Resource, error) {
-// 	res, err := catalog.HTTPRequest("GET",
-// 		fmt.Sprintf("%v/%v", c.serverEndpoint, id),
-// 		nil,
-// 		nil,
-// 		c.ticket,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func (c *RemoteClient) FilterMany(path, op, value string) ([]DataSource, error) {
+	res, err := catalog.HTTPRequest("GET",
+		fmt.Sprintf("%v/%v/%v/%v/%v", c.serverEndpoint, FTypeMany, path, op, value),
+		nil,
+		nil,
+		c.ticket,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
 
-// 	if res.StatusCode == http.StatusNotFound {
-// 		return nil, ErrorNotFound
-// 	} else if res.StatusCode != http.StatusOK {
-// 		return nil, fmt.Errorf("%v", res.StatusCode)
-// 	}
-// 	return resourceFromResponse(res, c.serverEndpoint.Path)
-// }
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
 
-// func (c *RemoteCatalogClient) FindDevice(path, op, value string) (*Device, error) {
-// 	res, err := catalog.HTTPRequest("GET",
-// 		fmt.Sprintf("%v/%v/%v/%v/%v", c.serverEndpoint, FTypeDevice, path, op, value),
-// 		nil,
-// 		nil,
-// 		c.ticket,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	if res.StatusCode == http.StatusNotFound {
+		return nil, ErrNotFound
+	} else if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%v: %v", res.StatusCode, string(body))
+	}
 
-// 	if res.StatusCode == http.StatusNotFound {
-// 		return nil, ErrorNotFound
-// 	} else if res.StatusCode != http.StatusOK {
-// 		return nil, fmt.Errorf("%v", res.StatusCode)
-// 	}
-// 	return deviceFromResponse(res, c.serverEndpoint.Path)
-// }
+	var reg Registry
+	err = json.Unmarshal(body, &reg)
+	if err != nil {
+		return nil, err
+	}
 
-// func (c *RemoteCatalogClient) FindDevices(path, op, value string, page, perPage int) ([]Device, int, error) {
-// 	res, err := catalog.HTTPRequest("GET",
-// 		fmt.Sprintf("%v/%v/%v/%v/%v?%v=%v&%v=%v",
-// 			c.serverEndpoint, FTypeDevices, path, op, value, GetParamPage, page, GetParamPerPage, perPage),
-// 		nil,
-// 		nil,
-// 		c.ticket,
-// 	)
-// 	if err != nil {
-// 		return nil, 0, err
-// 	}
-
-// 	return devicesFromResponse(res, c.serverEndpoint.Path)
-// }
-
-// func (c *RemoteCatalogClient) FindResource(path, op, value string) (*Resource, error) {
-// 	res, err := catalog.HTTPRequest("GET",
-// 		fmt.Sprintf("%v/%v/%v/%v/%v", c.serverEndpoint, FTypeResource, path, op, value),
-// 		nil,
-// 		nil,
-// 		c.ticket,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	if res.StatusCode == http.StatusNotFound {
-// 		return nil, ErrorNotFound
-// 	} else if res.StatusCode != http.StatusOK {
-// 		return nil, fmt.Errorf("%v", res.StatusCode)
-// 	}
-// 	return resourceFromResponse(res, c.serverEndpoint.Path)
-// }
-
-// func (c *RemoteCatalogClient) FindResources(path, op, value string, page, perPage int) ([]Device, int, error) {
-// 	res, err := catalog.HTTPRequest("GET",
-// 		fmt.Sprintf("%v/%v/%v/%v/%v?%v=%v&%v=%v",
-// 			c.serverEndpoint, FTypeResources, path, op, value, GetParamPage, page, GetParamPerPage, perPage),
-// 		nil,
-// 		nil,
-// 		c.ticket,
-// 	)
-// 	if err != nil {
-// 		return nil, 0, err
-// 	}
-
-// 	return devicesFromResponse(res, c.serverEndpoint.Path)
-// }
+	return reg.Entries, nil
+}
