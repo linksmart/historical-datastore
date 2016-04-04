@@ -151,6 +151,7 @@ func main() {
 	err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort), router)
 	if err != nil {
 		fmt.Println(err.Error())
+		os.Exit(1)
 	}
 }
 

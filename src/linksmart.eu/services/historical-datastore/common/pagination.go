@@ -20,7 +20,7 @@ func ParsePagingParams(page, perPage string, maxPerPage int) (int, int, error) {
 	}
 
 	if perPage == "" {
-		parsedPerPage = 100
+		parsedPerPage = maxPerPage
 	} else {
 		parsedPerPage, err = strconv.Atoi(perPage)
 		if err != nil {
