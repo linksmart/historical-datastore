@@ -1,7 +1,7 @@
 package registry
 
 import (
-	"log"
+	"fmt"
 
 	"linksmart.eu/services/historical-datastore/common"
 )
@@ -9,7 +9,8 @@ import (
 // Sends a Notification{} to channel
 func sendNotification(payload interface{}, ntType common.NotificationType, ntChan chan<- common.Notification) error {
 	if ntChan == nil {
-		log.Panicln("Notification channel not initialized!")
+		fmt.Println("WARNING: Notification channel not initialized! Notification will be ignored.")
+		return nil
 	}
 	clbk := make(chan error, 2)
 	ntChan <- common.Notification{Type: ntType, Payload: payload, Callback: clbk}
