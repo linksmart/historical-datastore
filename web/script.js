@@ -147,11 +147,12 @@ function main(){
 
 
 function getRegistry(){
+    $("#loadingModal").modal();
 	var registry = [];
 
 	// Recursively query all pages of registry starting from page
 	function getRegistryPages(page){
-		$(".spinner-h1").removeClass('hidden');
+		//$(".spinner-h1").removeClass('hidden');
 		$.ajax({
 			type: "GET",
 			headers: {'X-Auth-Token': localStorage.getItem("ticket")},
@@ -173,7 +174,8 @@ function getRegistry(){
 							}
 						}]
 					});
-					$(".spinner-h1").addClass('hidden');
+					//$(".spinner-h1").addClass('hidden');
+					$("#loadingModal").modal('hide');
 					return;
 				}
 
@@ -218,7 +220,8 @@ function getRegistry(){
 						}]
 					});
 				}	
-				$(".spinner-h1").addClass('hidden');
+				//$(".spinner-h1").addClass('hidden');
+				$("#loadingModal").modal('hide');
 			}
 		}); 
 	}
@@ -260,7 +263,7 @@ function fillTable(entries){
 		$("#entries thead tr").append(entry);
 	});
 
-	console.log(JSON.stringify(columns, null, 4));
+	//console.log(JSON.stringify(columns, null, 4));
 
 	function replacer(key, value) {
 		if (key== "data") {
@@ -311,6 +314,10 @@ function fillTable(entries){
 		loader: true,
 		mark_active_columns: true,
 		highlight_keywords: true,
+		no_results_message: true,
+		paging: true,
+        results_per_page: ['Records: ', [10,25,50,100]],
+        toolbar_target_id: 'externalToolbar',
 		//col_widths: [null, null, '30%'],
 		extensions: [{
 			name: 'sort',
@@ -326,7 +333,8 @@ function fillTable(entries){
 	};
 	entriesTable = new TableFilter('entries', filtersConfig);
 	entriesTable.init();
-	$(".spinner-h1").addClass('hidden');
+	//$(".spinner-h1").addClass('hidden');
+	$("#loadingModal").modal('hide');
 }
 
 function setupDataExportModal(){
@@ -462,7 +470,7 @@ function exportData(){
 		console.log("all done");
 		//console.log(csvData);
 		progressbarActive(true);
-		let zip = ($('#dataExport #exportType').text()=="One file per source (zipped)")? true : false;
+		var zip = ($('#dataExport #exportType').text()=="One file per source (zipped)")? true : false;
 		saveCSV(csvData, zip, function() {
 			$("#dataExport .export-btn").removeClass('hidden');
 			$("#dataExport .abort-btn").addClass('hidden');
@@ -487,10 +495,10 @@ function exportAggr(){
 	
 	$.each(AggrsMap, function(aggrID, aggr){
 
-		let checked = $('#'+aggrID+' .checkboxPanel').is(':checked');
+		var checked = $('#'+aggrID+' .checkboxPanel').is(':checked');
 		if(checked){
 			totalChecked++;
-			let selectedAttributes = $('#'+aggrID+' .attributes').val().replace(/ /g,'').split(','); // remove whitespaces and split
+			var selectedAttributes = $('#'+aggrID+' .attributes').val().replace(/ /g,'').split(','); // remove whitespaces and split
 
 			if(selectedAttributes.length<1 || selectedAttributes[0]==''){
 				bootstrapDialog({
@@ -572,7 +580,7 @@ function exportAggr(){
 		progressbarActive(true);
 
 		if($('#aggrExport #exportType').text()=="One file per aggregation (zipped)"){
-			let merged = {};
+			var merged = {};
 			$.each(CsvData, function(key, value){
 				aggrID = key.split("_", 1)[0];
 				if(!merged.hasOwnProperty(aggrID)){
@@ -622,7 +630,7 @@ function processAggrs(items, start, end) {
 			return;
 		}
 
-		let url = hdsURL + "/aggr/" + item.aggrID + "/" + item.sourceID + "?start=" + start + "&end=" + end + "&per_page=" + AGGR_PER_PAGE + "&page=" + page;
+		var url = hdsURL + "/aggr/" + item.aggrID + "/" + item.sourceID + "?start=" + start + "&end=" + end + "&per_page=" + AGGR_PER_PAGE + "&page=" + page;
 		console.log(url);
 
 		$.ajax({
@@ -636,7 +644,7 @@ function processAggrs(items, start, end) {
 
 				if(res.total != 0){
 					for (var i = 0; i < res.data.e.length; i++) {
-						let csvRow = new Array(item.attributes.length);
+						var csvRow = new Array(item.attributes.length);
 						$.each(res.data.e[i], function(key, value){
 							if(key=="ts" || key=="te"){
 								if(timeFormat=="ISO 8601 Timestamp"){
@@ -654,7 +662,7 @@ function processAggrs(items, start, end) {
 					// Process next page
 					getAggrPages(page+1);
 				} else {
-					//let obj = {};
+					//var obj = {};
 					//obj[item.aggrID + '_' + item.sourceID] = pageData;
 					//CsvData.push(obj);
 					CsvData[item.aggrID + '_' + item.sourceID] = pageData;
@@ -666,7 +674,7 @@ function processAggrs(items, start, end) {
 				if (e.status == 401){
 					error_401();
 				} else if (e.responseText != "") {
-					let err = jQuery.parseJSON(e.responseText);
+					var err = jQuery.parseJSON(e.responseText);
 					bootstrapDialog({
 						type: BootstrapDialog.TYPE_WARNING,
 						closable: true,
@@ -747,7 +755,7 @@ function processItems(IDs, start, end) {
 			return;
 		}
 
-		let url = "/data/" + id + "?start=" + start + "&end=" + end + "&per_page=" + DATA_PER_PAGE + "&page=" + page;
+		var url = "/data/" + id + "?start=" + start + "&end=" + end + "&per_page=" + DATA_PER_PAGE + "&page=" + page;
 		console.log(url);
 
 		$.ajax({
@@ -866,4 +874,3 @@ function bootstrapDialog(dialog){
 		BootstrapDialog.show(dialog);
 	}
 }
-

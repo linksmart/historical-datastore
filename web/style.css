@@ -76,3 +76,29 @@ li.cols_checklist_item { color: black; font-size: larger; }
 	-o-transition: width .1s linear !important;
 	transition: width .1s linear !important;
 }
+
+/* toolbar override */
+.inf{
+    margin-top: 8px !important;
+    background-color: transparent !important;
+    border: 0 !important;
+}
+#btnLastSpan_entries, #btnFirstSpan_entries{
+    display: none;
+}
+#externalToolbar{
+    margin-bottom: 0 !important;
+    border-left: solid 0.5px !important;
+    border-right: solid 0.5px !important;
+    border-color: #D0D0D0 !important;
+    background-image: linear-gradient(to bottom,#fff 0,#E9E9E9 100%) !important;
+    border-radius: 4px 4px 0 0;
+}
+
+#loadingModal{
+
+}
+
+#loadingModal .progress{
+    margin-bottom: 0 !important;
+}

@@ -66,11 +66,30 @@
 
 	<div class="container-fluid">
 
+		<div id="loadingModal" class="modal fade" role="dialog"  data-backdrop="static" data-keyboard="false">
+			<div class="modal-dialog">
+
+				<!-- Modal content-->
+				<div class="modal-content">
+
+					<div class="modal-body">
+						<div class="progress">
+							<div class="progress-bar progress-bar-striped active" role="progressbar" style="width:100%">
+								Loading...
+							</div>
+						</div>
+					</div>
+				</div>
+
+			</div>
+		</div>
+
 		<h1>Registry<i class="fa fa-cog fa-spin spinner-h1 hidden"></i></h1>
 
 		<!--<button class="btn btn-default" data-toggle="modal" data-target="#registryExport" disabled="disabled">Export registry</button>-->
 		<button class="btn btn-default" data-toggle="modal" data-target="#dataExport" onclick="setupDataExportModal();">Export data</button>
 		<button class="btn btn-default" data-toggle="modal" data-target="#aggrExport" onclick="setupAggrExportModal();">Export aggregations</button>
+		<div id="externalToolbar" class="navbar navbar-default navbar-form"></div>
 		<table id="entries" class="center-block">
 			<thead>
 				<tr class="thead-tr">
