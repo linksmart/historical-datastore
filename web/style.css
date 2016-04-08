@@ -95,10 +95,19 @@ li.cols_checklist_item { color: black; font-size: larger; }
     border-radius: 4px 4px 0 0;
 }
 
-#loadingModal{
-
-}
-
-#loadingModal .progress{
-    margin-bottom: 0 !important;
+/* Spinner text */
+.loadingText {
+	position: fixed;
+    z-index: 999;
+    height: 2em;
+    width: 10em;
+    overflow: show;
+    margin: auto;
+    top: 40pt;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    text-align: center;
+    font-size: 10pt;
+    padding-right: 1em;
 }

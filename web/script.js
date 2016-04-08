@@ -6,11 +6,11 @@ var dataAttributes = {
 	"unit": "u"
 };
 var AGGR_ATTRIBUTES = {
-	"name": "n", 
+	"name": "n",
 	"starttime": "ts",
 	"endtime": "te"
 };
-var hideAttrs = ["url", "data", "retention", "format"];
+var hideAttrs = ["url", "data", "retention", "format", "type"];
 var configFile = "conf/autogen_config.json";
 const REG_PER_PAGE = 100;
 const DATA_PER_PAGE = 1000;
@@ -21,25 +21,39 @@ const AGGR_PER_PAGE = 1000;
 var hdsURL;
 var loginURL;
 var logoutURL;
+var serviceID;
 var entriesTable;
 var columns = {};
 var filesaver;
 var abortExporting;
+var ISO8601;
+var registryLoaded = false;
 
 
 $(document).ready(function(){
+
+	// Check support for HTML5 Local Storage
+	if(typeof(Storage) == "undefined") {
+		bootstrapDialog({
+			type: BootstrapDialog.TYPE_DANGER,
+			closable: false,
+			title: 'Unsupported Browser',
+			message: 'Please use:\n Chrome > 4.0\n IE > 8.0\n FireFox > 3.5\n Safari > 4.0\n Opera > 11.5',
+		});
+		return;
+	}
 
 	$.ajax({
 		dataType: "json",
 		url: configFile,
 		success: function(json) {
 			hdsURL = json.hdsEndpoint;
-			
+
 			if(json.authEnabled){
+				serviceID = json.authServiceID;
 				switch(json.authProvider) {
 					case 'cas':
-					loginURL = json.authProviderURL + "/login?service=" + json.authServiceID;
-					logoutURL =  json.authProviderURL + "/logout";
+					loginURL = json.authProviderURL + "/v1/tickets";
 					break;
 					default:
 					bootstrapDialog({
@@ -49,10 +63,16 @@ $(document).ready(function(){
 						message: 'Authentication provider is not supported: ' + json.provider
 					});
 				}
-				$("#login").text("Login");
-				$("#login").attr("href", loginURL);
+				
+				if(localStorage.getItem("ticket") == null) {
+					loggedOut();
+					$("#loginModal").modal();
+					return;
+				} else {
+					loggedIn();
+				}
 			}
-			
+
 			main();
 		},
 		error: function(e) {
@@ -67,11 +87,113 @@ $(document).ready(function(){
 	});
 });
 
-function error_401(){
+function loggedIn(){
+	$("#login").text("Logout");
+	$("#login").attr("onclick", "logout()");
+}
+
+function loggedOut(){
 	$("#login").text("Login");
-	$("#login").attr("href", loginURL);
+	$("#login").attr("onclick", '$("#loginModal").modal()');
+}
+
+function login(){
+	$.ajax({
+		method: "POST",
+		url: loginURL,
+		data: { username: $("#usr").val(), password: $("#psw").val() },
+		success: function(data, status, xhr) {
+			//console.log(JSON.stringify(xhr));
+			var location = xhr.getResponseHeader('Location');
+			var path = URI.parseQuery(URI.parse(location).path);
+			var tgt = Object.keys(path)[0].split("/").pop();
+			//console.log(tgt);
+
+			$.ajax({
+				method: "POST",
+				url: loginURL + "/" + tgt,
+				data: { service: serviceID },
+				success: function(data, status, xhr) {;
+					//console.log(JSON.stringify(xhr));
+					var serviceTicket = xhr.responseText;
+					//console.log(serviceTicket);
+					localStorage.setItem("ticket", serviceTicket);
+					$("#loginModal").modal('hide');
+					loginSuccess();
+					if(!registryLoaded){
+						getRegistry();
+					}
+				},
+				error: function(e) {
+					loginError(e);
+				}
+			});	
+		},
+		error: function(e) {
+			loginError(e);
+		}
+	});
+}
+
+function logout(){
 	localStorage.removeItem('ticket');
-	
+	loggedOut();
+
+	bootstrapDialog({
+		type: BootstrapDialog.TYPE_INFO,
+		closable: false,
+		title: 'Logged out',
+		message: 'You have been logged out. Local data will be cleared in 10 seconds.',
+		buttons: [{
+			label: 'Clear Now',
+			action: function(dialog){
+				location.reload();
+			}
+		}]
+	});
+
+	setTimeout(function(){
+		location.reload();
+	}, 10000);
+}
+
+function loginError(xhr){
+	console.error(xhr);
+	bootstrapDialog({
+		type: BootstrapDialog.TYPE_DANGER,
+		closable: true,
+		title: 'Error: ' + xhr.status + ' ' + xhr.statusText,
+		message: 'Unable to login: ' + xhr.responseText,
+		buttons: [{
+			label: 'Close',
+			action: function(dialog){
+				dialog.close();
+			}
+		}]
+	});
+}
+
+function loginSuccess(){
+	var dialog = new BootstrapDialog({
+		type: BootstrapDialog.TYPE_SUCCESS,
+		closable: true,
+		title: 'Login',
+		message: 'You have successfully logged in.',
+	});
+
+	dialog.realize();
+	dialog.open();
+	setTimeout(function(){
+		dialog.close();
+	}, 2000);
+
+	loggedIn();
+}
+
+function error_401(){
+	localStorage.removeItem('ticket');
+	loggedOut();
+
 	bootstrapDialog({
 		type: BootstrapDialog.TYPE_WARNING,
 		closable: true,
@@ -79,12 +201,14 @@ function error_401(){
 		message: 'No active session. Please login.',
 		buttons: [{
 			label: 'Login',
+			cssClass: 'btn-primary',
 			action: function(dialog) {
 				dialog.close();
-				window.location = loginURL;
+				$("#loginModal").modal();
 			}
 		}]
 	});
+	
 }
 
 function setupModal(id){
@@ -104,55 +228,24 @@ function setupModal(id){
 		$('#datetimepickerStart').data("DateTimePicker").maxDate(e.date);
 	});
 
-	// Dropdown 
+	// Dropdown
 	$(id + ' .dropdown-menu li a').click(function(){
 		$(this).parents('.dropdown').find('.dropdown-toggle').html($(this).text()+'<span class="caret"></span>');
 	});
 }
 
 function main(){
-	// Check support for HTML5 Local Storage
-	if(typeof(Storage) == "undefined") {
-		bootstrapDialog({
-			type: BootstrapDialog.TYPE_DANGER,
-			closable: false,
-			title: 'Unsupported Browser',
-			message: 'Please use:\n Chrome > 4.0\n IE > 8.0\n FireFox > 3.5\n Safari > 4.0\n Opera > 11.5',
-		});
-		return;
-	}
-	
-	
-	if(localStorage.getItem("ticket") != null) {
-		$('#login').text("Logout");
-		$("#login").attr("href", logoutURL);
-		$("#login").on
-	}
-	
-	var uri = new URI(window.location.href);
-	if(uri.hasQuery("ticket")){
-		console.log(uri);
-		var query = URI.parseQuery(URI.parse(window.location.href).query);
-		uri.removeSearch("ticket");
-		location.replace(uri);
-		console.log(query.ticket);
-		
-		// Store the ticket
-		localStorage.setItem("ticket", query.ticket);
-	}
-	//console.log("Ticket:", localStorage.getItem("ticket"));
-	
 	getRegistry();
 } // end main
 
 
 function getRegistry(){
-    $("#loadingModal").modal();
+    spinner.show();
+
 	var registry = [];
 
 	// Recursively query all pages of registry starting from page
 	function getRegistryPages(page){
-		//$(".spinner-h1").removeClass('hidden');
 		$.ajax({
 			type: "GET",
 			headers: {'X-Auth-Token': localStorage.getItem("ticket")},
@@ -174,8 +267,7 @@ function getRegistry(){
 							}
 						}]
 					});
-					//$(".spinner-h1").addClass('hidden');
-					$("#loadingModal").modal('hide');
+					spinner.hide();
 					return;
 				}
 
@@ -183,9 +275,14 @@ function getRegistry(){
 				//console.log(registry);
 
 				if(res.total>REG_PER_PAGE*page){
+					spinner.progress((REG_PER_PAGE*page)/res.total);
 					getRegistryPages(page+1);
 				} else {
-					fillTable(registry);
+					registryLoaded = true;
+					spinner.text("Finishing up...");
+					setTimeout(function(){
+						fillTable(registry);
+                    }, 100);
 				}
 			},
 			error: function(e) {
@@ -219,49 +316,29 @@ function getRegistry(){
 							}
 						}]
 					});
-				}	
-				//$(".spinner-h1").addClass('hidden');
-				$("#loadingModal").modal('hide');
+				}
+				spinner.hide();
 			}
-		}); 
+		});
 	}
 	getRegistryPages(1);
 }
 
-function fillTable(entries){	
+function fillTable(entries){
 
 	var column = 0;
-	
-	// Set header
-	$.each(entries[0], function(key, value){
-		//console.log(key + ':' + value, $.type(value));
 
-		switch($.type(value)) {
-			case "array":
-			console.warn("json array is currently not supported.");
-			entry = "<th>" + key + "</th>";
-			columns[key] = column++;	
-			break;
-		
-			case "object":
-		   	// Nested object
-		   	/*
-		   	entry = ""
-		   	$.each(value, function(nKey, nValue){
-		   		entry += "<th class='table-meta'>" + nKey + "</th>";
-		   		columns[nKey] = column++;	
-		   	});
-		   	*/
-		   	entry = "<th>" + key + "</th>";
-		   	columns[key] = column++;
-		   	break;
-		
-		   	default:
-		   	entry = "<th>" + key + "</th>";
-		   	columns[key] = column++;	
-		} 
-		$("#entries thead tr").append(entry);
+	// Set header
+	var head = [], h = -1;
+	head[++h] = '<thead><tr class="thead-tr">';
+	$.each(entries[0], function(key, value){
+		head[++h] = '<th>';
+		head[++h] = key;
+		head[++h] = '</th>';
+		columns[key] = column++;
 	});
+	head[++h] = '</tr></thead>';
+	$("#entries").prepend(head.join(''));
 
 	//console.log(JSON.stringify(columns, null, 4));
 
@@ -273,31 +350,30 @@ function fillTable(entries){
 	}
 
 	// Fill data
-	entries.forEach(function(entry) {
-		tr = "<tr>";
-		$.each(entry, function(key, value){
+	var out = [], o = -1;
+	out[++o] = '<tbody>';
+	for(var row=0; row<entries.length; row++){
+		out[++o] = '<tr>';
+		$.each(entries[row], function(key, value){
+			out[++o] = '<td>';
 			switch($.type(value)) {
 				case "array":
-				tr += "<td><div style='line-height: 1.2em; font-size: 90%;''>" + JSON.stringify(value, replacer, 2) + "</div></td>";
+				out[++o] = JSON.stringify(value, replacer, 2);
 				break;
-	
+
 				case "object":
-			    // Nested object
-			    /*
-			    $.each(value, function(nKey, nValue){
-			    	tr += "<td>" + nValue + "</td>";
-			    });
-			    */
-			    tr += "<td><div style='line-height: 1.2em; font-size: 90%;''>" + JSON.stringify(value, null, 2) + "</div></td>";
-			    break;
-		
-			    default:
-			    tr += "<td>" + value + "</td>";
+				out[++o] = JSON.stringify(value, null, 2);
+				break;
+
+				default:
+				out[++o] = value;
 			}
+			out[++o] = '</td>';
 		});
-		tr += "</tr>";
-		$("#entries tbody").append(tr);	
-	});
+		out[++o] = '</tr>';
+	}
+	out[++o] = '</tbody>';
+	$("#entries").append(out.join(''));
 
 	// Get index of hideAttrs for table config
 	var hideAttrsIndx = [];
@@ -311,13 +387,17 @@ function fillTable(entries){
 		alternate_rows: true,
 		rows_counter: true,
 		btn_reset: true,
-		loader: true,
 		mark_active_columns: true,
 		highlight_keywords: true,
 		no_results_message: true,
 		paging: true,
         results_per_page: ['Records: ', [10,25,50,100]],
         toolbar_target_id: 'externalToolbar',
+        loader: true,
+        loader_css_class: 'hidden', // default indicator
+        on_show_loader: function(){ spinner.show(); },
+        on_hide_loader: function(){ spinner.hide(); },
+        //status_bar: true,
 		//col_widths: [null, null, '30%'],
 		extensions: [{
 			name: 'sort',
@@ -333,85 +413,95 @@ function fillTable(entries){
 	};
 	entriesTable = new TableFilter('entries', filtersConfig);
 	entriesTable.init();
-	//$(".spinner-h1").addClass('hidden');
-	$("#loadingModal").modal('hide');
 }
 
 function setupDataExportModal(){
-	setupModal('#dataExport');
-	setProgressbarMain(-1);
-	setProgressbarSub(-1);
-	$("#dataExport .modalStat").text(entriesTable.getFilteredDataCol(0).length + " sources");
+	spinner.show();
+	setTimeout(function(){
+		setupModal('#dataExport');
+    	setProgressbarMain(-1);
+    	setProgressbarSub(-1);
+    	$("#dataExport .modalStat").text(entriesTable.getFilteredDataCol(0).length + " sources")
+    		.promise().done(function(){
+    			spinner.hide();
+    		});
 
-	var attrs = [];
-	$.each(dataAttributes, function(key, value){
-		attrs.push(key);					
-	});
-	$("#dataExport #sampleAttributes").text("Comma separated list: " + attrs.join(', '));
+    	var attrs = [];
+    	$.each(dataAttributes, function(key, value){
+    		attrs.push(key);
+    	});
+    	$("#dataExport #sampleAttributes").text("Comma separated list: " + attrs.join(', '));
+	}, 100);
 }
 
 function setupAggrExportModal(){
-	setupModal('#aggrExport');
-	setProgressbarMain(-1);
-	setProgressbarSub(-1);
-	$("#aggrExport .modalStat").text(entriesTable.getFilteredDataCol(0).length + " sources");
+	spinner.show();
+	setTimeout(function(){
+		setupModal('#aggrExport');
+		setProgressbarMain(-1);
+		setProgressbarSub(-1);
+		$("#aggrExport .modalStat").text(entriesTable.getFilteredDataCol(0).length + " sources")
+    		.promise().done(function(){
+    			spinner.hide();
+    		});
 
-	var aggrCol = columns["aggregation"];
-	var allAggrs = entriesTable.getFilteredDataCol(aggrCol);
-	var IDs = entriesTable.getFilteredDataCol(0);
-	//console.log(allAggrs);
+		var aggrCol = columns["aggregation"];
+		var allAggrs = entriesTable.getFilteredDataCol(aggrCol);
+		var IDs = entriesTable.getFilteredDataCol(0);
+		//console.log(allAggrs);
 
-	AggrsMap = {};
-	var retentions = {};
+		AggrsMap = {};
+		var retentions = {};
 
-	allAggrs.forEach(function(aggrs, i){
-		aggrs = JSON.parse(aggrs);
-		aggrs.forEach(function(aggr){
-			//console.log(JSON.stringify(aggr));
-			if(!AggrsMap.hasOwnProperty(aggr.id)){ // first occurance
-				AggrsMap[aggr.id] = aggr;
-				AggrsMap[aggr.id].sources = new Array(IDs[i]);
-				retentions[aggr.id] = aggr.retention;
-			} else {
-				AggrsMap[aggr.id].sources.push(IDs[i]);
-				if(retentions[aggr.id] != aggr.retention){
-					// same aggregation but different retentions
-					retentions[aggr.id] = "multiple durations";
+		allAggrs.forEach(function(aggrs, i){
+			aggrs = JSON.parse(aggrs);
+			aggrs.forEach(function(aggr){
+				//console.log(JSON.stringify(aggr));
+				if(!AggrsMap.hasOwnProperty(aggr.id)){ // first occurance
+					AggrsMap[aggr.id] = aggr;
+					AggrsMap[aggr.id].sources = new Array(IDs[i]);
+					retentions[aggr.id] = aggr.retention;
+				} else {
+					AggrsMap[aggr.id].sources.push(IDs[i]);
+					if(retentions[aggr.id] != aggr.retention){
+						// same aggregation but different retentions
+						retentions[aggr.id] = "multiple durations";
+					}
 				}
-			}
+			});
 		});
-	});
-	//console.warn(JSON.stringify(retentions));
+		//console.warn(JSON.stringify(retentions));
 
-	var attrs = [];
-	$.each(AGGR_ATTRIBUTES, function(key, value){
-		attrs.push(key);					
-	});
-
-	$("#aggrExport #aggregations").empty();
-	$.each(AggrsMap, function(aggrID, aggr){
-		$("#aggrExport #aggregations").append('\
-			<div id="'+aggrID+'" class="panel panel-primary">\
-				<div class="panel-heading"><input class="checkboxPanel" type="checkbox" checked />\
-				<em>'+aggr.aggregates.join(", ")+'</em> every <em>'+aggr.interval+'</em>. Retention: <em>'+retentions[aggrID]+'</em>\
-				<span class="badge pull-right">'+aggr.sources.length+' sources</span></div>\
-				<div class="panel-body">Selected attributes:\
-				<input class="attributes form-control" type="text" value="'+attrs.join(",")+','+aggr.aggregates.join(",")+'" /></div>\
-			</div>\
-		');
-		$('#'+aggrID+' .checkboxPanel').click(function() {
-			if($('#'+aggrID+' .checkboxPanel').is(':checked')){
-				//$('#'+aggrID+' .checkboxPanel').prop('checked', false);
-				$('#'+aggrID).removeClass('panel-default');
-				$('#'+aggrID).addClass('panel-primary');
-			} else {
-				//$('#'+aggrID+' .checkboxPanel').prop('checked', true);
-				$('#'+aggrID).removeClass('panel-primary');
-				$('#'+aggrID).addClass('panel-default');
-			}
+		var attrs = [];
+		$.each(AGGR_ATTRIBUTES, function(key, value){
+			attrs.push(key);
 		});
-	});
-	//console.log(JSON.stringify(AggrsMap));
+
+		$("#aggrExport #aggregations").empty();
+		$.each(AggrsMap, function(aggrID, aggr){
+			$("#aggrExport #aggregations").append('\
+				<div id="'+aggrID+'" class="panel panel-primary">\
+					<div class="panel-heading"><input class="checkboxPanel" type="checkbox" checked />\
+					<em>'+aggr.aggregates.join(", ")+'</em> every <em>'+aggr.interval+'</em>. Retention: <em>'+retentions[aggrID]+'</em>\
+					<span class="badge pull-right">'+aggr.sources.length+' sources</span></div>\
+					<div class="panel-body">Selected attributes:\
+					<input class="attributes form-control" type="text" value="'+attrs.join(",")+','+aggr.aggregates.join(",")+'" /></div>\
+				</div>\
+			');
+			$('#'+aggrID+' .checkboxPanel').click(function() {
+				if($('#'+aggrID+' .checkboxPanel').is(':checked')){
+					//$('#'+aggrID+' .checkboxPanel').prop('checked', false);
+					$('#'+aggrID).removeClass('panel-default');
+					$('#'+aggrID).addClass('panel-primary');
+				} else {
+					//$('#'+aggrID+' .checkboxPanel').prop('checked', true);
+					$('#'+aggrID).removeClass('panel-primary');
+					$('#'+aggrID).addClass('panel-default');
+				}
+			});
+		});
+		//console.log(JSON.stringify(AggrsMap));
+	}, 100);
 }
 
 function abortExport(){
@@ -447,7 +537,7 @@ function exportData(){
 		senmlKeys.push(dataAttributes[attr]);
 	});
 	if(!valid){
-		return; 
+		return;
 	}
 
 	$("#dataExport .export-btn").addClass('hidden');
@@ -455,12 +545,13 @@ function exportData(){
 	$('#dataExport .close-btn').prop('disabled', true);
 
 	var IDs = entriesTable.getFilteredDataCol(0);
-	console.log(IDs);
+	//console.log(IDs);
 	var start = $('#dataExport #datetimepickerStart input').val();
 	var end = $('#dataExport #datetimepickerEnd input').val();
 	start = (start==""?"":start+"Z");
 	end = (end==""?"":end+"Z");
-	timeFormat = $('#dataExport #timeFormat').text(); // if local var, it passes the button to recursive function!
+	var timeFormat = $('#dataExport #timeFormat').text(); // if local var, it passes the button to recursive function!
+	ISO8601 = (timeFormat=="ISO 8601 Timestamp");
 
 	csvData = {};
 	totalIDs = entriesTable.getFilteredDataCol(0).length;
@@ -492,7 +583,7 @@ function exportAggr(){
 
 	//console.log(JSON.stringify(AggrsMap));
 	var items = []; // one element per source/aggregation
-	
+
 	$.each(AggrsMap, function(aggrID, aggr){
 
 		var checked = $('#'+aggrID+' .checkboxPanel').is(':checked');
@@ -519,9 +610,9 @@ function exportAggr(){
 
 			var attrs = [];
 			$.each(AGGR_ATTRIBUTES, function(key, value){
-				attrs.push(key);					
+				attrs.push(key);
 			});
-			
+
 			senmlKeys = [];
 			selectedAttributes.forEach(function(attr){
 				if($.inArray(attr, aggr.aggregates)==-1 && $.inArray(attr, attrs)==-1){
@@ -557,7 +648,7 @@ function exportAggr(){
 		}
     });
 	if(!valid || totalChecked==0){
-		return; 
+		return;
 	}
 
 	$("#aggrExport .export-btn").addClass('hidden');
@@ -568,7 +659,8 @@ function exportAggr(){
 	var end = $('#aggrExport #datetimepickerEnd input').val();
 	start = (start==""?"":start+"Z");
 	end = (end==""?"":end+"Z");
-	timeFormat = $('#aggrExport #timeFormat').text(); // if local var, it passes the button to recursive function!
+	var timeFormat = $('#aggrExport #timeFormat').text(); // if local var, it passes the button to recursive function!
+	ISO8601 = (timeFormat=="ISO 8601 Timestamp");
 
 	CsvData = {};
 	TotalItems = items.length;
@@ -592,7 +684,7 @@ function exportAggr(){
 			});
 			CsvData = merged;
 		}
-		
+
 		saveCSV(CsvData, true, function() {
 			$("#aggrExport .export-btn").removeClass('hidden');
 			$("#aggrExport .abort-btn").addClass('hidden');
@@ -646,15 +738,13 @@ function processAggrs(items, start, end) {
 					for (var i = 0; i < res.data.e.length; i++) {
 						var csvRow = new Array(item.attributes.length);
 						$.each(res.data.e[i], function(key, value){
-							if(key=="ts" || key=="te"){
-								if(timeFormat=="ISO 8601 Timestamp"){
-									value = new Date(value*1000).toISOString();
-								}
-							}	
+							if((key=="ts" || key=="te") && ISO8601){
+								value = new Date(value*1000).toISOString();
+							}
 							csvRow[$.inArray(key, item.attributes)] = value;
 						});
 						pageData.push(csvRow);
-					}		
+					}
 					//console.log(pageData);
 				}
 
@@ -700,13 +790,13 @@ function processAggrs(items, start, end) {
 							}
 						}]
 					});
-				}	
-				Dfd.reject(e.status);							
+				}
+				Dfd.reject(e.status);
 			}
-		}); 
+		});
 	}
 	// Start with first page and call recursively till reaching last
-	getAggrPages(1); 
+	getAggrPages(1);
 	return Dfd.promise();
 }
 
@@ -722,7 +812,7 @@ function progressbarActive(state){
 function setProgressbarMain(value){
 	value = Math.round(value*100);
 	if(value<0){
-		$('.progress-main > .progress-bar').css({'width': '0%', 'min-width': '0em'}).attr('aria-valuenow', value).text('0%');	
+		$('.progress-main > .progress-bar').css({'width': '0%', 'min-width': '0em'}).attr('aria-valuenow', value).text('0%');
 	} else {
 		$('.progress-main > .progress-bar').css({'width': value+'%', 'min-width': '2em'}).attr('aria-valuenow', value).text(value+'%');
 	}
@@ -771,15 +861,13 @@ function processItems(IDs, start, end) {
 					for (var i = 0; i < res.data.e.length; i++) {
 						var csvRow = new Array(attributes.length);
 						$.each(res.data.e[i], function(key, value){
-							if(key=="t"){
-								if(timeFormat=="ISO 8601"){
-									value = new Date(value*1000).toISOString();
-								}
-							}	
+							if(key=="t" && ISO8601){
+								value = new Date(value*1000).toISOString();
+							}
 							csvRow[$.inArray(key, senmlKeys)] = value;
 						});
 						pageData.push(csvRow);
-					}		
+					}
 					//console.log(pageData);
 				}
 
@@ -825,19 +913,19 @@ function processItems(IDs, start, end) {
 							}
 						}]
 					});
-				}	
-				Dfd.reject(e.status);							
+				}
+				Dfd.reject(e.status);
 			}
-		}); 
+		});
 	}
 	// Start with first page and call recursively till reaching last
-	getDataPages(1); 
+	getDataPages(1);
 	return Dfd.promise();
 }
 
 
 function saveCSV(data, zip, callback){
-	
+
 	if (zip) {
 		var zip = new JSZip();
 		$.each(data, function(key, value){
@@ -845,7 +933,7 @@ function saveCSV(data, zip, callback){
 			value.forEach(function(infoArray, index){
 				var dataString = infoArray.join(",");
 				csvContentSingle += index < value.length ? dataString+ "\n" : dataString;
-			}); 
+			});
 			//var filename = key.replace(/[^A-Za-z0-9._-]/g,'_');
 			var filename = key;
 			zip.file(filename+".csv", csvContentSingle);
@@ -858,7 +946,7 @@ function saveCSV(data, zip, callback){
 			value.forEach(function(infoArray, index){
 				var dataString = infoArray.join(",");
 				csvContent += index < value.length ? dataString+ "\n" : dataString;
-			}); 
+			});
 		});
 		var content = new Blob([csvContent], {type: "text/csv;charset=utf-8"});
 		filesaver = saveAs(content, "export.csv");
@@ -874,3 +962,23 @@ function bootstrapDialog(dialog){
 		BootstrapDialog.show(dialog);
 	}
 }
+
+// Loading spinner
+var spinner = spinner || (function () {
+    var loading = "<div class='loadingSpinner'></div><div class='loadingText'></div>"
+    return {
+        show: function() {
+            $("body").append(loading);
+        },
+        hide: function () {
+            $(".loadingSpinner").remove();
+            $(".loadingText").remove();
+        },
+        text: function (value) {
+            $('.loadingText').text(value);
+        },
+        progress: function (value) { // value should be 0-1
+            $('.loadingText').text(Math.round(value*100)+'%');
+        },
+    };
+})();
