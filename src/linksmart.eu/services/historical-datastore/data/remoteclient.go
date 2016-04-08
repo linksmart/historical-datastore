@@ -22,17 +22,17 @@ type RemoteClient struct {
 	ticket         *obtainer.Client
 }
 
-func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) *RemoteClient {
+func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) (*RemoteClient, error) {
 	// Check if serverEndpoint is a correct URL
 	endpointUrl, err := url.Parse(serverEndpoint)
 	if err != nil {
-		return &RemoteClient{}
+		return nil, err
 	}
 
 	return &RemoteClient{
 		serverEndpoint: endpointUrl,
 		ticket:         ticket,
-	}
+	}, nil
 }
 
 func (c *RemoteClient) Submit(senmlMsg *senml.Message, id ...string) error {
@@ -54,7 +54,7 @@ func (c *RemoteClient) Submit(senmlMsg *senml.Message, id ...string) error {
 	defer res.Body.Close()
 
 	if res.StatusCode == http.StatusNotFound {
-		return registry.ErrorNotFound
+		return registry.ErrNotFound
 	} else if res.StatusCode != http.StatusAccepted {
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {

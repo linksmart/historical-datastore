@@ -3,9 +3,7 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
-	"hash/crc32"
 	"net/url"
-	"sort"
 	"strings"
 	"sync"
 
@@ -50,6 +48,10 @@ func (s *LevelDBStorage) close() error {
 }
 
 func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
+	err := validateCreation(ds)
+	if err != nil {
+		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
+	}
 
 	// Get a new UUID and convert it to string (UUID type can't be used as map-key)
 	newUUID := fmt.Sprint(uuid.NewRandom())
@@ -59,14 +61,12 @@ func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
 	ds.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, ds.ID)
 	ds.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, ds.ID)
 
-	for i, aggr := range ds.Aggregation {
-		sort.Strings(aggr.Aggregates)
-		ds.Aggregation[i].ID = fmt.Sprintf("%x", crc32.ChecksumIEEE([]byte(aggr.Interval+strings.Join(aggr.Aggregates, ""))))
-		ds.Aggregation[i].Data = fmt.Sprintf("%s/%s/%s", common.AggrAPILoc, ds.Aggregation[i].ID, ds.ID)
+	for i := range ds.Aggregation {
+		ds.Aggregation[i].Make(ds.ID)
 	}
 
 	// Send a create notification
-	err := sendNotification(ds, common.CREATE, s.nt)
+	err = sendNotification(ds, common.CREATE, s.nt)
 	if err != nil {
 		return DataSource{}, err
 	}
@@ -90,10 +90,16 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 
 	oldDS, err := s.get(id) // for comparison
 	if err == leveldb.ErrNotFound {
-		return DataSource{}, ErrorNotFound
+		return DataSource{}, fmt.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
 		return DataSource{}, err
 	}
+
+	err = validateUpdate(ds, oldDS)
+	if err != nil {
+		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
+	}
+
 	tempDS := oldDS
 
 	// Modify writable elements
@@ -105,10 +111,8 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 	//tempDS.Type
 
 	// Re-generate read-only fields
-	for i, aggr := range tempDS.Aggregation {
-		sort.Strings(aggr.Aggregates)
-		tempDS.Aggregation[i].ID = fmt.Sprintf("%x", crc32.ChecksumIEEE([]byte(aggr.Interval+strings.Join(aggr.Aggregates, ""))))
-		tempDS.Aggregation[i].Data = fmt.Sprintf("%s/%s/%s", common.AggrAPILoc, tempDS.Aggregation[i].ID, tempDS.ID)
+	for i := range tempDS.Aggregation {
+		tempDS.Aggregation[i].Make(ds.ID)
 	}
 
 	// Send an update notification
@@ -147,7 +151,7 @@ func (s *LevelDBStorage) delete(id string) error {
 
 	err = s.db.Delete([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
-		return ErrorNotFound
+		return fmt.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
 		return err
 	}
@@ -159,7 +163,7 @@ func (s *LevelDBStorage) get(id string) (DataSource, error) {
 	// Query from database
 	dsBytes, err := s.db.Get([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
-		return DataSource{}, ErrorNotFound
+		return DataSource{}, fmt.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
 		return DataSource{}, err
 	}
@@ -196,7 +200,7 @@ func (s *LevelDBStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	// LevelDB keys are sorted
 
 	// Get the queried page
-	offset, limit := GetPageOfSlice(keys, page, perPage, common.MaxPerPage)
+	offset, limit := GetPageOfSlice(keys, page, perPage, MaxPerPage)
 
 	// page/registry is empty
 	if limit == 0 {
@@ -328,7 +332,7 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 	}
 
 	// Apply pagination
-	slice := catalog.GetPageOfSlice(matchedIDs, page, perPage, common.MaxPerPage)
+	slice := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
 
 	// page/registry is empty
 	if len(slice) == 0 {

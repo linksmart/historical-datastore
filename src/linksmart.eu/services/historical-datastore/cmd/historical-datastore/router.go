@@ -37,3 +37,22 @@ func (r *router) patch(path string, handler http.Handler) {
 func (r *router) head(path string, handler http.Handler) {
 	r.Methods("HEAD").Path(path).Handler(handler)
 }
+
+func (r *router) options(path string, handler http.Handler) {
+	r.Methods("OPTIONS").Path(path).Handler(handler)
+}
+
+// Add headers to handler's chain
+func setHeaders(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		Options(w, r)
+		next.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
+}
+
+func Options(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Access-Control-Allow-Headers", "X-Auth-Token")
+	return
+}

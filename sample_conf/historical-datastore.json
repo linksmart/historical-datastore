@@ -4,6 +4,11 @@
     "bindAddr": "0.0.0.0",
     "bindPort": 8085
   },
+  "web": {
+    "bindAddr": "0.0.0.0",
+    "bindPort": 4000,
+    "staticDir": "../web"
+  },
   "registry": {
     "backend": {
       "type": "leveldb",

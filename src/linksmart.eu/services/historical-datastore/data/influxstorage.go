@@ -285,7 +285,7 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 }
 
 // Handles the creation of a new data source
-func (s *InfluxStorage) ntfCreated(ds registry.DataSource, callback chan error) {
+func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) {
 
 	duration := "INF"
 	if ds.Retention != "" {
@@ -303,7 +303,7 @@ func (s *InfluxStorage) ntfCreated(ds registry.DataSource, callback chan error) 
 }
 
 // Handles updates of a data source
-func (s *InfluxStorage) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
+func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
 
 	if oldDS.Retention != newDS.Retention {
 		duration := "INF"
@@ -321,7 +321,7 @@ func (s *InfluxStorage) ntfUpdated(oldDS registry.DataSource, newDS registry.Dat
 }
 
 // Handles deletion of a data source
-func (s *InfluxStorage) ntfDeleted(ds registry.DataSource, callback chan error) {
+func (s *InfluxStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
 
 	_, err := s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.Msrmt(ds))
 	if err != nil {

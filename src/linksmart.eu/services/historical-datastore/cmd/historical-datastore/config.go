@@ -26,6 +26,8 @@ type Config struct {
 	ServiceID string `json:"serviceID"`
 	// HDS API addr
 	HTTP HTTPConf `json:"http"`
+	// Web GUI
+	Web WebConfig `json:"web"`
 	// Registry API Config
 	Reg RegConf `json:"registry"`
 	// Data API Config
@@ -43,6 +45,13 @@ type HTTPConf struct {
 	PublicEndpoint string `json:"publicEndpoint"`
 	BindAddr       string `json:"bindAddr"`
 	BindPort       uint16 `json:"bindPort"`
+}
+
+// Web GUI Config
+type WebConfig struct {
+	BindAddr  string `json:"bindAddr"`
+	BindPort  uint16 `json:"bindPort"`
+	StaticDir string `json:"staticDir"`
 }
 
 // Registry config
@@ -95,10 +104,14 @@ func loadConfig(confPath *string) (*Config, error) {
 	if conf.HTTP.BindAddr == "" || conf.HTTP.BindPort == 0 || conf.HTTP.PublicEndpoint == "" {
 		return nil, fmt.Errorf("HTTP bindAddr, publicEndpoint, and bindPort have to be defined")
 	}
-
 	_, err = url.Parse(conf.HTTP.PublicEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP PublicEndpoint should be a valid URL")
+	}
+
+	// VALIDATE Web Config
+	if conf.Web.BindAddr == "" || conf.Web.BindPort == 0 {
+		return nil, fmt.Errorf("Web bindAddr and bindPort have to be defined")
 	}
 
 	// VALIDATE REGISTRY API CONFIG
@@ -107,7 +120,7 @@ func loadConfig(confPath *string) (*Config, error) {
 		return nil, errors.New("Registry backend type is not supported!")
 	}
 	// Check DSN
-	_, err = url.Parse(conf.Data.Backend.DSN)
+	_, err = url.Parse(conf.Reg.Backend.DSN)
 	if err != nil {
 		return nil, err
 	}

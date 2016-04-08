@@ -94,7 +94,7 @@ type Storage interface {
 	Query(q Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error)
 
 	// Methods for handling notifications
-	ntfCreated(ds registry.DataSource, callback chan error)
-	ntfUpdated(old registry.DataSource, new registry.DataSource, callback chan error)
-	ntfDeleted(ds registry.DataSource, callback chan error)
+	NtfCreated(ds registry.DataSource, callback chan error)
+	NtfUpdated(old registry.DataSource, new registry.DataSource, callback chan error)
+	NtfDeleted(ds registry.DataSource, callback chan error)
 }

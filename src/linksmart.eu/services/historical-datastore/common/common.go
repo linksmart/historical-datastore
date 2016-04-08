@@ -3,6 +3,8 @@ package common
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
+	"strings"
 )
 
 const (
@@ -28,9 +30,6 @@ const (
 	// Values for ParamSort
 	ASC  = "asc"  // ascending
 	DESC = "desc" // descending
-
-	// Maximum entries displayed in each page
-	MaxPerPage = 100
 )
 
 // Data source types
@@ -43,7 +42,7 @@ const (
 var (
 	supportedTypes      = []string{STRING, BOOL, FLOAT}
 	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}
-	retentionPeriods    = []string{"m", "h", "d", "w"}
+	supportedIntervals  = []string{"m", "h", "d", "w"}
 )
 
 // Error describes an API error (serializable in JSON)
@@ -66,13 +65,12 @@ func ErrorResponse(code int, msg string, w http.ResponseWriter) {
 	w.Write(b)
 }
 
-func RetentionPeriods() []string {
-	return retentionPeriods
+func SupportedInterval(i string) bool {
+	// Create regexp: ^[0-9]*(h|d|w|m)$
+	intervals := strings.Join(supportedIntervals, "|")
+	re := regexp.MustCompile("^[0-9]*(" + intervals + ")$")
+	return re.MatchString(i)
 }
-func SupportedTypes() []string {
-	return supportedTypes
-}
-
 func SupportedType(t string) bool {
 	return stringInSlice(t, supportedTypes)
 }

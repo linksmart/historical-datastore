@@ -1,0 +1,113 @@
+body {
+	padding-top: 50px;
+}
+
+td { 
+	white-space:pre;
+}
+
+.starter-template {
+	padding: 40px 15px;
+	text-align: center;
+}
+
+.table-meta{
+	background-color: #bdbdbd !important;
+}
+
+.spinner-h1{
+	margin-left: 10pt;
+}
+
+.spinner-button{
+	margin-left: 10pt;
+}
+
+.footer {
+	clear: both;
+	border-top: 1px solid #bbb;
+	font-size: 0.9em;
+	color: #aaa;
+	padding: 5px;
+	margin-top: 20px;
+	text-align: center;
+	background: #fff;
+}
+
+.entries{
+	padding-right: 10px;
+}
+
+.caret{
+	margin-left: 5pt !important;
+}
+
+.thead-tr{
+	/* Align header text to top. Workaround for sort icon newline */
+	vertical-align: baseline;
+}
+
+
+.progress-main{
+	margin-top: 4px;
+	margin-bottom: 1px !important;
+	border-radius: 4px 4px 0 0 !important;
+}
+
+.progress-sub{
+	height: 5px;
+	margin-bottom: 0 !important;
+	border-radius: 0 0 4px 4px !important;
+}
+
+/* Toggle hide columns style */
+.cols_checklist_slc_item{ text-decoration: line-through; color:#A7A7A7 !important;}
+ul.cols_checklist input { display: none; }
+li.cols_checklist_item { color: black; font-size: larger; }
+
+
+.checkboxPanel{
+	margin-right: 5px !important;
+}
+
+/* Make transition effect faster */
+.progress-bar {
+	-webkit-transition: width .1s linear !important;
+	-o-transition: width .1s linear !important;
+	transition: width .1s linear !important;
+}
+
+/* toolbar override */
+.inf{
+    margin-top: 8px !important;
+    background-color: transparent !important;
+    border: 0 !important;
+}
+#btnLastSpan_entries, #btnFirstSpan_entries{
+    display: none;
+}
+#externalToolbar{
+    margin-bottom: 0 !important;
+    border-left: solid 0.5px !important;
+    border-right: solid 0.5px !important;
+    border-color: #D0D0D0 !important;
+    background-image: linear-gradient(to bottom,#fff 0,#E9E9E9 100%) !important;
+    border-radius: 4px 4px 0 0;
+}
+
+/* Spinner text */
+.loadingText {
+	position: fixed;
+    z-index: 999;
+    height: 2em;
+    width: 10em;
+    overflow: show;
+    margin: auto;
+    top: 40pt;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    text-align: center;
+    font-size: 10pt;
+    padding-right: 1em;
+}
