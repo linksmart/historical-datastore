@@ -43,16 +43,14 @@ func (r *router) options(path string, handler http.Handler) {
 }
 
 // Add headers to handler's chain
-func setHeaders(next http.Handler) http.Handler {
+func commonHeaders(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		Options(w, r)
+
+		// Headers for HTTP access control (CORS)
+		w.Header().Add("Access-Control-Allow-Origin", "*")
+		w.Header().Add("Access-Control-Allow-Headers", "X-Auth-Token")
+
 		next.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
-}
-
-func Options(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Access-Control-Allow-Headers", "X-Auth-Token")
-	return
 }

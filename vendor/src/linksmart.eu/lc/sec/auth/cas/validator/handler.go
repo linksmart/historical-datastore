@@ -11,16 +11,8 @@ import (
 // HTTP Handler for service ticket validation
 func (v *CASValidator) Handler(serverAddr, serviceID string, authz *authz.Conf, next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		
-		// No check for OPTIONS method
-		if r.Method == "OPTIONS" {
-			auth.Log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), "")
-			next.ServeHTTP(w, r)
-			return
-		}
-		
 		X_Auth_Token := r.Header.Get("X-Auth-Token")
-		
+
 		if X_Auth_Token == "" {
 			auth.Log.Printf("[%s] %q %s\n", r.Method, r.URL.String(), "X-Auth-Token not specified.")
 			auth.HTTPErrorResponse(http.StatusUnauthorized, "Unauthorized request: X-Auth-Token entity header not specified.", w)

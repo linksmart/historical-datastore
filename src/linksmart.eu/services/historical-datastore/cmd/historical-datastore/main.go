@@ -71,8 +71,12 @@ func main() {
 		context.ClearHandler,
 		loggingHandler,
 		recoverHandler,
-		setHeaders,
+		commonHeaders,
 	)
+
+	// http api
+	router := newRouter()
+	router.options("/{path:.*}", commonHandlers.ThenFunc(optionsHandler))
 
 	// Append auth handler if enabled
 	if conf.Auth.Enabled {
@@ -86,13 +90,9 @@ func main() {
 		commonHandlers = commonHandlers.Append(v.Handler)
 	}
 
-	// http api
-	router := newRouter()
-
 	// generic handlers
 	router.get("/health", commonHandlers.ThenFunc(healthHandler))
 	router.get("/", commonHandlers.ThenFunc(indexHandler))
-	router.options("/{ignore:.*}", commonHandlers.ThenFunc(Options))
 
 	// registry api
 	router.get("/registry", commonHandlers.ThenFunc(regAPI.Index))
