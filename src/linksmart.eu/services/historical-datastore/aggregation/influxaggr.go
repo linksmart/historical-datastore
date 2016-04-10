@@ -317,12 +317,20 @@ func (a *InfluxAggr) functions(dsa registry.Aggregation) string {
 
 // Backfill aggregates for the historical data
 func (a *InfluxAggr) backfill(ds registry.DataSource, dsa registry.Aggregation) error {
-	_, err := a.influxStorage.QuerySprintf("SELECT %s INTO %s FROM %s WHERE time >= '%v' GROUP BY time(%s) fill(none)",
-		a.functions(dsa), a.fqMsrmt(ds.ID, dsa.ID), a.influxStorage.FQMsrmt(ds), time.Now().AddDate(-1, 0, 0).Format("2006-01-02 15:04:05"), dsa.Interval)
-	if err != nil {
-		return fmt.Errorf("Error backfilling aggregates: %v", err.Error())
+	const SINCE int = -10 // years ago
+	now := time.Now().UTC()
+	// backfill one year at a time
+	for s := 0; s > SINCE; s-- {
+		_, err := a.influxStorage.QuerySprintf("SELECT %s INTO %s FROM %s WHERE time >= '%v' AND time < '%v' GROUP BY time(%s) fill(none)",
+			a.functions(dsa), a.fqMsrmt(ds.ID, dsa.ID), a.influxStorage.FQMsrmt(ds),
+			now.AddDate(s-1, 0, 0).Format("2006-01-02 15:04:05"), now.AddDate(s, 0, 0).Format("2006-01-02 15:04:05"),
+			dsa.Interval)
+		if err != nil {
+			return fmt.Errorf("Error backfilling aggregates: %v", err.Error())
+		}
 	}
-	log.Printf("InfluxAggr: Backfilled aggregates %s/%s", ds.ID, dsa.ID)
+
+	log.Printf("InfluxAggr: backfilled aggregates of %s/%s for %d years.", dsa.ID, ds.ID, SINCE)
 	return nil
 }
 
