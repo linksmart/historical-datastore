@@ -162,8 +162,10 @@ func validateUpdate(ds DataSource, oldDS DataSource) error {
 				e.invalid = append(e.invalid, "aggregation.interval")
 			}
 			// retention
-			if !common.SupportedInterval(aggr.Retention) {
-				e.invalid = append(e.invalid, "aggregation.retention")
+			if aggr.Retention != "" {
+				if !common.SupportedInterval(aggr.Retention) {
+					e.invalid = append(e.invalid, "aggregation.retention")
+				}
 			}
 			// aggregates
 			for _, aggregate := range aggr.Aggregates {
