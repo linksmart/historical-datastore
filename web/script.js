@@ -252,10 +252,12 @@ function getRegistry(){
 
 	// Recursively query all pages of registry starting from page
 	function getRegistryPages(page){
+		var path = "/registry?per_page=" + REG_PER_PAGE + "&page=" + page;
+		console.log(path);
 		$.ajax({
 			type: "GET",
 			headers: {'X-Auth-Token': localStorage.getItem("ticket")},
-			url: hdsURL + "/registry?per_page=" + REG_PER_PAGE + "&page=" + page,
+			url: hdsURL + path,
 			dataType:"json",
 			success: function(res) {
 				//console.log(res);
@@ -285,14 +287,13 @@ function getRegistry(){
 					getRegistryPages(page+1);
 				} else {
 					registryLoaded = true;
-					spinner.text("Finishing up...");
+					spinner.text("Loading the table...");
 					setTimeout(function(){
 						fillTable(registry);
                     }, 100);
 				}
 			},
 			error: function(e) {
-				var err = jQuery.parseJSON(e.responseText);
 				if (e.status == 401){
 					error_401();
 				} else if (e.responseText != "") {
@@ -314,7 +315,7 @@ function getRegistry(){
 						type: BootstrapDialog.TYPE_DANGER,
 						closable: true,
 						title: 'Error ' + e.status + ': ' + e.statusText,
-						message: 'Request could not be initialized.',
+						message: 'Request could not be initialized.\n' + hdsURL + path,
 						buttons: [{
 							label: 'Close',
 							action: function(dialog){
@@ -728,13 +729,13 @@ function processAggrs(items, start, end) {
 			return;
 		}
 
-		var url = hdsURL + "/aggr/" + item.aggrID + "/" + item.sourceID + "?start=" + start + "&end=" + end + "&per_page=" + AGGR_PER_PAGE + "&page=" + page;
-		console.log(url);
+		var path = "/aggr/" + item.aggrID + "/" + item.sourceID + "?start=" + start + "&end=" + end + "&per_page=" + AGGR_PER_PAGE + "&page=" + page;
+		console.log(path);
 
 		$.ajax({
 			type: "GET",
 			headers: {'X-Auth-Token': localStorage.getItem("ticket")},
-			url: url,
+			url: hdsURL+path,
 			dataType:"json",
 			success: function(res) {
 				//console.log(res);
@@ -788,7 +789,7 @@ function processAggrs(items, start, end) {
 						type: BootstrapDialog.TYPE_DANGER,
 						closable: true,
 						title: 'Error ' + e.status + ': ' + e.statusText,
-						message: 'Request could not be initialized.',
+						message: 'Request could not be initialized.\n' + hdsURL+path,
 						buttons: [{
 							label: 'Close',
 							action: function(dialog){
@@ -851,13 +852,13 @@ function processItems(IDs, start, end) {
 			return;
 		}
 
-		var url = "/data/" + id + "?start=" + start + "&end=" + end + "&per_page=" + DATA_PER_PAGE + "&page=" + page;
-		console.log(url);
+		var path = "/data/" + id + "?start=" + start + "&end=" + end + "&per_page=" + DATA_PER_PAGE + "&page=" + page;
+		console.log(path);
 
 		$.ajax({
 			type: "GET",
 			headers: {'X-Auth-Token': localStorage.getItem("ticket")},
-			url: hdsURL + url,
+			url: hdsURL+path,
 			dataType:"json",
 			success: function(res) {
 				//console.log(res);
@@ -911,7 +912,7 @@ function processItems(IDs, start, end) {
 						type: BootstrapDialog.TYPE_DANGER,
 						closable: true,
 						title: 'Error ' + e.status + ': ' + e.statusText,
-						message: 'Request could not be initialized.',
+						message: 'Request could not be initialized.\n' + hdsURL+path,
 						buttons: [{
 							label: 'Close',
 							action: function(dialog){
