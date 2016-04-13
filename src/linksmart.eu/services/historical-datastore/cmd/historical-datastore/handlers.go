@@ -5,13 +5,16 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/codegangsta/negroni"
 )
 
 func loggingHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		t1 := time.Now()
-		next.ServeHTTP(w, r)
-		log.Printf("[%s] %q %v\n", r.Method, r.URL.String(), time.Now().Sub(t1))
+		nw := negroni.NewResponseWriter(w)
+		next.ServeHTTP(nw, r)
+		log.Printf("[%s] %q %d %v\n", r.Method, r.URL.String(), nw.Status(), time.Now().Sub(t1))
 	}
 	return http.HandlerFunc(fn)
 }
