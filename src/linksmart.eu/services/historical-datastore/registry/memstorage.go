@@ -2,10 +2,10 @@ package registry
 
 import (
 	"fmt"
-	"sync"
-
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/pborman/uuid"
 	"linksmart.eu/lc/core/catalog"
@@ -14,14 +14,16 @@ import (
 
 // In-memory storage
 type MemoryStorage struct {
-	data  map[string]DataSource
-	mutex sync.RWMutex
-	nt    chan common.Notification
+	data         map[string]DataSource
+	mutex        sync.RWMutex
+	nt           chan common.Notification
+	lastModified time.Time
 }
 
 func NewMemoryStorage() (Storage, *chan common.Notification) {
 	ms := &MemoryStorage{
-		data: make(map[string]DataSource),
+		data:         make(map[string]DataSource),
+		lastModified: time.Now(),
 	}
 
 	return ms, &ms.nt
@@ -57,6 +59,7 @@ func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
 	// Add the new DataSource to the map
 	ms.data[newUUID] = ds
 
+	ms.lastModified = time.Now()
 	return ms.data[newUUID], nil
 }
 
@@ -100,6 +103,7 @@ func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 	// Store the modified DS
 	ms.data[id] = tempDS
 
+	ms.lastModified = time.Now()
 	return ms.data[id], nil
 }
 
@@ -120,6 +124,7 @@ func (ms *MemoryStorage) delete(id string) error {
 
 	delete(ms.data, id)
 
+	ms.lastModified = time.Now()
 	return nil
 }
 
@@ -167,6 +172,10 @@ func (ms *MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 
 func (ms *MemoryStorage) getCount() (int, error) {
 	return len(ms.data), nil
+}
+
+func (ms *MemoryStorage) modifiedDate() (time.Time, error) {
+	return ms.lastModified, nil
 }
 
 // Path filtering

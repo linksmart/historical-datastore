@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pborman/uuid"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -18,9 +19,10 @@ import (
 
 // LevelDB storage
 type LevelDBStorage struct {
-	db *leveldb.DB
-	nt chan common.Notification
-	wg sync.WaitGroup
+	db           *leveldb.DB
+	nt           chan common.Notification
+	wg           sync.WaitGroup
+	lastModified time.Time
 }
 
 func NewLevelDBStorage(dsn string, opts *opt.Options) (Storage, *chan common.Notification, func() error, error) {
@@ -36,7 +38,8 @@ func NewLevelDBStorage(dsn string, opts *opt.Options) (Storage, *chan common.Not
 	}
 
 	s := &LevelDBStorage{
-		db: db,
+		db:           db,
+		lastModified: time.Now(),
 	}
 	return s, &s.nt, s.close, nil
 }
@@ -83,6 +86,7 @@ func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
 		return DataSource{}, err
 	}
 
+	s.lastModified = time.Now()
 	return ds, nil
 }
 
@@ -133,6 +137,7 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 		return DataSource{}, err
 	}
 
+	s.lastModified = time.Now()
 	return tempDS, nil
 }
 
@@ -156,6 +161,7 @@ func (s *LevelDBStorage) delete(id string) error {
 		return err
 	}
 
+	s.lastModified = time.Now()
 	return nil
 }
 
@@ -255,6 +261,10 @@ func (s *LevelDBStorage) getCount() (int, error) {
 	}
 
 	return counter, nil
+}
+
+func (s *LevelDBStorage) modifiedDate() (time.Time, error) {
+	return s.lastModified, nil
 }
 
 // Path filtering

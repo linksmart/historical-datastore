@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"linksmart.eu/services/historical-datastore/common"
@@ -56,6 +58,26 @@ func NewWriteableAPI(storage Storage) *WriteableAPI {
 // Index is a handler for the registry index
 func (regAPI *ReadableAPI) Index(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+
+	lastModified, err := regAPI.storage.modifiedDate()
+	if err != nil {
+		log.Println("Error retrieving last modified date: %s", err.Error())
+		lastModified = time.Now()
+	}
+
+	if r.Header.Get("If-Modified-Since") != "" {
+		modifiedSince, err := time.Parse(time.RFC1123, r.Header.Get("If-Modified-Since"))
+		if err != nil {
+			common.ErrorResponse(http.StatusBadRequest, "Error parsing If-Modified-Since header: "+err.Error(), w)
+			return
+		}
+		lastModified, _ = time.Parse(time.RFC1123, lastModified.UTC().Format(time.RFC1123))
+		if modifiedSince.Equal(lastModified) || modifiedSince.After(lastModified) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
 	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage), MaxPerPage)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
@@ -79,6 +101,7 @@ func (regAPI *ReadableAPI) Index(w http.ResponseWriter, r *http.Request) {
 
 	b, _ := json.Marshal(&registry)
 	w.Header().Add("Content-Type", common.DefaultMIMEType)
+	w.Header().Add("Last-Modified", lastModified.UTC().Format(time.RFC1123))
 	w.Write(b)
 	return
 }

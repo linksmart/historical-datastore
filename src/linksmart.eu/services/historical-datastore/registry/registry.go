@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"linksmart.eu/services/historical-datastore/common"
 )
@@ -86,6 +87,7 @@ type Storage interface {
 	// Utility functions
 	getMany(page, perPage int) ([]DataSource, int, error)
 	getCount() (int, error)
+	modifiedDate() (time.Time, error)
 
 	// Path filtering
 	pathFilterOne(path, op, value string) (DataSource, error)
