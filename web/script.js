@@ -1,22 +1,6 @@
+// script.js
+
 // Global variables
-var dataAttributes = {
-	"name": "n",
-	"time": "t",
-	"value": "v",
-	"unit": "u"
-};
-var AGGR_ATTRIBUTES = {
-	"name": "n",
-	"starttime": "ts",
-	"endtime": "te"
-};
-var hideAttrs = ["url", "data", "retention", "format", "type"];
-var configFile = "conf/autogen_config.json";
-const REG_PER_PAGE = 100;
-const DATA_PER_PAGE = 1000;
-const AGGR_PER_PAGE = 1000;
-
-
 // DO NOT CHANGE
 var hdsURL;
 var loginURL;
@@ -43,48 +27,7 @@ $(document).ready(function(){
 		return;
 	}
 
-	$.ajax({
-		dataType: "json",
-		url: configFile,
-		success: function(json) {
-			hdsURL = json.hdsEndpoint;
-
-			if(json.authEnabled){
-				serviceID = json.authServiceID;
-				switch(json.authProvider) {
-					case 'cas':
-					loginURL = json.authProviderURL + "/v1/tickets";
-					break;
-					default:
-					bootstrapDialog({
-						type: BootstrapDialog.TYPE_DANGER,
-						closable: false,
-						title: 'Unsupported authenticator',
-						message: 'Authentication provider is not supported: ' + json.provider
-					});
-				}
-				
-				if(localStorage.getItem("ticket") == null) {
-					loggedOut();
-					$("#loginModal").modal();
-					return;
-				} else {
-					loggedIn();
-				}
-			}
-
-			main();
-		},
-		error: function(e) {
-			console.error(e);
-			bootstrapDialog({
-				type: BootstrapDialog.TYPE_DANGER,
-				closable: false,
-				title: 'Configuration Error: ' + e.status + ' ' + e.statusText,
-				message: 'Unable to load configuration file: ' + configFile
-			});
-		}
-	});
+	main();
 });
 
 function loggedIn(){
@@ -235,7 +178,48 @@ function setupModal(id){
 }
 
 function main(){
-	getRegistry();
+	$.ajax({
+		dataType: "json",
+		url: CONFIG_FILE,
+		success: function(json) {
+			hdsURL = json.hdsEndpoint;
+
+			if(json.authEnabled){
+				serviceID = json.authServiceID;
+				switch(json.authProvider) {
+					case 'cas':
+						loginURL = json.authProviderURL + "/v1/tickets";
+						break;
+					default:
+						bootstrapDialog({
+							type: BootstrapDialog.TYPE_DANGER,
+							closable: false,
+							title: 'Unsupported authenticator',
+							message: 'Authentication provider is not supported: ' + json.provider
+						});
+				}
+
+				if(localStorage.getItem("ticket") == null) {
+					loggedOut();
+					$("#loginModal").modal();
+					return;
+				} else {
+					loggedIn();
+				}
+			}
+
+			getRegistry();
+		},
+		error: function(e) {
+			console.error(e);
+			bootstrapDialog({
+				type: BootstrapDialog.TYPE_DANGER,
+				closable: false,
+				title: 'Configuration Error: ' + e.status + ' ' + e.statusText,
+				message: 'Unable to load configuration file: ' + CONFIG_FILE
+			});
+		}
+	});
 } // end main
 
 
@@ -375,10 +359,10 @@ function fillTable(entries){
 	out[++o] = '</tbody>';
 	$("#entries").append(out.join(''));
 
-	// Get index of hideAttrs for table config
-	var hideAttrsIndx = [];
-	hideAttrs.forEach(function(attr){
-		hideAttrsIndx.push(columns[attr]);
+	// Get index of HIDDEN_TABLE_COLUMNS for table config
+	var HIDDEN_TABLE_COLUMNSIndx = [];
+	HIDDEN_TABLE_COLUMNS.forEach(function(attr){
+		HIDDEN_TABLE_COLUMNSIndx.push(columns[attr]);
 	});
 
 	// Configure table
@@ -405,7 +389,7 @@ function fillTable(entries){
 		},
 		{
 			name: 'colsVisibility',
-			at_start: hideAttrsIndx,
+			at_start: HIDDEN_TABLE_COLUMNSIndx,
 			text: 'Columns: ',
 			enable_tick_all: false
 		}
@@ -427,7 +411,7 @@ function setupDataExportModal(){
     		});
 
     	var attrs = [];
-    	$.each(dataAttributes, function(key, value){
+    	$.each(DATA_ATTRIBUTES, function(key, value){
     		attrs.push(key);
     	});
     	$("#dataExport #sampleAttributes").text("Comma separated list: " + attrs.join(', '));
@@ -518,7 +502,7 @@ function exportData(){
 	attributes = attributes.replace(/ /g,'').split(','); // remove whitespaces and split
 	senmlKeys = [];
 	attributes.forEach(function(attr) {
-		if(!dataAttributes.hasOwnProperty(attr)){
+		if(!DATA_ATTRIBUTES.hasOwnProperty(attr)){
 			bootstrapDialog({
 				type: BootstrapDialog.TYPE_DANGER,
 				closable: true,
@@ -534,7 +518,7 @@ function exportData(){
 			valid = false;
 			return;
 		}
-		senmlKeys.push(dataAttributes[attr]);
+		senmlKeys.push(DATA_ATTRIBUTES[attr]);
 	});
 	if(!valid){
 		return;
