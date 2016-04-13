@@ -16,6 +16,28 @@ var registryLoaded = false;
 
 $(document).ready(function(){
 
+	if(localStorage.getItem("no-chrome") == null) {
+		var chrome = /chrome/i.test(navigator.userAgent);
+		if (!chrome) {
+			bootstrapDialog({
+				type: BootstrapDialog.TYPE_PRIMARY,
+				closable: false,
+				title: 'Browser Compatibility',
+				message: 'This website works best with latest versions of <a href="https://www.google.com/chrome/">Google Chrome</a> browser.',
+				buttons: [{
+					label: 'Ignore',
+					cssClass: 'btn-warning',
+					action: function (dialog) {
+						dialog.close();
+						localStorage.setItem("no-chrome", "yes");
+						main();
+					}
+				}]
+			});
+			return;
+		}
+	}
+
 	// Check support for HTML5 Local Storage
 	if(typeof(Storage) == "undefined") {
 		bootstrapDialog({
@@ -966,3 +988,23 @@ var spinner = spinner || (function () {
         },
     };
 })();
+
+// Show errors
+window.onerror = function(msg, url, line) {
+
+	bootstrapDialog({
+		type: BootstrapDialog.TYPE_DANGER,
+		closable: false,
+		title: 'Internal Error',
+		message: url + ":" + line + ": " + msg,
+		buttons: [{
+			label: 'Close',
+			action: function (dialog) {
+				dialog.close();
+			}
+		}]
+	});
+
+	var suppressErrorAlert = false;
+	return suppressErrorAlert;
+};
