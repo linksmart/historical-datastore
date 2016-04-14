@@ -22,47 +22,13 @@ const (
 
 type API struct {
 	registryClient registry.Client
-	storage        Aggr
+	storage        Storage
 }
 
-func NewAPI(registryClient registry.Client, storage Aggr) *API {
+func NewAPI(registryClient registry.Client, storage Storage) *API {
 	return &API{registryClient, storage}
 }
 
-// Retrieve aggregations from registry api
-func (api *API) Aggregations() (map[string]Aggregation, error) {
-	aggrs := make(map[string]Aggregation)
-	perPage := 100
-	for page := 1; ; page++ {
-		datasources, total, err := api.registryClient.GetDataSources(page, perPage)
-		if err != nil {
-			return aggrs, err
-		}
-
-		for _, ds := range datasources {
-			for _, dsa := range ds.Aggregation {
-				var aggr Aggregation
-				aggr.ID = dsa.ID
-				aggr.Interval = dsa.Interval
-				aggr.Aggregates = dsa.Aggregates
-				aggr.Retention = dsa.Retention
-				var sources []string
-				a, found := aggrs[dsa.ID]
-				if found {
-					sources = a.Sources
-				}
-				aggr.Sources = append(sources, ds.ID)
-				aggrs[dsa.ID] = aggr
-			}
-		}
-
-		if page*perPage >= total {
-			break
-		}
-	}
-
-	return aggrs, nil
-}
 
 func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 
@@ -226,4 +192,42 @@ OUTERLOOP:
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusOK)
 	w.Write(b)
+}
+
+
+// Utility functions
+
+// Retrieve aggregations from registry api
+func (api *API) Aggregations() (map[string]Aggregation, error) {
+	aggrs := make(map[string]Aggregation)
+	perPage := 100
+	for page := 1; ; page++ {
+		datasources, total, err := api.registryClient.GetDataSources(page, perPage)
+		if err != nil {
+			return aggrs, err
+		}
+
+		for _, ds := range datasources {
+			for _, dsa := range ds.Aggregation {
+				var aggr Aggregation
+				aggr.ID = dsa.ID
+				aggr.Interval = dsa.Interval
+				aggr.Aggregates = dsa.Aggregates
+				aggr.Retention = dsa.Retention
+				var sources []string
+				a, found := aggrs[dsa.ID]
+				if found {
+					sources = a.Sources
+				}
+				aggr.Sources = append(sources, ds.ID)
+				aggrs[dsa.ID] = aggr
+			}
+		}
+
+		if page*perPage >= total {
+			break
+		}
+	}
+
+	return aggrs, nil
 }

@@ -8,7 +8,7 @@ import (
 )
 
 // Handles an incoming notification
-func ntListener(s Storage, ntChan <-chan common.Notification) {
+func NtfListener(s Storage, ntChan <-chan common.Notification) {
 	for ntf := range ntChan {
 		switch ntf.Type {
 		case common.CREATE:

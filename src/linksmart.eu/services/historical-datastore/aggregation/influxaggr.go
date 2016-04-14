@@ -19,7 +19,7 @@ type InfluxAggr struct {
 	influxStorage *data.InfluxStorage
 }
 
-func NewInfluxAggr(influxStorage *data.InfluxStorage) (Aggr, chan<- common.Notification, error) {
+func NewInfluxAggr(influxStorage *data.InfluxStorage) (Storage, chan<- common.Notification, error) {
 
 	a := &InfluxAggr{
 		influxStorage: influxStorage,
@@ -27,7 +27,7 @@ func NewInfluxAggr(influxStorage *data.InfluxStorage) (Aggr, chan<- common.Notif
 
 	// Run the notification listener
 	ntChan := make(chan common.Notification)
-	go ntListener(a, ntChan)
+	go NtfListener(a, ntChan)
 
 	return a, ntChan, nil
 }
@@ -116,7 +116,7 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 }
 
 // Handles the creation of a new data source
-func (a *InfluxAggr) ntfCreated(ds registry.DataSource, callback chan error) {
+func (a *InfluxAggr) NtfCreated(ds registry.DataSource, callback chan error) {
 
 	for _, dsa := range ds.Aggregation {
 		err := a.createRetentionPolicy(ds, dsa)
@@ -136,7 +136,7 @@ func (a *InfluxAggr) ntfCreated(ds registry.DataSource, callback chan error) {
 }
 
 // Handles updates of a data source
-func (a *InfluxAggr) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
+func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
 
 	aggrs := make(map[string]registry.Aggregation)
 	for _, dsa := range oldDS.Aggregation {
@@ -210,7 +210,7 @@ func (a *InfluxAggr) ntfUpdated(oldDS registry.DataSource, newDS registry.DataSo
 }
 
 // Handles deletion of a data source
-func (a *InfluxAggr) ntfDeleted(ds registry.DataSource, callback chan error) {
+func (a *InfluxAggr) NtfDeleted(ds registry.DataSource, callback chan error) {
 
 	for _, dsa := range ds.Aggregation {
 		// Drop Continuous Query

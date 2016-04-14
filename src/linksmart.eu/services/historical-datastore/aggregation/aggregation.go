@@ -8,14 +8,14 @@ import (
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
-type Aggr interface {
+type Storage interface {
 	// Queries data for specified data sources
 	Query(aggr registry.Aggregation, q data.Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error)
 
 	// Methods for handling notifications
-	ntfCreated(ds registry.DataSource, callback chan error)
-	ntfUpdated(old registry.DataSource, new registry.DataSource, callback chan error)
-	ntfDeleted(ds registry.DataSource, callback chan error)
+	NtfCreated(ds registry.DataSource, callback chan error)
+	NtfUpdated(old registry.DataSource, new registry.DataSource, callback chan error)
+	NtfDeleted(ds registry.DataSource, callback chan error)
 }
 
 type Index struct {

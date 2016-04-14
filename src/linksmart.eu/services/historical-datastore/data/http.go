@@ -45,54 +45,6 @@ func NewReadableAPI(registryClient registry.Client, storage Storage) *ReadableAP
 	}
 }
 
-func ParseQueryParameters(form url.Values) (Query, error) {
-	q := Query{}
-	var err error
-
-	// start time
-	if form.Get(common.ParamStart) == "" {
-		// Open-ended query
-		q.Start = time.Time{}
-	} else {
-		q.Start, err = time.Parse(time.RFC3339, form.Get(common.ParamStart))
-		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing start argument: %v", err.Error())
-		}
-	}
-
-	// end time
-	if form.Get(common.ParamEnd) == "" {
-		// Open-ended query
-		q.End = time.Now().UTC()
-	} else {
-		q.End, err = time.Parse(time.RFC3339, form.Get(common.ParamEnd))
-		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing end argument: %v", err.Error())
-		}
-	}
-
-	// limit
-	if form.Get(common.ParamLimit) == "" {
-		q.Limit = -1
-	} else {
-		q.Limit, err = strconv.Atoi(form.Get(common.ParamLimit))
-		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing limit argument: %v", err.Error())
-		}
-	}
-
-	// sort
-	q.Sort = form.Get(common.ParamSort)
-	if q.Sort == "" {
-		// default sorting order
-		q.Sort = common.DESC
-	} else if q.Sort != common.ASC && q.Sort != common.DESC {
-		return Query{}, fmt.Errorf("Invalid sort argument: %v", q.Sort)
-	}
-
-	return q, nil
-}
-
 // Submit is a handler for submitting a new data point: not supported by Readable API
 func (d *ReadableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusMethodNotAllowed)
@@ -279,4 +231,55 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusOK)
 	w.Write(b)
+}
+
+
+// Utility functions
+
+func ParseQueryParameters(form url.Values) (Query, error) {
+	q := Query{}
+	var err error
+
+	// start time
+	if form.Get(common.ParamStart) == "" {
+		// Open-ended query
+		q.Start = time.Time{}
+	} else {
+		q.Start, err = time.Parse(time.RFC3339, form.Get(common.ParamStart))
+		if err != nil {
+			return Query{}, fmt.Errorf("Error parsing start argument: %v", err.Error())
+		}
+	}
+
+	// end time
+	if form.Get(common.ParamEnd) == "" {
+		// Open-ended query
+		q.End = time.Now().UTC()
+	} else {
+		q.End, err = time.Parse(time.RFC3339, form.Get(common.ParamEnd))
+		if err != nil {
+			return Query{}, fmt.Errorf("Error parsing end argument: %v", err.Error())
+		}
+	}
+
+	// limit
+	if form.Get(common.ParamLimit) == "" {
+		q.Limit = -1
+	} else {
+		q.Limit, err = strconv.Atoi(form.Get(common.ParamLimit))
+		if err != nil {
+			return Query{}, fmt.Errorf("Error parsing limit argument: %v", err.Error())
+		}
+	}
+
+	// sort
+	q.Sort = form.Get(common.ParamSort)
+	if q.Sort == "" {
+		// default sorting order
+		q.Sort = common.DESC
+	} else if q.Sort != common.ASC && q.Sort != common.DESC {
+		return Query{}, fmt.Errorf("Invalid sort argument: %v", q.Sort)
+	}
+
+	return q, nil
 }

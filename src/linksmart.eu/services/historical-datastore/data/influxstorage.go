@@ -46,7 +46,7 @@ func NewInfluxStorage(DSN string) (*InfluxStorage, chan<- common.Notification, e
 
 	// Run the notification listener
 	ntChan := make(chan common.Notification)
-	go ntListener(s, ntChan)
+	go NtfListener(s, ntChan)
 
 	return s, ntChan, nil
 }
