@@ -138,7 +138,6 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse id(s) and get sources from registry
 	ids := strings.Split(params["uuid"], common.IDSeparator)
 	if len(ids) == 0 {
 		common.ErrorResponse(http.StatusBadRequest,
@@ -146,41 +145,51 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var aggr registry.Aggregation
-	var sources []registry.DataSource
-OUTERLOOP:
-	for _, id := range ids {
-		ds, err := api.registryClient.Get(id)
-		if err != nil {
-			common.ErrorResponse(http.StatusNotFound,
-				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()),
-				w)
-			return
-		}
-		for _, dsa := range ds.Aggregation {
-			if dsa.ID == aggrID {
-				sources = append(sources, ds)
-				aggr = dsa
-				continue OUTERLOOP
-			}
-		}
-
-		sources = append(sources, ds)
-	}
-
-	// Parse query
 	q, err := data.ParseQueryParameters(r.Form)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
 		return
 	}
 
-	err = common.ValidatePerItemLimit(q.Limit, perPage, len(sources))
+	err = common.ValidatePerItemLimit(q.Limit, perPage, len(ids))
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
 		return
 	}
 
+	// Query sources from registry
+	var sources []registry.DataSource
+
+OUTERLOOP:
+	for _, id := range ids {
+		ds, err := api.registryClient.Get(id)
+		if err != nil {
+			common.ErrorResponse(http.StatusNotFound,
+				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()), w)
+			return
+		}
+		sources = append(sources, ds)
+
+		// Check if ds has the aggregation
+		for _, dsa := range ds.Aggregation {
+			if dsa.ID == aggrID {
+				continue OUTERLOOP
+			}
+		}
+		common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data source %v does not have aggregation %v", id, aggrID), w)
+		return
+	}
+
+	// Retrieve the aggregation object
+	var aggr registry.Aggregation
+	for _, dsa := range sources[0].Aggregation {
+		if dsa.ID == aggrID {
+			aggr = dsa
+			break
+		}
+	}
+
+	// Query aggregated data from storage
 	dataset, total, err := api.storage.Query(aggr, q, page, perPage, sources...)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
