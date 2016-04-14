@@ -286,17 +286,17 @@ func pointsFromRow(r models.Row, aggr registry.Aggregation, ds registry.DataSour
 
 // Formatted continuous query name for a given data source
 func (a *InfluxAggr) cq(dsID, aggrID string) string {
-	return fmt.Sprintf("\"cq_%s/%s\"", aggrID, dsID)
+	return fmt.Sprintf("\"cq_%s_%s\"", aggrID, dsID)
 }
 
 // Formatted retention policy name for a given data source
 func (a *InfluxAggr) retention(dsID, aggrID string) string {
-	return fmt.Sprintf("\"aggr_policy_%s/%s\"", aggrID, dsID)
+	return fmt.Sprintf("\"aggr_policy_%s_%s\"", aggrID, dsID)
 }
 
 // Formatted measurement name for a given data source
 func (a *InfluxAggr) msrmt(dsID, aggrID string) string {
-	return fmt.Sprintf("\"aggr_%s/%s\"", aggrID, dsID)
+	return fmt.Sprintf("\"aggr_%s_%s\"", aggrID, dsID)
 }
 
 // Fully qualified measurement name
