@@ -233,7 +233,6 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-
 // Utility functions
 
 func ParseQueryParameters(form url.Values) (Query, error) {
@@ -242,7 +241,7 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 
 	// start time
 	if form.Get(common.ParamStart) == "" {
-		// Open-ended query
+		// Start from zero time
 		q.Start = time.Time{}
 	} else {
 		q.Start, err = time.Parse(time.RFC3339, form.Get(common.ParamStart))
@@ -260,6 +259,10 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 		if err != nil {
 			return Query{}, fmt.Errorf("Error parsing end argument: %v", err.Error())
 		}
+	}
+
+	if !q.End.After(q.Start) {
+		return Query{}, fmt.Errorf("end argument is before or equal to start")
 	}
 
 	// limit
