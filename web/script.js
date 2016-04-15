@@ -187,10 +187,10 @@ function setupModal(id){
 		format: "YYYY-MM-DDTHH:mm:ss"
 	});
 	$(id + ' #datetimepickerStart').on("dp.change", function (e) {
-		$('#datetimepickerEnd').data("DateTimePicker").minDate(e.date);
+		$(id + ' #datetimepickerEnd').data("DateTimePicker").minDate(e.date);
 	});
 	$(id + ' #datetimepickerEnd').on("dp.change", function (e) {
-		$('#datetimepickerStart').data("DateTimePicker").maxDate(e.date);
+		$(id + ' #datetimepickerStart').data("DateTimePicker").maxDate(e.date);
 	});
 
 	// Dropdown
@@ -437,7 +437,8 @@ function setupDataExportModal(){
     	$.each(DATA_ATTRIBUTES, function(key, value){
     		attrs.push(key);
     	});
-    	$("#dataExport #sampleAttributes").text("Comma separated list: " + attrs.join(', '));
+		$("#dataExport #sampleAttributes").text("Comma separated list: " + attrs.join(', '));
+		$("#dataExport #attributes").val(attrs.join(','));
 	}, 100);
 }
 
@@ -486,12 +487,13 @@ function setupAggrExportModal(){
 
 		$("#aggrExport #aggregations").empty();
 		$.each(AggrsMap, function(aggrID, aggr){
+			var retention = (retentions[aggrID]==''? '&infin;' : retentions[aggrID]);
 			$("#aggrExport #aggregations").append('\
 				<div id="'+aggrID+'" class="panel panel-primary">\
 					<div class="panel-heading"><input class="checkboxPanel" type="checkbox" checked />\
-					<em>'+aggr.aggregates.join(", ")+'</em> every <em>'+aggr.interval+'</em>. Retention: <em>'+retentions[aggrID]+'</em>\
+					<em>'+aggr.aggregates.join(", ")+'</em> every <em>'+aggr.interval+'</em>. Retention: <em>'+retention+'</em>\
 					<span class="badge pull-right">'+aggr.sources.length+' sources</span></div>\
-					<div class="panel-body">Selected attributes:\
+					<div class="panel-body">Comma separated list: '+attrs.join(", ")+','+aggr.aggregates.join(", ")+'\
 					<input class="attributes form-control" type="text" value="'+attrs.join(",")+','+aggr.aggregates.join(",")+'" /></div>\
 				</div>\
 			');
