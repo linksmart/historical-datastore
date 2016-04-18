@@ -1,5 +1,8 @@
 // Constants.js
 
+// Enable data exporting
+const DATA_EXPORT = true;
+
 // Attributes of data responses
 const DATA_ATTRIBUTES = {
 	"name": "n",
@@ -7,6 +10,9 @@ const DATA_ATTRIBUTES = {
 	"value": "v",
 	"unit": "u"
 };
+
+// Enable aggregation exporting
+const AGGR_EXPORT = true;
 
 // Attributes of aggregation responses
 const AGGR_ATTRIBUTES = {

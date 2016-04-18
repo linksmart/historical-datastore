@@ -113,8 +113,8 @@
 	<h1>Registry<i class="fa fa-cog fa-spin spinner-h1 hidden"></i></h1>
 
 	<!--<button class="btn btn-default" data-toggle="modal" data-target="#registryExport" disabled="disabled">Export registry</button>-->
-	<button class="btn btn-default" data-toggle="modal" data-target="#dataExport" onclick="setupDataExportModal();">Export data</button>
-	<button class="btn btn-default" data-toggle="modal" data-target="#aggrExport" onclick="setupAggrExportModal();">Export aggregations</button>
+	<button id="data-export-btn" class="btn btn-default" data-toggle="modal" data-target="#dataExport" onclick="setupDataExportModal();">Export data</button>
+	<button id="aggr-export-btn" class="btn btn-default" data-toggle="modal" data-target="#aggrExport" onclick="setupAggrExportModal();">Export aggregations</button>
 
 	<div id="externalToolbar" class="navbar navbar-default navbar-form"></div>
 	<table id="entries" class="center-block">

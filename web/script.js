@@ -48,6 +48,13 @@ $(document).ready(function(){
 		});
 		return;
 	}
+	
+	if(!DATA_EXPORT){
+		$("#data-export-btn").hide()
+	}
+	if(!AGGR_EXPORT){
+		$("#aggr-export-btn").hide()
+	}
 
 	main();
 });
