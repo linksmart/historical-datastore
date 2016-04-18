@@ -121,7 +121,11 @@ func (regAPI *WriteableAPI) Create(w http.ResponseWriter, r *http.Request) {
 	//	}
 
 	body, err := ioutil.ReadAll(r.Body)
-	r.Body.Close()
+	defer r.Body.Close()
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
+	}
 
 	var ds DataSource
 	err = json.Unmarshal(body, &ds)
@@ -185,7 +189,11 @@ func (regAPI *WriteableAPI) Update(w http.ResponseWriter, r *http.Request) {
 	id := params["id"]
 
 	body, err := ioutil.ReadAll(r.Body)
-	r.Body.Close()
+	defer r.Body.Close()
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
+	}
 
 	var ds DataSource
 	err = json.Unmarshal(body, &ds)
