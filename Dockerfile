@@ -23,5 +23,6 @@ COPY . ${HDS_HOME}
 RUN gb build all
 
 VOLUME conf
+VOLUME data
 
 EXPOSE 8085
