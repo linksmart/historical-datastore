@@ -22,4 +22,6 @@ WORKDIR ${HDS_HOME}
 COPY . ${HDS_HOME}
 RUN gb build all
 
+VOLUME conf
+
 EXPOSE 8085
