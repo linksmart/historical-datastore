@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"strings"
 
-	senml "github.com/krylovsk/gosenml"
-
 	"linksmart.eu/lc/core/catalog"
 	"linksmart.eu/lc/sec/auth/obtainer"
 	"linksmart.eu/services/historical-datastore/common"
@@ -35,17 +33,15 @@ func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) (*RemoteCli
 	}, nil
 }
 
-func (c *RemoteClient) Submit(senmlMsg *senml.Message, id ...string) error {
-	encoder := senml.NewJSONEncoder()
-	b, err := encoder.EncodeMessage(senmlMsg)
-	if err != nil {
-		return err
-	}
-
+// Submit data for ingestion, where:
+// data - is a byte array with actual data
+// contentType - mime-type of the data (will be set in the header)
+// id... - ID (or array of IDs) of data sources for which the data is being submitted
+func (c *RemoteClient) Submit(data []byte, contentType string, id ...string) error {
 	res, err := catalog.HTTPRequest("POST",
 		c.serverEndpoint.String()+"/"+strings.Join(id, ","),
-		map[string][]string{"Content-Type": []string{"application/senml+json"}},
-		bytes.NewReader(b),
+		map[string][]string{"Content-Type": []string{contentType}},
+		bytes.NewReader(data),
 		c.ticket,
 	)
 	if err != nil {
