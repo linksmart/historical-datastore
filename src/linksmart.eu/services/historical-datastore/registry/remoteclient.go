@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"linksmart.eu/lc/core/catalog"
 	"linksmart.eu/lc/sec/auth/obtainer"
@@ -60,7 +61,7 @@ func (c *RemoteClient) Index(page int, perPage int) (*Registry, error) {
 	return nil, fmt.Errorf("%v: %v", res.StatusCode, string(body))
 }
 
-func (c *RemoteClient) Add(d *DataSource) error {
+func (c *RemoteClient) Add(d *DataSource) (string, error) {
 	b, _ := json.Marshal(d)
 	res, err := catalog.HTTPRequest("POST",
 		c.serverEndpoint.String()+"/",
@@ -69,21 +70,24 @@ func (c *RemoteClient) Add(d *DataSource) error {
 		c.ticket,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode == http.StatusCreated {
-		return nil
+		// retrieve ID from the header
+		loc := res.Header.Get("Location")
+		tkz := strings.Split(loc, "/")
+		return tkz[len(tkz)-1], nil
 	}
 
 	// Get body of error
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return fmt.Errorf("Unable to read body of error: %v", err.Error())
+		return "", fmt.Errorf("Unable to read body of error: %v", err.Error())
 	}
 
-	return fmt.Errorf("%v: %v", res.StatusCode, string(body))
+	return "", fmt.Errorf("%v: %v", res.StatusCode, string(body))
 }
 
 func (c *RemoteClient) Get(id string) (*DataSource, error) {
