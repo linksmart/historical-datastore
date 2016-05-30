@@ -2,6 +2,12 @@
 	"version": 0,
 	"dependencies": [
 		{
+			"importpath": "git.eclipse.org/gitroot/paho/org.eclipse.paho.mqtt.golang.git",
+			"repository": "https://git.eclipse.org/gitroot/paho/org.eclipse.paho.mqtt.golang.git",
+			"revision": "617c801af238c3af2d9e72c5d4a0f02edad03ce5",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/ancientlore/go-avltree",
 			"repository": "https://github.com/ancientlore/go-avltree",
 			"revision": "1ec3f9cf4fbd05e8f2a0e0adbe055a858180b6cb",
@@ -185,6 +191,19 @@
 			"revision": "66f0418ca41253f8d1a024eb9754e9441a8e79b9",
 			"branch": "master",
 			"path": "/ipv6"
+		},
+		{
+			"importpath": "golang.org/x/net/websocket",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "7e42c0e1329bb108f7376a7618a2871ab90f1c4d",
+			"branch": "master",
+			"path": "/websocket"
+		},
+		{
+			"importpath": "linksmart.eu/redmine/linksmart-opensource/linksmart-services/model-repository/go-client.git",
+			"repository": "https://linksmart.eu/redmine/linksmart-opensource/linksmart-services/model-repository/go-client.git",
+			"revision": "b0fb9597c83f6256bc63505a172828573b2ff3b9",
+			"branch": "master"
 		}
 	]
 }
