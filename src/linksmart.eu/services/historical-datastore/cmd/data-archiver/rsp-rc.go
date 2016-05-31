@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 
 	"linksmart.eu/lc/core/catalog/resource"
 	"linksmart.eu/lc/sec/auth/obtainer"
@@ -9,7 +9,7 @@ import (
 
 type RCResourcesProvider struct {
 	config   *RCConfig
-	rcClient *resource.RemoteCatalogClient
+	rcClient resource.CatalogClient
 }
 
 func NewRCResourcesProvider(config *RCConfig) *RCResourcesProvider {
@@ -22,7 +22,8 @@ func NewRCResourcesProvider(config *RCConfig) *RCResourcesProvider {
 		authClient, err = obtainer.NewClient(config.Auth.Provider, config.Auth.ProviderURL,
 			config.Auth.Username, config.Auth.Password, config.Auth.ServiceID)
 		if err != nil {
-			return nil, fmt.Errorf("Error creating RC auth client: %v", err.Error())
+			log.Printf("ERR: Error creating RC auth client: %v", err.Error())
+			return nil
 		}
 	}
 

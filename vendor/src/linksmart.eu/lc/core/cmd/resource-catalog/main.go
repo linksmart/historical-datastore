@@ -176,9 +176,15 @@ func setupRouter(config *Config) (*mux.Router, func() error, error) {
 		return nil, nil, fmt.Errorf("Could not create catalog API storage. Unsupported type: %v", config.Storage.Type)
 	}
 
+	controller, err := catalog.NewController(storage, config.ApiLocation)
+	if err != nil {
+		storage.Close()
+		return nil, nil, fmt.Errorf("Failed to start the controller: %v", err.Error())
+	}
+
 	// Create catalog API object
 	api := catalog.NewWritableCatalogAPI(
-		storage,
+		controller,
 		config.ApiLocation,
 		utils.StaticLocation,
 		config.Description,
@@ -201,15 +207,22 @@ func setupRouter(config *Config) (*mux.Router, func() error, error) {
 
 	// Configure routers
 	r := mux.NewRouter().StrictSlash(true)
-	r.Methods("GET").Path(config.ApiLocation).Handler(commonHandlers.ThenFunc(api.List)).Name("list")
-	r.Methods("POST").Path(config.ApiLocation + "/").Handler(commonHandlers.ThenFunc(api.Add)).Name("add")
-	r.Methods("GET").Path(config.ApiLocation + "/{type}/{path}/{op}/{value:.*}").Handler(commonHandlers.ThenFunc(api.Filter)).Name("filter")
+	r.Methods("GET").Path(config.ApiLocation).Handler(commonHandlers.ThenFunc(api.Index))
 
-	url := config.ApiLocation + "/{dgwid}/{regid}"
-	r.Methods("GET").Path(url).Handler(commonHandlers.ThenFunc(api.Get)).Name("get")
-	r.Methods("PUT").Path(url).Handler(commonHandlers.ThenFunc(api.Update)).Name("update")
-	r.Methods("DELETE").Path(url).Handler(commonHandlers.ThenFunc(api.Delete)).Name("delete")
-	r.Methods("GET").Path(url + "/{resname}").Handler(commonHandlers.ThenFunc(api.GetResource)).Name("details")
+	// Devices
+	// CRUD
+	r.Methods("POST").Path(config.ApiLocation + "/devices/").Handler(commonHandlers.ThenFunc(api.Add))
+	r.Methods("GET").Path(config.ApiLocation + "/devices/{id}").Handler(commonHandlers.ThenFunc(api.Get))
+	r.Methods("PUT").Path(config.ApiLocation + "/devices/{id}").Handler(commonHandlers.ThenFunc(api.Update))
+	r.Methods("DELETE").Path(config.ApiLocation + "/devices/{id}").Handler(commonHandlers.ThenFunc(api.Delete))
+	// Listing, filtering
+	r.Methods("GET").Path(config.ApiLocation + "/devices").Handler(commonHandlers.ThenFunc(api.List))
+	r.Methods("GET").Path(config.ApiLocation + "/devices/{path}/{op}/{value:.*}").Handler(commonHandlers.ThenFunc(api.Filter))
 
-	return r, storage.Close, nil
+	// Resources
+	r.Methods("GET").Path(config.ApiLocation + "/resources").Handler(commonHandlers.ThenFunc(api.ListResources))
+	r.Methods("GET").Path(config.ApiLocation + "/resources/{id:[^/]+/?[^/]*}").Handler(commonHandlers.ThenFunc(api.GetResource))
+	r.Methods("GET").Path(config.ApiLocation + "/resources/{path}/{op}/{value:.*}").Handler(commonHandlers.ThenFunc(api.FilterResources))
+
+	return r, controller.Stop, nil
 }

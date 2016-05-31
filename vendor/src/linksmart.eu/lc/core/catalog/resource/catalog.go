@@ -1,38 +1,48 @@
 package resource
 
 import (
-	"errors"
+	"fmt"
+	"net/url"
 	"strings"
 	"time"
 )
 
-var ErrorNotFound = errors.New("NotFound")
+// STRUCTS
 
-// Structs
+type Resources []Resource
+type Devices []Device
 
-// Device entry in the catalog
+// Device
 type Device struct {
 	Id          string                 `json:"id"`
+	URL         string                 `json:"url"`
 	Type        string                 `json:"type"`
-	Name        string                 `json:"name"`
-	Meta        map[string]interface{} `json:"meta"`
-	Description string                 `json:"description"`
-	Ttl         int                    `json:"ttl"`
+	Name        string                 `json:"name,omitempty"`
+	Meta        map[string]interface{} `json:"meta,omitempty"`
+	Description string                 `json:"description,omitempty"`
+	Ttl         uint                   `json:"ttl,omitempty"`
 	Created     time.Time              `json:"created"`
 	Updated     time.Time              `json:"updated"`
-	Expires     *time.Time             `json:"expires"`
-	Resources   []Resource             `json:"resources"`
+	Expires     *time.Time             `json:"expires,omitempty"`
+	Resources   Resources              `json:"resources"`
 }
 
-// Resource exposed by a device
+// Device with only IDs of resources
+type SimpleDevice struct {
+	Device
+	Resources []string `json:"resources"`
+}
+
+// Resource
 type Resource struct {
 	Id             string                 `json:"id"`
+	URL            string                 `json:"url"`
 	Type           string                 `json:"type"`
-	Name           string                 `json:"name"`
-	Meta           map[string]interface{} `json:"meta"`
+	Name           string                 `json:"name,omitempty"`
+	Meta           map[string]interface{} `json:"meta,omitempty"`
 	Protocols      []Protocol             `json:"protocols"`
-	Representation map[string]interface{} `json:"representation"`
-	Device         string                 `json:"device,omitempty"` // link to device
+	Representation map[string]interface{} `json:"representation,omitempty"`
+	Device         string                 `json:"device"` // URL of device
 }
 
 // Protocol describes the resource API
@@ -43,95 +53,100 @@ type Protocol struct {
 	ContentTypes []string               `json:"content-types"`
 }
 
-// Deep copy of the device
-func (self *Device) copy() Device {
-	var dc Device
-	dc = *self
-	res := make([]Resource, len(self.Resources))
-	copy(res, self.Resources)
-	dc.Resources = res
-	return dc
-}
-
 // Validates the Device configuration
-func (d *Device) validate() bool {
-	if d.Id == "" || len(strings.Split(d.Id, "/")) != 2 || d.Name == "" || d.Ttl == 0 {
-		return false
+func (d *Device) validate() error {
+	_, err := url.Parse(d.Id)
+	if err != nil {
+		return fmt.Errorf("Device id %s cannot be used in a URL: %s", d.Id, err)
 	}
+	if strings.Contains(d.Id, "/") {
+		return fmt.Errorf("Device id should not contain any slashes. Given: %s", d.Id)
+	}
+
 	// validate all resources
+	rIDs := make(map[string]bool)
 	for _, r := range d.Resources {
-		if !r.validate() {
-			return false
+		if err := r.validate(); err != nil {
+			return err
+		}
+		if r.Id != "" {
+			_, found := rIDs[r.Id]
+			if found {
+				return &ConflictError{"Two or more resources have the same IDs"}
+			}
+			rIDs[r.Id] = true
 		}
 	}
-	return true
-}
 
-// Deep copy of the resource
-func (self *Resource) copy() Resource {
-	var rc Resource
-	rc = *self
-	proto := make([]Protocol, len(self.Protocols))
-	copy(proto, self.Protocols)
-	rc.Protocols = proto
-	return rc
+	return nil
 }
 
 // Validates the Resource configuration
-func (r *Resource) validate() bool {
-	if r.Id == "" || len(strings.Split(r.Id, "/")) != 3 || r.Name == "" {
-		return false
+func (r *Resource) validate() error {
+	_, err := url.Parse(r.Id)
+	if err != nil {
+		return fmt.Errorf("Resource id %s cannot be used in a URL: %s", r.Id, err)
 	}
-	return true
+	if strings.Count(r.Id, "/") > 1 {
+		return fmt.Errorf("Resource id should not contain more than one slash. Given: %s", r.Id)
+	}
+	if strings.HasPrefix(r.Id, "/") || strings.HasSuffix(r.Id, "/") {
+		return fmt.Errorf("Resource id should not start or end with an slash. Given: %s", r.Id)
+	}
+
+	return nil
 }
 
-// Interfaces
+// Converts a Device into SimpleDevice
+func (d *Device) simplify() *SimpleDevice {
+	resourceIDs := make([]string, len(d.Resources))
+	for i := 0; i < len(d.Resources); i++ {
+		resourceIDs[i] = d.Resources[i].URL
+	}
+	sd := &SimpleDevice{*d, resourceIDs}
+	sd.Device.Resources = nil
+	return sd
+}
+
+// Converts Devices into []SimpleDevice
+func (devices Devices) simplify() []SimpleDevice {
+	simpleDevices := make([]SimpleDevice, len(devices))
+	for i := 0; i < len(devices); i++ {
+		simpleDevices[i] = *devices[i].simplify()
+	}
+	return simpleDevices
+}
+
+// INTERFACES
+
+// Controller interface
+type CatalogController interface {
+	// Devices
+	add(d Device) (string, error)
+	get(id string) (*SimpleDevice, error)
+	update(id string, d Device) error
+	delete(id string) error
+	list(page, perPage int) ([]SimpleDevice, int, error)
+	filter(path, op, value string, page, perPage int) ([]SimpleDevice, int, error)
+	total() (int, error)
+	cleanExpired()
+
+	// Resources
+	getResource(id string) (*Resource, error)
+	listResources(page, perPage int) ([]Resource, int, error)
+	filterResources(path, op, value string, page, perPage int) ([]Resource, int, error)
+	totalResources() (int, error)
+
+	Stop() error
+}
 
 // Storage interface
 type CatalogStorage interface {
-	// CRUD
-	add(d Device) error
-	update(id string, d Device) error
+	add(d *Device) error
+	update(id string, d *Device) error
 	delete(id string) error
-	get(id string) (Device, error)
-
-	// Utility functions
-	getMany(page, perPage int) ([]Device, int, error)
-	getDevicesCount() (int, error)
-	getResourcesCount() (int, error)
-	getResourceById(id string) (Resource, error)
-	cleanExpired(ts time.Time)
+	get(id string) (*Device, error)
+	list(page, perPage int) (Devices, int, error)
+	total() (int, error)
 	Close() error
-
-	// Path filtering
-	pathFilterDevice(path, op, value string) (Device, error)
-	pathFilterDevices(path, op, value string, page, perPage int) ([]Device, int, error)
-	pathFilterResource(path, op, value string) (Resource, error)
-	pathFilterResources(path, op, value string, page, perPage int) ([]Device, int, error)
-}
-
-// Sorted-map data structure based on AVL Tree (go-avltree)
-type SortedMap struct {
-	key   interface{}
-	value interface{}
-}
-
-// Operator for string-type key
-func stringKeys(a interface{}, b interface{}) int {
-	if a.(SortedMap).key.(string) < b.(SortedMap).key.(string) {
-		return -1
-	} else if a.(SortedMap).key.(string) > b.(SortedMap).key.(string) {
-		return 1
-	}
-	return 0
-}
-
-// Operator for Time-type key
-func timeKeys(a interface{}, b interface{}) int {
-	if a.(SortedMap).key.(time.Time).Before(b.(SortedMap).key.(time.Time)) {
-		return -1
-	} else if a.(SortedMap).key.(time.Time).After(b.(SortedMap).key.(time.Time)) {
-		return 1
-	}
-	return 0
 }

@@ -21,7 +21,7 @@ func configureDevices(config *Config) []catalog.Device {
 		r.Name = device.Name
 		r.Description = device.Description
 		r.Meta = device.Meta
-		r.Id = fmt.Sprintf("%v/%v", config.Id, r.Name)
+		r.Id = device.Name
 		r.Resources = []catalog.Resource{}
 		for _, resource := range device.Resources {
 			res := new(catalog.Resource)
@@ -68,12 +68,17 @@ func configureDevices(config *Config) []catalog.Device {
 	return devices
 }
 
-// Register configured devices from a given configuration using provided storage implementation
-func registerInLocalCatalog(devices []catalog.Device, config *Config, catalogStorage catalog.CatalogStorage) {
-	client := catalog.NewLocalCatalogClient(catalogStorage)
+// Register configured devices from a given configuration using provided controller
+func registerInLocalCatalog(devices []catalog.Device, controller catalog.CatalogController) error {
+	client := catalog.NewLocalCatalogClient(controller)
+
 	for _, r := range devices {
-		catalog.RegisterDevice(client, &r)
+		err := catalog.RegisterDevice(client, &r)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func registerInRemoteCatalog(devices []catalog.Device, config *Config) ([]chan<- bool, *sync.WaitGroup) {
