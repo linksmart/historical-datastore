@@ -52,6 +52,7 @@ func (d *ReadableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 
 // Submit is a handler for submitting a new data point
 // Expected parameters: id(s)
+// TODO: check SupportedContentTypes instead of hard-coding SenML
 func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	data := make(map[string][]DataPoint)
