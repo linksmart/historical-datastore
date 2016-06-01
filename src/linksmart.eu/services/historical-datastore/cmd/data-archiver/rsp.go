@@ -5,9 +5,10 @@ import (
 	"fmt"
 
 	"mime"
-	"strings"
 
 	"linksmart.eu/lc/core/catalog/resource"
+	"linksmart.eu/services/historical-datastore/data"
+	"strings"
 )
 
 var notMQTTPublisher = errors.New("Not MQTT Publisher")
@@ -41,17 +42,23 @@ func parseMQTTResourceEndpoints(resources []resource.Resource) map[string][]Reso
 				fmt.Println("WARN: error parsing media type: ", err.Error())
 				continue
 			}
+			_, ok := data.SupportedContentTypes[mediaType]
+			if !ok {
+				fmt.Println("WARN: unsupported Content-Type ", mediaType)
+				continue
+			}
 
 			dataType := "float"
 			// SenML content-type can override this with "datatype" parameter
-			if strings.HasPrefix(dataType, "application/senml") {
+			if strings.HasPrefix(mediaType, "application/senml") {
 				dt, ok := params["datatype"]
 				if ok {
 					dataType = dt
 				}
 			}
+			fmt.Println(r.Id, mediaType, dataType)
 
-			_, ok := endpoints[broker]
+			_, ok = endpoints[broker]
 			if !ok {
 				endpoints[broker] = []ResourceMQTTEndpoint{}
 			}

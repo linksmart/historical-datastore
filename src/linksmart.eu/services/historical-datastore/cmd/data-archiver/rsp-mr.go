@@ -15,7 +15,7 @@ type MRResourcesProvider struct {
 	fileMode bool
 }
 
-func NewMRResourcesProvider(conf *MRConfig) *MRResourcesProvider {
+func NewMRResourcesProvider(conf *MRConfig) (*MRResourcesProvider, error) {
 	mrp := MRResourcesProvider{
 		conf: conf,
 	}
@@ -24,10 +24,10 @@ func NewMRResourcesProvider(conf *MRConfig) *MRResourcesProvider {
 	endpoint, _ := url.Parse(conf.Endpoint)
 	if endpoint.Scheme == "file" {
 		mrp.fileMode = true
-		return &mrp
+		return &mrp, nil
 	}
 	// TODO: intialize MR client,etc
-	return &mrp
+	return &mrp, nil
 }
 
 func (sp *MRResourcesProvider) GetAll() ([]resource.Resource, error) {

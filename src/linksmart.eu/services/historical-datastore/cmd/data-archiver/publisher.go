@@ -10,6 +10,7 @@ import (
 
 	"linksmart.eu/services/historical-datastore/data"
 	"linksmart.eu/services/historical-datastore/registry"
+	"strings"
 )
 
 type DataPacket struct {
@@ -96,7 +97,9 @@ func (p *HDSPublisher) Start() error {
 				log.Println("WARN: ignoring resource with an empty ID: %v", mqre.Resource)
 			}
 			// Find by the suffix of the resource
-			ds, err := p.registryClient.FilterOne("resource", "suffix", mqre.Resource.Id)
+			// trim the http:// prefix of the ID
+			suffix := strings.TrimPrefix(mqre.Resource.Id, "http://")
+			ds, err := p.registryClient.FilterOne("resource", "suffix", suffix)
 			if err != nil {
 				// create a new one
 				if err == registry.ErrNotFound {

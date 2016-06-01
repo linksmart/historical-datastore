@@ -36,10 +36,14 @@ func main() {
 
 	// Resource Catalog "mode"
 	if conf.RC != nil {
-		rsp = NewRCResourcesProvider(conf.RC)
+		rsp, err = NewRCResourcesProvider(conf.RC)
 	} else if conf.MR != nil {
 		// Model Repository "mode"
-		rsp = NewMRResourcesProvider(conf.MR)
+		rsp, err = NewMRResourcesProvider(conf.MR)
+	}
+
+	if err != nil {
+		log.Fatalf("Error intializing Resources Provider: %v\n", err.Error())
 	}
 
 	// Configure the HDS publisher
