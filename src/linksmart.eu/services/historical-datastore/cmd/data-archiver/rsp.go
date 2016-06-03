@@ -56,7 +56,7 @@ func parseMQTTResourceEndpoints(resources []resource.Resource) map[string][]Reso
 					dataType = dt
 				}
 			}
-			fmt.Println(r.Id, mediaType, dataType)
+			//fmt.Println(r.Id, mediaType, dataType)
 
 			_, ok = endpoints[broker]
 			if !ok {

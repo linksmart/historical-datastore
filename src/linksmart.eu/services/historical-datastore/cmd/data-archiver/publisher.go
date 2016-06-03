@@ -87,6 +87,8 @@ func (p *HDSPublisher) Start() error {
 		}
 	}
 
+	log.Println("INFO will perist data for the following MQTT data sources: ", mqttResEndpoints)
+
 	// check that there is a DataSource for each resource, and if not - create a new one
 	mqttDSEndpoints := make(map[string][]MQTTEndpoint)
 	for broker, endpoints := range mqttResEndpoints {

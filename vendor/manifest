@@ -202,7 +202,7 @@
 		{
 			"importpath": "linksmart.eu/redmine/linksmart-opensource/linksmart-services/model-repository/go-client.git",
 			"repository": "https://linksmart.eu/redmine/linksmart-opensource/linksmart-services/model-repository/go-client.git",
-			"revision": "b0fb9597c83f6256bc63505a172828573b2ff3b9",
+			"revision": "20c63edd0feeef42daa6a9649c39165a054f66a1",
 			"branch": "master"
 		}
 	]

@@ -12,6 +12,7 @@ import (
 
 type MRResourcesProvider struct {
 	conf     *MRConfig
+	client   *mrc.ModelRepositoryClient
 	fileMode bool
 }
 
@@ -25,32 +26,40 @@ func NewMRResourcesProvider(conf *MRConfig) (*MRResourcesProvider, error) {
 	if endpoint.Scheme == "file" {
 		mrp.fileMode = true
 		return &mrp, nil
+	} else {
+		mrp.client = mrc.NewModelRepositoryClient(conf.Endpoint)
 	}
-	// TODO: intialize MR client,etc
 	return &mrp, nil
 }
 
 func (sp *MRResourcesProvider) GetAll() ([]resource.Resource, error) {
+	var model *mrc.Model
+	var err error
+
 	endpoint, _ := url.Parse(sp.conf.Endpoint)
 	if sp.fileMode == true {
-		return sp.getAllFromFile(endpoint.Path)
+		r, err := ioutil.ReadFile(endpoint.Path)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(r, model)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		model, err = sp.client.GetJSONModelByName(sp.conf.ModelName)
+		if err != nil {
+			return nil, err
+		}
 	}
-	// TODO: otherwise retrieve model from the repository
-	return []resource.Resource{}, nil
+	resources, err := sp.parseModel(model)
+	if err != nil {
+		return nil, err
+	}
+	return resources, nil
 }
 
-func (sp *MRResourcesProvider) getAllFromFile(filePath string) ([]resource.Resource, error) {
-	f, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	var model mrc.Model
-	err = json.Unmarshal(f, &model)
-	if err != nil {
-		return nil, err
-	}
-
+func (sp *MRResourcesProvider) parseModel(model *mrc.Model) ([]resource.Resource, error) {
 	devices, err := model.ParseDevices()
 	if err != nil {
 		return nil, err

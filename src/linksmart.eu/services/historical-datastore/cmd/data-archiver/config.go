@@ -85,7 +85,7 @@ func (c *RCConfig) Validate() error {
 type MRConfig struct {
 	DefaultHost string `json:"defaultHost"` // default host to be used for "resource" url in HDS
 	Endpoint    string `json:"endpoint"`    // file://path/to/dir/file.json is suported
-	Model       string `json:"model"`       // model name in the MR service
+	ModelName   string `json:"modelName"`   // model name in the MR service
 	// Discover bool   `json:"discover"`
 }
 
@@ -99,7 +99,7 @@ func (c *MRConfig) Validate() error {
 		return fmt.Errorf("Model Repository API Endpoint is not a valid URL: %v", err.Error())
 	}
 
-	if u.Scheme != "file" && c.Model == "" {
+	if u.Scheme != "file" && c.ModelName == "" {
 		return fmt.Errorf("Model name in the Model Repository config is not deifned (and not an fs endpoint)")
 	}
 	return nil
