@@ -53,7 +53,7 @@ func parseMQTTResourceEndpoints(resources []resource.Resource) map[string][]Reso
 			if strings.HasPrefix(mediaType, "application/senml") {
 				dt, ok := params["datatype"]
 				if ok {
-					dataType = dt
+					dataType = convertDatatype(dt)
 				}
 			}
 			//fmt.Println(r.Id, mediaType, dataType)
@@ -114,4 +114,11 @@ func isMQTTPublisher(proto *resource.Protocol) (string, string, string, error) {
 	mimeType = proto.ContentTypes[0]
 
 	return broker, pubTopic, mimeType, nil
+}
+
+func convertDatatype(dt string) string {
+	switch dt {
+	case "boolean":
+		return "bool"
+	}
 }
