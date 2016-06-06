@@ -121,4 +121,5 @@ func convertDatatype(dt string) string {
 	case "boolean":
 		return "bool"
 	}
+	return dt
 }
