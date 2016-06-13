@@ -66,6 +66,19 @@ func (s *InfluxStorage) FQMsrmt(ds registry.DataSource) string {
 	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.Database, s.Retention(ds), s.Msrmt(ds))
 }
 
+// The field-name for HDS data types
+func (s *InfluxStorage) FieldForType(t string) string {
+	switch t {
+	case common.FLOAT:
+		return "value"
+	case common.STRING:
+		return "stringValue"
+	case common.BOOL:
+		return "booleanValue"
+	}
+	return ""
+}
+
 // Database name
 func (s *InfluxStorage) Database() string {
 	return s.config.Database
@@ -223,8 +236,8 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 
 	for i, ds := range sources {
 		// Count total
-		count, err := s.CountSprintf("SELECT COUNT(value)+COUNT(stringValue)+COUNT(booleanValue) FROM %s WHERE %s",
-			s.FQMsrmt(ds), timeCond)
+		count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s WHERE %s",
+			s.FieldForType(ds.Type), s.FQMsrmt(ds), timeCond)
 		if err != nil {
 			return NewDataSet(), 0, fmt.Errorf("Error counting records for source %v: %v", ds.Resource, err.Error())
 		}
