@@ -411,13 +411,14 @@ func initInfluxConf(DSN string) (*InfluxStorageConfig, error) {
 		return nil, fmt.Errorf("Influxdb config: db must be not empty")
 	}
 
-	password, _ := PDSN.User.Password()
-	c := &InfluxStorageConfig{
-		DSN:      fmt.Sprintf("%v://%v", PDSN.Scheme, PDSN.Host),
-		Database: strings.Trim(PDSN.Path, "/"),
-		Username: PDSN.User.Username(),
-		Password: password,
+	var c InfluxStorageConfig
+	c.DSN = fmt.Sprintf("%v://%v", PDSN.Scheme, PDSN.Host)
+	c.Database = strings.Trim(PDSN.Path, "/")
+	// Optional username and password
+	if PDSN.User != nil {
+		c.Username = PDSN.User.Username()
+		c.Password, _ = PDSN.User.Password()
 	}
 
-	return c, nil
+	return &c, nil
 }
