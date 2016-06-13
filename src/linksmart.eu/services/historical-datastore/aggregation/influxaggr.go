@@ -36,6 +36,14 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 	points := []DataEntry{}
 	total := 0
 
+	// Set minimum time to 1970-01-01T00:00:00Z
+	if q.Start.Before(time.Unix(0, 0)) {
+		q.Start = time.Unix(0, 0)
+		if q.End.Before(time.Unix(0, 1)) {
+			return DataSet{}, 0, fmt.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
+		}
+	}
+
 	// If q.End is not set, make the query open-ended
 	var timeCond string
 	if q.Start.Before(q.End) {
