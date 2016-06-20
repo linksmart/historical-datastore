@@ -255,20 +255,8 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 		}
 		total += int(count)
 
-		// Workaround for influx order by desc bug
-		if sort == "DESC" {
-			// Reverse pagination
-			offsets[i] = int(count) - perItems[i] - offsets[i]
-			if offsets[i] < 0 {
-				perItems[i] += offsets[i]
-				offsets[i] = 0
-			}
-		}
-
-		/*		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
-				s.FQMsrmt(ds), timeCond, sort, perItems[i], offsets[i])*/
-		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s LIMIT %d OFFSET %d",
-			s.FQMsrmt(ds), timeCond, perItems[i], offsets[i])
+		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
+			s.FQMsrmt(ds), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
 			return NewDataSet(), 0, fmt.Errorf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
 		}
@@ -280,14 +268,6 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 		pds, err := pointsFromRow(res[0].Series[0])
 		if err != nil {
 			return NewDataSet(), 0, fmt.Errorf("Error parsing points for source %v: %v", ds.Resource, err.Error())
-		}
-
-		// Workaround for influx order by desc bug
-		if sort == "DESC" {
-			// Reverse slice
-			for x, y := 0, len(pds)-1; x < y; x, y = x+1, y-1 {
-				pds[x], pds[y] = pds[y], pds[x]
-			}
 		}
 
 		if perItems[i] != 0 { // influx ignores `limit 0`

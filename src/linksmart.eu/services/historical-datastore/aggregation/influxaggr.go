@@ -73,20 +73,8 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 		}
 		total += int(count)
 
-		// Workaround for influx order by desc bug
-		if sort == "DESC" {
-			// Reverse pagination
-			offsets[i] = int(count) - perItems[i] - offsets[i]
-			if offsets[i] < 0 {
-				perItems[i] += offsets[i]
-				offsets[i] = 0
-			}
-		}
-
-		/*		res, err := a.influxStorage.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
-				a.fqMsrmt(ds.ID, aggr.ID), timeCond, sort, perItems[i], offsets[i])*/
-		res, err := a.influxStorage.QuerySprintf("SELECT * FROM %s WHERE %s LIMIT %d OFFSET %d",
-			a.fqMsrmt(ds.ID, aggr.ID), timeCond, perItems[i], offsets[i])
+		res, err := a.influxStorage.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
+			a.fqMsrmt(ds.ID, aggr.ID), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
 			return DataSet{}, 0, fmt.Errorf("Error retrieving aggregated data records for source %v: %v", ds.Resource, err.Error())
 		}
@@ -98,14 +86,6 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 		pds, err := pointsFromRow(res[0].Series[0], aggr, ds)
 		if err != nil {
 			return DataSet{}, 0, fmt.Errorf("Error parsing records for source %v: %v", ds.Resource, err.Error())
-		}
-
-		// Workaround for influx order by desc bug
-		if sort == "DESC" {
-			// Reverse slice
-			for x, y := 0, len(pds)-1; x < y; x, y = x+1, y-1 {
-				pds[x], pds[y] = pds[y], pds[x]
-			}
 		}
 
 		if perItems[i] != 0 { // influx ignores `limit 0`
