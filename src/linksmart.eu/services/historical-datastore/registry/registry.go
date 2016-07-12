@@ -1,3 +1,5 @@
+// Copyright 2016 Fraunhofer Insitute for Applied Information Technology FIT
+
 // Package registry implements Registry API
 package registry
 

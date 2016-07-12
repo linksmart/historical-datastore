@@ -1,3 +1,5 @@
+// Copyright 2016 Fraunhofer Insitute for Applied Information Technology FIT
+
 package registry
 
 // TODO: remove when memstorage is implemented (and rewrite data api tests)
