@@ -1,3 +1,4 @@
+// Copyright 2016 Fraunhofer Institute for Applied Information Technology FIT
 // script.js
 
 // Global variables
