@@ -70,6 +70,15 @@ func (sp *MRResourcesProvider) parseModel(model *mrc.Model) ([]resource.Resource
 	var resources []resource.Resource
 	for _, d := range devices {
 		for _, dr := range d.Resources {
+			// skip resources with the 'meta.data_archiver_ignore' flag
+			iv, ok := dr.Meta["data_archiver_ignore"]
+			if ok {
+				ignore, ok := iv.(bool)
+				if ok && ignore {
+					continue
+				}
+			}
+
 			var protocol resource.Protocol
 			switch dr.ExtProtocol.(type) {
 			case *mrc.MQTTProtocol:

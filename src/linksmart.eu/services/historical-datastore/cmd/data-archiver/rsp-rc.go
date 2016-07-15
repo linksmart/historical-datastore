@@ -46,6 +46,15 @@ func (sp *RCResourcesProvider) GetAll() ([]resource.Resource, error) {
 		}
 
 		for _, r := range resPage {
+			// skip resources with the 'meta.data_archiver_ignore' flag
+			iv, ok := r.Meta["data_archiver_ignore"]
+			if ok {
+				ignore, ok := iv.(bool)
+				if ok && ignore {
+					continue
+				}
+			}
+
 			res := resource.Resource{
 				Id:        fmt.Sprintf("%v/resources/%v", sp.config.Endpoint, r.Id),
 				Name:      r.Name,

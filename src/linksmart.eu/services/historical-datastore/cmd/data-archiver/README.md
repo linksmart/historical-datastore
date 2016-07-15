@@ -1,7 +1,7 @@
 Data Archiver
 =====
 
-Data Archiver is a simmple component that given a LinkSmart® deployment model (https://linksmart.eu/redmine/projects/model-repository) OR Resource Catalog subscribes to data streams of all LinkSmart® Resources defined in the model / published in the catalog and persists their output in the HDS.
+Data Archiver is a simple component that given a LinkSmart® deployment model (https://linksmart.eu/redmine/projects/model-repository) OR Resource Catalog subscribes to data streams of all LinkSmart® Resources defined in the model / published in the catalog and persists their output in the HDS.
 
 # Use Cases
 
@@ -9,12 +9,10 @@ Data Archiver can be configured to use either LinkSmart® Resource Catalog or L
 
 ## Resource Catalog
 
-**TODO:** NOT IMPLEMENTED
 When configured to use Resource Catalog, Data Archiver retrieves whole catalog and subscribes to data streams of all Resources that have MQTT protocol defined, **unless** the Resource has `meta.data_archiver_ignore` set to `true`.
 
 ## Model Repository
 
-**TODO:** NOT IMPLEMENTED
 When configured to use Model Repository, Data Archiver parases the Domain Model (either downloading it from Model Repository or reading from file) and subscribes to data streams of all Resources that have MQTT protocol defined, **unless** the Resource has `meta.data_archiver_ignore` set to `true`.
 
 

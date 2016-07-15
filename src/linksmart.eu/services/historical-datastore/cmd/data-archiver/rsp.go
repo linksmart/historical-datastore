@@ -25,6 +25,7 @@ type ResourceMQTTEndpoint struct {
 	Topic      string
 	DataType   string // string, bool, float
 	DataFormat string // MIME type
+	Retention  string // see https://linksmart.eu/redmine/projects/historical-datastore/wiki/Historical_Datastore_API#Data-Source
 }
 
 // returns map[broker][]ResourceMQTTEndpoint
