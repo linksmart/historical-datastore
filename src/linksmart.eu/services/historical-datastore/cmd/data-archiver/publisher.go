@@ -108,11 +108,14 @@ func (p *HDSPublisher) Start() error {
 				// create a new one
 				if err == registry.ErrNotFound {
 					d := registry.DataSource{
-						Resource:    mqre.Resource.Id,
-						Meta:        mqre.Resource.Meta,
-						Type:        mqre.DataType,
-						Format:      mqre.DataFormat,
-						Aggregation: p.config.Aggregations,
+						Resource: mqre.Resource.Id,
+						Meta:     mqre.Resource.Meta,
+						Type:     mqre.DataType,
+						Format:   mqre.DataFormat,
+					}
+					// configure aggregation only for float data sources
+					if d.Format == "float" {
+						d.Aggregation = p.config.Aggregations
 					}
 					dsID, err = p.registryClient.Add(&d)
 					if err != nil {
@@ -124,7 +127,10 @@ func (p *HDSPublisher) Start() error {
 			} else {
 				// update existing data source (metadata and aggregations only)
 				ds.Meta = mqre.Resource.Meta
-				ds.Aggregation = p.config.Aggregations
+				// configure aggregation only for float data sources
+				if ds.Format == "float" {
+					ds.Aggregation = p.config.Aggregations
+				}
 
 				err = p.registryClient.Update(ds.ID, ds)
 				if err != nil {
