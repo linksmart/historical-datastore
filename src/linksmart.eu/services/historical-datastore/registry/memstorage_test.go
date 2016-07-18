@@ -166,11 +166,10 @@ func TestMemstorageGetMany(t *testing.T) {
 			}
 		}
 	}
-
 	subTest(0, 10)
 	subTest(10, 10)
 	subTest(55, 10)
-	subTest(55, 0)
+	subTest(55, 1)
 }
 
 func TestMemstorageGetCount(t *testing.T) {

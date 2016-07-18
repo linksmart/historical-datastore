@@ -14,20 +14,6 @@ import (
 	"linksmart.eu/services/historical-datastore/registry"
 )
 
-type dummyDataStorage struct{}
-
-func (s *dummyDataStorage) Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
-	return nil
-}
-func (s *dummyDataStorage) Query(q Query, page, perPage int, ds ...registry.DataSource) (DataSet, int, error) {
-	return DataSet{}, 0, nil
-}
-func (s *dummyDataStorage) ntfCreated(ds registry.DataSource, callback chan error) {
-}
-func (s *dummyDataStorage) ntfUpdated(old registry.DataSource, new registry.DataSource, callback chan error) {
-}
-func (s *dummyDataStorage) ntfDeleted(ds registry.DataSource, callback chan error) {
-}
 
 func setupWritableAPI() *mux.Router {
 	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
@@ -145,4 +131,21 @@ func TestHttpQuery(t *testing.T) {
 
 	//TODO
 	//t.Error("TODO: check response body")
+}
+
+// DUMMY DATA STORAGE
+
+type dummyDataStorage struct{}
+
+func (s *dummyDataStorage) Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
+	return nil
+}
+func (s *dummyDataStorage) Query(q Query, page, perPage int, ds ...registry.DataSource) (DataSet, int, error) {
+	return DataSet{}, 0, nil
+}
+func (s *dummyDataStorage) NtfCreated(ds registry.DataSource, callback chan error) {
+}
+func (s *dummyDataStorage) NtfUpdated(old registry.DataSource, new registry.DataSource, callback chan error) {
+}
+func (s *dummyDataStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
 }
