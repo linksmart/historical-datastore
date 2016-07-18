@@ -1,55 +1,54 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package service
 
 import (
-	"errors"
-	"strings"
+	"fmt"
 	"time"
 )
-
-var ErrorNotFound = errors.New("NotFound")
 
 // Structs
 
 // Service is a service entry in the catalog
 type Service struct {
 	Id             string                 `json:"id"`
+	URL            string                 `json:"url"`
 	Type           string                 `json:"type"`
-	Name           string                 `json:"name"`
-	Description    string                 `json:"description"`
-	Meta           map[string]interface{} `json:"meta"`
+	Name           string                 `json:"name,omitempty"`
+	Description    string                 `json:"description,omitempty"`
+	Meta           map[string]interface{} `json:"meta,omitempty"`
 	Protocols      []Protocol             `json:"protocols"`
-	Representation map[string]interface{} `json:"representation"`
-	Ttl            int                    `json:"ttl"`
+	Representation map[string]interface{} `json:"representation,omitempty"`
+	Ttl            int                    `json:"ttl,omitempty"`
 	Created        time.Time              `json:"created"`
 	Updated        time.Time              `json:"updated"`
-	Expires        *time.Time             `json:"expires"`
-}
-
-// Deep copy of the Service
-func (self *Service) copy() Service {
-	var sc Service
-
-	sc = *self
-	proto := make([]Protocol, len(self.Protocols))
-	copy(proto, self.Protocols)
-	sc.Protocols = proto
-
-	return sc
+	Expires        *time.Time             `json:"expires,omitempty"`
 }
 
 // Validates the Service configuration
-func (s *Service) validate() bool {
-	if s.Id == "" || len(strings.Split(s.Id, "/")) != 2 || s.Name == "" || s.Ttl == 0 {
-		return false
+func (s *Service) validate() error {
+
+	// Validate protocols
+	if len(s.Protocols) == 0 {
+		return fmt.Errorf("At least one protocol must be defined")
 	}
-	return true
+	for _, protocol := range s.Protocols {
+		if protocol.Type == "" {
+			return fmt.Errorf("Each protocol must have a type")
+		}
+		if len(protocol.Endpoint) == 0 {
+			return fmt.Errorf("Each protocol must have at least one endpoint")
+		}
+	}
+
+	return nil
 }
 
 // Checks whether the service can be tunneled in GC
 func (s *Service) isGCTunnelable() bool {
 	// Until the service discovery in GC is not working properly,
-	// we can only tunnel services that never expire (tll == -1)
-	if s.Ttl != -1 {
+	// we can only tunnel services that never expire (tll == 0)
+	if s.Ttl != 0 {
 		return false
 	}
 
@@ -70,29 +69,35 @@ func (s *Service) isGCTunnelable() bool {
 type Protocol struct {
 	Type         string                 `json:"type"`
 	Endpoint     map[string]interface{} `json:"endpoint"`
-	Methods      []string               `json:"methods"`
-	ContentTypes []string               `json:"content-types"`
+	Methods      []string               `json:"methods,omitempty"`
+	ContentTypes []string               `json:"content-types,omitempty"`
 }
 
 // Interfaces
 
-// Storage interface
-type CatalogStorage interface {
-	// CRUD
-	add(s Service) error
+// Controller interface
+type CatalogController interface {
+	add(s Service) (string, error)
+	get(id string) (*Service, error)
 	update(id string, s Service) error
 	delete(id string) error
-	get(id string) (Service, error)
+	list(page, perPage int) ([]Service, int, error)
+	filter(path, op, value string, page, perPage int) ([]Service, int, error)
+	total() (int, error)
+	cleanExpired()
 
-	// Utility functions
-	getMany(page, perPage int) ([]Service, int, error)
-	getCount() (int, error)
-	cleanExpired(ts time.Time)
+	Stop() error
+}
+
+// Storage interface
+type CatalogStorage interface {
+	add(s *Service) error
+	get(id string) (*Service, error)
+	update(id string, s *Service) error
+	delete(id string) error
+	list(page, perPage int) ([]Service, int, error)
+	total() (int, error)
 	Close() error
-
-	// Path filtering
-	pathFilterOne(path, op, value string) (Service, error)
-	pathFilter(path, op, value string, page, perPage int) ([]Service, int, error)
 }
 
 // Listener interface can be used for notification of the catalog updates
@@ -101,20 +106,4 @@ type Listener interface {
 	added(s Service)
 	updated(s Service)
 	deleted(id string)
-}
-
-// Sorted-map data structure based on AVL Tree (go-avltree)
-type SortedMap struct {
-	key   interface{}
-	value interface{}
-}
-
-// Operator for Time-type key
-func timeKeys(a interface{}, b interface{}) int {
-	if a.(SortedMap).key.(time.Time).Before(b.(SortedMap).key.(time.Time)) {
-		return -1
-	} else if a.(SortedMap).key.(time.Time).After(b.(SortedMap).key.(time.Time)) {
-		return 1
-	}
-	return 0
 }

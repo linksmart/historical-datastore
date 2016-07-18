@@ -1,3 +1,5 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package resource
 
 type LocalCatalogClient struct {
@@ -12,8 +14,6 @@ func NewLocalCatalogClient(controller CatalogController) CatalogClient {
 
 // Adds a device and returns its id
 func (self *LocalCatalogClient) Add(r *Device) (string, error) {
-	// set ttl to 0 (local resources never expire)
-	r.Ttl = 0
 	return self.controller.add(*r)
 }
 

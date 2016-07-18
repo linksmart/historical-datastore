@@ -1,3 +1,5 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package resource
 
 import (
@@ -11,10 +13,9 @@ import (
 )
 
 const (
-	FTypeDevices   = "devices"
-	FTypeResources = "resources"
-	CtxRootDir     = "/ctx"
-	CtxPathCatalog = "/catalog.jsonld"
+	TypeDevices   = "devices"
+	TypeResources = "resources"
+	CtxPath       = "/ctx/rc.jsonld"
 )
 
 type DeviceCollection struct {
@@ -37,11 +38,21 @@ type ResourceCollection struct {
 	Total     int        `json:"total"`
 }
 
+type JSONLDSimpleDevice struct {
+	Context string `json:"@context"`
+	*SimpleDevice
+}
+
+type JSONLDResource struct {
+	Context string `json:"@context"`
+	*Resource
+}
+
 // Read-only catalog api
 type ReadableCatalogAPI struct {
 	controller  CatalogController
 	apiLocation string
-	ctxPathRoot string
+	ctxPath     string
 	description string
 }
 
@@ -54,7 +65,7 @@ func NewReadableCatalogAPI(controller CatalogController, apiLocation, staticLoca
 	return &ReadableCatalogAPI{
 		controller:  controller,
 		apiLocation: apiLocation,
-		ctxPathRoot: staticLocation + CtxRootDir,
+		ctxPath:     staticLocation + CtxPath,
 		description: description,
 	}
 }
@@ -66,7 +77,7 @@ func NewWritableCatalogAPI(controller CatalogController, apiLocation, staticLoca
 }
 
 // Index of API
-func (a ReadableCatalogAPI) Index(w http.ResponseWriter, req *http.Request) {
+func (a *ReadableCatalogAPI) Index(w http.ResponseWriter, req *http.Request) {
 	total, err := a.controller.total()
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error counting devices:", err.Error())
@@ -98,7 +109,7 @@ func (a ReadableCatalogAPI) Index(w http.ResponseWriter, req *http.Request) {
 // DEVICES
 
 // Adds a Device
-func (a WritableCatalogAPI) Add(w http.ResponseWriter, req *http.Request) {
+func (a *WritableCatalogAPI) Post(w http.ResponseWriter, req *http.Request) {
 	body, err := ioutil.ReadAll(req.Body)
 	req.Body.Close()
 	if err != nil {
@@ -109,6 +120,11 @@ func (a WritableCatalogAPI) Add(w http.ResponseWriter, req *http.Request) {
 	var d Device
 	if err := json.Unmarshal(body, &d); err != nil {
 		ErrorResponse(w, http.StatusBadRequest, "Error processing the request:", err.Error())
+		return
+	}
+
+	if d.Id != "" {
+		ErrorResponse(w, http.StatusBadRequest, "Creating a device with defined ID is not possible using a POST request.")
 		return
 	}
 
@@ -128,12 +144,12 @@ func (a WritableCatalogAPI) Add(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/ld+json;version="+ApiVersion)
-	w.Header().Set("Location", fmt.Sprintf("%s/%s/%s", a.apiLocation, FTypeDevices, id))
+	w.Header().Set("Location", fmt.Sprintf("%s/%s/%s", a.apiLocation, TypeDevices, id))
 	w.WriteHeader(http.StatusCreated)
 }
 
 // Gets a single Device
-func (a ReadableCatalogAPI) Get(w http.ResponseWriter, req *http.Request) {
+func (a *ReadableCatalogAPI) Get(w http.ResponseWriter, req *http.Request) {
 	params := mux.Vars(req)
 
 	d, err := a.controller.get(params["id"])
@@ -148,7 +164,12 @@ func (a ReadableCatalogAPI) Get(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	b, err := json.Marshal(d)
+	ldd := JSONLDSimpleDevice{
+		Context:      a.ctxPath,
+		SimpleDevice: d,
+	}
+
+	b, err := json.Marshal(ldd)
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
@@ -160,7 +181,7 @@ func (a ReadableCatalogAPI) Get(w http.ResponseWriter, req *http.Request) {
 
 // Updates an existing device (Response: StatusOK)
 // If the device does not exist, a new one will be created with the given id (Response: StatusCreated)
-func (a WritableCatalogAPI) Update(w http.ResponseWriter, req *http.Request) {
+func (a *WritableCatalogAPI) Put(w http.ResponseWriter, req *http.Request) {
 	params := mux.Vars(req)
 
 	body, err := ioutil.ReadAll(req.Body)
@@ -188,7 +209,7 @@ func (a WritableCatalogAPI) Update(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/ld+json;version="+ApiVersion)
-			w.Header().Set("Location", fmt.Sprintf("%s/%s/%s", a.apiLocation, FTypeDevices, id))
+			w.Header().Set("Location", fmt.Sprintf("%s/%s/%s", a.apiLocation, TypeDevices, id))
 			w.WriteHeader(http.StatusCreated)
 			return
 		case *ConflictError:
@@ -208,7 +229,7 @@ func (a WritableCatalogAPI) Update(w http.ResponseWriter, req *http.Request) {
 }
 
 // Deletes a device
-func (a WritableCatalogAPI) Delete(w http.ResponseWriter, req *http.Request) {
+func (a *WritableCatalogAPI) Delete(w http.ResponseWriter, req *http.Request) {
 	params := mux.Vars(req)
 
 	err := a.controller.delete(params["id"])
@@ -228,7 +249,7 @@ func (a WritableCatalogAPI) Delete(w http.ResponseWriter, req *http.Request) {
 }
 
 // Lists devices in a DeviceCollection
-func (a ReadableCatalogAPI) List(w http.ResponseWriter, req *http.Request) {
+func (a *ReadableCatalogAPI) List(w http.ResponseWriter, req *http.Request) {
 	err := req.ParseForm()
 	if err != nil {
 		ErrorResponse(w, http.StatusBadRequest, "Error parsing the query:", err.Error())
@@ -248,7 +269,7 @@ func (a ReadableCatalogAPI) List(w http.ResponseWriter, req *http.Request) {
 	}
 
 	coll := &DeviceCollection{
-		Context: a.ctxPathRoot + CtxPathCatalog,
+		Context: a.ctxPath,
 		Id:      a.apiLocation,
 		Type:    ApiDeviceCollectionType,
 		Devices: simpleDevices,
@@ -268,7 +289,7 @@ func (a ReadableCatalogAPI) List(w http.ResponseWriter, req *http.Request) {
 }
 
 // Lists filtered devices in a DeviceCollection
-func (a ReadableCatalogAPI) Filter(w http.ResponseWriter, req *http.Request) {
+func (a *ReadableCatalogAPI) Filter(w http.ResponseWriter, req *http.Request) {
 	params := mux.Vars(req)
 	path := params["path"]
 	op := params["op"]
@@ -293,7 +314,7 @@ func (a ReadableCatalogAPI) Filter(w http.ResponseWriter, req *http.Request) {
 	}
 
 	coll := &DeviceCollection{
-		Context: a.ctxPathRoot + CtxPathCatalog,
+		Context: a.ctxPath,
 		Id:      a.apiLocation,
 		Type:    ApiDeviceCollectionType,
 		Devices: simpleDevices,
@@ -315,7 +336,7 @@ func (a ReadableCatalogAPI) Filter(w http.ResponseWriter, req *http.Request) {
 // RESOURCES
 
 // Gets a single Resource
-func (a ReadableCatalogAPI) GetResource(w http.ResponseWriter, req *http.Request) {
+func (a *ReadableCatalogAPI) GetResource(w http.ResponseWriter, req *http.Request) {
 	params := mux.Vars(req)
 
 	r, err := a.controller.getResource(params["id"])
@@ -330,7 +351,12 @@ func (a ReadableCatalogAPI) GetResource(w http.ResponseWriter, req *http.Request
 		}
 	}
 
-	b, err := json.Marshal(r)
+	ldr := JSONLDResource{
+		Context:  a.ctxPath,
+		Resource: r,
+	}
+
+	b, err := json.Marshal(ldr)
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
@@ -341,7 +367,7 @@ func (a ReadableCatalogAPI) GetResource(w http.ResponseWriter, req *http.Request
 }
 
 // Lists resources in a ResourceCollection
-func (a ReadableCatalogAPI) ListResources(w http.ResponseWriter, req *http.Request) {
+func (a *ReadableCatalogAPI) ListResources(w http.ResponseWriter, req *http.Request) {
 	err := req.ParseForm()
 	if err != nil {
 		ErrorResponse(w, http.StatusBadRequest, "Error parsing the query:", err.Error())
@@ -361,7 +387,7 @@ func (a ReadableCatalogAPI) ListResources(w http.ResponseWriter, req *http.Reque
 	}
 
 	coll := &ResourceCollection{
-		Context:   a.ctxPathRoot + CtxPathCatalog,
+		Context:   a.ctxPath,
 		Id:        a.apiLocation,
 		Type:      ApiResourceCollectionType,
 		Resources: resources,
@@ -381,7 +407,7 @@ func (a ReadableCatalogAPI) ListResources(w http.ResponseWriter, req *http.Reque
 }
 
 // Lists filtered resources in a ResourceCollection
-func (a ReadableCatalogAPI) FilterResources(w http.ResponseWriter, req *http.Request) {
+func (a *ReadableCatalogAPI) FilterResources(w http.ResponseWriter, req *http.Request) {
 	params := mux.Vars(req)
 	path := params["path"]
 	op := params["op"]
@@ -406,7 +432,7 @@ func (a ReadableCatalogAPI) FilterResources(w http.ResponseWriter, req *http.Req
 	}
 
 	coll := &ResourceCollection{
-		Context:   a.ctxPathRoot + CtxPathCatalog,
+		Context:   a.ctxPath,
 		Id:        a.apiLocation,
 		Type:      ApiResourceCollectionType,
 		Resources: resources,

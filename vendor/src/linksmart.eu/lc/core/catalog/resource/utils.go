@@ -1,3 +1,5 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package resource
 
 import (
@@ -15,28 +17,22 @@ const (
 
 // Registers device given a configured Catalog Client
 func RegisterDevice(client CatalogClient, d *Device) error {
-	_, err := client.Get(d.Id)
+	err := client.Update(d.Id, d)
 	if err != nil {
 		switch err.(type) {
 		case *NotFoundError:
 			// If not in the catalog - add
 			_, err = client.Add(d)
 			if err != nil {
-				logger.Printf("RegisterDevice() ERROR: %v", err)
+				logger.Printf("RegisterDevice() Error adding registration: %v", err)
 				return err
 			}
 			logger.Printf("RegisterDevice() Added Device registration %v", d.Id)
 		default:
-			logger.Printf("RegisterDevice() ERROR: %v", err)
+			logger.Printf("RegisterDevice() Error updating registration: %v", err)
 			return err
 		}
 	} else {
-		// otherwise - Update
-		err = client.Update(d.Id, d)
-		if err != nil {
-			logger.Printf("RegisterDevice() ERROR: %v", err)
-			return err
-		}
 		logger.Printf("RegisterDevice() Updated Device registration %v\n", d.Id)
 	}
 	return nil
@@ -59,7 +55,11 @@ func RegisterDeviceWithKeepalive(endpoint string, discover bool, d Device, sigCh
 	}
 
 	// Configure client
-	client := NewRemoteCatalogClient(endpoint, ticket)
+	client, err := NewRemoteCatalogClient(endpoint, ticket)
+	if err != nil {
+		logger.Printf("RegisterDeviceWithKeepalive() ERROR: Failed to create remote-catalog client: %v", err.Error())
+		return
+	}
 
 	// Will not keepalive registration without a TTL
 	if d.Ttl == 0 {
@@ -67,7 +67,7 @@ func RegisterDeviceWithKeepalive(endpoint string, discover bool, d Device, sigCh
 		RegisterDevice(client, &d)
 		return
 	}
-	logger.Printf("RegisterDeviceWithKeepalive() Will register and update registration periodically: %v/%v/%v", endpoint, FTypeDevices, d.Id)
+	logger.Printf("RegisterDeviceWithKeepalive() Will register and update registration periodically: %v/%v/%v", endpoint, TypeDevices, d.Id)
 
 	// Configure & start the keepalive routine
 	ksigCh := make(chan bool)
@@ -88,19 +88,23 @@ func RegisterDeviceWithKeepalive(endpoint string, discover bool, d Device, sigCh
 				}
 			}
 			logger.Println("RegisterDeviceWithKeepalive() Will use the new endpoint:", endpoint)
-			client := NewRemoteCatalogClient(endpoint, ticket)
+			client, err := NewRemoteCatalogClient(endpoint, ticket)
+			if err != nil {
+				logger.Printf("RegisterDeviceWithKeepalive() ERROR: Failed to create remote-catalog client: %v", err.Error())
+				return
+			}
 			go keepAlive(client, &d, ksigCh, kerrCh)
 
 		// catch a shutdown signal from the upstream
 		case <-sigCh:
-			logger.Printf("RegisterDeviceWithKeepalive(): Removing the registration %v/%v/%v...", endpoint, FTypeDevices, d.Id)
+			logger.Printf("RegisterDeviceWithKeepalive(): Removing the registration %v/%v/%v...", endpoint, TypeDevices, d.Id)
 			// signal shutdown to the keepAlive routine & close channels
 			select {
 			case ksigCh <- true:
 				// delete entry in the remote catalog
 				client.Delete(d.Id)
 			case <-time.After(1 * time.Second):
-				logger.Printf("RegisterDeviceWithKeepalive(): timeout removing registration %v/%v/%v: catalog unreachable", endpoint, FTypeDevices, d.Id)
+				logger.Printf("RegisterDeviceWithKeepalive(): timeout removing registration %v/%v/%v: catalog unreachable", endpoint, TypeDevices, d.Id)
 			}
 
 			close(ksigCh)
@@ -116,7 +120,7 @@ func RegisterDeviceWithKeepalive(endpoint string, discover bool, d Device, sigCh
 // sigCh: channel for shutdown signalisation from upstream
 // errCh: channel for error signalisation to upstream
 func keepAlive(client CatalogClient, d *Device, sigCh <-chan bool, errCh chan<- error) {
-	dur := (time.Duration(d.Ttl) * time.Second)/2
+	dur := (time.Duration(d.Ttl) * time.Second) / 2
 	ticker := time.NewTicker(dur)
 	errTries := 0
 
@@ -134,14 +138,14 @@ func keepAlive(client CatalogClient, d *Device, sigCh <-chan bool, errCh chan<- 
 					logger.Printf("keepAlive() ERROR: Registration %v not found in the remote catalog. TTL expired?", d.Id)
 					_, err = client.Add(d)
 					if err != nil {
-						logger.Printf("keepAlive() ERROR: %v", err)
+						logger.Printf("keepAlive() Error adding registration: %v", err)
 						errTries += 1
 					} else {
 						logger.Printf("keepAlive() Added Device registration %v", d.Id)
 						errTries = 0
 					}
 				default:
-					logger.Printf("keepAlive() ERROR: %v", err)
+					logger.Printf("keepAlive() Error updating registration: %v", err)
 					errTries += 1
 				}
 			} else {

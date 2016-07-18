@@ -1,3 +1,5 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package resource
 
 import (
@@ -36,8 +38,15 @@ func NewLevelDBStorage(dsn string, opts *opt.Options) (CatalogStorage, error) {
 // CRUD
 func (s *LevelDBStorage) add(d *Device) error {
 
-	bytes, err := json.Marshal(&d)
+	bytes, err := json.Marshal(d)
 	if err != nil {
+		return err
+	}
+
+	_, err = s.db.Get([]byte(d.Id), nil)
+	if err == nil {
+		return &ConflictError{"Device id is not unique."}
+	} else if err != leveldb.ErrNotFound {
 		return err
 	}
 
@@ -69,7 +78,7 @@ func (s *LevelDBStorage) get(id string) (*Device, error) {
 
 func (s *LevelDBStorage) update(id string, d *Device) error {
 
-	bytes, err := json.Marshal(&d)
+	bytes, err := json.Marshal(d)
 	if err != nil {
 		return err
 	}
@@ -101,7 +110,10 @@ func (s *LevelDBStorage) list(page int, perPage int) (Devices, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	offset, limit := catalog.GetPagingAttr(total, page, perPage, MaxPerPage)
+	offset, limit, err := catalog.GetPagingAttr(total, page, perPage, MaxPerPage)
+	if err != nil {
+		return nil, 0, &BadRequestError{fmt.Sprintf("Unable to paginate: %s", err)}
+	}
 
 	// TODO: is there a better way to do this?
 	// github.com/syndtr/goleveldb/leveldb/iterator

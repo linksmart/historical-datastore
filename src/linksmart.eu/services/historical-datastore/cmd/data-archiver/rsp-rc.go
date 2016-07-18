@@ -28,10 +28,15 @@ func NewRCResourcesProvider(config *RCConfig) (*RCResourcesProvider, error) {
 		}
 	}
 
+	rcClient, err := resource.NewRemoteCatalogClient(config.Endpoint, authClient)
+	if err != nil {
+		return nil, fmt.Errorf("ERR: Error creating RC client: %v", err.Error())
+	}
+
 	// the config should have been validated already
 	return &RCResourcesProvider{
 		config:   config,
-		rcClient: resource.NewRemoteCatalogClient(config.Endpoint, authClient),
+		rcClient: rcClient,
 	}, nil
 }
 

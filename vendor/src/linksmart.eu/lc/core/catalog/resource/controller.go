@@ -1,3 +1,5 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package resource
 
 import (
@@ -33,10 +35,11 @@ func NewController(storage CatalogStorage, apiLocation string) (CatalogControlle
 		storage:     storage,
 		apiLocation: apiLocation,
 		rid_did:     avl.New(stringKeys, 0),
-		exp_did:     avl.New(timeKeys, avl.AllowDuplicates),
+		exp_did:     avl.New(timeKeys, avl.AllowDuplicates), // allows more than one device with the same expiry time
 		startTime:   time.Now().UTC().Unix(),
 	}
 
+	// Initialize secondary indices (if a persistent storage backend is present)
 	err := c.initIndices()
 	if err != nil {
 		return nil, err
@@ -62,7 +65,7 @@ func (c *Controller) add(d Device) (string, error) {
 		// System generated id
 		d.Id = c.newDeviceURN()
 	}
-	d.URL = fmt.Sprintf("%s/%s/%s", c.apiLocation, FTypeDevices, d.Id)
+	d.URL = fmt.Sprintf("%s/%s/%s", c.apiLocation, TypeDevices, d.Id)
 	d.Type = ApiDeviceType
 	d.Created = time.Now().UTC()
 	d.Updated = d.Created
@@ -84,7 +87,7 @@ func (c *Controller) add(d Device) (string, error) {
 				return "", &ConflictError{fmt.Sprintf("Resource id %s is not unique", d.Resources[i].Id)}
 			}
 		}
-		d.Resources[i].URL = fmt.Sprintf("%s/%s/%s", c.apiLocation, FTypeResources, d.Resources[i].Id)
+		d.Resources[i].URL = fmt.Sprintf("%s/%s/%s", c.apiLocation, TypeResources, d.Resources[i].Id)
 		d.Resources[i].Type = ApiResourceType
 		d.Resources[i].Device = d.URL
 	}
@@ -160,7 +163,7 @@ func (c *Controller) update(id string, d Device) error {
 		if sd.Resources[i].Id == "" {
 			sd.Resources[i].Id = c.newResourceURN()
 		}
-		sd.Resources[i].URL = fmt.Sprintf("%s/%s/%s", c.apiLocation, FTypeResources, sd.Resources[i].Id)
+		sd.Resources[i].URL = fmt.Sprintf("%s/%s/%s", c.apiLocation, TypeResources, sd.Resources[i].Id)
 		sd.Resources[i].Type = ApiResourceType
 		sd.Resources[i].Device = sd.URL
 	}
@@ -212,7 +215,7 @@ func (c *Controller) filter(path, op, value string, page, perPage int) ([]Simple
 	defer c.RUnlock()
 
 	matches := make([]SimpleDevice, 0)
-	pp := 100
+	pp := MaxPerPage
 	for p := 1; ; p++ {
 		slice, t, err := c.storage.list(p, pp)
 		if err != nil {
@@ -235,7 +238,10 @@ func (c *Controller) filter(path, op, value string, page, perPage int) ([]Simple
 		}
 	}
 	// Pagination
-	offset, limit := catalog.GetPagingAttr(len(matches), page, perPage, MaxPerPage)
+	offset, limit, err := catalog.GetPagingAttr(len(matches), page, perPage, MaxPerPage)
+	if err != nil {
+		return nil, 0, &BadRequestError{fmt.Sprintf("Unable to paginate: %s", err)}
+	}
 	// Return the page
 	return matches[offset : offset+limit], len(matches), nil
 }
@@ -322,7 +328,10 @@ func (c *Controller) listResources(page, perPage int) ([]Resource, int, error) {
 		deviceIDs[i] = x.(Map).value.(string)
 	}
 	// Pagination
-	offset, limit := catalog.GetPagingAttr(total, page, perPage, MaxPerPage)
+	offset, limit, err := catalog.GetPagingAttr(total, page, perPage, MaxPerPage)
+	if err != nil {
+		return nil, 0, &BadRequestError{fmt.Sprintf("Unable to paginate: %s", err)}
+	}
 
 	// Blank page
 	if limit == 0 {
@@ -391,7 +400,10 @@ func (c *Controller) filterResources(path, op, value string, page, perPage int) 
 		}
 	}
 	// Pagination
-	offset, limit := catalog.GetPagingAttr(len(matches), page, perPage, MaxPerPage)
+	offset, limit, err := catalog.GetPagingAttr(len(matches), page, perPage, MaxPerPage)
+	if err != nil {
+		return nil, 0, &BadRequestError{fmt.Sprintf("Unable to paginate: %s", err)}
+	}
 	// Return the page
 	return matches[offset : offset+limit], len(matches), nil
 }
@@ -432,9 +444,9 @@ func (c *Controller) newResourceURN() string {
 	return fmt.Sprintf("urn:ls_resource:%x", c.startTime+c.counter)
 }
 
-// Initialize secondary indices
+// Initialize secondary indices (from a persistent storage backend)
 func (c *Controller) initIndices() error {
-	perPage := 100
+	perPage := MaxPerPage
 	for page := 1; ; page++ {
 		devices, total, err := c.storage.list(page, perPage)
 		if err != nil {
@@ -474,12 +486,17 @@ func (c *Controller) removeIndices(d *Device) {
 	}
 
 	// Remove the expiry time index
+	// INFO:
+	// More than one device can have the same expiry time (i.e. map's key)
+	//	which leads to non-unique keys in the maps.
+	// This code removes keys with that expiry time (keeping them in a temp) until the
+	// 	desired target is reached. It then adds the items in the temp back to the tree.
 	if d.Ttl != 0 {
-		var temp []Map // Keep duplicates in temp and store them back
+		var temp []Map
 		for m := range c.exp_did.Iter() {
 			id := m.(Map).value.(string)
 			if id == d.Id {
-				for { // go through all duplicates
+				for { // go through all duplicates (same expiry times)
 					r := c.exp_did.Remove(m)
 					if r == nil {
 						break

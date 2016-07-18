@@ -1,3 +1,5 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package service
 
 import (
@@ -15,24 +17,22 @@ const (
 
 // Registers service given a configured Catalog Client
 func RegisterService(client CatalogClient, s *Service) error {
-	_, err := client.Get(s.Id)
-
-	if err == ErrorNotFound {
-		err = client.Add(s)
-		if err != nil {
-			logger.Printf("RegisterService() ERROR: %v", err)
+	err := client.Update(s.Id, s)
+	if err != nil {
+		switch err.(type) {
+		case *NotFoundError:
+			// If not in the catalog - add
+			_, err = client.Add(s)
+			if err != nil {
+				logger.Printf("RegisterService() Error adding registration: %v", err)
+				return err
+			}
+			logger.Printf("RegisterService() Added Service registration %v", s.Id)
+		default:
+			logger.Printf("RegisterService() Error updating registration: %v", err)
 			return err
 		}
-		logger.Printf("RegisterService() Added Service registration %v", s.Id)
-	} else if err != nil {
-		logger.Printf("RegisterService() ERROR: %v", err)
-		return err
 	} else {
-		err = client.Update(s.Id, s)
-		if err != nil {
-			logger.Printf("RegisterService() ERROR: %v", err)
-			return err
-		}
 		logger.Printf("RegisterService() Updated Service registration %v", s.Id)
 	}
 	return nil
@@ -56,7 +56,11 @@ func RegisterServiceWithKeepalive(endpoint string, discover bool, s Service,
 	}
 
 	// Configure client
-	client := NewRemoteCatalogClient(endpoint, ticket)
+	client, err := NewRemoteCatalogClient(endpoint, ticket)
+	if err != nil {
+		logger.Printf("RegisterServiceWithKeepalive() ERROR: Failed to create remote-catalog client: %v", err.Error())
+		return
+	}
 
 	// Will not keepalive registration with a negative TTL
 	if s.Ttl <= 0 {
@@ -97,7 +101,11 @@ func RegisterServiceWithKeepalive(endpoint string, discover bool, s Service,
 				}
 			}
 			logger.Println("RegisterServiceWithKeepalive() Will use the new endpoint: ", endpoint)
-			client := NewRemoteCatalogClient(endpoint, ticket)
+			client, err := NewRemoteCatalogClient(endpoint, ticket)
+			if err != nil {
+				logger.Printf("RegisterServiceWithKeepalive() ERROR: Failed to create remote-catalog client: %v", err.Error())
+				return
+			}
 			go keepAlive(client, &s, ksigCh, kerrCh)
 
 		// catch a shutdown signal from the upstream
@@ -131,7 +139,7 @@ func RegisterServiceWithKeepalive(endpoint string, discover bool, s Service,
 // sigCh: channel for shutdown signalisation from upstream
 // errCh: channel for error signalisation to upstream
 func keepAlive(client CatalogClient, s *Service, sigCh <-chan bool, errCh chan<- error) {
-	dur := utils.KeepAliveDuration(s.Ttl)
+	dur := (time.Duration(s.Ttl) * time.Second) / 2
 	ticker := time.NewTicker(dur)
 	errTries := 0
 
@@ -142,24 +150,28 @@ func keepAlive(client CatalogClient, s *Service, sigCh <-chan bool, errCh chan<-
 		select {
 		case <-ticker.C:
 			err := client.Update(s.Id, s)
-
-			if err == ErrorNotFound {
-				logger.Printf("keepAlive() ERROR: Registration %v not found in the remote catalog. TTL expired?", s.Id)
-				err = client.Add(s)
-				if err != nil {
-					logger.Printf("keepAlive() ERROR: %v", err)
+			if err != nil {
+				switch err.(type) {
+				case *NotFoundError:
+					// If not in the catalog - add
+					logger.Printf("keepAlive() ERROR: Registration %v not found in the remote catalog. TTL expired?", s.Id)
+					_, err = client.Add(s)
+					if err != nil {
+						logger.Printf("keepAlive() Error adding registration: %v", err)
+						errTries += 1
+					} else {
+						logger.Printf("keepAlive() Added Service registration %v", s.Id)
+						errTries = 0
+					}
+				default:
+					logger.Printf("keepAlive() Error updating registration: %v", err)
 					errTries += 1
-				} else {
-					logger.Printf("keepAlive() Added Service registration %v", s.Id)
-					errTries = 0
 				}
-			} else if err != nil {
-				logger.Printf("keepAlive() ERROR: %v", err)
-				errTries += 1
 			} else {
 				logger.Printf("keepAlive() Updated Service registration %v", s.Id)
 				errTries = 0
 			}
+
 			if errTries >= keepaliveRetries {
 				errCh <- fmt.Errorf("Number of retries exceeded")
 				ticker.Stop()

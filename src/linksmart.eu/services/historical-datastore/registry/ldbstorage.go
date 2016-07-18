@@ -208,7 +208,10 @@ func (s *LevelDBStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	// LevelDB keys are sorted
 
 	// Get the queried page
-	offset, limit := GetPageOfSlice(keys, page, perPage, MaxPerPage)
+	offset, limit, err := catalog.GetPagingAttr(total, page, perPage, MaxPerPage)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	// page/registry is empty
 	if limit == 0 {
@@ -344,7 +347,10 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 	}
 
 	// Apply pagination
-	slice := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
+	slice, err := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	// page/registry is empty
 	if len(slice) == 0 {
@@ -363,37 +369,38 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 	return datasources, len(matchedIDs), nil
 }
 
-// Returns offset and limit representing a subset of the given slice
-//	 based on the requested 'page'
-func GetPageOfSlice(slice []string, page, perPage, maxPerPage int) (int, int) {
-	//keys := []string{}
-	page, perPage = catalog.ValidatePagingParams(page, perPage, maxPerPage)
-
-	// Never return more than the defined maximum
-	if perPage > maxPerPage || perPage == 0 {
-		perPage = maxPerPage
-	}
-
-	// if 1, not specified or negative - return the first page
-	if page < 2 {
-		// first page
-		if perPage > len(slice) {
-			//keys = slice
-			return 0, len(slice)
-		} else {
-			//keys = slice[:perPage]
-			return 0, perPage
-		}
-	} else if page == int(len(slice)/perPage)+1 {
-		// last page
-		//keys = slice[perPage*(page-1):]
-		return perPage * (page - 1), len(slice) - perPage*(page-1)
-	} else if page <= len(slice)/perPage && page*perPage <= len(slice) {
-		// slice
-		r := page * perPage
-		l := r - perPage
-		//keys = slice[l:r]
-		return l, r - l
-	}
-	return 0, 0
-}
+//
+//// Returns offset and limit representing a subset of the given slice
+////	 based on the requested 'page'
+//func GetPageOfSlice(slice []string, page, perPage, maxPerPage int) (int, int) {
+//	//keys := []string{}
+//	page, perPage = catalog.ValidatePagingParams(page, perPage, maxPerPage)
+//
+//	// Never return more than the defined maximum
+//	if perPage > maxPerPage || perPage == 0 {
+//		perPage = maxPerPage
+//	}
+//
+//	// if 1, not specified or negative - return the first page
+//	if page < 2 {
+//		// first page
+//		if perPage > len(slice) {
+//			//keys = slice
+//			return 0, len(slice)
+//		} else {
+//			//keys = slice[:perPage]
+//			return 0, perPage
+//		}
+//	} else if page == int(len(slice)/perPage)+1 {
+//		// last page
+//		//keys = slice[perPage*(page-1):]
+//		return perPage * (page - 1), len(slice) - perPage*(page-1)
+//	} else if page <= len(slice)/perPage && page*perPage <= len(slice) {
+//		// slice
+//		r := page * perPage
+//		l := r - perPage
+//		//keys = slice[l:r]
+//		return l, r - l
+//	}
+//	return 0, 0
+//}

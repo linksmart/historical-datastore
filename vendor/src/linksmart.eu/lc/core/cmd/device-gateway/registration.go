@@ -1,3 +1,5 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package main
 
 import (
@@ -73,6 +75,7 @@ func registerInLocalCatalog(devices []catalog.Device, controller catalog.Catalog
 	client := catalog.NewLocalCatalogClient(controller)
 
 	for _, r := range devices {
+		r.Ttl = 0
 		err := catalog.RegisterDevice(client, &r)
 		if err != nil {
 			return err
