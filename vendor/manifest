@@ -32,6 +32,12 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/farshidtz/elog",
+			"repository": "https://github.com/farshidtz/elog",
+			"revision": "7cfbfc2c216227af959ce9abf17c4a1dc18832f4",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/gogo/protobuf/proto",
 			"repository": "https://github.com/gogo/protobuf",
 			"revision": "bc4045a0c607d84f80555f486c4305db4bd0420f",

@@ -34,8 +34,7 @@ func main() {
 	// Load Config File
 	conf, err := loadConfig(confPath)
 	if err != nil {
-		fmt.Printf("Config File: %s\n", err)
-		os.Exit(1)
+		logger.Fatalf("Config File: %s\n", err)
 	}
 
 	// registry
@@ -50,8 +49,7 @@ func main() {
 	case "leveldb":
 		regStorage, ntSndRegCh, closeReg, err = registry.NewLevelDBStorage(conf.Reg.Backend.DSN, nil)
 		if err != nil {
-			fmt.Printf("Failed to start LevelDB: %s\n", err)
-			os.Exit(1)
+			logger.Fatalf("Failed to start LevelDB: %s\n", err)
 		}
 	}
 
@@ -85,8 +83,7 @@ func main() {
 		// Setup ticket validator
 		v, err := validator.Setup(conf.Auth.Provider, conf.Auth.ProviderURL, conf.Auth.ServiceID, conf.Auth.Authz)
 		if err != nil {
-			fmt.Println(err.Error())
-			os.Exit(1)
+			logger.Fatalf(err.Error())
 		}
 
 		commonHandlers = commonHandlers.Append(v.Handler)
@@ -122,7 +119,7 @@ func main() {
 	signal.Notify(handler, os.Interrupt, os.Kill)
 	go func() {
 		<-handler
-		fmt.Println(" Shutting down...")
+		logger.Println("Shutting down...")
 
 		// Unregister in the service catalog(s)
 		for _, sigCh := range regChannels {
@@ -138,11 +135,11 @@ func main() {
 		if closeReg != nil {
 			err := closeReg()
 			if err != nil {
-				fmt.Println(err.Error())
+				logger.Println(err)
 			}
 		}
 
-		fmt.Println("Stopped.")
+		logger.Println("Stopped.")
 		os.Exit(0)
 	}()
 
@@ -152,8 +149,7 @@ func main() {
 	// start http server
 	err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort), router)
 	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+		logger.Fatalln(err)
 	}
 }
 
@@ -171,20 +167,17 @@ func webServer(conf *Config) {
 
 	b, err := json.Marshal(staticConf)
 	if err != nil {
-		fmt.Println("Error marshalling web config file:", err.Error())
-		os.Exit(1)
+		logger.Fatalln("Error marshalling web config file:", err)
 	}
 
 	err = os.MkdirAll(conf.Web.StaticDir+"/conf", 0755)
 	if err != nil {
-		fmt.Println("Error writing web config file:", err.Error())
-		os.Exit(1)
+		logger.Fatalln("Error writing web config file:", err)
 	}
 
 	err = ioutil.WriteFile(conf.Web.StaticDir+"/conf/autogen_config.json", b, 0644)
 	if err != nil {
-		fmt.Println("Error writing web config file:", err.Error())
-		os.Exit(1)
+		logger.Fatalln("Error writing web config file:", err)
 	}
 
 	mux := http.NewServeMux()
@@ -193,8 +186,7 @@ func webServer(conf *Config) {
 	go func() {
 		err := http.ListenAndServe(fmt.Sprintf("%s:%d", conf.Web.BindAddr, conf.Web.BindPort), mux)
 		if err != nil {
-			fmt.Println(err.Error())
-			os.Exit(1)
+			logger.Fatalln(err)
 		}
 	}()
 }

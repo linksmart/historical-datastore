@@ -18,7 +18,7 @@ func sendNotification(payload interface{}, ntType common.NotificationType, ntCha
 	ntChan <- common.Notification{Type: ntType, Payload: payload, Callback: clbk}
 	for c := 0; c < common.Subscribers(); c++ {
 		if err := <-clbk; err != nil {
-			return err
+			return logger.Errorf("%s", err)
 		}
 	}
 	close(clbk)
