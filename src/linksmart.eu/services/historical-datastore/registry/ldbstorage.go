@@ -14,7 +14,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
-
 	"linksmart.eu/lc/core/catalog"
 	"linksmart.eu/services/historical-datastore/common"
 )
@@ -368,39 +367,3 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 
 	return datasources, len(matchedIDs), nil
 }
-
-//
-//// Returns offset and limit representing a subset of the given slice
-////	 based on the requested 'page'
-//func GetPageOfSlice(slice []string, page, perPage, maxPerPage int) (int, int) {
-//	//keys := []string{}
-//	page, perPage = catalog.ValidatePagingParams(page, perPage, maxPerPage)
-//
-//	// Never return more than the defined maximum
-//	if perPage > maxPerPage || perPage == 0 {
-//		perPage = maxPerPage
-//	}
-//
-//	// if 1, not specified or negative - return the first page
-//	if page < 2 {
-//		// first page
-//		if perPage > len(slice) {
-//			//keys = slice
-//			return 0, len(slice)
-//		} else {
-//			//keys = slice[:perPage]
-//			return 0, perPage
-//		}
-//	} else if page == int(len(slice)/perPage)+1 {
-//		// last page
-//		//keys = slice[perPage*(page-1):]
-//		return perPage * (page - 1), len(slice) - perPage*(page-1)
-//	} else if page <= len(slice)/perPage && page*perPage <= len(slice) {
-//		// slice
-//		r := page * perPage
-//		l := r - perPage
-//		//keys = slice[l:r]
-//		return l, r - l
-//	}
-//	return 0, 0
-//}

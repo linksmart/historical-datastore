@@ -4,16 +4,13 @@ package data
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 	"time"
 
 	influx "github.com/influxdb/influxdb/client/v2"
 	"github.com/influxdb/influxdb/models"
-
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/registry"
 )
@@ -28,7 +25,7 @@ type InfluxStorage struct {
 func NewInfluxStorage(DSN string) (*InfluxStorage, chan<- common.Notification, error) {
 	cfg, err := initInfluxConf(DSN)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Influx config error: %v", err.Error())
+		return nil, nil, logger.Errorf("Influx config error: %s", err)
 	}
 	cfg.Replication = 1
 
@@ -38,7 +35,7 @@ func NewInfluxStorage(DSN string) (*InfluxStorage, chan<- common.Notification, e
 		Password: cfg.Password,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error initializing influxdb client: %v", err.Error())
+		return nil, nil, logger.Errorf("Error initializing influxdb client: %s", err)
 	}
 
 	s := &InfluxStorage{
@@ -102,7 +99,7 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 			RetentionPolicy: s.Retention(sources[id]),
 		})
 		if err != nil {
-			return err
+			return logger.Errorf("%s", err)
 		}
 		for _, dp := range dps {
 			var (
@@ -142,13 +139,13 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]r
 				timestamp,
 			)
 			if err != nil {
-				return fmt.Errorf("Error creating data point for source %v: %v", sources[id].ID, err.Error())
+				return logger.Errorf("Error creating data point for source %v: %s", sources[id].ID, err)
 			}
 			bp.AddPoint(pt)
 		}
 		err = s.client.Write(bp)
 		if err != nil {
-			return err
+			return logger.Errorf("%s", err)
 		}
 	}
 	return nil
@@ -171,41 +168,41 @@ func pointsFromRow(r models.Row) ([]DataPoint, error) {
 				if val, ok := v.(string); ok {
 					t, err := time.Parse(time.RFC3339, val)
 					if err != nil {
-						return nil, fmt.Errorf("Invalid time format:", val)
+						return nil, logger.Errorf("Invalid time format: %v", val)
 					}
 					p.Time = t.Unix()
 				} else {
-					return nil, errors.New("Interface conversion error. time not string?")
+					return nil, logger.Errorf("Interface conversion error. time not string?")
 				}
 			case "name":
 				if val, ok := v.(string); ok {
 					p.Name = val
 				} else {
-					return nil, errors.New("Interface conversion error. name not string?")
+					return nil, logger.Errorf("Interface conversion error. name not string?")
 				}
 			case "value":
 				if val, err := v.(json.Number).Float64(); err == nil {
 					p.Value = &val
 				} else {
-					return nil, err
+					return nil, logger.Errorf("%s", err)
 				}
 			case "booleanValue":
 				if val, ok := v.(bool); ok {
 					p.BooleanValue = &val
 				} else {
-					return nil, errors.New("Interface conversion error. booleanValue not bool?")
+					return nil, logger.Errorf("Interface conversion error. booleanValue not bool?")
 				}
 			case "stringValue":
 				if val, ok := v.(string); ok {
 					p.StringValue = &val
 				} else {
-					return nil, errors.New("Interface conversion error. stringValue not string?")
+					return nil, logger.Errorf("Interface conversion error. stringValue not string?")
 				}
 			case "units":
 				if val, ok := v.(string); ok {
 					p.Units = val
 				} else {
-					return nil, errors.New("Interface conversion error. units not string?")
+					return nil, logger.Errorf("Interface conversion error. units not string?")
 				}
 			} // endswitch
 		}
@@ -224,7 +221,7 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 	if q.Start.Before(time.Unix(0, 0)) {
 		q.Start = time.Unix(0, 0)
 		if q.End.Before(time.Unix(0, 1)) {
-			return NewDataSet(), 0, fmt.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
+			return NewDataSet(), 0, logger.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
 		}
 	}
 
@@ -249,10 +246,10 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 		count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s WHERE %s",
 			s.FieldForType(ds.Type), s.FQMsrmt(ds), timeCond)
 		if err != nil {
-			return NewDataSet(), 0, fmt.Errorf("Error counting records for source %v: %v", ds.Resource, err.Error())
+			return NewDataSet(), 0, logger.Errorf("Error counting records for source %v: %s", ds.Resource, err)
 		}
 		if count < 1 {
-			log.Printf("There is no data for source %v", ds.Resource)
+			logger.Printf("There is no data for source %v", ds.Resource)
 			continue
 		}
 		total += int(count)
@@ -260,16 +257,16 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
 			s.FQMsrmt(ds), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
-			return NewDataSet(), 0, fmt.Errorf("Error retrieving a data point for source %v: %v", ds.Resource, err.Error())
+			return NewDataSet(), 0, logger.Errorf("Error retrieving a data point for source %v: %s", ds.Resource, err)
 		}
 
 		if len(res[0].Series) > 1 {
-			return NewDataSet(), 0, fmt.Errorf("Unrecognized/Corrupted database schema.")
+			return NewDataSet(), 0, logger.Errorf("Unrecognized/Corrupted database schema.")
 		}
 
 		pds, err := pointsFromRow(res[0].Series[0])
 		if err != nil {
-			return NewDataSet(), 0, fmt.Errorf("Error parsing points for source %v: %v", ds.Resource, err.Error())
+			return NewDataSet(), 0, logger.Errorf("Error parsing points for source %v: %s", ds.Resource, err)
 		}
 
 		if perItems[i] != 0 { // influx ignores `limit 0`
@@ -297,10 +294,10 @@ func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) 
 	_, err := s.QuerySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
 		s.Retention(ds), s.config.Database, duration, s.config.Replication)
 	if err != nil {
-		callback <- fmt.Errorf("Error creating retention policy: %v", err.Error())
+		callback <- logger.Errorf("Error creating retention policy: %s", err)
 		return
 	}
-	log.Println("InfluxStorage: created retention policy for", ds.ID)
+	logger.Println("InfluxStorage: created retention policy for", ds.ID)
 
 	callback <- nil
 }
@@ -315,10 +312,10 @@ func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 		}
 		_, err := s.QuerySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v", s.Retention(oldDS), s.config.Database, duration)
 		if err != nil {
-			callback <- fmt.Errorf("Error modifying the retention policy for source: %v", err.Error())
+			callback <- logger.Errorf("Error modifying the retention policy for source: %s", err)
 			return
 		}
-		log.Println("InfluxStorage: altered retention policy for", oldDS.ID)
+		logger.Println("InfluxStorage: altered retention policy for", oldDS.ID)
 	}
 	callback <- nil
 }
@@ -332,36 +329,36 @@ func (s *InfluxStorage) NtfDeleted(ds registry.DataSource, callback chan error) 
 			// Not an error, No data to delete.
 			goto DROP_RETENTION
 		}
-		callback <- fmt.Errorf("Error removing the historical data: %v", err.Error())
+		callback <- logger.Errorf("Error removing the historical data: %s", err)
 		return
 	}
-	log.Println("InfluxStorage: dropped measurements for", ds.ID)
+	logger.Println("InfluxStorage: dropped measurements for", ds.ID)
 
 DROP_RETENTION:
 	_, err = s.QuerySprintf("DROP RETENTION POLICY \"%s\" ON %s", s.Retention(ds), s.config.Database)
 	if err != nil {
-		callback <- fmt.Errorf("Error removing the retention policy for source: %v", err.Error())
+		callback <- logger.Errorf("Error removing the retention policy for source: %s", err)
 		return
 	}
-	log.Println("InfluxStorage: dropped retention policy for", ds.ID)
+	logger.Println("InfluxStorage: dropped retention policy for", ds.ID)
 
 	callback <- nil
 }
 
 // Query influxdb
 func (s *InfluxStorage) QuerySprintf(format string, a ...interface{}) (res []influx.Result, err error) {
-	log.Println("Influx:", fmt.Sprintf(format, a...))
+	logger.Debugln("Influx:", fmt.Sprintf(format, a...))
 	q := influx.Query{
 		Command:  fmt.Sprintf(format, a...),
 		Database: s.config.Database,
 	}
 	if response, err := s.client.Query(q); err == nil {
 		if response.Error() != nil {
-			return res, response.Error()
+			return res, logger.Errorf("%s", err)
 		}
 		res = response.Results
 	} else {
-		return res, err
+		return res, logger.Errorf("%s", err)
 	}
 	return res, nil
 }
@@ -369,11 +366,11 @@ func (s *InfluxStorage) QuerySprintf(format string, a ...interface{}) (res []inf
 func (s *InfluxStorage) CountSprintf(format string, a ...interface{}) (int64, error) {
 	res, err := s.QuerySprintf(format, a...)
 	if err != nil {
-		return 0, err
+		return 0, logger.Errorf("%s", err)
 	}
 
 	if len(res) < 1 {
-		return 0, fmt.Errorf("Unable to get count from database: response empty")
+		return 0, logger.Errorf("Unable to get count from database: response empty")
 	}
 	if len(res[0].Series) < 1 {
 		// No data
@@ -381,11 +378,11 @@ func (s *InfluxStorage) CountSprintf(format string, a ...interface{}) (int64, er
 	}
 	if len(res[0].Series[0].Values) < 1 ||
 		len(res[0].Series[0].Values[0]) < 2 {
-		return 0, fmt.Errorf("Unable to get count from database: bad response")
+		return 0, logger.Errorf("Unable to get count from database: bad response")
 	}
 	count, err := res[0].Series[0].Values[0][1].(json.Number).Int64()
 	if err != nil {
-		return 0, fmt.Errorf("Unable to parse count from database response.")
+		return 0, logger.Errorf("Unable to parse count from database response.")
 	}
 	return count, nil
 }
@@ -404,14 +401,14 @@ func initInfluxConf(DSN string) (*InfluxStorageConfig, error) {
 	// Parse config's DSN string
 	PDSN, err := url.Parse(DSN)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 	// Validate
 	if PDSN.Host == "" {
-		return nil, fmt.Errorf("Influxdb config: host:port in the URL must be not empty")
+		return nil, logger.Errorf("Influxdb config: host:port in the URL must be not empty")
 	}
 	if PDSN.Path == "" {
-		return nil, fmt.Errorf("Influxdb config: db must be not empty")
+		return nil, logger.Errorf("Influxdb config: db must be not empty")
 	}
 
 	var c InfluxStorageConfig

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -63,7 +62,7 @@ func (regAPI *ReadableAPI) Index(w http.ResponseWriter, r *http.Request) {
 
 	lastModified, err := regAPI.storage.modifiedDate()
 	if err != nil {
-		log.Println("Error retrieving last modified date: %s", err.Error())
+		logger.Println("Error retrieving last modified date: %s", err)
 		lastModified = time.Now()
 	}
 

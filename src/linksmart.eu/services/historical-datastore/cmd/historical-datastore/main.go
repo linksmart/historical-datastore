@@ -135,7 +135,7 @@ func main() {
 		if closeReg != nil {
 			err := closeReg()
 			if err != nil {
-				logger.Println(err)
+				logger.Println(err.Error())
 			}
 		}
 

@@ -186,7 +186,7 @@ func validateUpdate(ds DataSource, oldDS DataSource) error {
 	}
 
 	if e.Err() {
-		return e
+		return logger.Errorf("%s", e)
 	}
 	return nil
 }
@@ -215,6 +215,7 @@ func (e validationError) Error() string {
 	}
 	return strings.Join(_errors, ". ")
 }
+
 func (e validationError) Err() bool {
 	return len(e.readOnly)+len(e.mandatory)+len(e.invalid) > 0
 }
