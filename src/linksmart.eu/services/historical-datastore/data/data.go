@@ -67,24 +67,6 @@ type Query struct {
 	Limit int
 }
 
-// func (q *query) isValid() bool {
-// 	// time
-// 	if q.end.Before(q.start) {
-// 		return false
-// 	}
-
-// 	// sort
-// 	validSort := map[string]bool{
-// 		ASC:  true,
-// 		DESC: true,
-// 	}
-// 	_, ok := validSort[q.sort]
-// 	if !ok {
-// 		return false
-// 	}
-// 	return true
-// }
-
 // Storage is an interface of a Data storage backend
 type Storage interface {
 	// Adds data points for multiple data sources

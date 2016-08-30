@@ -1,3 +1,5 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package resource
 
 import (
@@ -44,10 +46,50 @@ func setup() (CatalogController, func(), error) {
 }
 
 func TestControllerAdd(t *testing.T) {
-	t.Skip("Tested in TestControllerGet")
+	t.Log(TestStorageType)
+	controller, shutdown, err := setup()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer shutdown()
+
+	// User-defined id
+	var d = Device{
+		Id:   "device123",
+		Name: "my_device",
+		Ttl:  100,
+	}
+
+	id, err := controller.add(d)
+	if err != nil {
+		t.Fatalf("Unexpected error on add: %v", err.Error())
+	}
+	if id != d.Id {
+		t.Fatalf("User defined ID is not returned. Getting %v instead of %v\n", id, d.Id)
+	}
+
+	_, err = controller.add(d)
+	if err == nil {
+		t.Error("Didn't get any error when adding a service with non-unique id.")
+	}
+
+	// System-generated id
+	var d2 = Device{
+		Name: "my_device2",
+		Ttl:  100,
+	}
+
+	id, err = controller.add(d2)
+	if err != nil {
+		t.Fatalf("Unexpected error on add: %v", err.Error())
+	}
+	if !strings.HasPrefix(id, "urn:ls_device:") {
+		t.Fatalf("System-generated URN doesn't have `urn:ls_device:` as prefix. Getting location: %v\n", id)
+	}
 }
 
 func TestControllerGet(t *testing.T) {
+	t.Log(TestStorageType)
 	controller, shutdown, err := setup()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -72,7 +114,7 @@ func TestControllerGet(t *testing.T) {
 	}
 
 	d.Id = id
-	d.URL = fmt.Sprintf("%s/%s/%s", TestApiLocation, FTypeDevices, d.Id)
+	d.URL = fmt.Sprintf("%s/%s/%s", TestApiLocation, TypeDevices, d.Id)
 	d.Type = ApiDeviceType
 	d.Created = sd.Created
 	d.Updated = sd.Updated
@@ -95,6 +137,7 @@ func TestControllerGet(t *testing.T) {
 }
 
 func TestControllerUpdate(t *testing.T) {
+	t.Log(TestStorageType)
 	controller, shutdown, err := setup()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -115,7 +158,7 @@ func TestControllerUpdate(t *testing.T) {
 
 	// Change
 	d.Id = id
-	d.URL = fmt.Sprintf("%s/%s/%s", TestApiLocation, FTypeDevices, d.Id)
+	d.URL = fmt.Sprintf("%s/%s/%s", TestApiLocation, TypeDevices, d.Id)
 	d.Name = "changed"
 	d.Meta = map[string]interface{}{"k": "changed"}
 	d.Description = "changed"
@@ -141,6 +184,7 @@ func TestControllerUpdate(t *testing.T) {
 }
 
 func TestControllerDelete(t *testing.T) {
+	t.Log(TestStorageType)
 	controller, shutdown, err := setup()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -190,6 +234,7 @@ func TestControllerDelete(t *testing.T) {
 }
 
 func TestControllerList(t *testing.T) {
+	t.Log(TestStorageType)
 	controller, shutdown, err := setup()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -254,6 +299,7 @@ func TestControllerList(t *testing.T) {
 }
 
 func TestControllerFilter(t *testing.T) {
+	t.Log(TestStorageType)
 	controller, shutdown, err := setup()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -299,6 +345,7 @@ func TestControllerFilter(t *testing.T) {
 }
 
 func TestControllerTotal(t *testing.T) {
+	t.Log(TestStorageType)
 	controller, shutdown, err := setup()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -326,6 +373,7 @@ func TestControllerTotal(t *testing.T) {
 }
 
 func TestControllerCleanExpired(t *testing.T) {
+	t.Log(TestStorageType)
 	controller, shutdown, err := setup()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -337,7 +385,8 @@ func TestControllerCleanExpired(t *testing.T) {
 		Ttl:  1,
 		Resources: []Resource{
 			Resource{
-				Id:   "my_resource_id",
+				Id: "my_resource_id",
+				Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": "http://localhost:9000/api"}}},
 			},
 		},
 	}
@@ -386,6 +435,7 @@ func TestControllerCleanExpired(t *testing.T) {
 // RESOURCES
 
 func TestControllerGetResources(t *testing.T) {
+	t.Log(TestStorageType)
 	controller, shutdown, err := setup()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -420,8 +470,8 @@ func TestControllerGetResources(t *testing.T) {
 	}
 
 	added := d.Resources[0]
-	added.URL = fmt.Sprintf("%s/%s/%s", TestApiLocation, FTypeResources, added.Id)
-	added.Device = fmt.Sprintf("%s/%s/%s", TestApiLocation, FTypeDevices, id)
+	added.URL = fmt.Sprintf("%s/%s/%s", TestApiLocation, TypeResources, added.Id)
+	added.Device = fmt.Sprintf("%s/%s/%s", TestApiLocation, TypeDevices, id)
 	if !reflect.DeepEqual(*resource, d.Resources[0]) {
 		t.Fatalf("Added resource is different with the one retrieved.\n Added:\n%v\n Retrieved\n%v\n",
 			added, *resource)
@@ -459,6 +509,7 @@ func TestControllerGetResources(t *testing.T) {
 }
 
 func TestControllerListResources(t *testing.T) {
+	t.Log(TestStorageType)
 	controller, shutdown, err := setup()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -473,11 +524,14 @@ func TestControllerListResources(t *testing.T) {
 					Id:   fmt.Sprint(i - 1),
 					Name: fmt.Sprintf("my_resource_%d", i),
 					Meta: map[string]interface{}{"k": "v"},
+					Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
+
 				},
 				Resource{
 					Id:   fmt.Sprint(i),
 					Name: fmt.Sprintf("my_resource_%d", i+1),
 					Meta: map[string]interface{}{"k": "v"},
+					Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
 				},
 			},
 		}
@@ -488,8 +542,8 @@ func TestControllerListResources(t *testing.T) {
 		}
 
 		for _, r := range d.Resources {
-			r.URL = fmt.Sprintf("%s/%s/%s", TestApiLocation, FTypeResources, r.Id)
-			r.Device = fmt.Sprintf("%s/%s/%s", TestApiLocation, FTypeDevices, id)
+			r.URL = fmt.Sprintf("%s/%s/%s", TestApiLocation, TypeResources, r.Id)
+			r.Device = fmt.Sprintf("%s/%s/%s", TestApiLocation, TypeDevices, id)
 			storedResources = append(storedResources, r)
 		}
 	}
@@ -532,6 +586,7 @@ func TestControllerListResources(t *testing.T) {
 }
 
 func TestControllerFilterResources(t *testing.T) {
+	t.Log(TestStorageType)
 	controller, shutdown, err := setup()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -543,6 +598,7 @@ func TestControllerFilterResources(t *testing.T) {
 			Resources: []Resource{
 				Resource{
 					Name: fmt.Sprintf("boring_%d", i),
+					Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
 				},
 			},
 		})
@@ -555,6 +611,7 @@ func TestControllerFilterResources(t *testing.T) {
 		Resources: []Resource{
 			Resource{
 				Name: "interesting_1",
+				Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
 			},
 		},
 	})
@@ -562,6 +619,7 @@ func TestControllerFilterResources(t *testing.T) {
 		Resources: []Resource{
 			Resource{
 				Name: "interesting_2",
+				Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
 			},
 		},
 	})
@@ -581,6 +639,7 @@ func TestControllerFilterResources(t *testing.T) {
 }
 
 func TestControllerTotalResources(t *testing.T) {
+	t.Log(TestStorageType)
 	controller, shutdown, err := setup()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -592,6 +651,7 @@ func TestControllerTotalResources(t *testing.T) {
 			Resources: []Resource{
 				Resource{
 					Name: fmt.Sprintf("resource_%d", i),
+					Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
 				},
 			},
 		})

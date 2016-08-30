@@ -1,3 +1,5 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package main
 
 import (
@@ -112,7 +114,7 @@ func main() {
 }
 
 func setupRouter(config *Config) (*mux.Router, func() error, error) {
-	listeners := []catalog.Listener{}
+	var listeners []catalog.Listener
 	// GC publisher if configured
 	if config.GC.TunnelingService != "" {
 		endpoint, _ := url.Parse(config.GC.TunnelingService)
@@ -136,13 +138,18 @@ func setupRouter(config *Config) (*mux.Router, func() error, error) {
 		return nil, nil, fmt.Errorf("Could not create catalog API storage. Unsupported type: %v", config.Storage.Type)
 	}
 
+	controller, err := catalog.NewController(storage, config.ApiLocation, listeners...)
+	if err != nil {
+		storage.Close()
+		return nil, nil, fmt.Errorf("Failed to start the controller: %v", err.Error())
+	}
+
 	// Create catalog API object
-	api := catalog.NewWritableCatalogAPI(
-		storage,
+	api := catalog.NewCatalogAPI(
+		controller,
 		config.ApiLocation,
 		utils.StaticLocation,
 		config.Description,
-		listeners...,
 	)
 
 	commonHandlers := alice.New(
@@ -162,14 +169,16 @@ func setupRouter(config *Config) (*mux.Router, func() error, error) {
 
 	// Configure routers
 	r := mux.NewRouter().StrictSlash(true)
-	r.Methods("GET").Path(config.ApiLocation).Handler(commonHandlers.ThenFunc(api.List)).Name("list")
-	r.Methods("POST").Path(config.ApiLocation + "/").Handler(commonHandlers.ThenFunc(api.Add)).Name("add")
-	r.Methods("GET").Path(config.ApiLocation + "/{type}/{path}/{op}/{value:.*}").Handler(commonHandlers.ThenFunc(api.Filter)).Name("filter")
+	// Handlers
+	r.Methods("POST").Path(config.ApiLocation + "/").Handler(commonHandlers.ThenFunc(api.Post))
+	// Accept an id with zero or one slash: [^/]+/?[^/]*
+	// -> [^/]+ one or more of anything but slashes /? optional slash [^/]* zero or more of anything but slashes
+	r.Methods("GET").Path(config.ApiLocation + "/{id:[^/]+/?[^/]*}").Handler(commonHandlers.ThenFunc(api.Get))
+	r.Methods("PUT").Path(config.ApiLocation + "/{id:[^/]+/?[^/]*}").Handler(commonHandlers.ThenFunc(api.Put))
+	r.Methods("DELETE").Path(config.ApiLocation + "/{id:[^/]+/?[^/]*}").Handler(commonHandlers.ThenFunc(api.Delete))
+	// List, Filter
+	r.Methods("GET").Path(config.ApiLocation).Handler(commonHandlers.ThenFunc(api.List))
+	r.Methods("GET").Path(config.ApiLocation + "/{path}/{op}/{value:.*}").Handler(commonHandlers.ThenFunc(api.Filter))
 
-	url := config.ApiLocation + "/{hostid}/{regid}"
-	r.Methods("GET").Path(url).Handler(commonHandlers.ThenFunc(api.Get)).Name("get")
-	r.Methods("PUT").Path(url).Handler(commonHandlers.ThenFunc(api.Update)).Name("update")
-	r.Methods("DELETE").Path(url).Handler(commonHandlers.ThenFunc(api.Delete)).Name("delete")
-
-	return r, storage.Close, nil
+	return r, controller.Stop, nil
 }

@@ -1,9 +1,11 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package service
 
 const (
 	DNSSDServiceType    = "_linksmart-sc._tcp"
 	MaxPerPage          = 100
-	ApiVersion          = "0.1.0"
+	ApiVersion          = "1.0.0"
 	ApiCollectionType   = "ServiceCatalog"
 	ApiRegistrationType = "Service"
 	loggerPrefix        = "[sc] "

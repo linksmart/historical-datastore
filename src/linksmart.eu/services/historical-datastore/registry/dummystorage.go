@@ -2,24 +2,19 @@
 
 package registry
 
-// TODO: remove when memstorage is implemented (and rewrite data api tests)
+import "time"
+
 type DummyRegistryStorage struct{}
 
 func (s *DummyRegistryStorage) add(ds DataSource) (DataSource, error) {
-	// TODO
 	return DataSource{}, nil
 }
-
 func (s *DummyRegistryStorage) update(id string, ds DataSource) (DataSource, error) {
-	// TODO
 	return DataSource{}, nil
 }
-
 func (s *DummyRegistryStorage) delete(id string) error {
-	// TODO
 	return nil
 }
-
 func (s *DummyRegistryStorage) get(id string) (DataSource, error) {
 	if id == "12345" {
 		return DataSource{
@@ -39,23 +34,18 @@ func (s *DummyRegistryStorage) get(id string) (DataSource, error) {
 	}
 	return DataSource{}, nil
 }
-
 func (s *DummyRegistryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
-	// TODO
 	return []DataSource{}, 0, nil
 }
-
 func (s *DummyRegistryStorage) getCount() (int, error) {
-	// TODO
 	return 0, nil
 }
-
 func (s *DummyRegistryStorage) pathFilterOne(path, op, value string) (DataSource, error) {
-	// TODO
 	return DataSource{}, nil
 }
-
 func (s *DummyRegistryStorage) pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
-	// TODO
 	return []DataSource{}, 0, nil
+}
+func (s *DummyRegistryStorage) modifiedDate() (time.Time, error) {
+	return time.Now(), nil
 }

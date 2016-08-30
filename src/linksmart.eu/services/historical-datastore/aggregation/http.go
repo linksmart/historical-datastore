@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-
 	"linksmart.eu/lc/core/catalog"
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/data"
@@ -30,7 +29,6 @@ type API struct {
 func NewAPI(registryClient registry.Client, storage Storage) *API {
 	return &API{registryClient, storage}
 }
-
 
 func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 
@@ -195,7 +193,6 @@ OUTERLOOP:
 	w.WriteHeader(http.StatusOK)
 	w.Write(b)
 }
-
 
 // Utility functions
 

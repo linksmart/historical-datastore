@@ -34,7 +34,7 @@ func NewMemoryStorage() (Storage, *chan common.Notification) {
 func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
 	err := validateCreation(ds)
 	if err != nil {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
+		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	// Get a new UUID and convert it to string (UUID type can't be used as map-key)
@@ -55,7 +55,7 @@ func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
 	// Send a create notification
 	err = sendNotification(ds, common.CREATE, ms.nt)
 	if err != nil {
-		return DataSource{}, err
+		return DataSource{}, logger.Errorf("%s", err)
 	}
 
 	// Add the new DataSource to the map
@@ -71,14 +71,14 @@ func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 
 	_, ok := ms.data[id]
 	if !ok {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
+		return DataSource{}, logger.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
 	}
 
 	oldDS := ms.data[id] // for comparison
 
 	err := validateUpdate(ds, oldDS)
 	if err != nil {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
+		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	tempDS := oldDS
@@ -99,7 +99,7 @@ func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 	// Send an update notification
 	err = sendNotification([]DataSource{oldDS, tempDS}, common.UPDATE, ms.nt)
 	if err != nil {
-		return DataSource{}, err
+		return DataSource{}, logger.Errorf("%s", err)
 	}
 
 	// Store the modified DS
@@ -115,13 +115,13 @@ func (ms *MemoryStorage) delete(id string) error {
 
 	_, ok := ms.data[id]
 	if !ok {
-		return fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
+		return logger.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
 	}
 
 	// Send a delete notification
 	err := sendNotification(ms.data[id], common.DELETE, ms.nt)
 	if err != nil {
-		return err
+		return logger.Errorf("%s", err)
 	}
 
 	delete(ms.data, id)
@@ -136,7 +136,7 @@ func (ms *MemoryStorage) get(id string) (DataSource, error) {
 
 	ds, ok := ms.data[id]
 	if !ok {
-		return ds, fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
+		return ds, logger.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
 	}
 
 	return ds, nil
@@ -157,7 +157,10 @@ func (ms *MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	sort.Strings(allKeys)
 
 	// Get the queried page
-	pagedKeys := catalog.GetPageOfSlice(allKeys, page, perPage, MaxPerPage)
+	pagedKeys, err := catalog.GetPageOfSlice(allKeys, page, perPage, MaxPerPage)
+	if err != nil {
+		return []DataSource{}, 0, logger.Errorf("%s", err)
+	}
 
 	// Registry is empty
 	if len(pagedKeys) == 0 {
@@ -192,7 +195,7 @@ func (ms *MemoryStorage) pathFilterOne(path, op, value string) (DataSource, erro
 	for _, ds := range ms.data {
 		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
-			return DataSource{}, err
+			return DataSource{}, logger.Errorf("%s", err)
 		}
 		if matched {
 			return ds, nil
@@ -213,14 +216,17 @@ func (ms *MemoryStorage) pathFilter(path, op, value string, page, perPage int) (
 	for _, ds := range ms.data {
 		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
-			return []DataSource{}, 0, err
+			return []DataSource{}, 0, logger.Errorf("%s", err)
 		}
 		if matched {
 			matchedIDs = append(matchedIDs, ds.ID)
 		}
 	}
 
-	keys := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
+	keys, err := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
+	if err != nil {
+		return []DataSource{}, 0, logger.Errorf("%s", err)
+	}
 	if len(keys) == 0 {
 		return []DataSource{}, len(matchedIDs), nil
 	}

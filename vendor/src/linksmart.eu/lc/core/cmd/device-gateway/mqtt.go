@@ -1,3 +1,5 @@
+// Copyright 2014-2016 Fraunhofer Institute for Applied Information Technology FIT
+
 package main
 
 import (
@@ -148,8 +150,11 @@ func (c *MQTTConnector) discoverBrokerEndpoint() error {
 		return err
 	}
 
-	rcc := service.NewRemoteCatalogClient(endpoint, nil)
-	res, _, err := rcc.FindServices("meta.serviceType", "equals", DNSSDServiceTypeMQTT, 1, 50)
+	rcc, err := service.NewRemoteCatalogClient(endpoint, nil)
+	if err != nil {
+		return err
+	}
+	res, _, err := rcc.Filter("meta.serviceType", "equals", DNSSDServiceTypeMQTT, 1, 50)
 	if err != nil {
 		return err
 	}

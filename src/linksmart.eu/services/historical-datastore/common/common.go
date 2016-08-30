@@ -61,6 +61,7 @@ func ErrorResponse(code int, msg string, w http.ResponseWriter) {
 		code,
 		msg,
 	}
+	logger.DebugOutput(2, "Error: "+msg)
 	b, _ := json.Marshal(e)
 	w.Header().Set("Content-Type", "application/json;version="+APIVersion)
 	w.WriteHeader(code)

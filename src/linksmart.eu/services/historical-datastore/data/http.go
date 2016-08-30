@@ -249,7 +249,7 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	} else {
 		q.Start, err = time.Parse(time.RFC3339, form.Get(common.ParamStart))
 		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing start argument: %v", err.Error())
+			return Query{}, logger.Errorf("Error parsing start argument: %s", err)
 		}
 	}
 
@@ -260,12 +260,12 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	} else {
 		q.End, err = time.Parse(time.RFC3339, form.Get(common.ParamEnd))
 		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing end argument: %v", err.Error())
+			return Query{}, logger.Errorf("Error parsing end argument: %s", err)
 		}
 	}
 
 	if !q.End.After(q.Start) {
-		return Query{}, fmt.Errorf("end argument is before or equal to start")
+		return Query{}, logger.Errorf("end argument is before or equal to start")
 	}
 
 	// limit
@@ -274,7 +274,7 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	} else {
 		q.Limit, err = strconv.Atoi(form.Get(common.ParamLimit))
 		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing limit argument: %v", err.Error())
+			return Query{}, logger.Errorf("Error parsing limit argument: %s", err)
 		}
 	}
 
@@ -284,7 +284,7 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 		// default sorting order
 		q.Sort = common.DESC
 	} else if q.Sort != common.ASC && q.Sort != common.DESC {
-		return Query{}, fmt.Errorf("Invalid sort argument: %v", q.Sort)
+		return Query{}, logger.Errorf("Invalid sort argument: %v", q.Sort)
 	}
 
 	return q, nil

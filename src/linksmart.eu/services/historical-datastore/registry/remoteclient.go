@@ -25,7 +25,7 @@ func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) (*RemoteCli
 	// Check if serverEndpoint is a correct URL
 	endpointUrl, err := url.Parse(serverEndpoint)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 
 	return &RemoteClient{
@@ -42,25 +42,25 @@ func (c *RemoteClient) Index(page int, perPage int) (*Registry, error) {
 		c.ticket,
 	)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to read body of response: %v", err.Error())
+		return nil, logger.Errorf("Unable to read body of response: %v", err.Error())
 	}
 
 	if res.StatusCode == http.StatusOK {
 		var reg Registry
 		err = json.Unmarshal(body, &reg)
 		if err != nil {
-			return nil, err
+			return nil, logger.Errorf("%s", err)
 		}
 		return &reg, nil
 	}
 
-	return nil, fmt.Errorf("%v: %v", res.StatusCode, string(body))
+	return nil, logger.Errorf("%v: %v", res.StatusCode, string(body))
 }
 
 func (c *RemoteClient) Add(d *DataSource) (string, error) {
@@ -72,7 +72,7 @@ func (c *RemoteClient) Add(d *DataSource) (string, error) {
 		c.ticket,
 	)
 	if err != nil {
-		return "", err
+		return "", logger.Errorf("%s", err)
 	}
 	defer res.Body.Close()
 
@@ -86,10 +86,10 @@ func (c *RemoteClient) Add(d *DataSource) (string, error) {
 	// Get body of error
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return "", fmt.Errorf("Unable to read body of error: %v", err.Error())
+		return "", logger.Errorf("Unable to read body of error: %v", err.Error())
 	}
 
-	return "", fmt.Errorf("%v: %v", res.StatusCode, string(body))
+	return "", logger.Errorf("%v: %v", res.StatusCode, string(body))
 }
 
 func (c *RemoteClient) Get(id string) (*DataSource, error) {
@@ -100,25 +100,25 @@ func (c *RemoteClient) Get(id string) (*DataSource, error) {
 		c.ticket,
 	)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode == http.StatusNotFound {
 		return nil, ErrNotFound
 	} else if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%v", res.StatusCode)
+		return nil, logger.Errorf("%v", res.StatusCode)
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 
 	var ds DataSource
 	err = json.Unmarshal(body, &ds)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 
 	return &ds, nil
@@ -133,19 +133,19 @@ func (c *RemoteClient) Update(id string, d *DataSource) error {
 		c.ticket,
 	)
 	if err != nil {
-		return err
+		return logger.Errorf("%s", err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return err
+		return logger.Errorf("%s", err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
 		return ErrNotFound
 	} else if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("%v: %v", res.StatusCode, string(body))
+		return logger.Errorf("%v: %v", res.StatusCode, string(body))
 	}
 	return nil
 }
@@ -158,14 +158,14 @@ func (c *RemoteClient) Delete(id string) error {
 		c.ticket,
 	)
 	if err != nil {
-		return err
+		return logger.Errorf("%s", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode == http.StatusNotFound {
 		return ErrNotFound
 	} else if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("%v", res.StatusCode)
+		return logger.Errorf("%v", res.StatusCode)
 	}
 
 	return nil
@@ -179,25 +179,25 @@ func (c *RemoteClient) FilterOne(path, op, value string) (*DataSource, error) {
 		c.ticket,
 	)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
 		return nil, ErrNotFound
 	} else if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%v: %v", res.StatusCode, string(body))
+		return nil, logger.Errorf("%v: %v", res.StatusCode, string(body))
 	}
 
 	var ds DataSource
 	err = json.Unmarshal(body, &ds)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 
 	return &ds, nil
@@ -211,25 +211,25 @@ func (c *RemoteClient) FilterMany(path, op, value string) ([]DataSource, error) 
 		c.ticket,
 	)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
 		return nil, ErrNotFound
 	} else if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%v: %v", res.StatusCode, string(body))
+		return nil, logger.Errorf("%v: %v", res.StatusCode, string(body))
 	}
 
 	var reg Registry
 	err = json.Unmarshal(body, &reg)
 	if err != nil {
-		return nil, err
+		return nil, logger.Errorf("%s", err)
 	}
 
 	return reg.Entries, nil

@@ -14,7 +14,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
-
 	"linksmart.eu/lc/core/catalog"
 	"linksmart.eu/services/historical-datastore/common"
 )
@@ -30,13 +29,13 @@ type LevelDBStorage struct {
 func NewLevelDBStorage(dsn string, opts *opt.Options) (Storage, *chan common.Notification, func() error, error) {
 	url, err := url.Parse(dsn)
 	if err != nil {
-		return &LevelDBStorage{}, nil, nil, err
+		return &LevelDBStorage{}, nil, nil, logger.Errorf("%s", err)
 	}
 
 	// Open the database
 	db, err := leveldb.OpenFile(url.Path, opts)
 	if err != nil {
-		return &LevelDBStorage{}, nil, nil, err
+		return &LevelDBStorage{}, nil, nil, logger.Errorf("%s", err)
 	}
 
 	s := &LevelDBStorage{
@@ -55,7 +54,7 @@ func (s *LevelDBStorage) close() error {
 func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
 	err := validateCreation(ds)
 	if err != nil {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
+		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	// Get a new UUID and convert it to string (UUID type can't be used as map-key)
@@ -73,19 +72,19 @@ func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
 	// Send a create notification
 	err = sendNotification(ds, common.CREATE, s.nt)
 	if err != nil {
-		return DataSource{}, err
+		return DataSource{}, logger.Errorf("%s", err)
 	}
 
 	// Convert to json bytes
 	dsBytes, err := json.Marshal(&ds)
 	if err != nil {
-		return DataSource{}, err
+		return DataSource{}, logger.Errorf("%s", err)
 	}
 
 	// Add the new DataSource to database
 	err = s.db.Put([]byte(ds.ID), dsBytes, nil)
 	if err != nil {
-		return DataSource{}, err
+		return DataSource{}, logger.Errorf("%s", err)
 	}
 
 	s.lastModified = time.Now()
@@ -96,14 +95,14 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 
 	oldDS, err := s.get(id) // for comparison
 	if err == leveldb.ErrNotFound {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrNotFound, err)
+		return DataSource{}, logger.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
-		return DataSource{}, err
+		return DataSource{}, logger.Errorf("%s", err)
 	}
 
 	err = validateUpdate(ds, oldDS)
 	if err != nil {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
+		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	tempDS := oldDS
@@ -124,19 +123,19 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 	// Send an update notification
 	err = sendNotification([]DataSource{oldDS, tempDS}, common.UPDATE, s.nt)
 	if err != nil {
-		return DataSource{}, err
+		return DataSource{}, logger.Errorf("%s", err)
 	}
 
 	// Convert to json bytes
 	dsBytes, err := json.Marshal(&tempDS)
 	if err != nil {
-		return DataSource{}, err
+		return DataSource{}, logger.Errorf("%s", err)
 	}
 
 	// Store the modified DS
 	err = s.db.Put([]byte(tempDS.ID), dsBytes, nil)
 	if err != nil {
-		return DataSource{}, err
+		return DataSource{}, logger.Errorf("%s", err)
 	}
 
 	s.lastModified = time.Now()
@@ -147,20 +146,20 @@ func (s *LevelDBStorage) delete(id string) error {
 
 	ds, err := s.get(id) // for notification
 	if err != nil {
-		return err
+		return logger.Errorf("%s", err)
 	}
 
 	// Send a delete notification
 	err = sendNotification(ds, common.DELETE, s.nt)
 	if err != nil {
-		return err
+		return logger.Errorf("%s", err)
 	}
 
 	err = s.db.Delete([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
-		return fmt.Errorf("%s: %s", ErrNotFound, err)
+		return logger.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
-		return err
+		return logger.Errorf("%s", err)
 	}
 
 	s.lastModified = time.Now()
@@ -171,15 +170,15 @@ func (s *LevelDBStorage) get(id string) (DataSource, error) {
 	// Query from database
 	dsBytes, err := s.db.Get([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrNotFound, err)
+		return DataSource{}, logger.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
-		return DataSource{}, err
+		return DataSource{}, logger.Errorf("%s", err)
 	}
 
 	var ds DataSource
 	err = json.Unmarshal(dsBytes, &ds)
 	if err != nil {
-		return ds, err
+		return ds, logger.Errorf("%s", err)
 	}
 
 	return ds, nil
@@ -189,7 +188,7 @@ func (s *LevelDBStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 
 	total, err := s.getCount()
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, logger.Errorf("%s", err)
 	}
 
 	// Extract keys from database
@@ -203,12 +202,15 @@ func (s *LevelDBStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	s.wg.Done()
 	err = iter.Error()
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, logger.Errorf("%s", err)
 	}
 	// LevelDB keys are sorted
 
 	// Get the queried page
-	offset, limit := GetPageOfSlice(keys, page, perPage, MaxPerPage)
+	offset, limit, err := catalog.GetPagingAttr(total, page, perPage, MaxPerPage)
+	if err != nil {
+		return nil, 0, logger.Errorf("%s", err)
+	}
 
 	// page/registry is empty
 	if limit == 0 {
@@ -233,7 +235,7 @@ func (s *LevelDBStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 		var ds DataSource
 		err = json.Unmarshal(dsBytes, &ds)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, logger.Errorf("%s", err)
 		}
 		datasources = append(datasources, ds)
 	}
@@ -241,7 +243,7 @@ func (s *LevelDBStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	s.wg.Done()
 	err = iter.Error()
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, logger.Errorf("%s", err)
 	}
 
 	return datasources, total, nil
@@ -259,7 +261,7 @@ func (s *LevelDBStorage) getCount() (int, error) {
 	s.wg.Done()
 	err := iter.Error()
 	if err != nil {
-		return 0, err
+		return 0, logger.Errorf("%s", err)
 	}
 
 	return counter, nil
@@ -283,14 +285,14 @@ func (s *LevelDBStorage) pathFilterOne(path, op, value string) (DataSource, erro
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return DataSource{}, err
+			return DataSource{}, logger.Errorf("%s", err)
 		}
 
 		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return DataSource{}, err
+			return DataSource{}, logger.Errorf("%s", err)
 		}
 		if matched {
 			iter.Release()
@@ -302,7 +304,7 @@ func (s *LevelDBStorage) pathFilterOne(path, op, value string) (DataSource, erro
 	s.wg.Done()
 	err := iter.Error()
 	if err != nil {
-		return DataSource{}, err
+		return DataSource{}, logger.Errorf("%s", err)
 	}
 
 	// No match
@@ -323,14 +325,14 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return []DataSource{}, 0, err
+			return []DataSource{}, 0, logger.Errorf("%s", err)
 		}
 
 		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return []DataSource{}, 0, err
+			return []DataSource{}, 0, logger.Errorf("%s", err)
 		}
 		if matched {
 			matchedIDs = append(matchedIDs, ds.ID)
@@ -340,11 +342,14 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 	s.wg.Done()
 	err := iter.Error()
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, logger.Errorf("%s", err)
 	}
 
 	// Apply pagination
-	slice := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
+	slice, err := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
+	if err != nil {
+		return nil, 0, logger.Errorf("%s", err)
+	}
 
 	// page/registry is empty
 	if len(slice) == 0 {
@@ -355,45 +360,10 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 	for i, id := range slice {
 		ds, err := s.get(id)
 		if err != nil {
-			return nil, len(matchedIDs), err
+			return nil, len(matchedIDs), logger.Errorf("%s", err)
 		}
 		datasources[i] = ds
 	}
 
 	return datasources, len(matchedIDs), nil
-}
-
-// Returns offset and limit representing a subset of the given slice
-//	 based on the requested 'page'
-func GetPageOfSlice(slice []string, page, perPage, maxPerPage int) (int, int) {
-	//keys := []string{}
-	page, perPage = catalog.ValidatePagingParams(page, perPage, maxPerPage)
-
-	// Never return more than the defined maximum
-	if perPage > maxPerPage || perPage == 0 {
-		perPage = maxPerPage
-	}
-
-	// if 1, not specified or negative - return the first page
-	if page < 2 {
-		// first page
-		if perPage > len(slice) {
-			//keys = slice
-			return 0, len(slice)
-		} else {
-			//keys = slice[:perPage]
-			return 0, perPage
-		}
-	} else if page == int(len(slice)/perPage)+1 {
-		// last page
-		//keys = slice[perPage*(page-1):]
-		return perPage * (page - 1), len(slice) - perPage*(page-1)
-	} else if page <= len(slice)/perPage && page*perPage <= len(slice) {
-		// slice
-		r := page * perPage
-		l := r - perPage
-		//keys = slice[l:r]
-		return l, r - l
-	}
-	return 0, 0
 }
