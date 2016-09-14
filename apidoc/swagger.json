@@ -1,0 +1,857 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "version": "0.2.0",
+        "title": "LinkSmart Historical Datastore",
+        "description": "API documentation of the LinkSmart® Historical Datastore. \n\nFor more information, visit the [Wiki](https://linksmart.eu/redmine/projects/historical-datastore/wiki/Historical_Datastore_API).\n"
+    },
+    "tags": [
+        {
+            "name": "registry",
+            "description": "Registry API"
+        },
+        {
+            "name": "data",
+            "description": "Data API"
+        },
+        {
+            "name": "aggr",
+            "description": "Aggregation API"
+        }
+    ],
+    "definitions": {
+        "RegistryIndex": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "format": "url"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ReadableDatasource"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "per_page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "WritableDatasource": {
+            "title": "Datasource",
+            "type": "object",
+            "required": [
+                "resource",
+                "type",
+                "format"
+            ],
+            "properties": {
+                "resource": {
+                    "type": "string",
+                    "format": "url"
+                },
+                "meta": {
+                    "type": "object"
+                },
+                "retention": {
+                    "type": "string"
+                },
+                "aggregation": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Aggregation"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                },
+                "format": {
+                    "type": "string"
+                }
+            }
+        },
+        "ReadableDatasource": {
+            "title": "Datasource",
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string",
+                    "format": "url"
+                },
+                "data": {
+                    "type": "string",
+                    "format": "url"
+                },
+                "resource": {
+                    "type": "string",
+                    "format": "url"
+                },
+                "meta": {
+                    "type": "object"
+                },
+                "retention": {
+                    "type": "string"
+                },
+                "aggregation": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Aggregation"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                },
+                "format": {
+                    "type": "string"
+                }
+            }
+        },
+        "Aggregation": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "interval": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "string",
+                    "format": "url"
+                },
+                "aggregates": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "retention": {
+                    "type": "string"
+                }
+            }
+        },
+        "Recordset": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object"
+                },
+                "time": {
+                    "type": "number",
+                    "format": "float"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "per_page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "SENMLDataset": {
+            "title": "SenML",
+            "type": "object",
+            "properties": {
+                "bn": {
+                    "type": "string"
+                },
+                "bt": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "bu": {
+                    "type": "string"
+                },
+                "ver": {
+                    "type": "integer"
+                },
+                "e": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "t": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "n": {
+                                "type": "string"
+                            },
+                            "u": {
+                                "type": "string"
+                            },
+                            "v": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "sv": {
+                                "type": "string"
+                            },
+                            "bv": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "AggregationIndex": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "interval": {
+                        "type": "string"
+                    },
+                    "aggregates": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "retention": {
+                        "type": "string"
+                    },
+                    "sources": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "responses": {
+        "RespBadRequest": {
+            "description": "Bad Request",
+            "schema": {
+                "$ref": "#/definitions/ErrorResponse"
+            }
+        },
+        "RespUnauthorized": {
+            "description": "Unauthorized",
+            "schema": {
+                "$ref": "#/definitions/ErrorResponse"
+            }
+        },
+        "RespForbidden": {
+            "description": "Forbidden",
+            "schema": {
+                "$ref": "#/definitions/ErrorResponse"
+            }
+        },
+        "RespNotfound": {
+            "description": "Not Found",
+            "schema": {
+                "$ref": "#/definitions/ErrorResponse"
+            }
+        },
+        "RespMethodNotAllowed": {
+            "description": "Method Not Allowed",
+            "schema": {
+                "$ref": "#/definitions/ErrorResponse"
+            }
+        },
+        "RespConflict": {
+            "description": "Conflict",
+            "schema": {
+                "$ref": "#/definitions/ErrorResponse"
+            }
+        },
+        "RespUnsupportedMediaType": {
+            "description": "Unsupported Media Type",
+            "schema": {
+                "$ref": "#/definitions/ErrorResponse"
+            }
+        },
+        "RespInternalServerError": {
+            "description": "Internal Server Error",
+            "schema": {
+                "$ref": "#/definitions/ErrorResponse"
+            }
+        }
+    },
+    "parameters": {
+        "ParamPage": {
+            "name": "page",
+            "in": "query",
+            "description": "Page number in the pagination",
+            "required": false,
+            "type": "number",
+            "format": "integer"
+        },
+        "ParamPerPage": {
+            "name": "per_page",
+            "in": "query",
+            "description": "Number of entries per page",
+            "required": false,
+            "type": "number",
+            "format": "integer"
+        }
+    },
+    "paths": {
+        "/registry/": {
+            "get": {
+                "tags": [
+                    "registry"
+                ],
+                "summary": "Retrieves Registry API index",
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/ParamPage"
+                    },
+                    {
+                        "$ref": "#/parameters/ParamPerPage"
+                    },
+                    {
+                        "name": "If-Modified-Since",
+                        "in": "header",
+                        "description": "Conditional request based on date",
+                        "required": false,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "$ref": "#/definitions/RegistryIndex"
+                        }
+                    },
+                    "304": {
+                        "description": "Not Modified (since `If-Modified-Since`)"
+                    },
+                    "401": {
+                        "$ref": "#/responses/RespUnauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/responses/RespForbidden"
+                    },
+                    "500": {
+                        "$ref": "#/responses/RespInternalServerError"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "registry"
+                ],
+                "summary": "Creates new `Datasource` object",
+                "parameters": [
+                    {
+                        "name": "datasource",
+                        "description": "Datasource to be created",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/WritableDatasource"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created successfully",
+                        "headers": {
+                            "Location": {
+                                "description": "URL of the newly created Datasource",
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/RespBadRequest"
+                    },
+                    "401": {
+                        "$ref": "#/responses/RespUnauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/responses/RespForbidden"
+                    },
+                    "405": {
+                        "$ref": "#/responses/RespMethodNotAllowed"
+                    },
+                    "409": {
+                        "$ref": "#/responses/RespConflict"
+                    },
+                    "500": {
+                        "$ref": "#/responses/RespInternalServerError"
+                    }
+                }
+            }
+        },
+        "/registry/{id}": {
+            "get": {
+                "tags": [
+                    "registry"
+                ],
+                "summary": "Retrieves a `Datasource` object",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the `Datasource`",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "$ref": "#/definitions/ReadableDatasource"
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/RespBadRequest"
+                    },
+                    "401": {
+                        "$ref": "#/responses/RespUnauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/responses/RespForbidden"
+                    },
+                    "404": {
+                        "$ref": "#/responses/RespNotfound"
+                    },
+                    "500": {
+                        "$ref": "#/responses/RespInternalServerError"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "registry"
+                ],
+                "summary": "Updates the `Datasource`",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the `Datasource`",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "datasource",
+                        "description": "Datasource to be created",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/WritableDatasource"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Datasource updated successfully"
+                    },
+                    "400": {
+                        "$ref": "#/responses/RespBadRequest"
+                    },
+                    "401": {
+                        "$ref": "#/responses/RespUnauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/responses/RespForbidden"
+                    },
+                    "404": {
+                        "$ref": "#/responses/RespNotfound"
+                    },
+                    "405": {
+                        "$ref": "#/responses/RespMethodNotAllowed"
+                    },
+                    "409": {
+                        "$ref": "#/responses/RespConflict"
+                    },
+                    "500": {
+                        "$ref": "#/responses/RespInternalServerError"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "registry"
+                ],
+                "summary": "Deletes the `Datasource`",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the `Datasource`",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "$ref": "#/responses/RespUnauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/responses/RespForbidden"
+                    },
+                    "404": {
+                        "$ref": "#/responses/RespNotfound"
+                    },
+                    "405": {
+                        "$ref": "#/responses/RespMethodNotAllowed"
+                    },
+                    "500": {
+                        "$ref": "#/responses/RespInternalServerError"
+                    }
+                }
+            }
+        },
+        "/registry/{path}/{op}/{value}": {
+            "get": {
+                "tags": [
+                    "registry"
+                ],
+                "summary": "Datasource filtering API",
+                "parameters": [
+                    {
+                        "name": "path",
+                        "in": "path",
+                        "description": "Dot-separated path in the registration JSON",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "op",
+                        "in": "path",
+                        "description": "One of (equals, prefix, suffix, contains) string comparison operations",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "value",
+                        "in": "path",
+                        "description": "The intended value/prefix/suffix/substring of the key identified by the path",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "$ref": "#/parameters/ParamPage"
+                    },
+                    {
+                        "$ref": "#/parameters/ParamPerPage"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "$ref": "#/definitions/RegistryIndex"
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/responses/RespUnauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/responses/RespForbidden"
+                    },
+                    "500": {
+                        "$ref": "#/responses/RespInternalServerError"
+                    }
+                }
+            }
+        },
+        "/data/{id}": {
+            "post": {
+                "tags": [
+                    "data"
+                ],
+                "summary": "Submits `Dataset`",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the `Datasource`",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "dataset",
+                        "description": "Dataset to be submitted. \n\nThe schema for [SenML](https://tools.ietf.org/html/draft-jennings-senml-10) datasets is provided.\n",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SENMLDataset"
+                        }
+                    },
+                    {
+                        "name": "Content-Type",
+                        "in": "header",
+                        "description": "MIME Type of dataset",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "produces": [
+                    "application/senml+json"
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    },
+                    "400": {
+                        "$ref": "#/responses/RespBadRequest"
+                    },
+                    "401": {
+                        "$ref": "#/responses/RespUnauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/responses/RespForbidden"
+                    },
+                    "405": {
+                        "$ref": "#/responses/RespMethodNotAllowed"
+                    },
+                    "415": {
+                        "$ref": "#/responses/RespUnsupportedMediaType"
+                    },
+                    "500": {
+                        "$ref": "#/responses/RespInternalServerError"
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "data"
+                ],
+                "summary": "Retrieves data `Recordset`",
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/ParamPage"
+                    },
+                    {
+                        "$ref": "#/parameters/ParamPerPage"
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID(s) of the `Datasource`(s)",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "consumes": [
+                    "application/senml+json"
+                ],
+                "produces": [
+                    "application/senml+json"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "$ref": "#/definitions/Recordset"
+                        },
+                        "examples": {
+                            "application/senml+json": {
+                                "url": "/data/f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                                "data": {
+                                    "e": [
+                                        {
+                                            "t": 1473857100,
+                                            "n": "voltage",
+                                            "v": 120.2
+                                        },
+                                        {
+                                            "t": 1473857200,
+                                            "n": "voltage",
+                                            "v": 120.1
+                                        },
+                                        {
+                                            "t": 1473857300,
+                                            "n": "voltage",
+                                            "v": 120.2
+                                        }
+                                    ],
+                                    "bn": "urn:dev:mac:0024befffe804ff1/",
+                                    "ver": 1
+                                },
+                                "time": 0.312,
+                                "page": 1,
+                                "per_page": 100,
+                                "total": 3
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/RespBadRequest"
+                    },
+                    "401": {
+                        "$ref": "#/responses/RespUnauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/responses/RespForbidden"
+                    },
+                    "404": {
+                        "$ref": "#/responses/RespNotfound"
+                    },
+                    "500": {
+                        "$ref": "#/responses/RespInternalServerError"
+                    }
+                }
+            }
+        },
+        "/aggr/": {
+            "get": {
+                "tags": [
+                    "aggr"
+                ],
+                "summary": "Retrieves Aggregation API index.",
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/ParamPage"
+                    },
+                    {
+                        "$ref": "#/parameters/ParamPerPage"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "$ref": "#/definitions/AggregationIndex"
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/responses/RespUnauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/responses/RespForbidden"
+                    },
+                    "500": {
+                        "$ref": "#/responses/RespInternalServerError"
+                    }
+                }
+            }
+        },
+        "/aggr/{aggr_id}/{id}": {
+            "get": {
+                "tags": [
+                    "aggr"
+                ],
+                "summary": "Retrieves aggregated data `Recordset`",
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/ParamPage"
+                    },
+                    {
+                        "$ref": "#/parameters/ParamPerPage"
+                    },
+                    {
+                        "name": "aggr_id",
+                        "in": "path",
+                        "description": "ID of the `Aggregation`",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID of the `Datasource`",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "consumes": [
+                    "application/senml+json"
+                ],
+                "produces": [
+                    "application/senml+json"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "schema": {
+                            "$ref": "#/definitions/Recordset"
+                        },
+                        "examples": {
+                            "application/senml+json": {
+                                "url": "/data/f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                                "data": {
+                                    "e": [
+                                        {
+                                            "ts": 1473856000,
+                                            "te": 1473857000,
+                                            "n": "voltage",
+                                            "mean": 120.2
+                                        },
+                                        {
+                                            "ts": 1473857000,
+                                            "te": 1473858000,
+                                            "n": "voltage",
+                                            "mean": 120.19
+                                        },
+                                        {
+                                            "ts": 1473858000,
+                                            "te": 1473859000,
+                                            "n": "voltage",
+                                            "mean": 120.2
+                                        }
+                                    ],
+                                    "bn": "urn:dev:mac:0024befffe804ff1/",
+                                    "ver": 1
+                                },
+                                "time": 0.561,
+                                "page": 1,
+                                "per_page": 100,
+                                "total": 3
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/RespBadRequest"
+                    },
+                    "401": {
+                        "$ref": "#/responses/RespUnauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/responses/RespForbidden"
+                    },
+                    "404": {
+                        "$ref": "#/responses/RespNotfound"
+                    },
+                    "500": {
+                        "$ref": "#/responses/RespInternalServerError"
+                    }
+                }
+            }
+        }
+    }
+}
