@@ -147,7 +147,7 @@
                     "type": "string"
                 },
                 "data": {
-                    "type": "object"
+                    "$ref": "#/definitions/Dataset"
                 },
                 "time": {
                     "type": "number",
@@ -164,8 +164,7 @@
                 }
             }
         },
-        "SENMLDataset": {
-            "title": "SenML",
+        "Dataset": {
             "type": "object",
             "properties": {
                 "bn": {
@@ -211,30 +210,110 @@
                 }
             }
         },
-        "AggregationIndex": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string"
-                    },
-                    "interval": {
-                        "type": "string"
-                    },
-                    "aggregates": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
+        "AggrRecordset": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string"
+                },
+                "data": {
+                    "$ref": "#/definitions/AggrDataset"
+                },
+                "time": {
+                    "type": "number",
+                    "format": "float"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "per_page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "AggrDataset": {
+            "type": "object",
+            "properties": {
+                "ver": {
+                    "type": "integer"
+                },
+                "e": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "ts": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "te": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "n": {
+                                "type": "string"
+                            },
+                            "mean": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "min": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "max": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "median": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "stddev": {
+                                "type": "number",
+                                "format": "float"
+                            },
+                            "sum": {
+                                "type": "number",
+                                "format": "float"
+                            }
                         }
-                    },
-                    "retention": {
-                        "type": "string"
-                    },
-                    "sources": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
+                    }
+                }
+            }
+        },
+        "AggregationIndex": {
+            "type": "object",
+            "properties": {
+                "aggregations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "interval": {
+                                "type": "string"
+                            },
+                            "aggregates": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "retention": {
+                                "type": "string"
+                            },
+                            "sources": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 }
@@ -605,11 +684,11 @@
                     },
                     {
                         "name": "dataset",
-                        "description": "Dataset to be submitted. \n\nThe schema for [SenML](https://tools.ietf.org/html/draft-jennings-senml-10) datasets is provided.\n",
+                        "description": "Dataset to be submitted. \n\nThe dataset is a [SenML](https://tools.ietf.org/html/draft-jennings-senml-10) object.\n",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/SENMLDataset"
+                            "$ref": "#/definitions/Dataset"
                         }
                     },
                     {
@@ -675,39 +754,9 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Successful response",
+                        "description": "Successful response\n\nDataset `data` is a [SenML](https://tools.ietf.org/html/draft-jennings-senml-10) object.\n",
                         "schema": {
                             "$ref": "#/definitions/Recordset"
-                        },
-                        "examples": {
-                            "application/senml+json": {
-                                "url": "/data/f47ac10b-58cc-4372-a567-0e02b2c3d479",
-                                "data": {
-                                    "e": [
-                                        {
-                                            "t": 1473857100,
-                                            "n": "voltage",
-                                            "v": 120.2
-                                        },
-                                        {
-                                            "t": 1473857200,
-                                            "n": "voltage",
-                                            "v": 120.1
-                                        },
-                                        {
-                                            "t": 1473857300,
-                                            "n": "voltage",
-                                            "v": 120.2
-                                        }
-                                    ],
-                                    "bn": "urn:dev:mac:0024befffe804ff1/",
-                                    "ver": 1
-                                },
-                                "time": 0.312,
-                                "page": 1,
-                                "per_page": 100,
-                                "total": 3
-                            }
                         }
                     },
                     "400": {
@@ -797,42 +846,9 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Successful response",
+                        "description": "Successful response\n",
                         "schema": {
-                            "$ref": "#/definitions/Recordset"
-                        },
-                        "examples": {
-                            "application/senml+json": {
-                                "url": "/data/f47ac10b-58cc-4372-a567-0e02b2c3d479",
-                                "data": {
-                                    "e": [
-                                        {
-                                            "ts": 1473856000,
-                                            "te": 1473857000,
-                                            "n": "voltage",
-                                            "mean": 120.2
-                                        },
-                                        {
-                                            "ts": 1473857000,
-                                            "te": 1473858000,
-                                            "n": "voltage",
-                                            "mean": 120.19
-                                        },
-                                        {
-                                            "ts": 1473858000,
-                                            "te": 1473859000,
-                                            "n": "voltage",
-                                            "mean": 120.2
-                                        }
-                                    ],
-                                    "bn": "urn:dev:mac:0024befffe804ff1/",
-                                    "ver": 1
-                                },
-                                "time": 0.561,
-                                "page": 1,
-                                "per_page": 100,
-                                "total": 3
-                            }
+                            "$ref": "#/definitions/AggrRecordset"
                         }
                     },
                     "400": {
