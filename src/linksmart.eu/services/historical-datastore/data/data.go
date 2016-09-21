@@ -34,7 +34,7 @@ type DataSet struct {
 
 // NewDataSet returns a DataSet given an SenML Message
 func NewDataSet() DataSet {
-	return DataSet{&senml.Message{}, []DataPoint{}}
+	return DataSet{&senml.Message{Version: 1}, []DataPoint{}}
 }
 
 // FromMessage returns a DataSet given a SenML Message
