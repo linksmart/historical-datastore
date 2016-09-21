@@ -93,6 +93,12 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 		dsResources[ds.Resource] = ds
 	}
 
+	err = senmlMessage.Validate()
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
+	}
+
 	// Fill the data map with provided data points
 	entries := senmlMessage.Expand().Entries
 	for _, e := range entries {
