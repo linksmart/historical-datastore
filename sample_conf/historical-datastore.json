@@ -41,6 +41,7 @@
     "provider": "cas",
     "providerURL": "http://example.com/cas",
     "serviceID": "",
+    "basicEnabled": false,
     "authorization": {
       "rules": [
         {
