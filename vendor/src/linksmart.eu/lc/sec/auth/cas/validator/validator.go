@@ -5,13 +5,14 @@ package validator
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
-	"github.com/kylewolfe/simplexml"
-	"linksmart.eu/lc/sec/auth"
 	"linksmart.eu/lc/sec/auth/validator"
+	"github.com/kylewolfe/simplexml"
 )
 
 const (
@@ -22,44 +23,46 @@ const (
 
 type CASValidator struct{}
 
+var logger *log.Logger
+
 func init() {
 	// Initialize the logger
-	auth.InitLogger(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, driverName)
+	logger = log.New(os.Stdout, fmt.Sprintf("[%s] ", driverName), 0)
+	v, err := strconv.Atoi(os.Getenv("DEBUG"))
+	if err == nil && v == 1 {
+		logger.SetFlags(log.Ltime | log.Lshortfile)
+	}
 
 	// Register the driver as a auth/validator
 	validator.Register(driverName, &CASValidator{})
 }
 
 // Validate Service Ticket (CAS Protocol)
-func (v *CASValidator) Validate(serverAddr, serviceID, ticket string) (bool, map[string]string, error) {
-	bodyMap := make(map[string]string)
+func (v *CASValidator) Validate(serverAddr, serviceID, ticket string) (bool, *validator.UserProfile, error) {
 	res, err := http.Get(fmt.Sprintf("%s%s?service=%s&ticket=%s", serverAddr, casProtocolValidatePath, serviceID, ticket))
 	if err != nil {
-		auth.Err.Println("Validate()", err.Error())
-		return false, bodyMap, auth.Error(err)
+		return false, nil, err
 	}
+	defer res.Body.Close()
 
 	// Check for server errors
 	if res.StatusCode != http.StatusOK {
-		auth.Err.Println("Validate()", err.Error())
-		return false, bodyMap, auth.Errorf(res.Status)
+		return false, nil, fmt.Errorf(res.Status)
 	}
 
 	// User attributes / error message
 	body, err := ioutil.ReadAll(res.Body)
-	defer res.Body.Close()
 	if err != nil {
-		auth.Err.Println("Validate()", err.Error())
-		return false, bodyMap, auth.Error(err)
+		return false, nil, err
 	}
 
 	// Create an xml document from response body
 	doc, err := simplexml.NewDocumentFromReader(strings.NewReader(string(body)))
 	if err != nil {
-		auth.Err.Println("Validate()", err.Error())
-		return false, bodyMap, auth.Errorf("Unexpected error while validating service token.")
+		return false, nil, fmt.Errorf("Unexpected error while validating service token.")
 	}
 
+	var profile validator.UserProfile
 	// StatusCode is 200 for all responses (valid, expired, missing)
 	// Check if response contains authenticationSuccess tag
 	success := doc.Root().Search().ByName("authenticationSuccess").One()
@@ -69,48 +72,42 @@ func (v *CASValidator) Validate(serverAddr, serviceID, ticket string) (bool, map
 		// Check if response contains authenticationFailure tag
 		failure := doc.Root().Search().ByName("authenticationFailure").One()
 		if failure == nil {
-			auth.Err.Println("Validate()", err.Error())
-			return false, bodyMap, auth.Errorf("Unexpected error while validating service token.")
+			return false, nil, fmt.Errorf("Unexpected error while validating service token.")
 		}
 		// Extract the error message
 		errMsg, err := failure.Value()
 		if err != nil {
-			auth.Err.Println("Validate()", err.Error())
-			return false, bodyMap, auth.Errorf("Unexpected error. No error message.")
+			return false, nil, fmt.Errorf("Unexpected error. No error message.")
 		}
-		bodyMap["error"] = strings.TrimSpace(errMsg)
-		return false, bodyMap, nil
+		profile.Status = strings.TrimSpace(errMsg)
+		return false, &profile, nil
 	}
 	// Token is valid
-	auth.Log.Println("Validate()", res.Status, "Valid ticket.")
+	logger.Println("Validate()", res.Status, "Valid ticket.")
 
 	// Extract username
 	userTag := doc.Root().Search().ByName("authenticationSuccess").ByName("user").One()
 	if userTag == nil {
-		auth.Err.Println("Validate()", "Could not find `user` from validation response.")
-		return false, bodyMap, auth.Errorf("Could not find `user` from validation response.")
+		return false, nil, fmt.Errorf("Could not find `user` from validation response.")
 	}
 	user, err := userTag.Value()
 	if err != nil {
-		auth.Err.Println("Validate()", err.Error())
-		return false, bodyMap, auth.Errorf("Could not get value of `user` from validation response.")
+		return false, nil, fmt.Errorf("Could not get value of `user` from validation response.")
 	}
 	// NOTE:
 	// temporary workaround until CAS bug is fixed
 	ldapDescription := strings.Split(user, "-")
 	if len(ldapDescription) == 2 {
-		bodyMap["user"] = ldapDescription[0]
-		bodyMap["group"] = ldapDescription[1]
+		profile.Username = ldapDescription[0]
+		profile.Groups = append(profile.Groups, ldapDescription[1])
 	} else if len(ldapDescription) == 1 {
-		bodyMap["user"] = ldapDescription[0]
-		bodyMap["group"] = ""
+		profile.Username = ldapDescription[0]
 	} else {
-		auth.Err.Println("Validate()", "Unexpected format for `user` in validation response.")
-		return false, bodyMap, auth.Errorf("Unexpected format for `user` in validation response.")
+		return false, nil, fmt.Errorf("Unexpected format for `user` in validation response.")
 	}
 
 	// Valid token + attributes
-	return true, bodyMap, nil
+	return true, &profile, nil
 }
 
 // Validate Service Token (OAUTH)
@@ -122,6 +119,7 @@ func (v *CASValidator) Validate(serverAddr, serviceID, ticket string) (bool, map
 //	if err != nil {
 //		return false, bodyMap, fErr(err)
 //	}
+//  defer res.Body.Close()
 //	fmt.Println("CAS:", res.Status)
 
 //	// Check for server errors
@@ -131,7 +129,6 @@ func (v *CASValidator) Validate(serverAddr, serviceID, ticket string) (bool, map
 
 //	// User attributes / error message
 //	body, err := ioutil.ReadAll(res.Body)
-//	defer res.Body.Close()
 //	if err != nil {
 //		return false, bodyMap, fErr(err)
 //	}
