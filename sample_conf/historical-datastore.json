@@ -26,31 +26,7 @@
     {
       "discover": false,
       "endpoint": "http://localhost:8082/sc",
-      "ttl": 10,
-      "auth": {
-        "provider": "cas",
-        "providerURL": "http://example.com/cas",
-        "username": "",
-        "password": "",
-        "serviceID": ""
-      }
+      "ttl": 60
     }
-  ],
-  "auth": {
-    "enabled": true,
-    "provider": "cas",
-    "providerURL": "http://example.com/cas",
-    "serviceID": "",
-    "basicEnabled": false,
-    "authorization": {
-      "rules": [
-        {
-          "resources": ["/data","/registry","/aggregation"],
-          "methods": ["GET","POST","PUT","DELETE"],
-          "users": [],
-          "groups": ["rwusers"]
-        }
-      ]
-    }
-  }
+  ]
 }
