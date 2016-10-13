@@ -6,6 +6,11 @@ ENV REFRESHED_AT 2016-01-18
 RUN apt-get update
 RUN apt-get install -y wget git
 
+# install dockerize
+ENV DOCKERIZE_VERSION v0.2.0
+RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
+    && tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+
 # install the fraunhofer certificate
 RUN wget http://cdp1.pca.dfn.de/fraunhofer-ca/pub/cacert/cacert.pem -O /usr/local/share/ca-certificates/fhg.crt
 RUN update-ca-certificates
@@ -13,16 +18,21 @@ RUN update-ca-certificates
 # install go tools
 RUN go get github.com/constabulary/gb/...
 
-# setup local connect home
+# setup hds home
 RUN mkdir /opt/hds
 ENV HDS_HOME /opt/hds
-WORKDIR ${HDS_HOME}
+
+# copy default config file
+COPY sample_conf/* /conf/
 
 # copy code & build
 COPY . ${HDS_HOME}
+
+WORKDIR ${HDS_HOME}
 RUN gb build all
 
-VOLUME conf
-VOLUME data
+VOLUME /conf /data
 
-EXPOSE 8085
+EXPOSE 8085 4000
+
+CMD ./bin/historical-datastore -conf /conf/default.json
