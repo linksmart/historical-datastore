@@ -13,6 +13,7 @@ services:
       - influxdb
     volumes:
       - ./docker/data:/data
-    command: bash -c "dockerize -wait tcp://influxdb:8086 -timeout 30s && 
-                      curl -sS -POST 'http://influxdb:8086/query' --data-urlencode 'q=CREATE DATABASE hds'; echo '' && 
+    entrypoint: bash -c "dockerize -wait tcp://influxdb:8086 -timeout 30s && 
+                      curl -sS -POST 'http://influxdb:8086/query' --data-urlencode 'q=CREATE DATABASE hds' && echo '' && 
                       ./bin/historical-datastore -conf /conf/default.json"
+    command: []

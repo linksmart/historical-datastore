@@ -22,17 +22,18 @@ RUN go get github.com/constabulary/gb/...
 RUN mkdir /opt/hds
 ENV HDS_HOME /opt/hds
 
-# copy default config file
+# copy default config file and code
 COPY sample_conf/* /conf/
-
-# copy code & build
 COPY . ${HDS_HOME}
 
 WORKDIR ${HDS_HOME}
+
+# build code
 RUN gb build all
 
 VOLUME /conf /data
 
 EXPOSE 8085 4000
 
-CMD ./bin/historical-datastore -conf /conf/default.json
+ENTRYPOINT ["./bin/historical-datastore"]
+CMD ["-conf", "/conf/default.json"]
