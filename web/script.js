@@ -212,7 +212,7 @@ function main(){
 		dataType: "json",
 		url: CONFIG_FILE,
 		success: function(json) {
-			hdsURL = json.hdsEndpoint;
+			hdsURL = location.protocol + "//" + location.hostname + ":" + json.apiPort;
 
 			if(json.authEnabled){
 				serviceID = json.authServiceID;

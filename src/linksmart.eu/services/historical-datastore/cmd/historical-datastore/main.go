@@ -160,7 +160,7 @@ func main() {
 
 func webServer(conf *Config) {
 	staticConf := map[string]interface{}{
-		"hdsEndpoint": conf.HTTP.PublicEndpoint,
+		"apiPort": conf.HTTP.BindPort,
 	}
 
 	if conf.Auth.Enabled {
