@@ -1,6 +1,6 @@
-FROM golang
+FROM golang:1.6.1
 MAINTAINER Alexandr Krylovskiy "alexandr.krylovskiy@fit.fraunhofer.de"
-ENV REFRESHED_AT 2016-01-18
+ENV REFRESHED_AT 2016-10-19
 
 # update system
 RUN apt-get update

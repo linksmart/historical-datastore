@@ -7,7 +7,7 @@
   "web": {
     "bindAddr": "0.0.0.0",
     "bindPort": 4000,
-    "staticDir": "../web"
+    "staticDir": "./web"
   },
   "registry": {
     "backend": {
