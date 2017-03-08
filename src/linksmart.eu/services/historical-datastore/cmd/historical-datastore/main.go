@@ -58,6 +58,7 @@ func main() {
 
 	// data
 	influxStorage, ntRcvDataCh, _ := data.NewInfluxStorage(conf.Data.Backend.DSN)
+	ntRcvMQTTCh := data.NewMQTTConnector(registryClient, influxStorage)
 	dataAPI := data.NewWriteableAPI(registryClient, influxStorage)
 
 	// aggregation
@@ -65,7 +66,7 @@ func main() {
 	aggrAPI := aggregation.NewAPI(registryClient, dataAggr)
 
 	// Start the notifier
-	common.StartNotifier(ntSndRegCh, ntRcvDataCh, ntRcvAggrCh)
+	common.StartNotifier(ntSndRegCh, ntRcvDataCh, ntRcvAggrCh, ntRcvMQTTCh)
 
 	commonHandlers := alice.New(
 		context.ClearHandler,

@@ -41,6 +41,8 @@ type DataSource struct {
 	Resource string `json:"resource"`
 	// Meta is a hash-map with optional meta-information
 	Meta map[string]interface{} `json:"meta"`
+	// Data connector
+	Connector Connector `json:"connector"`
 	// Retention is the retention duration for data
 	Retention string `json:"retention"`
 	// Aggregation is an array of configured aggregations
@@ -49,6 +51,23 @@ type DataSource struct {
 	Type string `json:"type"`
 	// Format is the MIME type of the payload
 	Format string `json:"format"`
+}
+
+// Connector describes additional connectors to the Data API
+type Connector struct {
+	MQTT *MQTT `json:"mqtt,omitempty"`
+}
+
+// MQTT describes a MQTT Connector
+type MQTT struct {
+	URL      string `json:"url"`
+	Topic    string `json:"topic"`
+	QoS      byte   `json:"qos"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+	CaFile   string `json:"caFile,omitempty"`
+	CertFile string `json:"certFile,omitempty"`
+	KeyFile  string `json:"keyFile,omitempty"`
 }
 
 func (ds *DataSource) ParsedResource() *url.URL {

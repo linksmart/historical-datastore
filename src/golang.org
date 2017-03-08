@@ -1,0 +1,1 @@
+/home/farshid/linksmart/hds/vendor/src/golang.org
