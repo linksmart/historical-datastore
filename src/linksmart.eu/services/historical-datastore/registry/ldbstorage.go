@@ -273,7 +273,7 @@ func (s *LevelDBStorage) modifiedDate() (time.Time, error) {
 
 // Path filtering
 // Filter one registration
-func (s *LevelDBStorage) pathFilterOne(path, op, value string) (DataSource, error) {
+func (s *LevelDBStorage) pathFilterOne(path, op, value string) (*DataSource, error) {
 	pathTknz := strings.Split(path, ".")
 
 	// return the first one found
@@ -285,30 +285,30 @@ func (s *LevelDBStorage) pathFilterOne(path, op, value string) (DataSource, erro
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return DataSource{}, logger.Errorf("%s", err)
+			return nil, logger.Errorf("%s", err)
 		}
 
 		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return DataSource{}, logger.Errorf("%s", err)
+			return nil, logger.Errorf("%s", err)
 		}
 		if matched {
 			iter.Release()
 			s.wg.Done()
-			return ds, nil
+			return &ds, nil
 		}
 	}
 	iter.Release()
 	s.wg.Done()
 	err := iter.Error()
 	if err != nil {
-		return DataSource{}, logger.Errorf("%s", err)
+		return nil, logger.Errorf("%s", err)
 	}
 
 	// No match
-	return DataSource{}, nil
+	return nil, nil
 }
 
 // Filter multiple registrations

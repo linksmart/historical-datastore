@@ -185,7 +185,7 @@ func (ms *MemoryStorage) modifiedDate() (time.Time, error) {
 
 // Path filtering
 // Filter one registration
-func (ms *MemoryStorage) pathFilterOne(path, op, value string) (DataSource, error) {
+func (ms *MemoryStorage) pathFilterOne(path, op, value string) (*DataSource, error) {
 	pathTknz := strings.Split(path, ".")
 
 	ms.mutex.RLock()
@@ -195,14 +195,14 @@ func (ms *MemoryStorage) pathFilterOne(path, op, value string) (DataSource, erro
 	for _, ds := range ms.data {
 		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
-			return DataSource{}, logger.Errorf("%s", err)
+			return nil, logger.Errorf("%s", err)
 		}
 		if matched {
-			return ds, nil
+			return &ds, nil
 		}
 	}
 
-	return DataSource{}, nil
+	return nil, nil
 }
 
 // Filter multiple registrations

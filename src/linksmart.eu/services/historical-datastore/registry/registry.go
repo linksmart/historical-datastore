@@ -111,7 +111,7 @@ type Storage interface {
 	modifiedDate() (time.Time, error)
 
 	// Path filtering
-	pathFilterOne(path, op, value string) (DataSource, error)
+	pathFilterOne(path, op, value string) (*DataSource, error)
 	pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error)
 }
 
