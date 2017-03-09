@@ -21,3 +21,9 @@ The code can be found in `src/linksmart.eu/services/historical-datastore` where:
 * `/registry` - implementation of [Registry API](https://linksmart.eu/redmine/projects/historical-datastore/wiki/Historical_Datastore_API#Registry-API)
 * `/data` - implementation of [Data API](https://linksmart.eu/redmine/projects/historical-datastore/wiki/Historical_Datastore_API#Data-API)
 * `/aggregation` - implementation of [Aggregation API](https://linksmart.eu/redmine/projects/historical-datastore/wiki/Historical_Datastore_API#Aggregation-API)
+
+## TODO
+* Enforce resource name uniqueness
+* Show logs after the start of http server
+* Disconnect MQTT Connectors on shutdown
+* Handle influx no database error
