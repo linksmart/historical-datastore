@@ -20,12 +20,14 @@ type MemoryStorage struct {
 	mutex        sync.RWMutex
 	nt           chan common.Notification
 	lastModified time.Time
+	resources    map[string]string
 }
 
 func NewMemoryStorage() (Storage, *chan common.Notification) {
 	ms := &MemoryStorage{
 		data:         make(map[string]DataSource),
 		lastModified: time.Now(),
+		resources:    make(map[string]string),
 	}
 
 	return ms, &ms.nt
@@ -58,8 +60,14 @@ func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
 		return DataSource{}, logger.Errorf("%s", err)
 	}
 
+	if _, exists := ms.resources[ds.Resource]; exists {
+		return DataSource{}, logger.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Resource)
+	}
+
 	// Add the new DataSource to the map
 	ms.data[newUUID] = ds
+	// Add secondary index
+	ms.resources[ds.Resource] = ds.ID
 
 	ms.lastModified = time.Now()
 	return ms.data[newUUID], nil
@@ -124,6 +132,7 @@ func (ms *MemoryStorage) delete(id string) error {
 		return logger.Errorf("%s", err)
 	}
 
+	delete(ms.resources, ms.data[id].ID)
 	delete(ms.data, id)
 
 	ms.lastModified = time.Now()
