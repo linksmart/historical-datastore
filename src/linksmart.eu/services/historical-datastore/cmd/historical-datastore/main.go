@@ -58,7 +58,11 @@ func main() {
 
 	// data
 	influxStorage, ntRcvDataCh, _ := data.NewInfluxStorage(conf.Data.Backend.DSN)
-	ntRcvMQTTCh := data.NewMQTTConnector(registryClient, influxStorage)
+	// TODO: disconnect on shutdown
+	ntRcvMQTTCh, err := data.NewMQTTConnector(registryClient, influxStorage)
+	if err != nil {
+		logger.Fatalf("Error starting MQTT Connector: %v", err)
+	}
 	dataAPI := data.NewWriteableAPI(registryClient, influxStorage)
 
 	// aggregation
