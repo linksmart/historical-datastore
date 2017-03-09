@@ -55,11 +55,11 @@ type DataSource struct {
 
 // Connector describes additional connectors to the Data API
 type Connector struct {
-	MQTT *MQTT `json:"mqtt,omitempty"`
+	MQTT *MQTTConf `json:"mqtt,omitempty"`
 }
 
 // MQTT describes a MQTT Connector
-type MQTT struct {
+type MQTTConf struct {
 	URL      string `json:"url"`
 	Topic    string `json:"topic"`
 	QoS      byte   `json:"qos"`
