@@ -7,3 +7,7 @@
     - Removed error field from data/aggr API 2xx response body
     - /data/uuid response contains paginated data (instead of last value)
     - Return errors if query parameters are invalid
+
+* 0.2.1
+    - Added unique resource name enforcement
+    - Added MQTT connector
