@@ -37,7 +37,6 @@ type failedReg struct {
 
 func (r *failedReg) add(id string, mqttConf *registry.MQTTConf) {
 	r.Lock()
-	logger.Printf("added %v %v", id, *mqttConf)
 	r.m[id] = mqttConf
 	r.Unlock()
 }
@@ -76,7 +75,6 @@ func NewMQTTConnector(registryClient registry.Client, storage Storage) (chan<- c
 		}
 
 		for _, ds := range datasources {
-			logger.Println(ds.Connector.MQTT)
 			if ds.Connector.MQTT != nil {
 				err := c.register(ds.Connector.MQTT)
 				if err != nil {
@@ -101,7 +99,6 @@ func (c *MQTTConnector) retryRegistrations() {
 		time.Sleep(mqttRetryInterval * time.Second)
 		c.failedReg.Lock()
 		for id, mqttConf := range c.failedReg.m {
-			logger.Printf("loop %s %v", id, mqttConf)
 			err := c.register(mqttConf)
 			if err != nil {
 				logger.Printf("MQTT: Error registering subscription: %v. Retrying in %ds", err, mqttRetryInterval)
@@ -146,7 +143,7 @@ func (c *MQTTConnector) register(mqttConf *registry.MQTTConf) error {
 			logger.Printf("MQTT: Subscribed to `%s` @%s", mqttConf.Topic, mqttConf.URL)
 			c.managers[mqttConf.URL].topics[mqttConf.Topic] = 1
 		} else { // There is a subscription for this topic
-			logger.Println("MQTT: Alread subscribed to `%s` @ %s", mqttConf.Topic, mqttConf.URL)
+			logger.Debugf("MQTT: Already subscribed to `%s` @%s", mqttConf.Topic, mqttConf.URL)
 			c.managers[mqttConf.URL].topics[mqttConf.Topic]++
 		}
 		c.managers[mqttConf.URL].totalSubscribers++
@@ -177,6 +174,7 @@ func (c *MQTTConnector) unregister(mqttConf *registry.MQTTConf) error {
 	return nil
 }
 
+// Handles incoming MQTT messages
 func (c *MQTTConnector) messageHandler(client paho.Client, msg paho.Message) {
 	logger.Debugf("MQTT: %s %s", msg.Topic(), msg.Payload())
 
@@ -206,7 +204,6 @@ func (c *MQTTConnector) messageHandler(client paho.Client, msg paho.Message) {
 		// Find the data source for this entry
 		ds, exists := c.cache[e.Name]
 		if !exists {
-			fmt.Println(e.Name)
 			ds, err = c.registryClient.FindDataSource("resource", "equals", e.Name)
 			if err != nil {
 				logger.Printf("MQTT: Error finding data source: %v", e.Name)
@@ -217,6 +214,12 @@ func (c *MQTTConnector) messageHandler(client paho.Client, msg paho.Message) {
 				return
 			}
 			c.cache[e.Name] = ds
+			// TODO
+			// Make sure the message is coming from the broker bound to this datasource
+			if ds.Connector.MQTT == nil {
+				logger.Printf("MQTT: Ignoring unbound message for data source: %v", e.Name)
+				return
+			}
 		}
 
 		// Check if type of value matches the data source type in registry
@@ -265,7 +268,7 @@ func (c *MQTTConnector) NtfCreated(ds registry.DataSource, callback chan error) 
 	if ds.Connector.MQTT != nil {
 		err := c.register(ds.Connector.MQTT)
 		if err != nil {
-			callback <- logger.Errorf("MQTT: Error adding subscription: %s", err)
+			callback <- logger.Errorf("MQTT: Error adding subscription: %v", err)
 			return
 		}
 	}
@@ -281,7 +284,7 @@ func (c *MQTTConnector) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 		if oldDS.Connector.MQTT != nil {
 			err := c.unregister(oldDS.Connector.MQTT)
 			if err != nil {
-				callback <- logger.Errorf("MQTT: Error removing subscription: %s", err)
+				callback <- logger.Errorf("MQTT: Error removing subscription: %v", err)
 				return
 			}
 		}
@@ -290,7 +293,7 @@ func (c *MQTTConnector) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 		if newDS.Connector.MQTT != nil {
 			err := c.register(newDS.Connector.MQTT)
 			if err != nil {
-				callback <- logger.Errorf("MQTT: Error adding subscription: %s", err)
+				callback <- logger.Errorf("MQTT: Error adding subscription: %v", err)
 				return
 			}
 		}
@@ -305,7 +308,7 @@ func (c *MQTTConnector) NtfDeleted(oldDS registry.DataSource, callback chan erro
 		delete(c.cache, oldDS.Resource)
 		err := c.unregister(oldDS.Connector.MQTT)
 		if err != nil {
-			callback <- logger.Errorf("MQTT: Error removing subscription: %s", err)
+			callback <- logger.Errorf("MQTT: Error removing subscription: %v", err)
 			return
 		}
 		c.failedReg.remove(oldDS.ID)
