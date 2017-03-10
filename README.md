@@ -25,4 +25,3 @@ The code can be found in `src/linksmart.eu/services/historical-datastore` where:
 ## TODO
 * Show logs after the start of http server
 * Disconnect MQTT Connectors on shutdown
-* Handle influx no database error
