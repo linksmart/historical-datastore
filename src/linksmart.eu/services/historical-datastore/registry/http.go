@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	ErrNotFound = errors.New("Not Found")
+	ErrNotFound = errors.New("Datasource Not Found")
 	ErrConflict = errors.New("Conflict")
 )
 

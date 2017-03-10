@@ -202,7 +202,7 @@ type validationError struct {
 func (e validationError) Error() string {
 	var _errors []string
 	if len(e.readOnly) > 0 {
-		_errors = append(_errors, "Ambitious assignment to read-only attribute(s): "+strings.Join(e.readOnly, ", "))
+		_errors = append(_errors, "Ambitious assignment to or modification of read-only attribute(s): "+strings.Join(e.readOnly, ", "))
 	}
 	if len(e.mandatory) > 0 {
 		_errors = append(_errors, "Missing mandatory value(s) of: "+strings.Join(e.mandatory, ", "))
