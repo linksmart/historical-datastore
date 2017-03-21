@@ -58,6 +58,11 @@ func main() {
 
 	// data
 	influxStorage, ntRcvDataCh, _ := data.NewInfluxStorage(conf.Data.Backend.DSN)
+	// TODO: disconnect on shutdown
+	ntRcvMQTTCh, err := data.NewMQTTConnector(registryClient, influxStorage)
+	if err != nil {
+		logger.Fatalf("Error starting MQTT Connector: %v", err)
+	}
 	dataAPI := data.NewWriteableAPI(registryClient, influxStorage)
 
 	// aggregation
@@ -65,7 +70,7 @@ func main() {
 	aggrAPI := aggregation.NewAPI(registryClient, dataAggr)
 
 	// Start the notifier
-	common.StartNotifier(ntSndRegCh, ntRcvDataCh, ntRcvAggrCh)
+	common.StartNotifier(ntSndRegCh, ntRcvDataCh, ntRcvAggrCh, ntRcvMQTTCh)
 
 	commonHandlers := alice.New(
 		context.ClearHandler,
@@ -100,7 +105,7 @@ func main() {
 
 	// registry api
 	router.get("/registry", commonHandlers.ThenFunc(regAPI.Index))
-	router.post("/registry/", commonHandlers.ThenFunc(regAPI.Create))
+	router.post("/registry", commonHandlers.ThenFunc(regAPI.Create))
 	router.get("/registry/{id}", commonHandlers.ThenFunc(regAPI.Retrieve))
 	router.put("/registry/{id}", commonHandlers.ThenFunc(regAPI.Update))
 	router.delete("/registry/{id}", commonHandlers.ThenFunc(regAPI.Delete))

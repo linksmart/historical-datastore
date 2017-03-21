@@ -20,12 +20,14 @@ type MemoryStorage struct {
 	mutex        sync.RWMutex
 	nt           chan common.Notification
 	lastModified time.Time
+	resources    map[string]string
 }
 
 func NewMemoryStorage() (Storage, *chan common.Notification) {
 	ms := &MemoryStorage{
 		data:         make(map[string]DataSource),
 		lastModified: time.Now(),
+		resources:    make(map[string]string),
 	}
 
 	return ms, &ms.nt
@@ -58,8 +60,14 @@ func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
 		return DataSource{}, logger.Errorf("%s", err)
 	}
 
+	if _, exists := ms.resources[ds.Resource]; exists {
+		return DataSource{}, logger.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Resource)
+	}
+
 	// Add the new DataSource to the map
 	ms.data[newUUID] = ds
+	// Add secondary index
+	ms.resources[ds.Resource] = ds.ID
 
 	ms.lastModified = time.Now()
 	return ms.data[newUUID], nil
@@ -85,6 +93,7 @@ func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 
 	// Modify writable elements
 	tempDS.Meta = ds.Meta
+	tempDS.Connector = ds.Connector
 	tempDS.Retention = ds.Retention
 	tempDS.Aggregation = ds.Aggregation
 	tempDS.Format = ds.Format
@@ -124,6 +133,7 @@ func (ms *MemoryStorage) delete(id string) error {
 		return logger.Errorf("%s", err)
 	}
 
+	delete(ms.resources, ms.data[id].ID)
 	delete(ms.data, id)
 
 	ms.lastModified = time.Now()
@@ -185,7 +195,7 @@ func (ms *MemoryStorage) modifiedDate() (time.Time, error) {
 
 // Path filtering
 // Filter one registration
-func (ms *MemoryStorage) pathFilterOne(path, op, value string) (DataSource, error) {
+func (ms *MemoryStorage) pathFilterOne(path, op, value string) (*DataSource, error) {
 	pathTknz := strings.Split(path, ".")
 
 	ms.mutex.RLock()
@@ -195,14 +205,14 @@ func (ms *MemoryStorage) pathFilterOne(path, op, value string) (DataSource, erro
 	for _, ds := range ms.data {
 		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
-			return DataSource{}, logger.Errorf("%s", err)
+			return nil, logger.Errorf("%s", err)
 		}
 		if matched {
-			return ds, nil
+			return &ds, nil
 		}
 	}
 
-	return DataSource{}, nil
+	return nil, nil
 }
 
 // Filter multiple registrations

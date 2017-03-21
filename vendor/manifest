@@ -32,6 +32,12 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/eclipse/paho.mqtt.golang",
+			"repository": "https://github.com/eclipse/paho.mqtt.golang",
+			"revision": "d4f545eb108a2d19f9b1a735689dbfb719bc21fb",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/farshidtz/elog",
 			"repository": "https://github.com/farshidtz/elog",
 			"revision": "ddba66bd33ff251419cfa01e157fb3201a6ed07d",
@@ -59,7 +65,7 @@
 		{
 			"importpath": "github.com/gorilla/mux",
 			"repository": "https://github.com/gorilla/mux",
-			"revision": "ee1815431e497d3850809578c93ab6705f1a19f7",
+			"revision": "599cba5e7b6137d46ddf58fb1765f5d928e69604",
 			"branch": "master"
 		},
 		{

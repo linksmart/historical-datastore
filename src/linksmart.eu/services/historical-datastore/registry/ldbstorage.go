@@ -24,24 +24,46 @@ type LevelDBStorage struct {
 	nt           chan common.Notification
 	wg           sync.WaitGroup
 	lastModified time.Time
+	resources    map[string]string
 }
 
 func NewLevelDBStorage(dsn string, opts *opt.Options) (Storage, *chan common.Notification, func() error, error) {
 	url, err := url.Parse(dsn)
 	if err != nil {
-		return &LevelDBStorage{}, nil, nil, logger.Errorf("%s", err)
+		return nil, nil, nil, logger.Errorf("%s", err)
 	}
 
 	// Open the database
 	db, err := leveldb.OpenFile(url.Path, opts)
 	if err != nil {
-		return &LevelDBStorage{}, nil, nil, logger.Errorf("%s", err)
+		return nil, nil, nil, logger.Errorf("%s", err)
 	}
 
 	s := &LevelDBStorage{
 		db:           db,
 		lastModified: time.Now(),
+		resources:    make(map[string]string),
 	}
+
+	// bootstrap
+	// Iterate over a latest snapshot of the database
+	s.wg.Add(1)
+	iter := s.db.NewIterator(nil, nil)
+	for iter.Next() {
+		var ds DataSource
+		err = json.Unmarshal(iter.Value(), &ds)
+		if err != nil {
+			return nil, nil, nil, logger.Errorf("Error parsing registry data: %v", err)
+		}
+		s.resources[ds.Resource] = ds.ID
+	}
+	iter.Release()
+	s.wg.Done()
+	err = iter.Error()
+	if err != nil {
+		return nil, nil, nil, logger.Errorf("Error loading registry: %v", err)
+	}
+
 	return s, &s.nt, s.close, nil
 }
 
@@ -81,11 +103,17 @@ func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
 		return DataSource{}, logger.Errorf("%s", err)
 	}
 
+	if _, exists := s.resources[ds.Resource]; exists {
+		return DataSource{}, logger.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Resource)
+	}
+
 	// Add the new DataSource to database
 	err = s.db.Put([]byte(ds.ID), dsBytes, nil)
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s", err)
 	}
+	// Add secondary index
+	s.resources[ds.Resource] = ds.ID
 
 	s.lastModified = time.Now()
 	return ds, nil
@@ -109,6 +137,7 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 
 	// Modify writable elements
 	tempDS.Meta = ds.Meta
+	tempDS.Connector = ds.Connector
 	tempDS.Retention = ds.Retention
 	tempDS.Aggregation = ds.Aggregation
 	tempDS.Format = ds.Format
@@ -161,6 +190,7 @@ func (s *LevelDBStorage) delete(id string) error {
 	} else if err != nil {
 		return logger.Errorf("%s", err)
 	}
+	delete(s.resources, ds.Resource)
 
 	s.lastModified = time.Now()
 	return nil
@@ -273,7 +303,7 @@ func (s *LevelDBStorage) modifiedDate() (time.Time, error) {
 
 // Path filtering
 // Filter one registration
-func (s *LevelDBStorage) pathFilterOne(path, op, value string) (DataSource, error) {
+func (s *LevelDBStorage) pathFilterOne(path, op, value string) (*DataSource, error) {
 	pathTknz := strings.Split(path, ".")
 
 	// return the first one found
@@ -285,30 +315,30 @@ func (s *LevelDBStorage) pathFilterOne(path, op, value string) (DataSource, erro
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return DataSource{}, logger.Errorf("%s", err)
+			return nil, logger.Errorf("%s", err)
 		}
 
 		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return DataSource{}, logger.Errorf("%s", err)
+			return nil, logger.Errorf("%s", err)
 		}
 		if matched {
 			iter.Release()
 			s.wg.Done()
-			return ds, nil
+			return &ds, nil
 		}
 	}
 	iter.Release()
 	s.wg.Done()
 	err := iter.Error()
 	if err != nil {
-		return DataSource{}, logger.Errorf("%s", err)
+		return nil, logger.Errorf("%s", err)
 	}
 
 	// No match
-	return DataSource{}, nil
+	return nil, nil
 }
 
 // Filter multiple registrations

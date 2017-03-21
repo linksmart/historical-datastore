@@ -43,8 +43,7 @@ func (c *LocalClient) GetDataSources(page int, perPage int) ([]DataSource, int, 
 
 // FindDataSource returns a single DataSource given: path, operation, value
 func (c *LocalClient) FindDataSource(path, op, value string) (*DataSource, error) {
-	ds, err := c.storage.pathFilterOne(path, op, value)
-	return &ds, err
+	return c.storage.pathFilterOne(path, op, value)
 }
 
 // FindDataSources returns a slice of DataSources given: path, operation, value, page, perPage

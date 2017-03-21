@@ -352,15 +352,15 @@ func (s *InfluxStorage) QuerySprintf(format string, a ...interface{}) (res []inf
 		Command:  fmt.Sprintf(format, a...),
 		Database: s.config.Database,
 	}
-	if response, err := s.client.Query(q); err == nil {
-		if response.Error() != nil {
-			return res, logger.Errorf("%s", err)
-		}
-		res = response.Results
-	} else {
-		return res, logger.Errorf("%s", err)
+	response, err := s.client.Query(q)
+	if err != nil {
+		return res, logger.Errorf("Request error: %v", err)
 	}
-	return res, nil
+	if response.Error() != nil {
+		return res, logger.Errorf("Statement error: %v", response.Error())
+	}
+
+	return response.Results, nil
 }
 
 func (s *InfluxStorage) CountSprintf(format string, a ...interface{}) (int64, error) {
