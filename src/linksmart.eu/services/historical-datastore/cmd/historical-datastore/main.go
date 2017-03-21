@@ -105,7 +105,7 @@ func main() {
 
 	// registry api
 	router.get("/registry", commonHandlers.ThenFunc(regAPI.Index))
-	router.post("/registry/", commonHandlers.ThenFunc(regAPI.Create))
+	router.post("/registry", commonHandlers.ThenFunc(regAPI.Create))
 	router.get("/registry/{id}", commonHandlers.ThenFunc(regAPI.Retrieve))
 	router.put("/registry/{id}", commonHandlers.ThenFunc(regAPI.Update))
 	router.delete("/registry/{id}", commonHandlers.ThenFunc(regAPI.Delete))
