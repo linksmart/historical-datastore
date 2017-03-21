@@ -59,6 +59,7 @@ func commonHeaders(next http.Handler) http.Handler {
 		// Headers for HTTP access control (CORS)
 		w.Header().Add("Access-Control-Allow-Origin", "*")
 		w.Header().Add("Access-Control-Allow-Headers", "X-Auth-Token")
+		w.Header().Add("Access-Control-Allow-Headers", "Authorization")
 		w.Header().Add("Access-Control-Allow-Headers", "If-Modified-Since")
 
 		next.ServeHTTP(w, r)
