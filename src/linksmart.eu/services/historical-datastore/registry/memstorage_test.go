@@ -199,8 +199,8 @@ func TestMemstoragePathFilterOne(t *testing.T) {
 	}
 
 	// check if target is returned
-	if !reflect.DeepEqual(targetDS, matchedDS) {
-		t.Fatalf("Looking for:\n%v\n but matched:\n%v\n", targetDS, matchedDS)
+	if !reflect.DeepEqual(&targetDS, matchedDS) {
+		t.Fatalf("Looking for:\n%v\n but matched:\n%v\n", &targetDS, matchedDS)
 	}
 }
 

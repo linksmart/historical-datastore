@@ -40,8 +40,8 @@ func (s *DummyRegistryStorage) getMany(page, perPage int) ([]DataSource, int, er
 func (s *DummyRegistryStorage) getCount() (int, error) {
 	return 0, nil
 }
-func (s *DummyRegistryStorage) pathFilterOne(path, op, value string) (DataSource, error) {
-	return DataSource{}, nil
+func (s *DummyRegistryStorage) pathFilterOne(path, op, value string) (*DataSource, error) {
+	return nil, nil
 }
 func (s *DummyRegistryStorage) pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
 	return []DataSource{}, 0, nil
