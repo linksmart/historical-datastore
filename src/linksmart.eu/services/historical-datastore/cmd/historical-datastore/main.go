@@ -21,6 +21,7 @@ import (
 	"linksmart.eu/services/historical-datastore/registry"
 
 	_ "linksmart.eu/lc/sec/auth/cas/validator"
+	_ "linksmart.eu/lc/sec/auth/keycloak/validator"
 	"linksmart.eu/lc/sec/auth/validator"
 )
 

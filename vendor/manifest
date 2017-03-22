@@ -32,6 +32,12 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/dgrijalva/jwt-go",
+			"repository": "https://github.com/dgrijalva/jwt-go",
+			"revision": "2268707a8f0843315e2004ee4f1d021dc08baedf",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/eclipse/paho.mqtt.golang",
 			"repository": "https://github.com/eclipse/paho.mqtt.golang",
 			"revision": "d4f545eb108a2d19f9b1a735689dbfb719bc21fb",
