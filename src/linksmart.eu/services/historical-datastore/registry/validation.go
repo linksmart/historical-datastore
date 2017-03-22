@@ -3,7 +3,6 @@
 package registry
 
 import (
-	"net/url"
 	"strings"
 
 	"linksmart.eu/services/historical-datastore/common"
@@ -42,10 +41,10 @@ func validateCreation(ds DataSource) error {
 	if ds.Resource == "" {
 		e.mandatory = append(e.mandatory, "resource")
 	}
-	_, err := url.Parse(ds.Resource)
-	if err != nil {
-		e.invalid = append(e.invalid, "resource")
-	}
+	// _, err := url.Parse(ds.Resource)
+	// if err != nil {
+	// 	e.invalid = append(e.invalid, "resource")
+	// }
 
 	// retention
 	if ds.Retention != "" {
