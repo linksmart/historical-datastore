@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
@@ -21,29 +20,14 @@ const (
 )
 
 type MQTTConnector struct {
+	sync.Mutex
 	registryClient registry.Client
 	storage        Storage
 	managers       map[string]*Manager
 	// cache of resource->ds
 	cache map[string]*registry.DataSource
 	// failed mqtt registrations
-	failedReg *failedReg
-}
-
-type failedReg struct {
-	m map[string]*registry.MQTTConf
-	sync.Mutex
-}
-
-func (r *failedReg) add(id string, mqttConf *registry.MQTTConf) {
-	r.Lock()
-	r.m[id] = mqttConf
-	r.Unlock()
-}
-func (r *failedReg) remove(id string) {
-	r.Lock()
-	delete(r.m, id)
-	r.Unlock()
+	failedRegistrations map[string]*registry.MQTTConf
 }
 
 type Manager struct {
@@ -53,7 +37,6 @@ type Manager struct {
 	// total subscribers using this client
 	clientSubscribers int
 	// total subscriptions for each topic in this manager
-	// topics map[string]int
 	subscriptions map[string]*Subscription
 }
 
@@ -64,11 +47,11 @@ type Subscription struct {
 
 func NewMQTTConnector(registryClient registry.Client, storage Storage) (chan<- common.Notification, error) {
 	c := &MQTTConnector{
-		registryClient: registryClient,
-		storage:        storage,
-		managers:       make(map[string]*Manager),
-		cache:          make(map[string]*registry.DataSource),
-		failedReg:      &failedReg{m: make(map[string]*registry.MQTTConf)},
+		registryClient:      registryClient,
+		storage:             storage,
+		managers:            make(map[string]*Manager),
+		cache:               make(map[string]*registry.DataSource),
+		failedRegistrations: make(map[string]*registry.MQTTConf),
 	}
 
 	// Run the notification listener
@@ -87,7 +70,7 @@ func NewMQTTConnector(registryClient registry.Client, storage Storage) (chan<- c
 				err := c.register(ds.Connector.MQTT)
 				if err != nil {
 					logger.Printf("MQTT: Error registering subscription: %v. Retrying in %ds", err, mqttRetryInterval)
-					c.failedReg.add(ds.ID, ds.Connector.MQTT)
+					c.failedRegistrations[ds.ID] = ds.Connector.MQTT
 				}
 			}
 		}
@@ -105,16 +88,16 @@ func NewMQTTConnector(registryClient registry.Client, storage Storage) (chan<- c
 func (c *MQTTConnector) retryRegistrations() {
 	for {
 		time.Sleep(mqttRetryInterval * time.Second)
-		c.failedReg.Lock()
-		for id, mqttConf := range c.failedReg.m {
+		c.Lock()
+		for id, mqttConf := range c.failedRegistrations {
 			err := c.register(mqttConf)
 			if err != nil {
 				logger.Printf("MQTT: Error registering subscription: %v. Retrying in %ds", err, mqttRetryInterval)
 				continue
 			}
-			delete(c.failedReg.m, id)
+			delete(c.failedRegistrations, id)
 		}
-		c.failedReg.Unlock()
+		c.Unlock()
 	}
 }
 
@@ -122,10 +105,8 @@ func (c *MQTTConnector) register(mqttConf *registry.MQTTConf) error {
 
 	if _, exists := c.managers[mqttConf.URL]; !exists { // No client for this broker
 		manager := &Manager{
-			url:       mqttConf.URL,
-			connector: c,
-			// clientConf: mqttConf,
-			// topics: make(map[string]int),
+			url:           mqttConf.URL,
+			connector:     c,
 			subscriptions: make(map[string]*Subscription),
 		}
 		manager.subscriptions[mqttConf.Topic] = &Subscription{}
@@ -133,12 +114,12 @@ func (c *MQTTConnector) register(mqttConf *registry.MQTTConf) error {
 		opts := paho.NewClientOptions() // uses defaults
 		opts.AddBroker(mqttConf.URL)
 		opts.SetClientID(fmt.Sprintf("HDS-%v", uuid.NewRandom()))
+		opts.SetConnectTimeout(5 * time.Second)
 		opts.SetOnConnectHandler(manager.onConnectHandler)
 		opts.SetConnectionLostHandler(manager.onConnectionLostHandler)
 
 		manager.client = paho.NewClient(opts)
 		manager.clientSubscribers = 1
-		// manager.topics[mqttConf.Topic] = 1
 		manager.subscriptions[mqttConf.Topic].subscribers = 1
 		c.managers[mqttConf.URL] = manager
 
@@ -147,19 +128,6 @@ func (c *MQTTConnector) register(mqttConf *registry.MQTTConf) error {
 			return logger.Errorf("MQTT: Error connecting to broker: %v", token.Error())
 		}
 
-		// logger.Printf("MQTT: Connected to %s", mqttConf.URL)
-		// c.managers[mqttConf.URL] = &Manager{
-		// 	client: client,
-		// 	topics: make(map[string]int),
-		// }
-
-		// // Subscribe
-		// if token := c.managers[mqttConf.URL].client.Subscribe(mqttConf.Topic, mqttConf.QoS, c.messageHandler); token.Wait() && token.Error() != nil {
-		// 	return logger.Errorf("MQTT: Error subscribing: %v", token.Error())
-		// }
-		// logger.Printf("MQTT: Subscribed to `%s` @%s", mqttConf.Topic, mqttConf.URL)
-		// c.managers[mqttConf.URL].clientSubscribers = 1
-		// c.managers[mqttConf.URL].topics[mqttConf.Topic] = 1
 	} else { // There is a client for this broker
 		if _, exists := c.managers[mqttConf.URL].subscriptions[mqttConf.Topic]; !exists { // No subscription for this topic
 			c.managers[mqttConf.URL].subscriptions[mqttConf.Topic] = &Subscription{}
@@ -305,6 +273,8 @@ func (c *MQTTConnector) onMessage(client paho.Client, msg paho.Message) {
 
 // Handles the creation of a new data source
 func (c *MQTTConnector) NtfCreated(ds registry.DataSource, callback chan error) {
+	c.Lock()
+	defer c.Unlock()
 
 	if ds.Connector.MQTT != nil {
 		err := c.register(ds.Connector.MQTT)
@@ -319,6 +289,8 @@ func (c *MQTTConnector) NtfCreated(ds registry.DataSource, callback chan error) 
 
 // Handles updates of a data source
 func (c *MQTTConnector) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
+	c.Lock()
+	defer c.Unlock()
 
 	if oldDS.Connector.MQTT != newDS.Connector.MQTT {
 		// Remove old subscription
@@ -329,7 +301,7 @@ func (c *MQTTConnector) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 				return
 			}
 		}
-		c.failedReg.remove(oldDS.ID)
+		delete(c.failedRegistrations, oldDS.ID)
 		// Add new subscription
 		if newDS.Connector.MQTT != nil {
 			err := c.register(newDS.Connector.MQTT)
@@ -344,6 +316,9 @@ func (c *MQTTConnector) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 
 // Handles deletion of a data source
 func (c *MQTTConnector) NtfDeleted(oldDS registry.DataSource, callback chan error) {
+	c.Lock()
+	defer c.Unlock()
+
 	// Remove old subscription
 	if oldDS.Connector.MQTT != nil {
 		delete(c.cache, oldDS.Resource)
@@ -352,7 +327,7 @@ func (c *MQTTConnector) NtfDeleted(oldDS registry.DataSource, callback chan erro
 			callback <- logger.Errorf("MQTT: Error removing subscription: %v", err)
 			return
 		}
-		c.failedReg.remove(oldDS.ID)
+		delete(c.failedRegistrations, oldDS.ID)
 	}
 	callback <- nil
 }
