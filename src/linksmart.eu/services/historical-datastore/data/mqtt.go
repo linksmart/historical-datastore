@@ -31,18 +31,19 @@ type MQTTConnector struct {
 }
 
 type Manager struct {
-	url       string
-	client    paho.Client
-	connector *MQTTConnector
-	// total subscribers using this client
-	clientSubscribers int
+	url    string
+	client paho.Client
+	// connector *MQTTConnector
 	// total subscriptions for each topic in this manager
 	subscriptions map[string]*Subscription
 }
 
 type Subscription struct {
-	qos         byte
-	subscribers int
+	connector *MQTTConnector
+	url       string
+	topic     string
+	qos       byte
+	receivers int
 }
 
 func NewMQTTConnector(registryClient registry.Client, storage Storage) (chan<- common.Notification, error) {
@@ -103,65 +104,76 @@ func (c *MQTTConnector) retryRegistrations() {
 
 func (c *MQTTConnector) register(mqttConf *registry.MQTTConf) error {
 
-	if _, exists := c.managers[mqttConf.URL]; !exists { // No client for this broker
+	if _, exists := c.managers[mqttConf.URL]; !exists { // NO CLIENT FOR THIS BROKER
 		manager := &Manager{
 			url:           mqttConf.URL,
-			connector:     c,
 			subscriptions: make(map[string]*Subscription),
 		}
-		manager.subscriptions[mqttConf.Topic] = &Subscription{}
 
-		opts := paho.NewClientOptions() // uses defaults
+		manager.subscriptions[mqttConf.Topic] = &Subscription{
+			connector: c,
+			url:       mqttConf.URL,
+			topic:     mqttConf.Topic,
+			qos:       mqttConf.QoS,
+			receivers: 1,
+		}
+
+		opts := paho.NewClientOptions() // uses defaults: https://godoc.org/github.com/eclipse/paho.mqtt.golang#NewClientOptions
 		opts.AddBroker(mqttConf.URL)
 		opts.SetClientID(fmt.Sprintf("HDS-%v", uuid.NewRandom()))
 		opts.SetConnectTimeout(5 * time.Second)
 		opts.SetOnConnectHandler(manager.onConnectHandler)
 		opts.SetConnectionLostHandler(manager.onConnectionLostHandler)
-
 		manager.client = paho.NewClient(opts)
-		manager.clientSubscribers = 1
-		manager.subscriptions[mqttConf.Topic].subscribers = 1
-		c.managers[mqttConf.URL] = manager
 
-		if token := c.managers[mqttConf.URL].client.Connect(); token.Wait() && token.Error() != nil {
-			delete(c.managers, mqttConf.URL)
+		if token := manager.client.Connect(); token.Wait() && token.Error() != nil {
 			return logger.Errorf("MQTT: Error connecting to broker: %v", token.Error())
 		}
+		c.managers[mqttConf.URL] = manager
 
-	} else { // There is a client for this broker
-		if _, exists := c.managers[mqttConf.URL].subscriptions[mqttConf.Topic]; !exists { // No subscription for this topic
-			c.managers[mqttConf.URL].subscriptions[mqttConf.Topic] = &Subscription{}
+	} else { // THERE IS A CLIENT FOR THIS BROKER
+		manager := c.managers[mqttConf.URL]
+
+		// TODO: check if another wildcard subscription matches the topic.
+		if _, exists := manager.subscriptions[mqttConf.Topic]; !exists { // NO SUBSCRIPTION FOR THIS TOPIC
+			subscription := &Subscription{
+				connector: c,
+				url:       mqttConf.URL,
+				topic:     mqttConf.Topic,
+				qos:       mqttConf.QoS,
+				receivers: 1,
+			}
 			// Subscribe
-			if token := c.managers[mqttConf.URL].client.Subscribe(mqttConf.Topic, mqttConf.QoS, c.onMessage); token.Wait() && token.Error() != nil {
+			if token := manager.client.Subscribe(subscription.topic, subscription.qos, subscription.onMessage); token.Wait() && token.Error() != nil {
 				return logger.Errorf("MQTT: Error subscribing: %v", token.Error())
 			}
+			manager.subscriptions[mqttConf.Topic] = subscription
 			logger.Printf("MQTT: %s: Subscribed to %s", mqttConf.URL, mqttConf.Topic)
-			c.managers[mqttConf.URL].subscriptions[mqttConf.Topic].subscribers = 1
+
 		} else { // There is a subscription for this topic
 			logger.Debugf("MQTT: %s: Already subscribed to %s", mqttConf.URL, mqttConf.Topic)
-			c.managers[mqttConf.URL].subscriptions[mqttConf.Topic].subscribers++
+			manager.subscriptions[mqttConf.Topic].receivers++
 		}
-		c.managers[mqttConf.URL].clientSubscribers++
 	}
 
 	return nil
 }
 
 func (c *MQTTConnector) unregister(mqttConf *registry.MQTTConf) error {
-	c.managers[mqttConf.URL].subscriptions[mqttConf.Topic].subscribers--
-	c.managers[mqttConf.URL].clientSubscribers--
+	manager := c.managers[mqttConf.URL]
+	manager.subscriptions[mqttConf.Topic].receivers--
 
-	if c.managers[mqttConf.URL].subscriptions[mqttConf.Topic].subscribers == 0 {
+	if manager.subscriptions[mqttConf.Topic].receivers == 0 {
 		// Unsubscribe
-		if token := c.managers[mqttConf.URL].client.Unsubscribe(mqttConf.Topic); token.Wait() && token.Error() != nil {
+		if token := manager.client.Unsubscribe(mqttConf.Topic); token.Wait() && token.Error() != nil {
 			return logger.Errorf("MQTT: Error unsubscribing: %v", token.Error())
 		}
-		delete(c.managers[mqttConf.URL].subscriptions, mqttConf.Topic)
+		delete(manager.subscriptions, mqttConf.Topic)
 		logger.Printf("MQTT: %s: Unsubscribed from %s", mqttConf.URL, mqttConf.Topic)
 	}
-	if c.managers[mqttConf.URL].clientSubscribers == 0 {
+	if len(manager.subscriptions) == 0 {
 		// Disconnect
-		c.managers[mqttConf.URL].client.Disconnect(250)
+		manager.client.Disconnect(250)
 		delete(c.managers, mqttConf.URL)
 		logger.Printf("MQTT: %s: Disconnected!", mqttConf.URL)
 	}
@@ -172,11 +184,11 @@ func (c *MQTTConnector) unregister(mqttConf *registry.MQTTConf) error {
 func (m *Manager) onConnectHandler(client paho.Client) {
 	logger.Printf("MQTT: %s: Connected.", m.url)
 	m.client = client
-	for topic, subscription := range m.subscriptions {
-		if token := m.client.Subscribe(topic, subscription.qos, m.connector.onMessage); token.Wait() && token.Error() != nil {
+	for _, subscription := range m.subscriptions {
+		if token := m.client.Subscribe(subscription.topic, subscription.qos, subscription.onMessage); token.Wait() && token.Error() != nil {
 			logger.Printf("MQTT: %s: Error subscribing: %v", m.url, token.Error())
 		}
-		logger.Printf("MQTT: %s: Subscribed to %s", m.url, topic)
+		logger.Printf("MQTT: %s: Subscribed to %s", m.url, subscription.topic)
 	}
 }
 
@@ -184,7 +196,7 @@ func (m *Manager) onConnectionLostHandler(client paho.Client, err error) {
 	logger.Printf("MQTT: %s: Connection lost: %v", m.url, err)
 }
 
-func (c *MQTTConnector) onMessage(client paho.Client, msg paho.Message) {
+func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 	logger.Debugf("MQTT: %s %s", msg.Topic(), msg.Payload())
 
 	data := make(map[string][]DataPoint)
@@ -211,9 +223,9 @@ func (c *MQTTConnector) onMessage(client paho.Client, msg paho.Message) {
 			return
 		}
 		// Find the data source for this entry
-		ds, exists := c.cache[e.Name]
+		ds, exists := s.connector.cache[e.Name]
 		if !exists {
-			ds, err = c.registryClient.FindDataSource("resource", "equals", e.Name)
+			ds, err = s.connector.registryClient.FindDataSource("resource", "equals", e.Name)
 			if err != nil {
 				logger.Printf("MQTT: Error finding data source: %v", e.Name)
 				return
@@ -222,13 +234,21 @@ func (c *MQTTConnector) onMessage(client paho.Client, msg paho.Message) {
 				logger.Printf("MQTT: Error: Unable to find resource in registry: %v", e.Name)
 				return
 			}
-			c.cache[e.Name] = ds
-			// TODO
-			// Make sure the message is coming from the broker bound to this datasource
-			if ds.Connector.MQTT == nil {
-				logger.Printf("MQTT: Ignoring unbound message for data source: %v", e.Name)
-				return
-			}
+			s.connector.cache[e.Name] = ds
+		}
+
+		// Check if the message is wanted
+		if ds.Connector.MQTT == nil {
+			logger.Printf("MQTT: Ignoring unwanted message for data source: %v", e.Name)
+			return
+		}
+		if ds.Connector.MQTT.URL != s.url {
+			logger.Printf("MQTT: Ignoring message from unwanted broker %v for data source: %v", s.url, e.Name)
+			return
+		}
+		if ds.Connector.MQTT.Topic != s.topic {
+			// logger.Printf("MQTT: Ignoring message with unwanted topic %v for data source: %v", s.topic, e.Name)
+			return
 		}
 
 		// Check if type of value matches the data source type in registry
@@ -262,7 +282,7 @@ func (c *MQTTConnector) onMessage(client paho.Client, msg paho.Message) {
 	}
 
 	// Add data to the storage
-	err = c.storage.Submit(data, sources)
+	err = s.connector.storage.Submit(data, sources)
 	if err != nil {
 		logger.Printf("MQTT: Error writing data to the database: %v", err)
 		return
