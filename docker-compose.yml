@@ -1,7 +1,7 @@
 version: '2'
 services:
   influxdb:
-    image: influxdb:0.13
+    image: influxdb:1.2.2
     volumes:
       - ./docker/influxdb:/var/lib/influxdb
   hds:
