@@ -2,44 +2,48 @@ package data
 
 import (
 	"fmt"
-	"net/url"
-	"strings"
-	"time"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-
 	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"time"
+
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/registry"
-
+	"github.com/krylovsk/gosenml"
 )
+
+// Entry is a measurement of Parameter Entry
+type Entry struct {
+	Name         string   `bson:"n,omitempty"`
+	Units        string   `bson:"u,omitempty"`
+	Value        *float64 `bson:"v,omitempty"`
+	StringValue  *string  `bson:"sv,omitempty"`
+	BooleanValue *bool    `bson:"bv,omitempty"`
+	Sum          *float64 `bson:"s,omitempty"`
+	Time         int64    `bson:"t,omitempty"`
+	UpdateTime   int64    `bson:"ut,omitempty"`
+}
 
 // InfluxStorage implements a simple data storage back-end with SQLite
 type MongoStorage struct {
-	session mgo.Session
-	config *MongoStorageConfig
+	session  *mgo.Session
+	dialInfo *mgo.DialInfo
 }
 
 // NewInfluxStorage returns a new Storage given a configuration
-func MongoStorage(DSN string) (*MongoStorage, chan<- common.Notification, error) {
-	cfg, err := initMongoConf(DSN)
+func NewMongoStorage(DSN string) (*MongoStorage, chan<- common.Notification, error) {
+	dialInfo, err := mgo.ParseURL(DSN)
 	if err != nil {
-		return nil, nil, logger.Errorf("Mongo config error: %s", err)
+		return nil, nil, logger.Errorf("Mongo url parse error: %s", err)
 	}
-	cfg.Replication = 1
 
-	csession, err := mgo.DialWithInfo(mgo.DialInfo{
-		Addrs:     cfg.DSN,
-		Username: cfg.Username,
-		Password: cfg.Password,
-	})
+	csession, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		return nil, nil, logger.Errorf("Error initializing MOngoDB client: %s", err)
 	}
 
 	s := &MongoStorage{
-		session: csession,
-		config: cfg,
+		session:  csession,
+		dialInfo: dialInfo,
 	}
 
 	// Run the notification listener
@@ -61,7 +65,7 @@ func (s *MongoStorage) Retention(ds registry.DataSource) string {
 
 // Fully qualified measurement name
 func (s *MongoStorage) FQMsrmt(ds registry.DataSource) string {
-	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.Database, s.Retention(ds), s.Msrmt(ds))
+	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.dialInfo.Database, s.Retention(ds), s.Msrmt(ds))
 }
 
 // The field-name for HDS data types
@@ -79,42 +83,46 @@ func (s *MongoStorage) FieldForType(t string) string {
 
 // Database name
 func (s *MongoStorage) Database() string {
-	return s.config.Database
-}
-
-// Influx Replication
-func (s *MongoStorage) Replication() int {
-	return s.config.Replication
+	return s.dialInfo.Database
 }
 
 // Adds multiple data points for multiple data sources
 // data is a map where keys are data source ids
 func (s *MongoStorage) Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
-	for id,dps := range data{
+	for id, dps := range data {
 		session := s.session.Copy()
 		defer session.Close()
 
 		collection := session.DB(s.Database()).C(s.Msrmt(sources[id]))
 
-		for _,dp := range dps{
+		for _, senmldp := range dps {
+			dp := Entry{
+				Name:         senmldp.Name,
+				Units:        senmldp.Units,
+				Value:        senmldp.Value,
+				StringValue:  senmldp.StringValue,
+				BooleanValue: senmldp.BooleanValue,
+				Sum:          senmldp.Sum,
+				Time:         senmldp.Time,
+				UpdateTime:   senmldp.UpdateTime,
+			}
 			var timestamp time.Time
 			if dp.Time == 0 {
 				timestamp = time.Now()
 			} else {
 				timestamp = time.Unix(dp.Time, 0)
 			}
-			dp.Time = timestamp
+			dp.Time = timestamp.Unix()
 			collection.Insert(dp)
 		}
-
 
 	}
 
 	return nil
 }
 
-
 // Queries data for specified data sources
+
 func (s *MongoStorage) Query(q Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
 	points := []DataPoint{}
 	total := 0
@@ -129,15 +137,16 @@ func (s *MongoStorage) Query(q Query, page, perPage int, sources ...registry.Dat
 	// If q.End is not set, make the query open-ended
 
 	var queryBson bson.M
+	queryBson = bson.M{}
 	if q.Start.Before(q.End) {
 		queryBson = bson.M{
-			"Time": bson.M{"$lte":  q.Start.Format(time.RFC3339)},
-			"Time":   bson.M{"$gte": q.End.Format(time.RFC3339)},
+			"t": bson.M{"$lte": q.End.Unix(),
+				"$gte": q.Start.Unix()},
 		}
 
 	} else {
 		queryBson = bson.M{
-			"Time": bson.M{"$lte":  q.Start.Format(time.RFC3339)},
+			"t": bson.M{"$gte": bson.MongoTimestamp(q.Start.Unix())},
 		}
 
 	}
@@ -145,9 +154,9 @@ func (s *MongoStorage) Query(q Query, page, perPage int, sources ...registry.Dat
 	perItems, offsets := common.PerItemPagination(q.Limit, page, perPage, len(sources))
 
 	// Initialize sort order
-	sort := "-Time"
+	sort := "-t"
 	if q.Sort == common.ASC {
-		sort = "+Time"
+		sort = "+t"
 	}
 
 	for i, ds := range sources {
@@ -155,16 +164,35 @@ func (s *MongoStorage) Query(q Query, page, perPage int, sources ...registry.Dat
 		session := s.session.Copy()
 		defer session.Close()
 
-		collection  := session.DB(s.Database()).C(s.Msrmt(s.FQMsrmt(ds)))
-		var searchResults []DataPoint
-		err := collection.Find(queryBson).Sort(sort).Skip(offsets[i]).Limit(perItems[i]).All(&searchResults)
-
+		collection := session.DB(s.Database()).C(s.Msrmt(ds))
+		var searchResults []Entry
+		err := collection.Find(queryBson).All(&searchResults)
+		//err := collection.Find(queryBson).Sort(sort).All(&searchResults)
+		//offsets[i]).Limit(perItems[i]
+		logger.Println(offsets, perItems, sort)
+		logger.Println("the query is:", queryBson)
+		logger.Println("the result is:", searchResults)
 		if err != nil {
 			return NewDataSet(), 0, logger.Errorf("Error parsing points for source %v: %s", ds.Resource, err)
 		}
 
+		var entries = make([]DataPoint,len(searchResults))
+		for i,val := range searchResults{
+			entries[i] = DataPoint{
+				&gosenml.Entry{
+					val.Name,
+					val.Units,
+					val.Value,
+					val.StringValue,
+					val.BooleanValue,
+					val.Sum,
+					val.Time,
+					val.UpdateTime,
+				},
+			}
+		}
 		if perItems[i] != 0 {
-			points = append(points, searchResults...)
+			points = append(points, entries...)
 		}
 	}
 
@@ -183,22 +211,25 @@ func (s *MongoStorage) Query(q Query, page, perPage int, sources ...registry.Dat
 // Handles the creation of a new data source
 func (s *MongoStorage) NtfCreated(ds registry.DataSource, callback chan error) {
 
-
 	if ds.Retention != "" {
-		duration := ds.Retention
 
+		duration, err := time.ParseDuration(ds.Retention)
+		if err != nil {
+			callback <- logger.Errorf("Error parsing the duration: %s", err)
+			return
+		}
 		session := s.session.Copy()
 		defer session.Close()
 
-		collection  := session.DB(s.Database()).C(s.Msrmt(s.FQMsrmt(ds)))
+		collection := session.DB(s.Database()).C(s.Msrmt(ds))
 
 		TTL := mgo.Index{
-			Key:         []string{"Time"},
+			Key:         []string{"t"},
 			Unique:      false,
 			DropDups:    false,
 			Background:  true,
 			ExpireAfter: duration} // one hour
-		err := collection.EnsureIndex(TTL)
+		err = collection.EnsureIndex(TTL)
 		if err != nil {
 			callback <- logger.Errorf("Error modifying the retention policy for source: %s", err)
 			return
@@ -212,20 +243,24 @@ func (s *MongoStorage) NtfCreated(ds registry.DataSource, callback chan error) {
 func (s *MongoStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
 
 	if oldDS.Retention != newDS.Retention {
-		duration := newDS.Retention
+		duration, err := time.ParseDuration(newDS.Retention)
+		if err != nil {
+			callback <- logger.Errorf("Error parsing the duration: %s", err)
+			return
+		}
 
 		session := s.session.Copy()
 		defer session.Close()
 
-		collection  := session.DB(s.Database()).C(s.Msrmt(s.FQMsrmt(newDS)))
+		collection := session.DB(s.Database()).C(s.Msrmt(newDS))
 
 		TTL := mgo.Index{
-			Key:         []string{"Time"},
+			Key:         []string{"t"},
 			Unique:      false,
 			DropDups:    false,
 			Background:  true,
 			ExpireAfter: duration} // one hour
-		err := collection.EnsureIndex(TTL)
+		err = collection.EnsureIndex(TTL)
 		if err != nil {
 			callback <- logger.Errorf("Error modifying the retention policy for source: %s", err)
 			return
@@ -241,9 +276,9 @@ func (s *MongoStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
 	session := s.session.Copy()
 	defer session.Close()
 
-	collection  := session.DB(s.Database()).C(s.Msrmt(s.FQMsrmt(ds)))
+	collection := session.DB(s.Database()).C(s.Msrmt(ds))
 
-	_,err := collection.RemoveAll(nil)
+	_, err := collection.RemoveAll(nil)
 
 	if err != nil {
 		callback <- logger.Errorf("Error removing the historical data: %s", err)
@@ -251,41 +286,3 @@ func (s *MongoStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
 	}
 	callback <- nil
 }
-
-
-// InfluxStorageConfig configuration
-type MongoStorageConfig struct {
-	DSN         string
-	Database    string
-	Username    string
-	Password    string
-	Replication int
-}
-
-
-func initMongoConf(DSN string) (*MongoStorageConfig, error) {
-	// Parse config's DSN string
-	PDSN, err := url.Parse(DSN)
-	if err != nil {
-		return nil, logger.Errorf("%s", err)
-	}
-	// Validate
-	if PDSN.Host == "" {
-		return nil, logger.Errorf("Mongodb config: host:port in the URL must be not empty")
-	}
-	if PDSN.Path == "" {
-		return nil, logger.Errorf("Mongodb config: db must be not empty")
-	}
-
-	var c MongoStorageConfig
-	c.DSN = fmt.Sprintf("%v://%v", PDSN.Scheme, PDSN.Host)
-	c.Database = strings.Trim(PDSN.Path, "/")
-	// Optional username and password
-	if PDSN.User != nil {
-		c.Username = PDSN.User.Username()
-		c.Password, _ = PDSN.User.Password()
-	}
-
-	return &c, nil
-}
-

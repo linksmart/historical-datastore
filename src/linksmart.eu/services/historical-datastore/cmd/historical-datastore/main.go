@@ -57,17 +57,34 @@ func main() {
 	regAPI := registry.NewWriteableAPI(regStorage)
 	registryClient := registry.NewLocalClient(regStorage)
 
-	// data
-	influxStorage, ntRcvDataCh, _ := data.NewInfluxStorage(conf.Data.Backend.DSN)
+	//TODO:refactor below code
+	//data and aggregation backends
+	var dataStorage data.Storage
+	var ntRcvDataCh  chan <- common.Notification
+	var dataAggr aggregation.Storage
+	var ntRcvAggrCh  chan <- common.Notification
+	switch conf.Data.Backend.Type {
+	case "mongodb":
+		var mongoStorage *data.MongoStorage
+		mongoStorage, ntRcvDataCh, _ = data.NewMongoStorage(conf.Data.Backend.DSN)
+		dataAggr, ntRcvAggrCh, _ = aggregation.NewMongoAggr( mongoStorage)
+		dataStorage = mongoStorage
+	case "influxdb":
+		var influxStorage *data.InfluxStorage
+		influxStorage, ntRcvDataCh, _ = data.NewInfluxStorage(conf.Data.Backend.DSN)
+		dataAggr, ntRcvAggrCh, _ = aggregation.NewInfluxAggr(influxStorage)
+		dataStorage = influxStorage
+	}
+
+
 	// TODO: disconnect on shutdown
-	ntRcvMQTTCh, err := data.NewMQTTConnector(registryClient, influxStorage)
+	ntRcvMQTTCh, err := data.NewMQTTConnector(registryClient, dataStorage)
 	if err != nil {
 		logger.Fatalf("Error starting MQTT Connector: %v", err)
 	}
-	dataAPI := data.NewWriteableAPI(registryClient, influxStorage)
+	dataAPI := data.NewWriteableAPI(registryClient, dataStorage)
 
 	// aggregation
-	dataAggr, ntRcvAggrCh, _ := aggregation.NewInfluxAggr(influxStorage)
 	aggrAPI := aggregation.NewAPI(registryClient, dataAggr)
 
 	// Start the notifier
