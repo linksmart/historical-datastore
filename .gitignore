@@ -5,3 +5,6 @@ bin/
 # private configs
 conf/
 
+/.project
+/.vscode
+/.idea
