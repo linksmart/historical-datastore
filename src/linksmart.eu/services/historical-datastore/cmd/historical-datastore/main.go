@@ -60,14 +60,14 @@ func main() {
 	//TODO:refactor below code
 	//data and aggregation backends
 	var dataStorage data.Storage
-	var ntRcvDataCh  chan <- common.Notification
+	var ntRcvDataCh chan<- common.Notification
 	var dataAggr aggregation.Storage
-	var ntRcvAggrCh  chan <- common.Notification
+	var ntRcvAggrCh chan<- common.Notification
 	switch conf.Data.Backend.Type {
 	case "mongodb":
 		var mongoStorage *data.MongoStorage
 		mongoStorage, ntRcvDataCh, _ = data.NewMongoStorage(conf.Data.Backend.DSN)
-		dataAggr, ntRcvAggrCh, _ = aggregation.NewMongoAggr( mongoStorage)
+		dataAggr, ntRcvAggrCh, _ = aggregation.NewMongoAggr(mongoStorage)
 		dataStorage = mongoStorage
 	case "influxdb":
 		var influxStorage *data.InfluxStorage
@@ -75,7 +75,6 @@ func main() {
 		dataAggr, ntRcvAggrCh, _ = aggregation.NewInfluxAggr(influxStorage)
 		dataStorage = influxStorage
 	}
-
 
 	// TODO: disconnect on shutdown
 	ntRcvMQTTCh, err := data.NewMQTTConnector(registryClient, dataStorage)
@@ -170,6 +169,8 @@ func main() {
 		logger.Println("Stopped.")
 		os.Exit(0)
 	}()
+
+	logger.Printf("Starting Historical Datastore - Version %s", common.APIVersion)
 
 	// Serve static web directory
 	go webServer(conf)

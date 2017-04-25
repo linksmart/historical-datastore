@@ -4,6 +4,7 @@ package aggregation
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -19,6 +20,10 @@ import (
 
 const (
 	MaxPerPage = 1000
+)
+
+var (
+	ErrNotImplemented = errors.New("API not implemented")
 )
 
 type API struct {
@@ -157,7 +162,10 @@ OUTERLOOP:
 
 	// Query aggregated data from storage
 	dataset, total, err := api.storage.Query(aggr, q, page, perPage, sources...)
-	if err != nil {
+	if err == ErrNotImplemented {
+		common.ErrorResponse(http.StatusNotImplemented, err.Error(), w)
+		return
+	} else if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
 		return
 	}

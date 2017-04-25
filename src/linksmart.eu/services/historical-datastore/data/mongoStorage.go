@@ -6,9 +6,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"time"
 
+	"github.com/krylovsk/gosenml"
 	"linksmart.eu/services/historical-datastore/common"
 	"linksmart.eu/services/historical-datastore/registry"
-	"github.com/krylovsk/gosenml"
 )
 
 // Entry is a measurement of Parameter Entry
@@ -166,7 +166,7 @@ func (s *MongoStorage) Query(q Query, page, perPage int, sources ...registry.Dat
 
 		collection := session.DB(s.Database()).C(s.Msrmt(ds))
 		var searchResults []Entry
-		err := collection.Find(queryBson).All(&searchResults)
+		err := collection.Find(queryBson).Sort(sort).Skip(offsets[i]).Limit(perItems[i]).All(&searchResults)
 		//err := collection.Find(queryBson).Sort(sort).All(&searchResults)
 		//offsets[i]).Limit(perItems[i]
 		logger.Println(offsets, perItems, sort)
@@ -176,8 +176,8 @@ func (s *MongoStorage) Query(q Query, page, perPage int, sources ...registry.Dat
 			return NewDataSet(), 0, logger.Errorf("Error parsing points for source %v: %s", ds.Resource, err)
 		}
 
-		var entries = make([]DataPoint,len(searchResults))
-		for i,val := range searchResults{
+		var entries = make([]DataPoint, len(searchResults))
+		for i, val := range searchResults {
 			entries[i] = DataPoint{
 				&gosenml.Entry{
 					val.Name,

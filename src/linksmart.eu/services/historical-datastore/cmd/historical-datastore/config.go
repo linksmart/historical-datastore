@@ -21,7 +21,7 @@ var supportedRegBackends = map[string]bool{
 // Supported Data backend types
 var supportedDataBackends = map[string]bool{
 	"influxdb": true,
-	"mongodb":true,
+	"mongodb":  true,
 }
 
 type Config struct {
