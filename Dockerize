@@ -1,0 +1,5 @@
+FROM jwilder/dockerize
+
+ENV REFRESHED_AT 2017-04-25
+
+RUN apk add --no-cache bash curl
