@@ -359,8 +359,9 @@ func (a *InfluxAggr) alterRetentionPolicy(ds registry.DataSource, dsa registry.A
 	if dsa.Retention != "" {
 		duration = dsa.Retention
 	}
-
-	_, err := a.influxStorage.QuerySprintf("ALTER RETENTION POLICY %s ON %s DURATION %v",
+	// Setting SHARD DURATION 0s tells influx to use the default duration
+	// https://docs.influxdata.com/influxdb/v1.2/query_language/database_management/#retention-policy-management
+	_, err := a.influxStorage.QuerySprintf("ALTER RETENTION POLICY %s ON %s DURATION %v SHARD DURATION 0s",
 		a.retention(ds.ID, dsa.ID), a.influxStorage.Database(), duration)
 	if err != nil {
 		return logger.Errorf("Error modifying retention: %s", err)

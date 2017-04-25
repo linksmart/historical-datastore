@@ -310,7 +310,9 @@ func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 		if newDS.Retention != "" {
 			duration = newDS.Retention
 		}
-		_, err := s.QuerySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v", s.Retention(oldDS), s.config.Database, duration)
+		// Setting SHARD DURATION 0s tells influx to use the default duration
+		// https://docs.influxdata.com/influxdb/v1.2/query_language/database_management/#retention-policy-management
+		_, err := s.QuerySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v SHARD DURATION 0s", s.Retention(oldDS), s.config.Database, duration)
 		if err != nil {
 			callback <- logger.Errorf("Error modifying the retention policy for source: %s", err)
 			return

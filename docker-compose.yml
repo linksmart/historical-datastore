@@ -1,9 +1,15 @@
-version: '2'
+version: '3'
 services:
   influxdb:
-    image: influxdb:0.13
+    image: influxdb:1.2.2-alpine
     volumes:
       - ./docker/influxdb:/var/lib/influxdb
+  init:
+    build: 
+      context: .
+      dockerfile: Dockerize
+    command: bash -c "dockerize -wait tcp://influxdb:8086 -timeout 30s && 
+                         curl -sS -POST 'http://influxdb:8086/query' --data-urlencode 'q=CREATE DATABASE hds'"
   hds:
     build: .
     ports:
@@ -11,10 +17,8 @@ services:
       - "8085:8085"
     depends_on:
       - influxdb
+      - init
     volumes:
       - ./docker/data:/data
       - ./sample_conf:/conf
-    entrypoint: bash -c "dockerize -wait tcp://influxdb:8086 -timeout 30s && 
-                      curl -sS -POST 'http://influxdb:8086/query' --data-urlencode 'q=CREATE DATABASE hds' && echo '' && 
-                      ./bin/historical-datastore -conf /conf/default.json"
-    command: []
+      
