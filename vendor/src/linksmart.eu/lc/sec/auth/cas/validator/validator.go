@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"linksmart.eu/lc/sec/auth/validator"
 	"github.com/kylewolfe/simplexml"
+	"linksmart.eu/lc/sec/auth/validator"
 )
 
 const (

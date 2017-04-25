@@ -385,7 +385,7 @@ func TestControllerCleanExpired(t *testing.T) {
 		Ttl:  1,
 		Resources: []Resource{
 			Resource{
-				Id: "my_resource_id",
+				Id:        "my_resource_id",
 				Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": "http://localhost:9000/api"}}},
 			},
 		},
@@ -521,16 +521,15 @@ func TestControllerListResources(t *testing.T) {
 		d := Device{
 			Resources: []Resource{
 				Resource{
-					Id:   fmt.Sprint(i - 1),
-					Name: fmt.Sprintf("my_resource_%d", i),
-					Meta: map[string]interface{}{"k": "v"},
+					Id:        fmt.Sprint(i - 1),
+					Name:      fmt.Sprintf("my_resource_%d", i),
+					Meta:      map[string]interface{}{"k": "v"},
 					Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
-
 				},
 				Resource{
-					Id:   fmt.Sprint(i),
-					Name: fmt.Sprintf("my_resource_%d", i+1),
-					Meta: map[string]interface{}{"k": "v"},
+					Id:        fmt.Sprint(i),
+					Name:      fmt.Sprintf("my_resource_%d", i+1),
+					Meta:      map[string]interface{}{"k": "v"},
 					Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
 				},
 			},
@@ -597,7 +596,7 @@ func TestControllerFilterResources(t *testing.T) {
 		_, err := controller.add(Device{
 			Resources: []Resource{
 				Resource{
-					Name: fmt.Sprintf("boring_%d", i),
+					Name:      fmt.Sprintf("boring_%d", i),
 					Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
 				},
 			},
@@ -610,7 +609,7 @@ func TestControllerFilterResources(t *testing.T) {
 	controller.add(Device{
 		Resources: []Resource{
 			Resource{
-				Name: "interesting_1",
+				Name:      "interesting_1",
 				Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
 			},
 		},
@@ -618,7 +617,7 @@ func TestControllerFilterResources(t *testing.T) {
 	controller.add(Device{
 		Resources: []Resource{
 			Resource{
-				Name: "interesting_2",
+				Name:      "interesting_2",
 				Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
 			},
 		},
@@ -650,7 +649,7 @@ func TestControllerTotalResources(t *testing.T) {
 		_, err := controller.add(Device{
 			Resources: []Resource{
 				Resource{
-					Name: fmt.Sprintf("resource_%d", i),
+					Name:      fmt.Sprintf("resource_%d", i),
 					Protocols: []Protocol{Protocol{Type: "REST", Endpoint: map[string]interface{}{"url": ""}}},
 				},
 			},

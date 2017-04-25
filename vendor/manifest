@@ -218,6 +218,18 @@
 			"path": "/websocket"
 		},
 		{
+			"importpath": "gopkg.in/mgo.v2",
+			"repository": "https://gopkg.in/mgo.v2",
+			"revision": "3f83fa5005286a7fe593b055f0d7771a7dce4655",
+			"branch": "v2"
+		},
+		{
+			"importpath": "gopkg.in/tomb.v2",
+			"repository": "https://gopkg.in/tomb.v2",
+			"revision": "d5d1b5820637886def9eef33e03a27a9f166942c",
+			"branch": "v2"
+		},
+		{
 			"importpath": "linksmart.eu/redmine/linksmart-opensource/linksmart-services/model-repository/go-client.git",
 			"repository": "https://linksmart.eu/redmine/linksmart-opensource/linksmart-services/model-repository/go-client.git",
 			"revision": "20c63edd0feeef42daa6a9649c39165a054f66a1",

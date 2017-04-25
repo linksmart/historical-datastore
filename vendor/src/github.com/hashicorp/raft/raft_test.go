@@ -1125,18 +1125,18 @@ func TestRaft_AutoSnapshot(t *testing.T) {
 }
 
 func TestRaft_ManualSnapshot(t *testing.T) {
-    // Make the cluster
+	// Make the cluster
 	conf := inmemConfig()
 	conf.SnapshotThreshold = 50
 	conf.TrailingLogs = 10
 	c := MakeCluster(1, t, conf)
 	defer c.Close()
-	
+
 	leader := c.Leader()
 	// with nothing commited, asking for a snapshot should return an error
 	ssErr := leader.Snapshot().Error()
 	if ssErr != ErrNothingNewToSnapshot {
-	    t.Errorf("Attempt to manualy create snapshot should of errored because there's nothing to do: %v", ssErr)
+		t.Errorf("Attempt to manualy create snapshot should of errored because there's nothing to do: %v", ssErr)
 	}
 	// commit some things
 	var future Future

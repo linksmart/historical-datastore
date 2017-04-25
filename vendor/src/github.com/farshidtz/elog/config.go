@@ -18,25 +18,25 @@ const (
 type Config struct {
 	// Writer is the destination to which log data is written
 	// Default: os.Stdout
-	Writer       io.Writer
+	Writer io.Writer
 	// TimeFormat is the format of time in the prefix (compatible with https://golang.org/pkg/time/#pkg-constants)
 	// Default: "2006/01/02 15:04:05"
-	TimeFormat   string
+	TimeFormat string
 	// Trace is to control the tracing information
 	// Default: NoTrace
-	Trace        int
+	Trace int
 	// DebugEnabled can be used to pass a parsed command-line boolean flag to enable the debugging
 	// Default: nil
 	DebugEnabled *bool
 	// DebugEnvVar is the environment variable used to enable debugging when set to 1
 	// Default: "DEBUG"
-	DebugEnvVar  string
+	DebugEnvVar string
 	// DebugPrefix is the prefix used when logging with Debug methods and Errorf
 	// Default: "[debug] "
-	DebugPrefix  string
+	DebugPrefix string
 	// DebugTrace is to control the tracing information when in debugging mode
 	// Default: ShortFile
-	DebugTrace   int
+	DebugTrace int
 }
 
 func initConfig(config *Config) *Config {
