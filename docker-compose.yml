@@ -5,13 +5,11 @@ services:
     volumes:
       - ./docker/influxdb:/var/lib/influxdb
   init:
-    build: 
-      context: .
-      dockerfile: Dockerize
+    image: fraunhoferfit/dockerize
     command: bash -c "dockerize -wait tcp://influxdb:8086 -timeout 30s && 
                          curl -sS -POST 'http://influxdb:8086/query' --data-urlencode 'q=CREATE DATABASE hds'"
   hds:
-    build: .
+    image: fraunhoferfit/ls-hds
     ports:
       - "4000:4000"
       - "8085:8085"
