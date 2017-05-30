@@ -1,7 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "version": "0.2.1",
+        "version": "0.3.0",
         "title": "LinkSmart Historical Datastore",
         "description": "API documentation of the LinkSmart® Historical Datastore. \n\nFor more information, visit the [Wiki](https://linksmart.eu/redmine/projects/historical-datastore/wiki/Historical_Datastore_API).\n"
     },

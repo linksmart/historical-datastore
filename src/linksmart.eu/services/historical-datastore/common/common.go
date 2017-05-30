@@ -13,7 +13,7 @@ const (
 	// IDSeparator is used for separation of IDs in the URL
 	IDSeparator = ","
 	// APIVersion defines the API version
-	APIVersion = "0.2.1"
+	APIVersion = "0.3.0"
 	// Default MIME type for all responses
 	DefaultMIMEType = "application/vnd.eu.linksmart.hds+json;version=" + APIVersion
 
