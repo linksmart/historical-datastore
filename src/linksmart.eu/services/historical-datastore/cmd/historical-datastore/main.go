@@ -176,6 +176,7 @@ func main() {
 	go webServer(conf)
 
 	// start http server
+	logger.Printf("Listening on %s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
 	err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort), router)
 	if err != nil {
 		logger.Fatalln(err)
