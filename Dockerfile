@@ -1,12 +1,6 @@
 FROM golang:1.8-alpine
 
-ENV REFRESHED_AT 2017-04-25
-
-# get dependencies
-RUN apk add --no-cache git
-
-# install go tools
-RUN go get github.com/constabulary/gb/...
+ENV REFRESHED_AT 2017-05-31
 
 # setup hds home
 RUN mkdir /home/hds
@@ -18,8 +12,12 @@ COPY . ${HDS_HOME}
 
 WORKDIR ${HDS_HOME}
 
-# build code
-RUN gb build all
+# make a symbolic link to gb-vendored dependencies
+RUN ln -s ../vendor/src src/vendor
+
+# build code	
+ENV GOPATH ${HDS_HOME}
+RUN go install linksmart.eu/services/historical-datastore/cmd/historical-datastore
 
 VOLUME /conf /data
 

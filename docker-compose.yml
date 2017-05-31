@@ -18,5 +18,5 @@ services:
       - init
     volumes:
       - ./docker/data:/data
-      - ./sample_conf:/conf
+#      - ./conf:/conf
       

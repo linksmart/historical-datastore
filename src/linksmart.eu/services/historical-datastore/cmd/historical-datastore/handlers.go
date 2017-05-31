@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/codegangsta/negroni"
+	"linksmart.eu/services/historical-datastore/common"
 )
 
 func loggingHandler(next http.Handler) http.Handler {
@@ -37,7 +38,7 @@ func recoverHandler(next http.Handler) http.Handler {
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprintf(w, "Welcome!")
+	fmt.Fprintf(w, "Historical Datastore v%s - Welcome!\n", common.APIVersion)
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
