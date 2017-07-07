@@ -20,3 +20,9 @@ This project and its dependencies are managed with [GB](http://getgb.io/) build 
 ```
 gb build
 ```
+
+## Run
+Use -conf flag to set the config file path. If not set, `./conf/historical-datastore.json` will be used.
+```
+./bin/historical-datastore -conf historical-datastore.json
+```
