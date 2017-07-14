@@ -1,1 +1,0 @@
-Go client for ModelRepository
