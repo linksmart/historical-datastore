@@ -18,7 +18,7 @@ The code can be found in `src/linksmart.eu/services/historical-datastore` where:
 This project and its dependencies are managed with [GB](http://getgb.io/) build tool. Once you have it installed, go to project root and compile:
 
 ```
-gb build
+gb build 
 ```
 
 ## Run
