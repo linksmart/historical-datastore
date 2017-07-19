@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/codegangsta/negroni"
-	"linksmart.eu/services/historical-datastore/common"
+	"code.linksmart.eu/hds/historical-datastore/common"
 )
 
 func loggingHandler(next http.Handler) http.Handler {

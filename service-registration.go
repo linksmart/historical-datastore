@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	sc "linksmart.eu/lc/core/catalog/service"
-	"linksmart.eu/services/historical-datastore/common"
+	"code.linksmart.eu/hds/historical-datastore/common"
 
 	_ "linksmart.eu/lc/sec/auth/cas/obtainer"
 	"linksmart.eu/lc/sec/auth/obtainer"

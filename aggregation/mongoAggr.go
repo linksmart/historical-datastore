@@ -2,9 +2,9 @@ package aggregation
 
 import (
 	"errors"
-	"linksmart.eu/services/historical-datastore/common"
-	"linksmart.eu/services/historical-datastore/data"
-	"linksmart.eu/services/historical-datastore/registry"
+	"code.linksmart.eu/hds/historical-datastore/common"
+	"code.linksmart.eu/hds/historical-datastore/data"
+	"code.linksmart.eu/hds/historical-datastore/registry"
 	"fmt"
 )
 

@@ -11,7 +11,7 @@ import (
 
 	"github.com/pborman/uuid"
 	"linksmart.eu/lc/core/catalog"
-	"linksmart.eu/services/historical-datastore/common"
+	"code.linksmart.eu/hds/historical-datastore/common"
 )
 
 // In-memory storage

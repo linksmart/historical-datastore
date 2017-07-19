@@ -15,7 +15,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"linksmart.eu/lc/core/catalog"
-	"linksmart.eu/services/historical-datastore/common"
+	"code.linksmart.eu/hds/historical-datastore/common"
 )
 
 // LevelDB storage

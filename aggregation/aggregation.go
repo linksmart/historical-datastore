@@ -6,8 +6,8 @@ package aggregation
 import (
 	"encoding/json"
 
-	"linksmart.eu/services/historical-datastore/data"
-	"linksmart.eu/services/historical-datastore/registry"
+	"code.linksmart.eu/hds/historical-datastore/data"
+	"code.linksmart.eu/hds/historical-datastore/registry"
 )
 
 type Storage interface {

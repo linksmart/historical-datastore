@@ -13,8 +13,8 @@ import (
 
 	"linksmart.eu/lc/core/catalog"
 	"linksmart.eu/lc/sec/auth/obtainer"
-	"linksmart.eu/services/historical-datastore/common"
-	"linksmart.eu/services/historical-datastore/registry"
+	"code.linksmart.eu/hds/historical-datastore/common"
+	"code.linksmart.eu/hds/historical-datastore/registry"
 )
 
 type RemoteClient struct {

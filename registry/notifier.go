@@ -3,7 +3,7 @@
 package registry
 
 import (
-	"linksmart.eu/services/historical-datastore/common"
+	"code.linksmart.eu/hds/historical-datastore/common"
 )
 
 // Sends a Notification{} to channel

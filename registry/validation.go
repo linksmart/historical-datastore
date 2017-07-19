@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"linksmart.eu/services/historical-datastore/common"
+	"code.linksmart.eu/hds/historical-datastore/common"
 )
 
 // DataSource writability:

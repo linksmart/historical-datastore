@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"linksmart.eu/services/historical-datastore/common"
+	"code.linksmart.eu/hds/historical-datastore/common"
 )
 
 // Registry describes a registry of registered Data Sources

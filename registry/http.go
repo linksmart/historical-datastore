@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"code.linksmart.eu/hds/historical-datastore/common"
 	"github.com/gorilla/mux"
-	"linksmart.eu/services/historical-datastore/common"
 )
 
 const (

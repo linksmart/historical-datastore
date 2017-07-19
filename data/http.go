@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"code.linksmart.eu/hds/historical-datastore/common"
+	"code.linksmart.eu/hds/historical-datastore/registry"
 	"github.com/gorilla/mux"
 	senml "github.com/krylovsk/gosenml"
-	"linksmart.eu/services/historical-datastore/common"
-	"linksmart.eu/services/historical-datastore/registry"
 )
 
 const (

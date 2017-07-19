@@ -7,7 +7,7 @@ import (
 	"time"
 
 	senml "github.com/krylovsk/gosenml"
-	"linksmart.eu/services/historical-datastore/registry"
+	"code.linksmart.eu/hds/historical-datastore/registry"
 )
 
 // DataPoint is a data record embedding a SenML Entry
