@@ -21,6 +21,7 @@ export GOPATH=`pwd`
 go install code.linksmart.eu/hds/historical-datastore
 ```
 
+
 ## Run
 Use -conf flag to set the config file path. If not set, `./conf/historical-datastore.json` will be used.
 ```
