@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"code.linksmart.eu/hds/historical-datastore/common"
+	"code.linksmart.eu/hds/historical-datastore/registry"
 	paho "github.com/eclipse/paho.mqtt.golang"
 	senml "github.com/krylovsk/gosenml"
 	"github.com/pborman/uuid"
-	"code.linksmart.eu/hds/historical-datastore/common"
-	"code.linksmart.eu/hds/historical-datastore/registry"
 )
 
 const (
@@ -120,10 +120,15 @@ func (c *MQTTConnector) register(mqttConf *registry.MQTTConf) error {
 
 		opts := paho.NewClientOptions() // uses defaults: https://godoc.org/github.com/eclipse/paho.mqtt.golang#NewClientOptions
 		opts.AddBroker(mqttConf.URL)
-		opts.SetClientID(fmt.Sprintf("HDS-%v", uuid.NewRandom()))
+		opts.SetClientID(fmt.Sprintf("HDS-%v", uuid.NewRandom())) // TODO: make this configurable
 		opts.SetConnectTimeout(5 * time.Second)
 		opts.SetOnConnectHandler(manager.onConnectHandler)
 		opts.SetConnectionLostHandler(manager.onConnectionLostHandler)
+		if mqttConf.Username != "" {
+			opts.SetUsername(mqttConf.Username)
+			opts.SetPassword(mqttConf.Password)
+		}
+		// TODO: add support for certificate auth
 		manager.client = paho.NewClient(opts)
 
 		if token := manager.client.Connect(); token.Wait() && token.Error() != nil {
