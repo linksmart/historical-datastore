@@ -4,6 +4,7 @@
 package registry
 
 import (
+	"encoding/json"
 	"fmt"
 	"hash/crc32"
 	"net/url"
@@ -68,6 +69,29 @@ type MQTTConf struct {
 	CaFile   string `json:"caFile,omitempty"`
 	CertFile string `json:"certFile,omitempty"`
 	KeyFile  string `json:"keyFile,omitempty"`
+}
+
+// MarshalJSON hides sensitive MQTT client information
+func (c *MQTTConf) MarshalJSON() ([]byte, error) {
+
+	if c.Username != "" {
+		c.Username = "*****"
+	}
+	if c.Password != "" {
+		c.Password = "*****"
+	}
+	if c.CaFile != "" {
+		c.CaFile = "*****"
+	}
+	if c.CertFile != "" {
+		c.CertFile = "*****"
+	}
+	if c.KeyFile != "" {
+		c.KeyFile = "*****"
+	}
+
+	type Alias MQTTConf
+	return json.Marshal((*Alias)(c))
 }
 
 func (ds *DataSource) ParsedResource() *url.URL {

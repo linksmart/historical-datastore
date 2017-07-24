@@ -8,16 +8,13 @@ ENV HDS_HOME /home/hds
 
 # copy default config file and code
 COPY sample_conf/* /conf/
-COPY . ${HDS_HOME}
+COPY . ${HDS_HOME}/src/code.linksmart.eu/hds/historical-datastore
 
 WORKDIR ${HDS_HOME}
 
-# make a symbolic link to gb-vendored dependencies
-RUN ln -s ../vendor/src src/vendor
-
 # build code	
 ENV GOPATH ${HDS_HOME}
-RUN go install linksmart.eu/services/historical-datastore/cmd/historical-datastore
+RUN go install code.linksmart.eu/hds/historical-datastore
 
 VOLUME /conf /data
 
