@@ -72,7 +72,7 @@ type MQTTConf struct {
 }
 
 // MarshalJSON hides sensitive MQTT client information
-func (c *MQTTConf) MarshalJSON() ([]byte, error) {
+func (c MQTTConf) MarshalJSON() ([]byte, error) {
 
 	if c.Username != "" {
 		c.Username = "*****"
@@ -91,7 +91,7 @@ func (c *MQTTConf) MarshalJSON() ([]byte, error) {
 	}
 
 	type Alias MQTTConf
-	return json.Marshal((*Alias)(c))
+	return json.Marshal((*Alias)(&c))
 }
 
 func (ds *DataSource) ParsedResource() *url.URL {
