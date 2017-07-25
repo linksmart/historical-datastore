@@ -1,0 +1,27 @@
+version: '2'
+services:
+  influxdb:
+    image: influxdb:1.2.2-alpine
+    volumes:
+      - ./docker/influxdb:/var/lib/influxdb
+  init:
+    image: fraunhoferfit/dockerize
+    command: bash -c "dockerize -wait tcp://influxdb:8086 -timeout 30s && 
+                         curl -sS -POST 'http://influxdb:8086/query' --data-urlencode 'q=CREATE DATABASE hds'"
+  hds:
+    image: fraunhoferfit/ls-hds
+    ports:
+      - "8085:8085"
+      - "4000:4000"
+    depends_on:
+      - influxdb
+      - init
+    volumes:
+      - ./docker/data:/data
+#      - ./conf:/conf
+  dummy-stream:
+    image: fraunhoferfit/ls-hds-dummystream
+    depends_on:
+      - hds
+    command: ["--server", "http://hds:8085"]
+      
