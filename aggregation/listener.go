@@ -4,6 +4,7 @@ package aggregation
 
 import (
 	"fmt"
+	"runtime/debug"
 
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
@@ -12,6 +13,12 @@ import (
 // Handles an incoming notification
 func NtfListener(s Storage, ntChan <-chan common.Notification) {
 	for ntf := range ntChan {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Printf("Recovered from panic: %v\n%v", r, string(debug.Stack()))
+				ntf.Callback <- logger.Errorf("panic: %v", r)
+			}
+		}()
 		switch ntf.Type {
 		case common.CREATE:
 			ds, ok := ntf.Payload.(registry.DataSource)

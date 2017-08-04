@@ -5,6 +5,7 @@ package data
 import (
 	"encoding/json"
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -129,10 +130,11 @@ func (c *MQTTConnector) register(mqttConf *registry.MQTTConf) error {
 			opts.SetPassword(mqttConf.Password)
 		}
 		// TODO: add support for certificate auth
+		//
 		manager.client = paho.NewClient(opts)
 
 		if token := manager.client.Connect(); token.Wait() && token.Error() != nil {
-			return logger.Errorf("MQTT: Error connecting to broker: %v", token.Error())
+			return logger.Errorf("MQTT: Error connecting to broker %v: %v", mqttConf.URL, token.Error())
 		}
 		c.managers[mqttConf.URL] = manager
 
@@ -166,6 +168,10 @@ func (c *MQTTConnector) register(mqttConf *registry.MQTTConf) error {
 
 func (c *MQTTConnector) unregister(mqttConf *registry.MQTTConf) error {
 	manager := c.managers[mqttConf.URL]
+	// There may be no subscriptions due to a failed registration when HDS is restarted
+	if manager == nil {
+		return nil
+	}
 	manager.subscriptions[mqttConf.Topic].receivers--
 
 	if manager.subscriptions[mqttConf.Topic].receivers == 0 {
@@ -360,6 +366,12 @@ func (c *MQTTConnector) NtfDeleted(oldDS registry.DataSource, callback chan erro
 // Handles an incoming notification
 func NtfListenerMQTT(c *MQTTConnector, ntChan <-chan common.Notification) {
 	for ntf := range ntChan {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Printf("Recovered from panic: %v\n%v", r, string(debug.Stack()))
+				ntf.Callback <- logger.Errorf("panic: %v", r)
+			}
+		}()
 		switch ntf.Type {
 		case common.CREATE:
 			ds, ok := ntf.Payload.(registry.DataSource)
