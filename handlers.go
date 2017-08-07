@@ -4,12 +4,13 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
-	"github.com/codegangsta/negroni"
+	"runtime/debug"
+
 	"code.linksmart.eu/hds/historical-datastore/common"
+	"github.com/codegangsta/negroni"
 )
 
 func loggingHandler(next http.Handler) http.Handler {
@@ -26,8 +27,8 @@ func loggingHandler(next http.Handler) http.Handler {
 func recoverHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
-			if err := recover(); err != nil {
-				log.Printf("PANIC: %+v", err)
+			if r := recover(); r != nil {
+				logger.Printf("PANIC: %v\n%v", r, string(debug.Stack()))
 				http.Error(w, http.StatusText(500), 500)
 			}
 		}()
