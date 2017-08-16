@@ -27,3 +27,4 @@ Use -conf flag to set the config file path. If not set, `./conf/historical-datas
 ```
 ./bin/historical-datastore -conf historical-datastore.json
 ```
+
