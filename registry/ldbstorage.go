@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"code.linksmart.eu/hds/historical-datastore/common"
+	"code.linksmart.eu/sc/service-catalog/utils"
 	"github.com/pborman/uuid"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"linksmart.eu/lc/core/catalog"
-	"code.linksmart.eu/hds/historical-datastore/common"
 )
 
 // LevelDB storage
@@ -237,7 +237,7 @@ func (s *LevelDBStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	// LevelDB keys are sorted
 
 	// Get the queried page
-	offset, limit, err := catalog.GetPagingAttr(total, page, perPage, MaxPerPage)
+	offset, limit, err := utils.GetPagingAttr(total, page, perPage, MaxPerPage)
 	if err != nil {
 		return nil, 0, logger.Errorf("%s", err)
 	}
@@ -318,7 +318,7 @@ func (s *LevelDBStorage) pathFilterOne(path, op, value string) (*DataSource, err
 			return nil, logger.Errorf("%s", err)
 		}
 
-		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
+		matched, err := utils.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
@@ -358,7 +358,7 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 			return []DataSource{}, 0, logger.Errorf("%s", err)
 		}
 
-		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
+		matched, err := utils.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
@@ -376,7 +376,7 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 	}
 
 	// Apply pagination
-	slice, err := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
+	slice, err := utils.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
 	if err != nil {
 		return nil, 0, logger.Errorf("%s", err)
 	}

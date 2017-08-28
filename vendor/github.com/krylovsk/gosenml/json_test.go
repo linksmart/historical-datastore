@@ -51,17 +51,37 @@ var collectionOfResources = string(
     "bt": 1320078429,
     "ver": 1}`)
 
+var sumAndValue = string(
+	`{"e":[
+        { "n": "capacity", "s": 52.4 },
+        { "n": "capacityA", "s": 14.6, "v": 7.3 },
+        { "n": "capacityB", "s": 37.8, "v": 18.9 }]}`)
+
 var testSuiteValid = []string{
 	singleDatapoint,
 	multipleDatapoints1,
 	multipleDatapoints2,
 	multipleMeasurements,
-	collectionOfResources}
+	collectionOfResources,
+	sumAndValue,
+}
 
 var emptyEntries = string(`{"e":[]}`)
 
+var multipleValues = string(
+	`{"e":[
+        { "n": "temperature", "v": 27.2, "sv": "normal" },
+        { "n": "humidity", "v": 80, "bv": true }]}`)
+
+var noValues = string(
+	`{"e":[
+        { "n": "temperature" },
+        { "n": "humidity", "v": 80 }]}`)
+
 var testSuiteInvalid = []string{
 	emptyEntries,
+	multipleValues,
+	noValues,
 }
 
 func TestDecodeValid(t *testing.T) {

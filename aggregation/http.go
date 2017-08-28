@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
-	"linksmart.eu/lc/core/catalog"
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/data"
 	"code.linksmart.eu/hds/historical-datastore/registry"
+	"code.linksmart.eu/sc/service-catalog/utils"
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -76,7 +76,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 	var index Index
 	index.Aggrs = make([]Aggregation, 0, len(aggrs))
 	for _, aggr := range aggrs {
-		matched, err := catalog.MatchObject(aggr, pathTknz, fop, fvalue)
+		matched, err := utils.MatchObject(aggr, pathTknz, fop, fvalue)
 		if err != nil {
 			common.ErrorResponse(http.StatusInternalServerError, "Error matching aggregation: "+err.Error(), w)
 			return

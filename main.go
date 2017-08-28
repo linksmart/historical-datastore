@@ -12,17 +12,14 @@ import (
 	"os/signal"
 	"sync"
 
-	"github.com/gorilla/context"
-	"github.com/justinas/alice"
-
+	_ "code.linksmart.eu/com/go-sec/auth/keycloak/validator"
+	"code.linksmart.eu/com/go-sec/auth/validator"
 	"code.linksmart.eu/hds/historical-datastore/aggregation"
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/data"
 	"code.linksmart.eu/hds/historical-datastore/registry"
-
-	_ "linksmart.eu/lc/sec/auth/cas/validator"
-	_ "linksmart.eu/lc/sec/auth/keycloak/validator"
-	"linksmart.eu/lc/sec/auth/validator"
+	"github.com/gorilla/context"
+	"github.com/justinas/alice"
 )
 
 var (

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/influxdb/influxdb/models"
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/data"
 	"code.linksmart.eu/hds/historical-datastore/registry"
+	"github.com/influxdata/influxdb/models"
 )
 
 type InfluxAggr struct {

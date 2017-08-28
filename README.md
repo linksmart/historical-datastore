@@ -28,3 +28,5 @@ Use -conf flag to set the config file path. If not set, `./conf/historical-datas
 ./bin/historical-datastore -conf historical-datastore.json
 ```
 
+## Development
+The dependencies of this package are managed by [dep](https://github.com/golang/dep).

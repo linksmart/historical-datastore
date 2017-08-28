@@ -9,11 +9,11 @@ import (
 	"strings"
 	"sync"
 
-	sc "linksmart.eu/lc/core/catalog/service"
 	"code.linksmart.eu/hds/historical-datastore/common"
+	sc "code.linksmart.eu/sc/service-catalog/service"
 
-	_ "linksmart.eu/lc/sec/auth/cas/obtainer"
-	"linksmart.eu/lc/sec/auth/obtainer"
+	_ "code.linksmart.eu/com/go-sec/auth/keycloak/obtainer"
+	"code.linksmart.eu/com/go-sec/auth/obtainer"
 )
 
 const (

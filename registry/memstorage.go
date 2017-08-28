@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pborman/uuid"
-	"linksmart.eu/lc/core/catalog"
 	"code.linksmart.eu/hds/historical-datastore/common"
+	"code.linksmart.eu/sc/service-catalog/utils"
+	"github.com/pborman/uuid"
 )
 
 // In-memory storage
@@ -167,7 +167,7 @@ func (ms *MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	sort.Strings(allKeys)
 
 	// Get the queried page
-	pagedKeys, err := catalog.GetPageOfSlice(allKeys, page, perPage, MaxPerPage)
+	pagedKeys, err := utils.GetPageOfSlice(allKeys, page, perPage, MaxPerPage)
 	if err != nil {
 		return []DataSource{}, 0, logger.Errorf("%s", err)
 	}
@@ -203,7 +203,7 @@ func (ms *MemoryStorage) pathFilterOne(path, op, value string) (*DataSource, err
 
 	// return the first one found
 	for _, ds := range ms.data {
-		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
+		matched, err := utils.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
 			return nil, logger.Errorf("%s", err)
 		}
@@ -224,7 +224,7 @@ func (ms *MemoryStorage) pathFilter(path, op, value string, page, perPage int) (
 	defer ms.mutex.RUnlock()
 
 	for _, ds := range ms.data {
-		matched, err := catalog.MatchObject(ds, pathTknz, op, value)
+		matched, err := utils.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
 			return []DataSource{}, 0, logger.Errorf("%s", err)
 		}
@@ -233,7 +233,7 @@ func (ms *MemoryStorage) pathFilter(path, op, value string, page, perPage int) (
 		}
 	}
 
-	keys, err := catalog.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
+	keys, err := utils.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
 	if err != nil {
 		return []DataSource{}, 0, logger.Errorf("%s", err)
 	}

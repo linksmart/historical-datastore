@@ -2,10 +2,11 @@ package aggregation
 
 import (
 	"errors"
+	"fmt"
+
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/data"
 	"code.linksmart.eu/hds/historical-datastore/registry"
-	"fmt"
 )
 
 type MongoAggr struct {
@@ -30,7 +31,7 @@ func (a *MongoAggr) Query(aggr registry.Aggregation, q data.Query, page, perPage
 }
 
 func (a *MongoAggr) NtfCreated(ds registry.DataSource, callback chan error) {
-	fmt.Println("ds:",ds)
+	fmt.Println("ds:", ds)
 	if len(ds.Aggregation) > 0 {
 		callback <- errors.New("The storage backend does not support aggregation.")
 	} else {
@@ -39,7 +40,7 @@ func (a *MongoAggr) NtfCreated(ds registry.DataSource, callback chan error) {
 }
 
 func (a *MongoAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
-	fmt.Println("ds:",newDS)
+	fmt.Println("ds:", newDS)
 	if len(newDS.Aggregation) > 0 {
 		callback <- errors.New("The storage backend does not support aggregation.")
 	} else {

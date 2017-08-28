@@ -3,7 +3,7 @@ package gosenml
 import "fmt"
 
 // Data model as described in
-// http://www.ietf.org/id/draft-jennings-core-senml-00.txt
+// https://tools.ietf.org/html/draft-jennings-senml-10
 
 // Message is the root SenML variable
 type Message struct {
@@ -47,6 +47,26 @@ func (m *Message) copy() Message {
 func (m *Message) Validate() error {
 	if len(m.Entries) == 0 {
 		return fmt.Errorf("Invalid Message: entries must be non-empty")
+	}
+
+	// Validate values in entries
+	// https://tools.ietf.org/html/draft-jennings-senml-10#section-4
+	for _, e := range m.Entries {
+		vars := 0
+		if e.Value != nil {
+			vars++
+		}
+		if e.StringValue != nil {
+			vars++
+		}
+		if e.BooleanValue != nil {
+			vars++
+		}
+		if e.Sum == nil && vars != 1 {
+			return fmt.Errorf("In an entry, exactly one of v, sv, or bv MUST appear when a sum value is not present")
+		} else if e.Sum != nil && vars > 1 {
+			return fmt.Errorf("In an entry, exactly one of v, sv, or bv CAN appear when a sum value is present")
+		}
 	}
 	// TODO: more validation
 	return nil

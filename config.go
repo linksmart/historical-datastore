@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"net/url"
 
-	"linksmart.eu/lc/sec/authz"
+	"code.linksmart.eu/com/go-sec/authz"
 )
 
 // Supported Registry backend types

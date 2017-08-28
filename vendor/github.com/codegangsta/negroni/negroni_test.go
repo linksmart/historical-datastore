@@ -73,3 +73,15 @@ func TestHandlers(t *testing.T) {
 	handlers[0].ServeHTTP(response, (*http.Request)(nil), nil)
 	expect(t, response.Code, http.StatusOK)
 }
+
+func TestNegroni_Use_Nil(t *testing.T) {
+	defer func() {
+		err := recover()
+		if err == nil {
+			t.Errorf("Expected negroni.Use(nil) to panic, but it did not")
+		}
+	}()
+
+	n := New()
+	n.Use(nil)
+}

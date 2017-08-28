@@ -11,9 +11,9 @@ import (
 	"net/url"
 	"strings"
 
-	"linksmart.eu/lc/core/catalog"
-	"linksmart.eu/lc/sec/auth/obtainer"
+	"code.linksmart.eu/com/go-sec/auth/obtainer"
 	"code.linksmart.eu/hds/historical-datastore/common"
+	"code.linksmart.eu/sc/service-catalog/utils"
 )
 
 type RemoteClient struct {
@@ -35,7 +35,7 @@ func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) (*RemoteCli
 }
 
 func (c *RemoteClient) Index(page int, perPage int) (*Registry, error) {
-	res, err := catalog.HTTPRequest("GET",
+	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v?%v=%v&%v=%v", c.serverEndpoint, common.ParamPage, page, common.ParamPerPage, perPage),
 		nil,
 		nil,
@@ -65,7 +65,7 @@ func (c *RemoteClient) Index(page int, perPage int) (*Registry, error) {
 
 func (c *RemoteClient) Add(d *DataSource) (string, error) {
 	b, _ := json.Marshal(d)
-	res, err := catalog.HTTPRequest("POST",
+	res, err := utils.HTTPRequest("POST",
 		c.serverEndpoint.String()+"/",
 		map[string][]string{"Content-Type": []string{"application/ld+json"}},
 		bytes.NewReader(b),
@@ -93,7 +93,7 @@ func (c *RemoteClient) Add(d *DataSource) (string, error) {
 }
 
 func (c *RemoteClient) Get(id string) (*DataSource, error) {
-	res, err := catalog.HTTPRequest("GET",
+	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v/%v", c.serverEndpoint, id),
 		nil,
 		nil,
@@ -126,7 +126,7 @@ func (c *RemoteClient) Get(id string) (*DataSource, error) {
 
 func (c *RemoteClient) Update(id string, d *DataSource) error {
 	b, _ := json.Marshal(d)
-	res, err := catalog.HTTPRequest("PUT",
+	res, err := utils.HTTPRequest("PUT",
 		fmt.Sprintf("%v/%v", c.serverEndpoint, id),
 		nil,
 		bytes.NewReader(b),
@@ -151,7 +151,7 @@ func (c *RemoteClient) Update(id string, d *DataSource) error {
 }
 
 func (c *RemoteClient) Delete(id string) error {
-	res, err := catalog.HTTPRequest("DELETE",
+	res, err := utils.HTTPRequest("DELETE",
 		fmt.Sprintf("%v/%v", c.serverEndpoint, id),
 		nil,
 		bytes.NewReader([]byte{}),
@@ -172,7 +172,7 @@ func (c *RemoteClient) Delete(id string) error {
 }
 
 func (c *RemoteClient) FilterOne(path, op, value string) (*DataSource, error) {
-	res, err := catalog.HTTPRequest("GET",
+	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v/%v/%v/%v/%v", c.serverEndpoint, FTypeOne, path, op, value),
 		nil,
 		nil,
@@ -204,7 +204,7 @@ func (c *RemoteClient) FilterOne(path, op, value string) (*DataSource, error) {
 }
 
 func (c *RemoteClient) FilterMany(path, op, value string) ([]DataSource, error) {
-	res, err := catalog.HTTPRequest("GET",
+	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v/%v/%v/%v/%v", c.serverEndpoint, FTypeMany, path, op, value),
 		nil,
 		nil,

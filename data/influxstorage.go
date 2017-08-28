@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	influx "github.com/influxdb/influxdb/client/v2"
-	"github.com/influxdb/influxdb/models"
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
+	"github.com/influxdata/influxdb/models"
+	influx "github.com/influxdb/influxdb/client/v2"
 )
 
 // InfluxStorage implements a simple data storage back-end with SQLite

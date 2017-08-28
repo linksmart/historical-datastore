@@ -11,10 +11,10 @@ import (
 	"net/url"
 	"strings"
 
-	"linksmart.eu/lc/core/catalog"
-	"linksmart.eu/lc/sec/auth/obtainer"
+	"code.linksmart.eu/com/go-sec/auth/obtainer"
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
+	"code.linksmart.eu/sc/service-catalog/utils"
 )
 
 type RemoteClient struct {
@@ -40,7 +40,7 @@ func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) (*RemoteCli
 // contentType - mime-type of the data (will be set in the header)
 // id... - ID (or array of IDs) of data sources for which the data is being submitted
 func (c *RemoteClient) Submit(data []byte, contentType string, id ...string) error {
-	res, err := catalog.HTTPRequest("POST",
+	res, err := utils.HTTPRequest("POST",
 		c.serverEndpoint.String()+"/"+strings.Join(id, ","),
 		map[string][]string{"Content-Type": []string{contentType}},
 		bytes.NewReader(data),
@@ -79,7 +79,7 @@ func (c *RemoteClient) Query(q Query, page, perPage int, id ...string) (*RecordS
 		query += fmt.Sprintf("&%v=%v", common.ParamEnd, q.End.Format("2006-01-02T15:04:05Z"))
 	}
 
-	res, err := catalog.HTTPRequest("GET",
+	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v/%v?%v=%v&%v=%v%v",
 			c.serverEndpoint,
 			strings.Join(id, common.IDSeparator),
