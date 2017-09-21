@@ -208,6 +208,7 @@ func (m *Manager) onConnectionLostHandler(client paho.Client, err error) {
 }
 
 func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
+	t1 := time.Now()
 	logger.Debugf("MQTT: %s %s", msg.Topic(), msg.Payload())
 
 	data := make(map[string][]DataPoint)
@@ -298,6 +299,8 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		logger.Printf("MQTT: Error writing data to the database: %v", err)
 		return
 	}
+
+	logger.Printf("\"SUB %s MQTT/QOS%d\" %d %v\n", msg.Topic(), msg.Qos(), 0, time.Now().Sub(t1))
 }
 
 // NOTIFICATION HANDLERS

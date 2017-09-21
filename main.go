@@ -27,6 +27,7 @@ var (
 )
 
 func main() {
+	logger.Printf("Starting Historical Datastore - Version %s", common.APIVersion)
 	flag.Parse()
 
 	// Load Config File
@@ -166,8 +167,6 @@ func main() {
 		logger.Println("Stopped.")
 		os.Exit(0)
 	}()
-
-	logger.Printf("Starting Historical Datastore - Version %s", common.APIVersion)
 
 	// Serve static web directory
 	go webServer(conf)
