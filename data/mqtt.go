@@ -214,7 +214,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 	logHeader := fmt.Sprintf("\"SUB %s MQTT/QOS%d\"", msg.Topic(), msg.Qos())
 	logMQTTError := func(code int, format string, v ...interface{}) {
-		logger.Printf("%s %d %v\n\t%s", logHeader, code, time.Now().Sub(t1), fmt.Sprintf(format, v...))
+		logger.Printf("%s %d %v %s", logHeader, code, time.Now().Sub(t1), fmt.Sprintf(format, v...))
 	}
 
 	logger.Debugf("MQTT: %s %s", msg.Topic(), msg.Payload())
