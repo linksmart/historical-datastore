@@ -5,7 +5,7 @@
   branch = "master"
   name = "code.linksmart.eu/com/go-sec"
   packages = ["auth/keycloak/obtainer","auth/keycloak/validator","auth/obtainer","auth/validator","authz"]
-  revision = "5abeee54723444678d878c5bb556e5c4218f69ce"
+  revision = "6e8d0334a281ca5740559365469c2f587c75cbcd"
 
 [[projects]]
   branch = "master"
