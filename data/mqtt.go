@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"net/http"
+
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
 	paho "github.com/eclipse/paho.mqtt.golang"
@@ -209,6 +211,12 @@ func (m *Manager) onConnectionLostHandler(client paho.Client, err error) {
 
 func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 	t1 := time.Now()
+
+	logHeader := fmt.Sprintf("\"SUB %s MQTT/QOS%d\"", msg.Topic(), msg.Qos())
+	logMQTTError := func(code int, format string, v ...interface{}) {
+		logger.Printf("%s %d %v\n\t%s", logHeader, code, time.Now().Sub(t1), fmt.Sprintf(format, v...))
+	}
+
 	logger.Debugf("MQTT: %s %s", msg.Topic(), msg.Payload())
 
 	data := make(map[string][]DataPoint)
@@ -217,13 +225,13 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 	err := json.Unmarshal(msg.Payload(), &senmlMessage)
 	if err != nil {
-		logger.Printf("MQTT: Error parsing json: %s : %v", msg.Payload(), err)
+		logMQTTError(http.StatusBadRequest, "Error parsing json: %s : %v", msg.Payload(), err)
 		return
 	}
 
 	err = senmlMessage.Validate()
 	if err != nil {
-		logger.Printf("MQTT: Invalid SenML: %s : %v", msg.Payload(), err)
+		logMQTTError(http.StatusBadRequest, "Invalid SenML: %s : %v", msg.Payload(), err)
 		return
 	}
 
@@ -231,7 +239,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 	entries := senmlMessage.Expand().Entries
 	for _, e := range entries {
 		if e.Name == "" {
-			logger.Printf("MQTT: Error: Resource name not specified: %s", msg.Payload())
+			logMQTTError(http.StatusBadRequest, "Resource name not specified: %s", msg.Payload())
 			return
 		}
 		// Find the data source for this entry
@@ -239,11 +247,11 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		if !exists {
 			ds, err = s.connector.registryClient.FindDataSource("resource", "equals", e.Name)
 			if err != nil {
-				logger.Printf("MQTT: Error finding data source: %v", e.Name)
+				logMQTTError(http.StatusInternalServerError, "Error finding resource: %v", e.Name)
 				return
 			}
 			if ds == nil {
-				logger.Printf("MQTT: Error: Unable to find resource in registry: %v", e.Name)
+				logMQTTError(http.StatusNotFound, "Resource not found: %v", e.Name)
 				return
 			}
 			s.connector.cache[e.Name] = ds
@@ -251,11 +259,11 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 		// Check if the message is wanted
 		if ds.Connector.MQTT == nil {
-			logger.Printf("MQTT: Ignoring unwanted message for data source: %v", e.Name)
+			logMQTTError(http.StatusNotAcceptable, "Ignoring unwanted message for resource: %v", e.Name)
 			return
 		}
 		if ds.Connector.MQTT.URL != s.url {
-			logger.Printf("MQTT: Ignoring message from unwanted broker %v for data source: %v", s.url, e.Name)
+			logMQTTError(http.StatusNotAcceptable, "Ignoring message from unwanted broker %v for data source: %v", s.url, e.Name)
 			return
 		}
 		if ds.Connector.MQTT.Topic != s.topic {
@@ -280,7 +288,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 			}
 		}
 		if typeError {
-			logger.Printf("MQTT: Error: Entry for data point %v has a type that is incompatible with source registration. Source %v has type %v.", e.Name, ds.ID, ds.Type)
+			logMQTTError(http.StatusBadRequest, "Error: Entry for data point %v has a type that is incompatible with source registration. Source %v has type %v.", e.Name, ds.ID, ds.Type)
 			return
 		}
 
@@ -296,11 +304,11 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 	// Add data to the storage
 	err = s.connector.storage.Submit(data, sources)
 	if err != nil {
-		logger.Printf("MQTT: Error writing data to the database: %v", err)
+		logMQTTError(http.StatusInternalServerError, "Error writing data to the database: %v", err)
 		return
 	}
 
-	logger.Printf("\"SUB %s MQTT/QOS%d\" %d %v\n", msg.Topic(), msg.Qos(), 0, time.Now().Sub(t1))
+	logger.Printf("%s %d %v\n", logHeader, http.StatusAccepted, time.Now().Sub(t1))
 }
 
 // NOTIFICATION HANDLERS
