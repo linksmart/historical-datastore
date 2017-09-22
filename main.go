@@ -22,11 +22,16 @@ import (
 	"github.com/justinas/alice"
 )
 
-var (
-	confPath = flag.String("conf", "conf/historical-datastore.json", "Historical Datastore configuration file path")
-)
+const LINKSMART = `
+╦   ╦ ╔╗╔ ╦╔═  ╔═╗ ╔╦╗ ╔═╗ ╦═╗ ╔╦╗ R
+║   ║ ║║║ ╠╩╗  ╚═╗ ║║║ ╠═╣ ╠╦╝  ║
+╩═╝ ╩ ╝╚╝ ╩ ╩  ╚═╝ ╩ ╩ ╩ ╩ ╩╚═  ╩
+`
+
+var confPath = flag.String("conf", "conf/historical-datastore.json", "Historical Datastore configuration file path")
 
 func main() {
+	fmt.Print(LINKSMART)
 	logger.Printf("Starting Historical Datastore - Version %s", common.APIVersion)
 	flag.Parse()
 
