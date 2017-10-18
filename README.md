@@ -5,7 +5,7 @@ Implementation of the [Historical Datastore Service](https://docs.linksmart.eu/d
 
 ## Code structure
 
-The code can be found in `src/linksmart.eu/services/historical-datastore` where:
+The code consists of four packages locate at:
 
 * `/` - implementation of a standalone service providing full API.
 * `/registry` - implementation of Registry API
