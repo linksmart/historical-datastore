@@ -10,7 +10,7 @@ services:
     command: bash -c "dockerize -wait tcp://influxdb:8086 -timeout 30s && 
                          curl -sS -POST 'http://influxdb:8086/query' --data-urlencode 'q=CREATE DATABASE hds'"
   hds:
-    image: docker.linksmart.eu/hds/historical-datastore
+    image: docker.linksmart.eu/hds
 #    build:
 #      context: .
     ports:
