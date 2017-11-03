@@ -249,7 +249,7 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.Da
 			return NewDataSet(), 0, logger.Errorf("Error counting records for source %v: %s", ds.Resource, err)
 		}
 		if count < 1 {
-			logger.Printf("There is no data for source %v", ds.Resource)
+			//logger.Printf("There is no data for source %v", ds.Resource)
 			continue
 		}
 		total += int(count)
