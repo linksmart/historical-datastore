@@ -124,7 +124,6 @@ func (c *MQTTConnector) register(mqttConf *registry.MQTTConf) error {
 		opts := paho.NewClientOptions() // uses defaults: https://godoc.org/github.com/eclipse/paho.mqtt.golang#NewClientOptions
 		opts.AddBroker(mqttConf.URL)
 		opts.SetClientID(fmt.Sprintf("HDS-%v", uuid.NewRandom())) // TODO: make this configurable
-		opts.SetConnectTimeout(5 * time.Second)
 		opts.SetOnConnectHandler(manager.onConnectHandler)
 		opts.SetConnectionLostHandler(manager.onConnectionLostHandler)
 		if mqttConf.Username != "" {
