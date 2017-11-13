@@ -59,19 +59,19 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	data := make(map[string][]DataPoint)
 	sources := make(map[string]registry.DataSource)
-	var senmlMessage senml.Message
-	contentType := strings.Split(r.Header.Get("Content-Type"), ";")[0]
 
-	// Only SenML is supported for now
-	if contentType != "application/senml+json" {
-		common.ErrorResponse(http.StatusUnsupportedMediaType, "Unsupported content type: "+contentType+". Currently, only `application/senml+json` is supported.", w)
-		return
-	}
+	//contentType := strings.Split(r.Header.Get("Content-Type"), ";")[0]
+	//// Only SenML is supported for now
+	//if contentType != "application/senml+json" {
+	//	common.ErrorResponse(http.StatusUnsupportedMediaType, "Unsupported content type: "+contentType+". Currently, only `application/senml+json` is supported.", w)
+	//	return
+	//}
 
 	// Parse id(s)
 	ids := strings.Split(params["id"], common.IDSeparator)
 
 	// Parse payload
+	var senmlMessage senml.Message
 	decoder := json.NewDecoder(r.Body)
 	defer r.Body.Close()
 	err := decoder.Decode(&senmlMessage)
