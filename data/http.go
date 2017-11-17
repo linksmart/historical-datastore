@@ -21,41 +21,24 @@ const (
 	MaxPerPage = 1000
 )
 
-// ReadableAPI describes the read-only HTTP data API
-type ReadableAPI struct {
+// HTTPAPI describes the RESTful HTTP data API
+type HTTPAPI struct {
 	registryClient registry.Client
 	storage        Storage
 }
 
-// WriteableAPI describes the full HTTP data API
-type WriteableAPI struct {
-	*ReadableAPI
-}
-
-// NewWriteableAPI returns the configured Data API
-func NewWriteableAPI(registryClient registry.Client, storage Storage) *WriteableAPI {
-	return &WriteableAPI{
-		NewReadableAPI(registryClient, storage),
-	}
-}
-
-// NewReadableAPI returns the configured Data API
-func NewReadableAPI(registryClient registry.Client, storage Storage) *ReadableAPI {
-	return &ReadableAPI{
+// NewHTTPAPI returns the configured Data API
+func NewHTTPAPI(registryClient registry.Client, storage Storage) *HTTPAPI {
+	return &HTTPAPI{
 		registryClient,
 		storage,
 	}
 }
 
-// Submit is a handler for submitting a new data point: not supported by Readable API
-func (d *ReadableAPI) Submit(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusMethodNotAllowed)
-}
-
 // Submit is a handler for submitting a new data point
 // Expected parameters: id(s)
 // TODO: check SupportedContentTypes instead of hard-coding SenML
-func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
+func (d *HTTPAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	data := make(map[string][]DataPoint)
 	sources := make(map[string]*registry.DataSource)
@@ -157,7 +140,7 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 
 // SubmitWithoutID is a handler for submitting a new data point
 // Expected parameters: none
-func (d *WriteableAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
+func (d *HTTPAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 	// Parse payload
 	var senmlMessage senml.Message
@@ -244,7 +227,7 @@ func (d *WriteableAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 // Query is a handler for querying data
 // Expected parameters: id(s), optional: pagination, query string
-func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
+func (d *HTTPAPI) Query(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	timeStart := time.Now()
 	params := mux.Vars(r)

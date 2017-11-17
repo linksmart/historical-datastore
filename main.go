@@ -57,7 +57,7 @@ func main() {
 		}
 	}
 
-	regAPI := registry.NewWriteableAPI(regStorage)
+	regAPI := registry.NewHTTPAPI(regStorage)
 	registryClient := registry.NewLocalClient(regStorage)
 
 	//TODO:refactor below code
@@ -84,7 +84,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Error starting MQTT Connector: %v", err)
 	}
-	dataAPI := data.NewWriteableAPI(registryClient, dataStorage)
+	dataAPI := data.NewHTTPAPI(registryClient, dataStorage)
 
 	// aggregation
 	aggrAPI := aggregation.NewAPI(registryClient, dataAggr)

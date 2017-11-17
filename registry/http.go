@@ -30,34 +30,22 @@ func ErrType(err, e error) bool {
 	return strings.Contains(err.Error(), e.Error())
 }
 
-// Read-only HTTP Registry API
-type ReadableAPI struct {
+// RESTful HTTP API
+type HTTPAPI struct {
 	storage Storage
 }
 
-// Returns the configured read-only Registry API
-func NewReadableAPI(storage Storage) *ReadableAPI {
-	return &ReadableAPI{
+// Returns the configured Registry API
+func NewHTTPAPI(storage Storage) *HTTPAPI {
+	return &HTTPAPI{
 		storage,
-	}
-}
-
-// Full HTTP Registry API
-type WriteableAPI struct {
-	*ReadableAPI
-}
-
-// Returns the configured full Registry API
-func NewWriteableAPI(storage Storage) *WriteableAPI {
-	return &WriteableAPI{
-		NewReadableAPI(storage),
 	}
 }
 
 // Handlers ///////////////////////////////////////////////////////////////////////
 
 // Index is a handler for the registry index
-func (regAPI *ReadableAPI) Index(w http.ResponseWriter, r *http.Request) {
+func (regAPI *HTTPAPI) Index(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	lastModified, err := regAPI.storage.modifiedDate()
@@ -107,13 +95,8 @@ func (regAPI *ReadableAPI) Index(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// Create is a handler for creating a new DataSource: not supported by Readable API
-func (regAPI *ReadableAPI) Create(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusMethodNotAllowed)
-}
-
 // Create is a handler for creating a new DataSource
-func (regAPI *WriteableAPI) Create(w http.ResponseWriter, r *http.Request) {
+func (regAPI *HTTPAPI) Create(w http.ResponseWriter, r *http.Request) {
 
 	//	contentType := strings.Split(r.Header.Get("Content-Type"), ";")[0]
 	//	if contentType != "application/json" {
@@ -156,7 +139,7 @@ func (regAPI *WriteableAPI) Create(w http.ResponseWriter, r *http.Request) {
 
 // Retrieve is a handler for retrieving a new DataSource
 // Expected parameters: id
-func (regAPI *ReadableAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
+func (regAPI *HTTPAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
@@ -178,14 +161,9 @@ func (regAPI *ReadableAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// Update is a handler for updating the given DataSource: not supported by Readable API
-func (regAPI *ReadableAPI) Update(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusMethodNotAllowed)
-}
-
 // Update is a handler for updating the given DataSource
 // Expected parameters: id
-func (regAPI *WriteableAPI) Update(w http.ResponseWriter, r *http.Request) {
+func (regAPI *HTTPAPI) Update(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
@@ -219,14 +197,9 @@ func (regAPI *WriteableAPI) Update(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// Delete is a handler for deleting the given DataSource: not supported by Readable API
-func (regAPI *ReadableAPI) Delete(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusMethodNotAllowed)
-}
-
 // Delete is a handler for deleting the given DataSource
 // Expected parameters: id
-func (regAPI *WriteableAPI) Delete(w http.ResponseWriter, r *http.Request) {
+func (regAPI *HTTPAPI) Delete(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
@@ -245,7 +218,7 @@ func (regAPI *WriteableAPI) Delete(w http.ResponseWriter, r *http.Request) {
 
 // Filter is a handler for registry filtering API
 // Expected parameters: path, type, op, value
-func (regAPI *ReadableAPI) Filter(w http.ResponseWriter, r *http.Request) {
+func (regAPI *HTTPAPI) Filter(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	fpath := params["path"]
 	ftype := params["type"]
