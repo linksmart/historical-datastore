@@ -19,7 +19,8 @@
     "backend": {
       "type": "mongodb",
       "dsn": "mongodb://hds:admin@ucc-docker:27017/hdsdb"
-    }
+    },
+    "autoRegistration": false
   },
   "aggregation": {},
   "serviceCatalogs": [

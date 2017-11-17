@@ -19,7 +19,8 @@
     "backend": {
       "type": "influxdb",
       "dsn": "http://user:password@influxdb:8086/hds"
-    }
+    },
+    "autoRegistration": false
   },
   "aggregation": {}
 }

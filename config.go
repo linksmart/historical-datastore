@@ -70,7 +70,8 @@ type RegBackendConf struct {
 
 // Data config
 type DataConf struct {
-	Backend DataBackendConf `json:"backend"`
+	Backend          DataBackendConf `json:"backend"`
+	AutoRegistration bool            `json:"autoRegistration"`
 }
 
 // Data backend config

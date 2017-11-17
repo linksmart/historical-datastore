@@ -23,16 +23,15 @@ const (
 
 // HTTPAPI describes the RESTful HTTP data API
 type HTTPAPI struct {
-	registryClient registry.Client
-	storage        Storage
+	registryClient   registry.Client
+	storage          Storage
+	autoRegistration bool
 }
 
 // NewHTTPAPI returns the configured Data API
-func NewHTTPAPI(registryClient registry.Client, storage Storage) *HTTPAPI {
-	return &HTTPAPI{
-		registryClient,
-		storage,
-	}
+func NewHTTPAPI(registryClient registry.Client, storage Storage, autoRegistration bool) *HTTPAPI {
+	logger.Printf("Automatic registration: %v", autoRegistration)
+	return &HTTPAPI{registryClient, storage, autoRegistration}
 }
 
 // Submit is a handler for submitting a new data point
@@ -173,14 +172,39 @@ func (d *HTTPAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 		ds, found := nameDSs[e.Name]
 		if !found {
-			ds, err = d.registryClient.FindDataSource("name", "equals", e.Name)
+			ds, err = d.registryClient.FindDataSource("resource", "equals", e.Name)
 			if err != nil {
 				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error retrieving data source with name %v from the registry: %v", e.Name, err.Error()), w)
 				return
 			}
 			if ds == nil {
-				common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data source with name %v is not registered.", e.Name), w)
-				return
+				if !d.autoRegistration {
+					common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data source with name %v is not registered.", e.Name), w)
+					return
+				}
+
+				// Register a data source with this name
+				logger.Printf("Registering data source for %s", e.Name)
+				newDS := registry.DataSource{
+					Resource: e.Name,
+					Format:   "application/senml+json",
+					Meta: map[string]interface{}{
+						"registrar": "Data API",
+					},
+				}
+				if e.Value != nil {
+					newDS.Type = common.FLOAT
+				} else if e.StringValue != nil {
+					newDS.Type = common.STRING
+				} else {
+					newDS.Type = common.BOOL
+				}
+				addedDS, err := d.registryClient.Add(newDS)
+				if err != nil {
+					common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error registering %v in the registry: %v", e.Name, err.Error()), w)
+					return
+				}
+				ds = &addedDS
 			}
 			nameDSs[e.Name] = ds
 		}

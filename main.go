@@ -84,7 +84,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Error starting MQTT Connector: %v", err)
 	}
-	dataAPI := data.NewHTTPAPI(registryClient, dataStorage)
+	dataAPI := data.NewHTTPAPI(registryClient, dataStorage, conf.Data.AutoRegistration)
 
 	// aggregation
 	aggrAPI := aggregation.NewAPI(registryClient, dataAggr)
