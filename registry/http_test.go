@@ -14,11 +14,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"code.linksmart.eu/hds/historical-datastore/common"
+	"github.com/gorilla/mux"
 )
 
-func setupRouter(regAPI *WriteableAPI) *mux.Router {
+func setupRouter(regAPI *HTTPAPI) *mux.Router {
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("GET").Path("/registry").HandlerFunc(regAPI.Index)
 	r.Methods("POST").Path("/registry").HandlerFunc(regAPI.Create)
@@ -29,9 +29,9 @@ func setupRouter(regAPI *WriteableAPI) *mux.Router {
 	return r
 }
 
-func setupAPI() (*WriteableAPI, Client) {
+func setupAPI() (*HTTPAPI, Client) {
 	regStorage := setupMemStorage()
-	regAPI := NewWriteableAPI(regStorage)
+	regAPI := NewHTTPAPI(regStorage)
 	registryClient := NewLocalClient(regStorage)
 
 	return regAPI, registryClient

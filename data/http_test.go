@@ -9,22 +9,22 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"fmt"
+	"os"
+
+	"code.linksmart.eu/hds/historical-datastore/registry"
 	"github.com/gorilla/mux"
 	senml "github.com/krylovsk/gosenml"
-	"code.linksmart.eu/hds/historical-datastore/registry"
-	"os"
-	"fmt"
 )
-
 
 func setupWritableAPI() *mux.Router {
 	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
 	storage, _, err := NewMongoStorage("mongodb://hds:admin@ucc-docker:27017/hdsdb")
 	if err != nil {
-		fmt.Println("failed:",err)
+		fmt.Println("failed:", err)
 		os.Exit(1)
 	}
-	api := NewWriteableAPI(registryClient, storage)
+	api := NewHTTPAPI(registryClient, storage, false)
 
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("POST").Path("/data/{id}").HandlerFunc(api.Submit)
@@ -36,10 +36,10 @@ func setupReadableAPI() *mux.Router {
 	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
 	storage, _, err := NewMongoStorage("mongodb://hds:admin@ucc-docker:27017/hdsdb")
 	if err != nil {
-		fmt.Println("failed:",err)
+		fmt.Println("failed:", err)
 		os.Exit(1)
 	}
-	api := NewReadableAPI(registryClient, storage)
+	api := NewHTTPAPI(registryClient, storage, false)
 
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("POST").Path("/data/{id}").HandlerFunc(api.Submit)
@@ -140,7 +140,7 @@ func TestHttpQuery(t *testing.T) {
 	if res.StatusCode != http.StatusOK {
 		t.Errorf("Server response is not %v but %v. \nResponse body:%s", http.StatusOK, res.StatusCode, string(b))
 	}
-	t.Errorf("Server response is not %s",string(b))
+	t.Errorf("Server response is not %s", string(b))
 	//TODO
 	//t.Error("TODO: check response body")
 }
