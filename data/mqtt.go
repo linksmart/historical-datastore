@@ -219,7 +219,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 	logger.Debugf("MQTT: %s %s", msg.Topic(), msg.Payload())
 
 	data := make(map[string][]DataPoint)
-	sources := make(map[string]registry.DataSource)
+	sources := make(map[string]*registry.DataSource)
 	var senmlMessage senml.Message
 
 	err := json.Unmarshal(msg.Payload(), &senmlMessage)
@@ -294,7 +294,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		_, ok := data[ds.ID]
 		if !ok {
 			data[ds.ID] = []DataPoint{}
-			sources[ds.ID] = *ds
+			sources[ds.ID] = ds
 		}
 		p := NewDataPoint()
 		data[ds.ID] = append(data[ds.ID], p.FromEntry(e))

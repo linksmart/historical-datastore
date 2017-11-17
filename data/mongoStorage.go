@@ -2,13 +2,14 @@ package data
 
 import (
 	"fmt"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 	"time"
 
-	"github.com/krylovsk/gosenml"
+	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
+	"github.com/krylovsk/gosenml"
 )
 
 // Entry is a measurement of Parameter Entry
@@ -54,17 +55,17 @@ func NewMongoStorage(DSN string) (*MongoStorage, chan<- common.Notification, err
 }
 
 // Formatted measurement name for a given data source
-func (s *MongoStorage) Msrmt(ds registry.DataSource) string {
+func (s *MongoStorage) Msrmt(ds *registry.DataSource) string {
 	return fmt.Sprintf("data_%s", ds.ID)
 }
 
 // Formatted retention policy name for a given data source
-func (s *MongoStorage) Retention(ds registry.DataSource) string {
+func (s *MongoStorage) Retention(ds *registry.DataSource) string {
 	return fmt.Sprintf("policy_%s", ds.ID)
 }
 
 // Fully qualified measurement name
-func (s *MongoStorage) FQMsrmt(ds registry.DataSource) string {
+func (s *MongoStorage) FQMsrmt(ds *registry.DataSource) string {
 	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.dialInfo.Database, s.Retention(ds), s.Msrmt(ds))
 }
 
@@ -88,7 +89,7 @@ func (s *MongoStorage) Database() string {
 
 // Adds multiple data points for multiple data sources
 // data is a map where keys are data source ids
-func (s *MongoStorage) Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
+func (s *MongoStorage) Submit(data map[string][]DataPoint, sources map[string]*registry.DataSource) error {
 	for id, dps := range data {
 		session := s.session.Copy()
 		defer session.Close()
@@ -123,7 +124,7 @@ func (s *MongoStorage) Submit(data map[string][]DataPoint, sources map[string]re
 
 // Queries data for specified data sources
 
-func (s *MongoStorage) Query(q Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
+func (s *MongoStorage) Query(q Query, page, perPage int, sources ...*registry.DataSource) (DataSet, int, error) {
 	points := []DataPoint{}
 	total := 0
 	// Set minimum time to 1970-01-01T00:00:00Z
@@ -221,7 +222,7 @@ func (s *MongoStorage) NtfCreated(ds registry.DataSource, callback chan error) {
 		session := s.session.Copy()
 		defer session.Close()
 
-		collection := session.DB(s.Database()).C(s.Msrmt(ds))
+		collection := session.DB(s.Database()).C(s.Msrmt(&ds))
 
 		TTL := mgo.Index{
 			Key:         []string{"t"},
@@ -252,7 +253,7 @@ func (s *MongoStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.Data
 		session := s.session.Copy()
 		defer session.Close()
 
-		collection := session.DB(s.Database()).C(s.Msrmt(newDS))
+		collection := session.DB(s.Database()).C(s.Msrmt(&newDS))
 
 		TTL := mgo.Index{
 			Key:         []string{"t"},
@@ -276,7 +277,7 @@ func (s *MongoStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
 	session := s.session.Copy()
 	defer session.Close()
 
-	collection := session.DB(s.Database()).C(s.Msrmt(ds))
+	collection := session.DB(s.Database()).C(s.Msrmt(&ds))
 
 	_, err := collection.RemoveAll(nil)
 

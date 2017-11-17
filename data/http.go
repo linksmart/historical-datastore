@@ -58,7 +58,7 @@ func (d *ReadableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	data := make(map[string][]DataPoint)
-	sources := make(map[string]registry.DataSource)
+	sources := make(map[string]*registry.DataSource)
 
 	//contentType := strings.Split(r.Header.Get("Content-Type"), ";")[0]
 	//// Only SenML is supported for now
@@ -81,7 +81,7 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if DataSources are registered in the Registry
-	dsResources := make(map[string]registry.DataSource)
+	dsResources := make(map[string]*registry.DataSource)
 	for _, id := range ids {
 		ds, err := d.registryClient.Get(id)
 		if err != nil {
@@ -90,7 +90,7 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 				w)
 			return
 		}
-		dsResources[ds.Resource] = ds
+		dsResources[ds.Resource] = &ds
 	}
 
 	err = senmlMessage.Validate()
@@ -155,6 +155,93 @@ func (d *WriteableAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// SubmitWithoutID is a handler for submitting a new data point
+// Expected parameters: none
+func (d *WriteableAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
+
+	// Parse payload
+	var senmlMessage senml.Message
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+	err := decoder.Decode(&senmlMessage)
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, "Error parsing message body: "+err.Error(), w)
+		return
+	}
+
+	// map of resource name -> data source
+	nameDSs := make(map[string]*registry.DataSource)
+
+	err = senmlMessage.Validate()
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
+	}
+
+	// Fill the data map with provided data points
+	data := make(map[string][]DataPoint)
+	sources := make(map[string]*registry.DataSource)
+	entries := senmlMessage.Expand().Entries
+	for _, e := range entries {
+		if e.Name == "" {
+			common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("SenML name not specified."), w)
+			return
+		}
+
+		ds, found := nameDSs[e.Name]
+		if !found {
+			ds, err = d.registryClient.FindDataSource("name", "equals", e.Name)
+			if err != nil {
+				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error retrieving data source with name %v from the registry: %v", e.Name, err.Error()), w)
+				return
+			}
+			if ds == nil {
+				common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data source with name %v is not registered.", e.Name), w)
+				return
+			}
+			nameDSs[e.Name] = ds
+		}
+
+		// Check if type of value matches the data source type in registry
+		switch ds.Type {
+		case common.FLOAT:
+			if e.Value == nil {
+				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Entry %s has type float that mismatches the registration type %s.", e.Name, ds.Type), w)
+				return
+			}
+		case common.STRING:
+			if e.StringValue == nil {
+				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Entry %s has type string that mismatches the registration type %s.", e.Name, ds.Type), w)
+				return
+			}
+		case common.BOOL:
+			if e.BooleanValue == nil {
+				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Entry %s has type boolean that mismatches the registration type %s.", e.Name, ds.Type), w)
+				return
+			}
+		}
+
+		// Prepare for storage
+		_, found = data[ds.ID]
+		if !found {
+			data[ds.ID] = []DataPoint{}
+			sources[ds.ID] = ds
+		}
+		p := NewDataPoint()
+		data[ds.ID] = append(data[ds.ID], p.FromEntry(e))
+	}
+
+	// Add data to the storage
+	err = d.storage.Submit(data, sources)
+	if err != nil {
+		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
+		return
+	}
+	w.Header().Set("Content-Type", common.DefaultMIMEType)
+	w.WriteHeader(http.StatusAccepted)
+	return
+}
+
 // Query is a handler for querying data
 // Expected parameters: id(s), optional: pagination, query string
 func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
@@ -174,7 +261,7 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 
 	// Parse id(s) and get sources from registry
 	ids := strings.Split(params["id"], common.IDSeparator)
-	sources := []registry.DataSource{}
+	sources := []*registry.DataSource{}
 	for _, id := range ids {
 		ds, err := d.registryClient.Get(id)
 		if err != nil {
@@ -183,7 +270,7 @@ func (d *ReadableAPI) Query(w http.ResponseWriter, r *http.Request) {
 				w)
 			return
 		}
-		sources = append(sources, ds)
+		sources = append(sources, &ds)
 	}
 	if len(sources) == 0 {
 		common.ErrorResponse(http.StatusNotFound,

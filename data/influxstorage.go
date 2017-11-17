@@ -51,17 +51,17 @@ func NewInfluxStorage(DSN string) (*InfluxStorage, chan<- common.Notification, e
 }
 
 // Formatted measurement name for a given data source
-func (s *InfluxStorage) Msrmt(ds registry.DataSource) string {
+func (s *InfluxStorage) Msrmt(ds *registry.DataSource) string {
 	return fmt.Sprintf("data_%s", ds.ID)
 }
 
 // Formatted retention policy name for a given data source
-func (s *InfluxStorage) Retention(ds registry.DataSource) string {
+func (s *InfluxStorage) Retention(ds *registry.DataSource) string {
 	return fmt.Sprintf("policy_%s", ds.ID)
 }
 
 // Fully qualified measurement name
-func (s *InfluxStorage) FQMsrmt(ds registry.DataSource) string {
+func (s *InfluxStorage) FQMsrmt(ds *registry.DataSource) string {
 	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.Database, s.Retention(ds), s.Msrmt(ds))
 }
 
@@ -90,7 +90,7 @@ func (s *InfluxStorage) Replication() int {
 
 // Adds multiple data points for multiple data sources
 // data is a map where keys are data source ids
-func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]registry.DataSource) error {
+func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*registry.DataSource) error {
 	for id, dps := range data {
 
 		bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
@@ -213,7 +213,7 @@ func pointsFromRow(r models.Row) ([]DataPoint, error) {
 }
 
 // Queries data for specified data sources
-func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
+func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.DataSource) (DataSet, int, error) {
 	points := []DataPoint{}
 	total := 0
 
@@ -292,7 +292,7 @@ func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) 
 		duration = ds.Retention
 	}
 	_, err := s.QuerySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
-		s.Retention(ds), s.config.Database, duration, s.config.Replication)
+		s.Retention(&ds), s.config.Database, duration, s.config.Replication)
 	if err != nil {
 		callback <- logger.Errorf("Error creating retention policy: %s", err)
 		return
@@ -312,7 +312,7 @@ func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 		}
 		// Setting SHARD DURATION 0s tells influx to use the default duration
 		// https://docs.influxdata.com/influxdb/v1.2/query_language/database_management/#retention-policy-management
-		_, err := s.QuerySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v SHARD DURATION 0s", s.Retention(oldDS), s.config.Database, duration)
+		_, err := s.QuerySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v SHARD DURATION 0s", s.Retention(&oldDS), s.config.Database, duration)
 		if err != nil {
 			callback <- logger.Errorf("Error modifying the retention policy for source: %s", err)
 			return
@@ -325,7 +325,7 @@ func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 // Handles deletion of a data source
 func (s *InfluxStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
 
-	_, err := s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.Msrmt(ds))
+	_, err := s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.Msrmt(&ds))
 	if err != nil {
 		if strings.Contains(err.Error(), "measurement not found") {
 			// Not an error, No data to delete.
@@ -337,7 +337,7 @@ func (s *InfluxStorage) NtfDeleted(ds registry.DataSource, callback chan error) 
 	logger.Println("InfluxStorage: dropped measurements for", ds.ID)
 
 DROP_RETENTION:
-	_, err = s.QuerySprintf("DROP RETENTION POLICY \"%s\" ON %s", s.Retention(ds), s.config.Database)
+	_, err = s.QuerySprintf("DROP RETENTION POLICY \"%s\" ON %s", s.Retention(&ds), s.config.Database)
 	if err != nil {
 		callback <- logger.Errorf("Error removing the retention policy for source: %s", err)
 		return

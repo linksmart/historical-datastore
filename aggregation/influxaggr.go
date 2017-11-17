@@ -309,7 +309,7 @@ func (a *InfluxAggr) backfill(ds registry.DataSource, dsa registry.Aggregation) 
 	// backfill one year at a time
 	for s := 0; s > SINCE; s-- {
 		_, err := a.influxStorage.QuerySprintf("SELECT %s INTO %s FROM %s WHERE time >= '%v' AND time < '%v' GROUP BY time(%s) fill(none)",
-			a.functions(dsa), a.fqMsrmt(ds.ID, dsa.ID), a.influxStorage.FQMsrmt(ds),
+			a.functions(dsa), a.fqMsrmt(ds.ID, dsa.ID), a.influxStorage.FQMsrmt(&ds),
 			now.AddDate(s-1, 0, 0).Format("2006-01-02 15:04:05"), now.AddDate(s, 0, 0).Format("2006-01-02 15:04:05"),
 			dsa.Interval)
 		if err != nil {
@@ -342,7 +342,7 @@ func (a *InfluxAggr) createRetentionPolicy(ds registry.DataSource, dsa registry.
 
 func (a *InfluxAggr) createContinuousQuery(ds registry.DataSource, dsa registry.Aggregation) error {
 	_, err := a.influxStorage.QuerySprintf("CREATE CONTINUOUS QUERY %s ON %s BEGIN SELECT %s INTO %s FROM %s GROUP BY time(%s) fill(none) END",
-		a.cq(ds.ID, dsa.ID), a.influxStorage.Database(), a.functions(dsa), a.fqMsrmt(ds.ID, dsa.ID), a.influxStorage.FQMsrmt(ds), dsa.Interval)
+		a.cq(ds.ID, dsa.ID), a.influxStorage.Database(), a.functions(dsa), a.fqMsrmt(ds.ID, dsa.ID), a.influxStorage.FQMsrmt(&ds), dsa.Interval)
 	if err != nil {
 		if strings.Contains(err.Error(), "continuous query already exists") {
 			logger.Printf("WARNING: %s: %v", err, a.cq(ds.ID, dsa.ID))
