@@ -132,7 +132,7 @@ func main() {
 	router.get("/registry/{type}/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(regAPI.Filter))
 
 	// data api
-	router.post("/data/", commonHandlers.ThenFunc(dataAPI.SubmitWithoutID))
+	router.post("/data", commonHandlers.ThenFunc(dataAPI.SubmitWithoutID))
 	router.post("/data/{id}", commonHandlers.ThenFunc(dataAPI.Submit))
 	router.get("/data/{id}", commonHandlers.ThenFunc(dataAPI.Query))
 
