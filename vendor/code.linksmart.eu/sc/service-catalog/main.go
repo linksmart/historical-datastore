@@ -5,149 +5,122 @@ package main
 import (
 	"flag"
 	"fmt"
-	"mime"
 	"net/http"
-	"net/url"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"strconv"
-	"syscall"
 	"time"
 
 	_ "code.linksmart.eu/com/go-sec/auth/keycloak/validator"
 	"code.linksmart.eu/com/go-sec/auth/validator"
-	"code.linksmart.eu/sc/service-catalog/service"
+	"code.linksmart.eu/sc/service-catalog/catalog"
 	"github.com/codegangsta/negroni"
 	"github.com/gorilla/context"
 	"github.com/justinas/alice"
 	"github.com/oleksandr/bonjour"
+	"github.com/satori/go.uuid"
 )
 
 var (
 	confPath = flag.String("conf", "conf/service-catalog.json", "Service catalog configuration file path")
+	profile  = flag.Bool("profile", false, "Enable the HTTP server for runtime profiling")
+	version  = flag.Bool("version", false, "Show the Service Catalog API version")
 )
+
+const LINKSMART = `
+╦   ╦ ╔╗╔ ╦╔═  ╔═╗ ╔╦╗ ╔═╗ ╦═╗ ╔╦╗ R
+║   ║ ║║║ ╠╩╗  ╚═╗ ║║║ ╠═╣ ╠╦╝  ║
+╩═╝ ╩ ╝╚╝ ╩ ╩  ╚═╝ ╩ ╩ ╩ ╩ ╩╚═  ╩
+`
+
+var Version = "MAJOR.MINOR.PATCH Not Provided"
 
 func main() {
 	flag.Parse()
+	if *version {
+		fmt.Println(Version)
+		return
+	}
+	fmt.Print(LINKSMART)
+	logger.Printf("Starting Service Catalog - Version %s", Version)
 
+	if *profile {
+		logger.Println("Starting runtime profiling server")
+		go func() { logger.Println(http.ListenAndServe("0.0.0.0:6060", nil)) }()
+	}
+
+	// Load configuration
 	config, err := loadConfig(*confPath)
 	if err != nil {
 		logger.Fatalf("Error reading config file %v: %v", *confPath, err)
 	}
-
-	r, shutdownAPI, err := setupRouter(config)
-	if err != nil {
-		logger.Fatal(err.Error())
+	if config.ID == "" {
+		config.ID = uuid.NewV4().String()
 	}
+
+	// Setup storage
+	var storage catalog.Storage
+
+	switch config.Storage.Type {
+	case catalog.CatalogBackendMemory:
+		storage = catalog.NewMemoryStorage()
+	case catalog.CatalogBackendLevelDB:
+		storage, err = catalog.NewLevelDBStorage(config.Storage.DSN, nil)
+		if err != nil {
+			logger.Fatal("Failed to start LevelDB storage: %v", err)
+		}
+	default:
+		logger.Fatal("Could not create catalog API storage. Unsupported type: %v", config.Storage.Type)
+	}
+
+	var listeners []catalog.Listener
+	controller, err := catalog.NewController(storage, listeners...)
+	if err != nil {
+		storage.Close()
+		logger.Fatal("Failed to start the controller: %v", err)
+	}
+
+	// Create http api
+	httpAPI := catalog.NewHTTPAPI(controller, config.ID, config.Description, Version)
+	go serveHTTP(httpAPI, config)
+
+	// Create mqtt api
+	go catalog.StartMQTTConnector(controller, config.MQTT, config.ID)
 
 	// Announce service using DNS-SD
 	var bonjourS *bonjour.Server
-	if config.DnssdEnabled {
-		bonjourS, err = bonjour.Register(config.Description,
-			service.DNSSDServiceType,
-			"",
-			config.BindPort,
-			[]string{fmt.Sprintf("uri=%s", config.ApiLocation)},
-			nil)
+	if config.DNSSDEnabled {
+		bonjourS, err = bonjour.Register(config.Description, catalog.DNSSDServiceType, "", config.HTTP.BindPort, []string{"uri=/"}, nil)
 		if err != nil {
 			logger.Printf("Failed to register DNS-SD service: %s", err.Error())
 		} else {
-			logger.Println("Registered service via DNS-SD using type", service.DNSSDServiceType)
+			logger.Println("Registered service via DNS-SD using type", catalog.DNSSDServiceType)
 		}
 	}
 
-	// Setup signal catcher for the server's proper shutdown
-	c := make(chan os.Signal, 1)
-	signal.Notify(c,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT)
-	go func() {
-		for _ = range c {
-			// sig is a ^C, handle it
+	// Ctrl+C / Kill handling
+	handler := make(chan os.Signal, 1)
+	signal.Notify(handler, os.Interrupt, os.Kill)
+	<-handler
+	logger.Println("Shutting down...")
 
-			//TODO: put here the last will logic
+	// Stop bonjour registration
+	if bonjourS != nil {
+		bonjourS.Shutdown()
+		time.Sleep(1e9)
+	}
 
-			// Stop bonjour registration
-			if bonjourS != nil {
-				bonjourS.Shutdown()
-				time.Sleep(1e9)
-			}
-
-			// Shutdown catalog API
-			err := shutdownAPI()
-			if err != nil {
-				logger.Println(err.Error())
-			}
-
-			logger.Println("Stopped")
-			os.Exit(0)
-		}
-	}()
-
-	err = mime.AddExtensionType(".jsonld", "application/ld+json")
+	// Shutdown storage
+	err = controller.Stop()
 	if err != nil {
-		logger.Println("ERROR: ", err.Error())
+		logger.Println(err.Error())
 	}
 
-	// Configure the middleware
-	n := negroni.New(
-		negroni.NewRecovery(),
-		negroni.NewLogger(),
-		&negroni.Static{
-			Dir:       http.Dir(config.StaticDir),
-			Prefix:    service.StaticLocation,
-			IndexFile: "index.html",
-		},
-	)
-	// Mount router
-	n.UseHandler(r)
-
-	// Start listener
-	endpoint := fmt.Sprintf("%s:%s", config.BindAddr, strconv.Itoa(config.BindPort))
-	logger.Printf("Starting standalone Service Catalog at %v%v", endpoint, config.ApiLocation)
-	n.Run(endpoint)
+	logger.Println("Stopped")
 }
 
-func setupRouter(config *Config) (*router, func() error, error) {
-	var listeners []service.Listener
-	// GC publisher if configured
-	if config.GC.TunnelingService != "" {
-		endpoint, _ := url.Parse(config.GC.TunnelingService)
-		listeners = append(listeners, service.NewGCPublisher(*endpoint))
-	}
-
-	// Setup API storage
-	var (
-		storage service.CatalogStorage
-		err     error
-	)
-	switch config.Storage.Type {
-	case service.CatalogBackendMemory:
-		storage = service.NewMemoryStorage()
-	case service.CatalogBackendLevelDB:
-		storage, err = service.NewLevelDBStorage(config.Storage.DSN, nil)
-		if err != nil {
-			return nil, nil, fmt.Errorf("Failed to start LevelDB storage: %v", err.Error())
-		}
-	default:
-		return nil, nil, fmt.Errorf("Could not create catalog API storage. Unsupported type: %v", config.Storage.Type)
-	}
-
-	controller, err := service.NewController(storage, config.ApiLocation, listeners...)
-	if err != nil {
-		storage.Close()
-		return nil, nil, fmt.Errorf("Failed to start the controller: %v", err.Error())
-	}
-
-	// Create catalog API object
-	api := service.NewCatalogAPI(
-		controller,
-		config.ApiLocation,
-		service.StaticLocation,
-		config.Description,
-	)
+func serveHTTP(httpAPI *catalog.HttpAPI, config *Config) {
 
 	commonHandlers := alice.New(
 		context.ClearHandler,
@@ -163,23 +136,32 @@ func setupRouter(config *Config) (*router, func() error, error) {
 			config.Auth.BasicEnabled,
 			config.Auth.Authz)
 		if err != nil {
-			return nil, nil, err
+			logger.Fatalln(err)
 		}
 
 		commonHandlers = commonHandlers.Append(v.Handler)
 	}
 
-	// Configure http api router
+	// Configure http router
 	r := newRouter()
 	// Handlers
-	r.get(config.ApiLocation, commonHandlers.ThenFunc(api.List))
-	r.post(config.ApiLocation, commonHandlers.ThenFunc(api.Post))
+	r.get("/", commonHandlers.ThenFunc(httpAPI.List))
+	r.post("/", commonHandlers.ThenFunc(httpAPI.Post))
 	// Accept an id with zero or one slash: [^/]+/?[^/]*
 	// -> [^/]+ one or more of anything but slashes /? optional slash [^/]* zero or more of anything but slashes
-	r.get(config.ApiLocation+"/{id:[^/]+/?[^/]*}", commonHandlers.ThenFunc(api.Get))
-	r.put(config.ApiLocation+"/{id:[^/]+/?[^/]*}", commonHandlers.ThenFunc(api.Put))
-	r.delete(config.ApiLocation+"/{id:[^/]+/?[^/]*}", commonHandlers.ThenFunc(api.Delete))
-	r.get(config.ApiLocation+"/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(api.Filter))
+	r.get("/{id:[^/]+/?[^/]*}", commonHandlers.ThenFunc(httpAPI.Get))
+	r.put("/{id:[^/]+/?[^/]*}", commonHandlers.ThenFunc(httpAPI.Put))
+	r.delete("/{id:[^/]+/?[^/]*}", commonHandlers.ThenFunc(httpAPI.Delete))
+	r.get("/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(httpAPI.Filter))
 
-	return r, controller.Stop, nil
+	// Configure the middleware
+	n := negroni.New(
+		negroni.NewRecovery(),
+		logger,
+	)
+	// Mount router
+	n.UseHandler(r)
+
+	// Start listener
+	n.Run(fmt.Sprintf("%s:%s", config.HTTP.BindAddr, strconv.Itoa(config.HTTP.BindPort)))
 }

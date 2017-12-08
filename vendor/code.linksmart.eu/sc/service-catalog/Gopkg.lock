@@ -26,6 +26,18 @@
   version = "v3.0.0"
 
 [[projects]]
+  name = "github.com/eclipse/paho.mqtt.golang"
+  packages = [".","packets"]
+  revision = "aff15770515e3c57fc6109da73d42b0d46f7f483"
+  version = "v1.1.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/farshidtz/elog"
+  packages = ["."]
+  revision = "b9fdc31674819500a6b4abe0d32e676c1a9c4a17"
+
+[[projects]]
   branch = "master"
   name = "github.com/golang/snappy"
   packages = ["."]
@@ -62,10 +74,10 @@
   revision = "5dcf00d8b228be86307f952f550f2191d956b9e2"
 
 [[projects]]
-  name = "github.com/pborman/uuid"
+  name = "github.com/satori/go.uuid"
   packages = ["."]
-  revision = "e790cca94e6cc75c7064b1332e63811d4aae1a53"
-  version = "v1.1"
+  revision = "879c5887cd475cd7864858769793b2ceb0d44feb"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -76,12 +88,12 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["bpf","internal/iana","internal/socket","ipv4","ipv6"]
+  packages = ["bpf","internal/iana","internal/socket","ipv4","ipv6","proxy","websocket"]
   revision = "57efc9c3d9f91fb3277f8da1cff370539c4d3dc5"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c1cb082c037aef0889c23ef4ac1f916437b5aacba72b77cf331f35396dc45d04"
+  inputs-digest = "46d7960fe908d61a405606a84fd8e81bd5e846b4d8aa47d2b99f23db73f919c5"
   solver-name = "gps-cdcl"
   solver-version = 1

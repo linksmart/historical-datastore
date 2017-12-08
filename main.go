@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 
 	_ "code.linksmart.eu/com/go-sec/auth/keycloak/validator"
 	"code.linksmart.eu/com/go-sec/auth/validator"
@@ -142,8 +141,7 @@ func main() {
 	router.get("/aggr/{aggrid}/{uuid}", commonHandlers.ThenFunc(aggrAPI.Query))
 
 	// Register in the service catalog(s)
-	var wg sync.WaitGroup
-	regChannels := registerInServiceCatalog(conf, &wg)
+	unregisterService := registerInServiceCatalog(conf)
 
 	// Ctrl+C / Kill handling
 	handler := make(chan os.Signal, 1)
@@ -152,15 +150,8 @@ func main() {
 		<-handler
 		logger.Println("Shutting down...")
 
-		// Unregister in the service catalog(s)
-		for _, sigCh := range regChannels {
-			// Notify if the routine hasn't returned already
-			select {
-			case sigCh <- true:
-			default:
-			}
-		}
-		wg.Wait()
+		// Unregister from the service catalog(s)
+		unregisterService()
 
 		// Close the Registry Storage
 		if closeReg != nil {

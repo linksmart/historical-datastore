@@ -8,73 +8,47 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
-	"strings"
 
 	"code.linksmart.eu/com/go-sec/authz"
-	"code.linksmart.eu/sc/service-catalog/service"
+	"code.linksmart.eu/sc/service-catalog/catalog"
 )
 
 type Config struct {
-	Description  string        `json:"description"`
-	DnssdEnabled bool          `json:"dnssdEnabled"`
-	BindAddr     string        `json:"bindAddr"`
-	BindPort     int           `json:"bindPort"`
-	ApiLocation  string        `json:"apiLocation"`
-	StaticDir    string        `json:"staticDir"`
-	Storage      StorageConfig `json:"storage"`
-	GC           GCConfig      `js:"gc"`
-	Auth         ValidatorConf `json:"auth"`
+	ID           string           `json:"id"`
+	Description  string           `json:"description"`
+	DNSSDEnabled bool             `json:"dnssdEnabled"`
+	Storage      StorageConf      `json:"storage"`
+	HTTP         HTTPConf         `json:"http"`
+	MQTT         catalog.MQTTConf `json:"mqtt"`
+	Auth         ValidatorConf    `json:"auth"`
 }
 
-type StorageConfig struct {
-	Type string `json:"type"`
-	DSN  string `json:"dsn"`
-}
+func (c *Config) validate() error {
 
-var supportedBackends = map[string]bool{
-	service.CatalogBackendMemory:  true,
-	service.CatalogBackendLevelDB: true,
-}
-
-// GCConfig describes configuration of the GlobalConnect
-type GCConfig struct {
-	// URL of the Tunneling Service endpoint (aka NM REST API)
-	TunnelingService string `json:"tunnelingService"`
-}
-
-func (c *Config) Validate() error {
-	var err error
-	if c.BindAddr == "" || c.BindPort == 0 {
-		err = fmt.Errorf("Empty host or port")
-	}
-	if !supportedBackends[c.Storage.Type] {
-		err = fmt.Errorf("Unsupported storage backend")
-	}
-	_, err = url.Parse(c.Storage.DSN)
+	err := c.Storage.validate()
 	if err != nil {
-		err = fmt.Errorf("storage DSN should be a valid URL")
+		return err
 	}
-	if c.StaticDir == "" {
-		err = fmt.Errorf("staticDir must be defined")
+
+	err = c.HTTP.validate()
+	if err != nil {
+		return err
 	}
-	if strings.HasSuffix(c.StaticDir, "/") {
-		err = fmt.Errorf("staticDir must not have a trailing slash")
+
+	err = c.MQTT.Validate()
+	if err != nil {
+		return err
 	}
-	if c.GC.TunnelingService != "" {
-		_, err := url.Parse(c.GC.TunnelingService)
-		if err != nil {
-			err = fmt.Errorf("gc tunnelingService must be a valid URL")
-		}
-	}
+
 	if c.Auth.Enabled {
 		// Validate ticket validator config
-		err = c.Auth.Validate()
+		err = c.Auth.validate()
 		if err != nil {
 			return err
 		}
 	}
 
-	return err
+	return nil
 }
 
 func loadConfig(confPath string) (*Config, error) {
@@ -89,14 +63,41 @@ func loadConfig(confPath string) (*Config, error) {
 		return nil, err
 	}
 
-	if strings.HasSuffix(config.ApiLocation, "/") {
-		config.ApiLocation = strings.TrimSuffix(config.ApiLocation, "/")
-	}
-
-	if err = config.Validate(); err != nil {
+	if err = config.validate(); err != nil {
 		return nil, err
 	}
 	return config, nil
+}
+
+type StorageConf struct {
+	Type string `json:"type"`
+	DSN  string `json:"dsn"`
+}
+
+func (c StorageConf) validate() error {
+	if !catalog.SupportedBackends[c.Type] {
+		return fmt.Errorf("storage: unsupported backend")
+	}
+	_, err := url.Parse(c.DSN)
+	if err != nil {
+		return fmt.Errorf("storage: DSN should be a valid URL: %v", err)
+	}
+	return nil
+}
+
+type HTTPConf struct {
+	BindAddr string `json:"bindAddr"`
+	BindPort int    `json:"bindPort"`
+}
+
+func (c HTTPConf) validate() error {
+	if c.BindAddr == ""{
+		return fmt.Errorf("http: bindAddr not defined")
+	}
+	if c.BindPort == 0 {
+		return fmt.Errorf("http: bindPort not defined")
+	}
+	return nil
 }
 
 // Ticket Validator Config
@@ -115,7 +116,7 @@ type ValidatorConf struct {
 	Authz *authz.Conf `json:"authorization"`
 }
 
-func (c ValidatorConf) Validate() error {
+func (c ValidatorConf) validate() error {
 
 	// Validate Provider
 	if c.Provider == "" {

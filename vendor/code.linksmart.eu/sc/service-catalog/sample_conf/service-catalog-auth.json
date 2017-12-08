@@ -1,16 +1,15 @@
 {
   "description": "Standalone Service Catalog",
   "dnssdEnabled": true,
-  "bindAddr": "0.0.0.0",
-  "bindPort": 8082,
-  "apiLocation": "/sc",
-  "staticDir": "./static",
   "storage": {
-    "type": "memory"
+    "type": "memory",
+    "dsn": ""
   },
-  "gc": {
-    "tunnelingService": "http://localhost:8082/NetworkManager"
+  "http" : {
+    "bindAddr": "0.0.0.0",
+    "bindPort": 8082
   },
+  "mqtt": {},
   "auth": {
     "enabled": true,
     "provider": "provider-name",
