@@ -5,12 +5,13 @@ package data
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/farshidtz/elog"
 
 	"net/http"
 
@@ -415,19 +416,9 @@ func NtfListenerMQTT(c *MQTTConnector, ntChan <-chan common.Notification) {
 	}
 }
 
-// Logger for PAHO
-type writer struct {
-	io.Writer
-	timeFormat string
-}
-
-func (w writer) Write(b []byte) (n int, err error) {
-	return w.Writer.Write(append([]byte(time.Now().Format(w.timeFormat)), b...))
-}
-
 func initializePahoLogger() {
 	if os.Getenv("DEBUG-PAHO") == "1" {
-		w := &writer{os.Stdout, "2006-01-02 15:04:05 "}
+		w := elog.NewWriter(os.Stdout)
 		paho.ERROR = log.New(w, "[paho-error] ", 0)
 		paho.CRITICAL = log.New(w, "[paho-crit] ", 0)
 		paho.WARN = log.New(w, "[paho-warn] ", 0)

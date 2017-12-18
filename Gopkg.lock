@@ -41,7 +41,7 @@
   branch = "master"
   name = "github.com/farshidtz/elog"
   packages = ["."]
-  revision = "ddba66bd33ff251419cfa01e157fb3201a6ed07d"
+  revision = "122e062de95f1f03e80baa633e2e62e21bcc80c9"
 
 [[projects]]
   branch = "master"
