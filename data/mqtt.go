@@ -5,6 +5,8 @@ package data
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -56,6 +58,13 @@ func NewMQTTConnector(registryClient registry.Client, storage Storage) (chan<- c
 		managers:            make(map[string]*Manager),
 		cache:               make(map[string]*registry.DataSource),
 		failedRegistrations: make(map[string]*registry.MQTTConf),
+	}
+
+	if os.Getenv("DEBUG-PAHO") == "1" {
+		paho.ERROR = log.New(os.Stdout, "[paho-error] ", log.Ltime)
+		paho.CRITICAL = log.New(os.Stdout, "[paho-crit] ", log.Ltime)
+		paho.WARN = log.New(os.Stdout, "[paho-warn] ", log.Ltime)
+		paho.DEBUG = log.New(os.Stdout, "[paho-debug] ", log.Ltime)
 	}
 
 	// Run the notification listener
