@@ -5,6 +5,7 @@ package data
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"runtime/debug"
@@ -60,12 +61,7 @@ func NewMQTTConnector(registryClient registry.Client, storage Storage) (chan<- c
 		failedRegistrations: make(map[string]*registry.MQTTConf),
 	}
 
-	if os.Getenv("DEBUG-PAHO") == "1" {
-		paho.ERROR = log.New(os.Stdout, "[paho-error] ", log.Ltime)
-		paho.CRITICAL = log.New(os.Stdout, "[paho-crit] ", log.Ltime)
-		paho.WARN = log.New(os.Stdout, "[paho-warn] ", log.Ltime)
-		paho.DEBUG = log.New(os.Stdout, "[paho-debug] ", log.Ltime)
-	}
+	initializePahoLogger()
 
 	// Run the notification listener
 	ntChan := make(chan common.Notification)
@@ -416,5 +412,25 @@ func NtfListenerMQTT(c *MQTTConnector, ntChan <-chan common.Notification) {
 		default:
 			// other notifications
 		}
+	}
+}
+
+// Logger for PAHO
+type writer struct {
+	io.Writer
+	timeFormat string
+}
+
+func (w writer) Write(b []byte) (n int, err error) {
+	return w.Writer.Write(append([]byte(time.Now().Format(w.timeFormat)), b...))
+}
+
+func initializePahoLogger() {
+	if os.Getenv("DEBUG-PAHO") == "1" {
+		w := &writer{os.Stdout, "2006-01-02 15:04:05 "}
+		paho.ERROR = log.New(w, "[paho-error] ", 0)
+		paho.CRITICAL = log.New(w, "[paho-crit] ", 0)
+		paho.WARN = log.New(w, "[paho-warn] ", 0)
+		paho.DEBUG = log.New(w, "[paho-debug] ", 0)
 	}
 }
