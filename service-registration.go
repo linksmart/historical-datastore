@@ -30,16 +30,18 @@ func registerInServiceCatalog(conf *Config) func() {
 
 	serviceID := conf.ServiceID
 	if conf.ServiceID == "" {
-		serviceID = "HDS-" + uuid.New()
+		serviceID = uuid.New()
 	}
 
 	for _, cat := range conf.ServiceCatalogs {
 		service := catalog.Service{
 			ID:          serviceID,
+			Name:        "_linksmart-hds._tcp",
 			Description: "LinkSmart® Historical Datastore",
 			APIs:        map[string]string{"REST API": conf.HTTP.PublicEndpoint},
 			Docs: []catalog.Doc{{
 				Description: "Documentation",
+				APIs:        []string{"REST API"},
 				URL:         "http://doc.linksmart.eu/HDS",
 				Type:        "text/html",
 			}},
