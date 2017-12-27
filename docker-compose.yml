@@ -4,7 +4,7 @@ services:
     image: influxdb:1.2.2-alpine
     volumes:
       - ./docker/influxdb:/var/lib/influxdb
-#    restart: always
+    restart: unless-stopped
   init:
     image: fraunhoferfit/dockerize
     command: bash -c "dockerize -wait tcp://influxdb:8086 -timeout 30s && 
@@ -21,6 +21,7 @@ services:
       - init
     volumes:
       - ./docker/data:/data
-#      - ./sample_conf:/conf
+      - ./sample_conf:/conf
+    restart: unless-stopped
 #    command: ["-conf", "/conf/myconf.json"]
-#    restart: always
+
