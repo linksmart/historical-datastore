@@ -5,13 +5,9 @@ package data
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"os"
 	"runtime/debug"
 	"sync"
 	"time"
-
-	"github.com/farshidtz/elog"
 
 	"net/http"
 
@@ -61,8 +57,6 @@ func NewMQTTConnector(registryClient registry.Client, storage Storage) (chan<- c
 		cache:               make(map[string]*registry.DataSource),
 		failedRegistrations: make(map[string]*registry.MQTTConf),
 	}
-
-	initializePahoLogger()
 
 	// Run the notification listener
 	ntChan := make(chan common.Notification)
@@ -413,15 +407,5 @@ func NtfListenerMQTT(c *MQTTConnector, ntChan <-chan common.Notification) {
 		default:
 			// other notifications
 		}
-	}
-}
-
-func initializePahoLogger() {
-	if os.Getenv("DEBUG-PAHO") == "1" {
-		w := elog.NewWriter(os.Stdout)
-		paho.ERROR = log.New(w, "[paho-error] ", 0)
-		paho.CRITICAL = log.New(w, "[paho-crit] ", 0)
-		paho.WARN = log.New(w, "[paho-warn] ", 0)
-		paho.DEBUG = log.New(w, "[paho-debug] ", 0)
 	}
 }
