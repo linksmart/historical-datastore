@@ -1,0 +1,27 @@
+{
+  "description": "LinkSmart® Historical Datastore",
+  "name": "_linksmart-hds._tcp",
+  "apis": {
+    "REST API": "http://localhost:8085"
+  },
+  "docs": [
+    {
+      "description": "Documentation",
+      "type": "text/html",
+      "url": "http://doc.linksmart.eu/HDS",
+      "apis": [
+        "REST API"
+      ]
+    }
+  ],
+  "meta": {
+    "api_endpoints": [
+      "/registry",
+      "/data",
+      "/aggr"
+    ],
+    "api_version": "0.4.0",
+    "ls_codename": "HDS"
+  },
+  "ttl": 60
+}
