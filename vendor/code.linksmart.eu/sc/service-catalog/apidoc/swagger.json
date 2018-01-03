@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "version": "2.2.x",
+    "version": "2.2",
     "title": "LinkSmart Service Catalog REST API"
   },
   "basePath": "/",
@@ -19,7 +19,6 @@
       "title": "Service",
       "type": "object",
       "required": [
-        "id",
         "name"
       ],
       "properties": {
@@ -67,7 +66,8 @@
           }
         },
         "ttl": {
-          "type": "integer"
+          "type": "integer",
+          "format": "int64"
         },
         "created": {
           "type": "string",
@@ -102,7 +102,8 @@
           }
         },
         "page": {
-          "type": "integer"
+          "type": "integer",
+          "format": "int64"
         },
         "per_page": {
           "type": "integer"
@@ -237,6 +238,9 @@
                 "description": "URL of the newly created Service",
                 "type": "string"
               }
+            },
+            "schema": {
+              "$ref": "#/definitions/Service"
             }
           },
           "400": {
@@ -318,10 +322,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Service updated successfully"
+            "description": "Service updated successfully",
+            "schema": {
+              "$ref": "#/definitions/Service"
+            }
           },
           "201": {
-            "description": "A new service is created"
+            "description": "A new service is created",
+            "schema": {
+              "$ref": "#/definitions/Service"
+            }
           },
           "400": {
             "$ref": "#/responses/RespBadRequest"
@@ -373,7 +383,7 @@
         }
       }
     },
-    "/{path}/{op}/{value}": {
+    "/{jsonpath}/{operator}/{value}": {
       "get": {
         "tags": [
           "sc"
@@ -381,14 +391,14 @@
         "summary": "Service filtering API",
         "parameters": [
           {
-            "name": "path",
+            "name": "jsonpath",
             "in": "path",
             "description": "Dot-separated path in the registration JSON",
             "required": true,
             "type": "string"
           },
           {
-            "name": "op",
+            "name": "operator",
             "in": "path",
             "description": "One of (equals, prefix, suffix, contains) string comparison operations",
             "required": true,
@@ -397,7 +407,7 @@
           {
             "name": "value",
             "in": "path",
-            "description": "The intended value/prefix/suffix/substring of the key identified by the path",
+            "description": "The intended value, prefix, suffix, or substring of the value identified by the jsonpath",
             "required": true,
             "type": "string"
           },
