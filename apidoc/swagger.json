@@ -115,14 +115,16 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "readOnly": true
         },
         "interval": {
           "type": "string"
         },
         "data": {
           "type": "string",
-          "format": "url"
+          "format": "url",
+          "readOnly": true
         },
         "aggregates": {
           "type": "array",
