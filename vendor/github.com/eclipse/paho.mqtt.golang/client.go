@@ -64,6 +64,10 @@ type Client interface {
 
 // client implements the Client interface
 type client struct {
+	lastSent        int64
+	lastReceived    int64
+	pingOutstanding int32
+	status          uint32
 	sync.RWMutex
 	messageIds
 	conn            net.Conn
@@ -77,10 +81,6 @@ type client struct {
 	stop            chan struct{}
 	persist         Store
 	options         ClientOptions
-	pingResp        *sync.Cond
-	packetResp      *sync.Cond
-	keepaliveReset  *sync.Cond
-	status          uint32
 	workers         sync.WaitGroup
 }
 
@@ -104,7 +104,7 @@ func NewClient(o *ClientOptions) Client {
 	}
 	c.persist = c.options.Store
 	c.status = disconnected
-	c.messageIds = messageIds{index: make(map[uint16]Token)}
+	c.messageIds = messageIds{index: make(map[uint16]tokenCompletor)}
 	c.msgRouter, c.stopRouter = newRouter()
 	c.msgRouter.setDefaultHandler(c.options.DefaultPublishHandler)
 	if !c.options.AutoReconnect {
@@ -162,6 +162,10 @@ func (c *client) Connect() Token {
 	var err error
 	t := newToken(packets.Connect).(*ConnectToken)
 	DEBUG.Println(CLI, "Connect()")
+
+	c.obound = make(chan *PacketAndToken, c.options.MessageChannelDepth)
+	c.oboundP = make(chan *PacketAndToken, c.options.MessageChannelDepth)
+	c.ibound = make(chan packets.ControlPacket)
 
 	go func() {
 		c.persist.Open()
@@ -232,16 +236,13 @@ func (c *client) Connect() Token {
 
 		c.options.protocolVersionExplicit = true
 
-		c.obound = make(chan *PacketAndToken, c.options.MessageChannelDepth)
-		c.oboundP = make(chan *PacketAndToken, c.options.MessageChannelDepth)
-		c.ibound = make(chan packets.ControlPacket)
 		c.errors = make(chan error, 1)
 		c.stop = make(chan struct{})
-		c.pingResp = sync.NewCond(&sync.Mutex{})
-		c.packetResp = sync.NewCond(&sync.Mutex{})
-		c.keepaliveReset = sync.NewCond(&sync.Mutex{})
 
 		if c.options.KeepAlive != 0 {
+			atomic.StoreInt32(&c.pingOutstanding, 0)
+			atomic.StoreInt64(&c.lastReceived, time.Now().Unix())
+			atomic.StoreInt64(&c.lastSent, time.Now().Unix())
 			c.workers.Add(1)
 			go keepalive(c)
 		}
@@ -263,10 +264,8 @@ func (c *client) Connect() Token {
 			c.persist.Reset()
 		}
 
+		c.workers.Add(4)
 		go errorWatch(c)
-
-		// Do not start incoming until resume has completed
-		c.workers.Add(3)
 		go alllogic(c)
 		go outgoing(c)
 		go incoming(c)
@@ -343,6 +342,9 @@ func (c *client) reconnect() {
 	}
 
 	if c.options.KeepAlive != 0 {
+		atomic.StoreInt32(&c.pingOutstanding, 0)
+		atomic.StoreInt64(&c.lastReceived, time.Now().Unix())
+		atomic.StoreInt64(&c.lastSent, time.Now().Unix())
 		c.workers.Add(1)
 		go keepalive(c)
 	}
@@ -355,9 +357,8 @@ func (c *client) reconnect() {
 		go c.options.OnConnect(c)
 	}
 
+	c.workers.Add(4)
 	go errorWatch(c)
-
-	c.workers.Add(3)
 	go alllogic(c)
 	go outgoing(c)
 	go incoming(c)
@@ -433,9 +434,7 @@ func (c *client) internalConnLost(err error) {
 		c.closeStop()
 		c.conn.Close()
 		c.workers.Wait()
-		if c.options.CleanSession {
-			c.messageIds.cleanUp()
-		}
+		c.messageIds.cleanUp()
 		if c.options.AutoReconnect {
 			c.setConnected(reconnecting)
 			go c.reconnect()
@@ -471,6 +470,7 @@ func (c *client) disconnect() {
 	c.closeStop()
 	c.closeConn()
 	c.workers.Wait()
+	c.messageIds.cleanUp()
 	close(c.stopRouter)
 	DEBUG.Println(CLI, "disconnected")
 	c.persist.Close()
