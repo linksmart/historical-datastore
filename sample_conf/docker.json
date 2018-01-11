@@ -1,7 +1,7 @@
 {
   "serviceID": "",
   "http": {
-    "publicEndpoint": "http://localhost:8085",
+    "publicEndpoint": "http://public-endpoint",
     "bindAddr": "0.0.0.0",
     "bindPort": 8085
   },
@@ -13,7 +13,7 @@
   "registry": {
     "backend": {
       "type": "leveldb",
-      "dsn": "/data/registry.ldb"
+      "dsn": "/data/hds-registry"
     }
   },
   "data": {
@@ -22,6 +22,5 @@
       "dsn": "http://user:password@influxdb:8086/hds"
     },
     "autoRegistration": false
-  },
-  "aggregation": {}
+  }
 }
