@@ -3,7 +3,7 @@ services:
   influxdb:
     image: influxdb:1.2.2-alpine
     volumes:
-      - ./docker/influxdb:/var/lib/influxdb
+      - ./volumes/influxdb:/var/lib/influxdb
     restart: unless-stopped
   init:
     image: fraunhoferfit/dockerize
@@ -20,8 +20,8 @@ services:
       - influxdb
       - init
     volumes:
-      - ./docker/data:/data
-      - ./sample_conf:/conf
+      - ./volumes/hds/data:/data
+      # - ./volumes/hds/conf:/conf
     restart: unless-stopped
 #    command: ["-conf", "/conf/myconf.json"]
 
