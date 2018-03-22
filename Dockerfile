@@ -10,6 +10,8 @@ RUN go install code.linksmart.eu/hds/historical-datastore
 ###########
 FROM alpine
 
+RUN apk update && apk add ca-certificates
+
 WORKDIR /home
 COPY --from=builder /home/bin/* .
 
