@@ -611,14 +611,21 @@
         }
       }
     },
-    "/registry/{path}/{op}/{value}": {
+    "/registry/{type}/{path}/{op}/{value}": {
       "get": {
         "tags": [
           "registry"
         ],
         "summary": "Datasource filtering API",
-        "description": "The filtering API enables filtering based on a given path, operator, and value. Below are few examples:\n* Get datasource with name:\n  `/name/equals/home/bedroom/temperature`\n* Filter all datasources with prefix `home` in name:\n  `/name/prefix/home`\n* Filter all datasources based on address meta field:\n  `/meta.address/contains/Bonn`\n",
+        "description": "The filtering API enables filtering based on a given path, operator, and value. Below are few examples:\n* Get datasource with name:\n  `/registry/one/name/equals/home/bedroom/temperature`\n* Filter all datasources with prefix `home` in name:\n  `/registry/many/name/prefix/home`\n* Filter all datasources based on address meta field:\n  `/registry/many/meta.address/contains/Bonn`\n",
         "parameters": [
+          {
+             "name": "type",
+             "in": "path",
+             "description": "The expected type of response (one or many)",
+             "required": true,
+             "type": "string"
+          },
           {
             "name": "path",
             "in": "path",
