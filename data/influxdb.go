@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"code.linksmart.eu/hds/historical-datastore/common"
@@ -17,6 +18,7 @@ import (
 
 // InfluxStorage implements a simple data storage back-end with SQLite
 type InfluxStorage struct {
+	sync.Mutex
 	client influx.Client
 	config *InfluxStorageConfig
 }
@@ -311,7 +313,7 @@ func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 			duration = newDS.Retention
 		}
 		// Setting SHARD DURATION 0s tells influx to use the default duration
-		// https://docs.influxdata.com/influxdb/v1.2/query_language/database_management/#retention-policy-management
+		// https://docs.influxdata.com/influxdb/v1.5/query_language/database_management/#retention-policy-management
 		_, err := s.QuerySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v SHARD DURATION 0s", s.Retention(&oldDS), s.config.Database, duration)
 		if err != nil {
 			callback <- logger.Errorf("Error modifying the retention policy for source: %s", err)
@@ -324,6 +326,8 @@ func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 
 // Handles deletion of a data source
 func (s *InfluxStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
+	s.Lock()
+	defer s.Unlock()
 
 	_, err := s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.Msrmt(&ds))
 	if err != nil {
