@@ -1,14 +1,12 @@
 version: '2'
 services:
   influxdb:
-    image: influxdb:1.2.2-alpine
+    image: influxdb:1.5.2-alpine
     volumes:
       - ./volumes/influxdb:/var/lib/influxdb
+    environment:
+       - INFLUXDB_DB=hds
     restart: unless-stopped
-  init:
-    image: fraunhoferfit/dockerize
-    command: bash -c "dockerize -wait tcp://influxdb:8086 -timeout 30s &&
-                         curl -sS -POST 'http://influxdb:8086/query' --data-urlencode 'q=CREATE DATABASE hds'"
   hds:
     image: docker.linksmart.eu/hds
 #    build:
@@ -18,10 +16,8 @@ services:
       - "8085:8085"
     depends_on:
       - influxdb
-      - init
     volumes:
       - ./volumes/hds/data:/data
       # - ./volumes/hds/conf:/conf
     restart: unless-stopped
 #    command: ["-conf", "/conf/myconf.json"]
-
