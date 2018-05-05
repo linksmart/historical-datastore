@@ -1,23 +1,25 @@
 FROM golang:1.8-alpine as builder
 
+ENV PACKAGE code.linksmart.eu/hds/historical-datastore
+
 # copy code
-COPY . /home/src/code.linksmart.eu/hds/historical-datastore
+COPY . /home/src/${PACKAGE}
 
 # build
 ENV GOPATH /home
-RUN go install code.linksmart.eu/hds/historical-datastore
+RUN go install ${PACKAGE}
 
 ###########
 FROM alpine
 
-RUN apk update && apk add ca-certificates
+RUN apk --no-cache add ca-certificates
 
 WORKDIR /home
 COPY --from=builder /home/bin/* .
+COPY sample_conf/* /conf/
 
 VOLUME /conf /data
 EXPOSE 8085 4000
 
-COPY sample_conf/* /conf/
 ENTRYPOINT ["./historical-datastore"]
 CMD ["-conf", "/conf/docker.json"]
