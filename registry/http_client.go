@@ -162,10 +162,15 @@ func (c *RemoteClient) Delete(id string) error {
 	}
 	defer res.Body.Close()
 
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return logger.Errorf("%s", err)
+	}
+
 	if res.StatusCode == http.StatusNotFound {
 		return ErrNotFound
 	} else if res.StatusCode != http.StatusOK {
-		return logger.Errorf("%v", res.StatusCode)
+		return logger.Errorf("%v: %v", res.StatusCode, string(body))
 	}
 
 	return nil
