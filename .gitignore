@@ -1,6 +1,7 @@
 bin/
 /pkg/
 /docker/
+/volumes/
 
 # private configs
 conf/
