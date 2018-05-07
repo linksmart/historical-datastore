@@ -58,7 +58,7 @@ func (c *RemoteClient) Submit(data []byte, contentType string, id ...string) err
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("%v: %v", res.Status, string(body))
+		return fmt.Errorf("%v: %v", res.StatusCode, string(body))
 	}
 
 	return nil
@@ -102,7 +102,7 @@ func (c *RemoteClient) Query(q Query, page, perPage int, id ...string) (*RecordS
 	}
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%v: %v", res.Status, string(body))
+		return nil, fmt.Errorf("%v: %v", res.StatusCode, string(body))
 	}
 
 	var rs RecordSet
