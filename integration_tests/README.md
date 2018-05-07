@@ -16,4 +16,6 @@ Integration Tests
  Data aggregation                     | N
  Data aggregation update              | N      
  MQTT connector                       | N
- 
+ Concurrent Creates                   | Y
+ Concurrent Updates                   | Y
+ Concurrent Deletes                   | Y
