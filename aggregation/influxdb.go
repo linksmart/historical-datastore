@@ -104,6 +104,9 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 
 // Handles the creation of a new data source
 func (a *InfluxAggr) NtfCreated(ds registry.DataSource, callback chan error) {
+	// Lock to avoid race condition (influxdb 1.5.2): https://boards.linksmart.eu/browse/LS-277
+	a.influxStorage.Lock()
+	defer a.influxStorage.Unlock()
 
 	for _, dsa := range ds.Aggregation {
 		err := a.createRetentionPolicy(ds, dsa)
@@ -124,6 +127,9 @@ func (a *InfluxAggr) NtfCreated(ds registry.DataSource, callback chan error) {
 
 // Handles updates of a data source
 func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
+	// Lock to avoid race condition (influxdb 1.5.2): https://boards.linksmart.eu/browse/LS-277
+	a.influxStorage.Lock()
+	defer a.influxStorage.Unlock()
 
 	aggrs := make(map[string]registry.Aggregation)
 	for _, dsa := range oldDS.Aggregation {
@@ -198,6 +204,7 @@ func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSo
 
 // Handles deletion of a data source
 func (a *InfluxAggr) NtfDeleted(ds registry.DataSource, callback chan error) {
+	// Lock to avoid race condition (influxdb 1.5.2): https://boards.linksmart.eu/browse/LS-277
 	a.influxStorage.Lock()
 	defer a.influxStorage.Unlock()
 

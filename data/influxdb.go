@@ -288,6 +288,9 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 
 // Handles the creation of a new data source
 func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) {
+	// Lock to avoid race condition (influxdb 1.5.2): https://boards.linksmart.eu/browse/LS-277
+	s.Lock()
+	defer s.Unlock()
 
 	duration := "INF"
 	if ds.Retention != "" {
@@ -306,6 +309,9 @@ func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) 
 
 // Handles updates of a data source
 func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
+	// Lock to avoid race condition (influxdb 1.5.2): https://boards.linksmart.eu/browse/LS-277
+	s.Lock()
+	defer s.Unlock()
 
 	if oldDS.Retention != newDS.Retention {
 		duration := "INF"
@@ -326,6 +332,7 @@ func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 
 // Handles deletion of a data source
 func (s *InfluxStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
+	// Lock to avoid race condition (influxdb 1.5.2): https://boards.linksmart.eu/browse/LS-277
 	s.Lock()
 	defer s.Unlock()
 
