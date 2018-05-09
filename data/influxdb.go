@@ -12,8 +12,8 @@ import (
 
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
+	influx "github.com/influxdata/influxdb/client/v2"
 	"github.com/influxdata/influxdb/models"
-	influx "github.com/influxdb/influxdb/client/v2"
 )
 
 // InfluxStorage implements a simple data storage back-end with SQLite

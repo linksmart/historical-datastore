@@ -64,7 +64,7 @@ func registerInServiceCatalog(conf *Config) func() {
 			}
 		}
 
-		stopRegistrator, err := client.RegisterServiceAndKeepalive(cat.Endpoint, service, ticket)
+		stopRegistrator, _, err := client.RegisterServiceAndKeepalive(cat.Endpoint, service, ticket)
 		if err != nil {
 			fmt.Println(err.Error())
 			continue

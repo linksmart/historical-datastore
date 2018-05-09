@@ -4,14 +4,24 @@
 [[projects]]
   branch = "master"
   name = "code.linksmart.eu/com/go-sec"
-  packages = ["auth/keycloak/obtainer","auth/keycloak/validator","auth/obtainer","auth/validator","authz"]
+  packages = [
+    "auth/keycloak/obtainer",
+    "auth/keycloak/validator",
+    "auth/obtainer",
+    "auth/validator",
+    "authz"
+  ]
   revision = "6e8d0334a281ca5740559365469c2f587c75cbcd"
 
 [[projects]]
   branch = "master"
   name = "code.linksmart.eu/sc/service-catalog"
-  packages = ["catalog","client","utils"]
-  revision = "8a6eb8eccb29be01b7f5d3471be40e81f0fe4cac"
+  packages = [
+    "catalog",
+    "client",
+    "utils"
+  ]
+  revision = "3b14858ab2b678bfc0e976ac8d7ce2f952ec5ed8"
 
 [[projects]]
   branch = "master"
@@ -34,7 +44,10 @@
 [[projects]]
   branch = "master"
   name = "github.com/eclipse/paho.mqtt.golang"
-  packages = [".","packets"]
+  packages = [
+    ".",
+    "packets"
+  ]
   revision = "750c97f293745e8220737ef933da2ec829d2fddd"
 
 [[projects]]
@@ -63,13 +76,11 @@
 
 [[projects]]
   name = "github.com/influxdata/influxdb"
-  packages = ["models","pkg/escape"]
-  revision = "0c54d8fc744220b8dc70f2987e04e78fec951285"
-  version = "v1.3.4"
-
-[[projects]]
-  name = "github.com/influxdb/influxdb"
-  packages = ["client/v2"]
+  packages = [
+    "client/v2",
+    "models",
+    "pkg/escape"
+  ]
   revision = "0c54d8fc744220b8dc70f2987e04e78fec951285"
   version = "v1.3.4"
 
@@ -100,24 +111,46 @@
 [[projects]]
   branch = "master"
   name = "github.com/syndtr/goleveldb"
-  packages = ["leveldb","leveldb/cache","leveldb/comparer","leveldb/errors","leveldb/filter","leveldb/iterator","leveldb/journal","leveldb/memdb","leveldb/opt","leveldb/storage","leveldb/table","leveldb/util"]
+  packages = [
+    "leveldb",
+    "leveldb/cache",
+    "leveldb/comparer",
+    "leveldb/errors",
+    "leveldb/filter",
+    "leveldb/iterator",
+    "leveldb/journal",
+    "leveldb/memdb",
+    "leveldb/opt",
+    "leveldb/storage",
+    "leveldb/table",
+    "leveldb/util"
+  ]
   revision = "b89cc31ef7977104127d34c1bd31ebd1a9db2199"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["proxy","websocket"]
+  packages = [
+    "proxy",
+    "websocket"
+  ]
   revision = "57efc9c3d9f91fb3277f8da1cff370539c4d3dc5"
 
 [[projects]]
   branch = "v2"
   name = "gopkg.in/mgo.v2"
-  packages = [".","bson","internal/json","internal/sasl","internal/scram"]
+  packages = [
+    ".",
+    "bson",
+    "internal/json",
+    "internal/sasl",
+    "internal/scram"
+  ]
   revision = "3f83fa5005286a7fe593b055f0d7771a7dce4655"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "65c3b5c48c3b9cd1e8e0fd0f19fc0ebf25f84384c299dd5bd05d34fe8a6429f4"
+  inputs-digest = "320180c3546a4ef1dc2a60ad2ff6888fabed5eabbb36371cd0073f6289152b8e"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -17,6 +17,7 @@ import (
 )
 
 var (
+	// Can be overriden with env variables
 	ServiceCatalogURL = "http://localhost:8082"
 	Brokers           = []string{"tcp://localhost:1883"}
 )
@@ -79,7 +80,7 @@ func (m *ClientManager) onConnectionLostHandler(client paho.Client, err error) {
 
 func MockedService(id string) *catalog.Service {
 	return &catalog.Service{
-		ID:          "TestHost/TestService" + id,
+		ID:          "TestHost/" + id,
 		Meta:        map[string]interface{}{"test-id": id},
 		Description: "Test Service " + id,
 		Name:        "_test._tcp",
@@ -96,6 +97,7 @@ func MockedService(id string) *catalog.Service {
 
 //TODO_: Improve this: with MQTT brokers runnning as docker images and the test script in another container. Use Bamboo to trigger this.
 func TestMain(m *testing.M) {
+
 	// Take urls from envs (if provided)
 	if url := os.Getenv("SC"); url != "" {
 		log.Println("Setting service catalog:", url)
@@ -161,12 +163,12 @@ func TestMain(m *testing.M) {
 	os.Exit(0)
 }
 
-func TestCreateAndDelete(t *testing.T) {
+func TestCreateDelete(t *testing.T) {
 
 	//Publish a service
-	service := MockedService("1")
+	service := MockedService(uuid.NewV4().String())
 	b, _ := json.Marshal(service)
-	manager.client.Publish("LS/MOCK/1/SER/1.0/REG", 1, false, b)
+	manager.client.Publish("LS/v2/IT/someid/service", 1, false, b)
 
 	time.Sleep(sleepTime)
 	//verify if the service is created
@@ -183,7 +185,9 @@ func TestCreateAndDelete(t *testing.T) {
 	//destroy the service
 	time.Sleep(sleepTime)
 
-	manager.client.Publish("LS/MOCK/1/SER/1.0/WILL", 1, false, b)
+	if token := manager.client.Publish("LS/v2/IT/someid/will", 1, false, b); token.Wait() && token.Error() != nil {
+		t.Fatalf("Error publishing: %s", token.Error())
+	}
 
 	//verify if the service is deleted
 	time.Sleep(sleepTime)
@@ -201,12 +205,12 @@ func TestCreateAndDelete(t *testing.T) {
 
 }
 
-func TestCreateUpdateAndDelete(t *testing.T) {
+func TestCreateUpdate(t *testing.T) {
 
 	//Publish a service
-	service := MockedService("1")
+	service := MockedService(uuid.NewV4().String())
 	b, _ := json.Marshal(service)
-	manager.client.Publish("LS/MOCK/1/SER/1.0/REG", 1, false, b)
+	manager.client.Publish("LS/v2/IT/someid/service", 1, false, b)
 
 	time.Sleep(sleepTime)
 	//verify if the service is created
@@ -214,7 +218,6 @@ func TestCreateUpdateAndDelete(t *testing.T) {
 	gotService, err := httpRemoteClient.Get(service.ID)
 	if err != nil {
 		t.Fatalf("Error retrieveing the service %s", service.ID)
-		return
 	}
 	if !sameServices(gotService, service, true) {
 		t.Fatalf("The retrieved service is not the same as the added one:\n Added:\n %v \n Retrieved: \n %v", service, gotService)
@@ -223,35 +226,161 @@ func TestCreateUpdateAndDelete(t *testing.T) {
 	//update the service
 	service.TTL = 200
 	b, _ = json.Marshal(service)
-	manager.client.Publish("LS/MOCK/1/SER/1.0/REG", 1, false, b)
+	if token := manager.client.Publish("LS/v2/IT/someid/service", 1, false, b); token.Wait() && token.Error() != nil {
+		t.Fatalf("Error publishing: %s", token.Error())
+	}
 
 	time.Sleep(sleepTime)
-	//verify if the service is created
+	//verify if the service is updated
 	gotService, err = httpRemoteClient.Get(service.ID)
 	if err != nil {
 		t.Fatalf("Error retrieveing the service %s: %s", service.ID, err)
-		return
 	}
 	if !sameServices(gotService, service, true) {
 		t.Fatalf("The retrieved service is not the same as the added one:\n Added:\n %v \n Retrieved: \n %v", service, gotService)
 	}
+
+}
+
+func TestCreateDeleteWithIdInTopic(t *testing.T) {
+	id := "1234"
+
+	//Publish a service
+	service := MockedService("")
+	service.ID = "" // clear the id field
+	b, _ := json.Marshal(service)
+	manager.client.Publish("LS/v2/IT/someid/service/"+id, 1, false, b)
+
+	time.Sleep(sleepTime)
+	//verify if the service is created
+	httpRemoteClient, _ := client.NewHTTPClient(ServiceCatalogURL, nil)
+	_, err := httpRemoteClient.Get(id)
+	if err != nil {
+		t.Fatalf("Error retrieveing the service %s: %s", id, err)
+	}
+
 	//destroy the service
 	time.Sleep(sleepTime)
 
-	manager.client.Publish("LS/MOCK/1/SER/1.0/WILL", 1, false, b)
+	if token := manager.client.Publish("LS/v2/IT/someid/will/"+id, 1, false, b); token.Wait() && token.Error() != nil {
+		t.Fatalf("Error publishing: %s", token.Error())
+	}
 
 	//verify if the service is deleted
 	time.Sleep(sleepTime)
-	gotService, err = httpRemoteClient.Get(service.ID)
+	_, err = httpRemoteClient.Get(id)
 	if err != nil {
 		switch err.(type) {
 		case *catalog.NotFoundError:
 			break
 		default:
-			t.Fatalf("Error while fetching services: %v", err)
+			t.Fatalf("Error while fetching services: %s", err)
 		}
 	} else {
 		t.Fatalf("Service was fetched even after deletion")
+	}
+
+}
+
+func TestAnnouncement(t *testing.T) {
+	id := "1234"
+	//Publish a service
+	service := MockedService("")
+	service.ID = "" // clear the id field
+	updateService := MockedService("")
+	updateService.ID = id
+	updateService.TTL = 200
+
+	create := make(chan bool)
+	update := make(chan bool)
+	gotDead := make(chan bool)
+	deleteRetain := make(chan bool)
+
+	aliveTopic := "LS/v2/SC/" + service.Name + "/" + id + "/+"
+	log.Println("subscribing:", aliveTopic)
+	if token1 := manager.client.Subscribe(aliveTopic, 1, func(client paho.Client, msg paho.Message) {
+		defer log.Println("Got a message exit", msg.Topic())
+		log.Println("Got a message", msg.Topic())
+		var gotService catalog.Service
+		if strings.HasSuffix(msg.Topic(), "alive") {
+			if len(msg.Payload()) == 0 {
+				log.Println("Got a empty message")
+				deleteRetain <- true
+				return
+			}
+			err := json.Unmarshal(msg.Payload(), &gotService)
+			if err != nil {
+				t.Fatalf("Error while fetching services: %s", err)
+				return
+			}
+			if sameServices(service, &gotService, false) {
+				log.Println("Got a Created Service")
+				create <- true
+			} else if sameServices(updateService, &gotService, false) {
+				log.Println("Got an Updated service")
+				update <- true
+			} else {
+				//t.Fatalf("The message was something not expected")
+			}
+		} else if strings.HasSuffix(msg.Topic(), "dead") {
+			log.Println("Got a gotDead message")
+			err := json.Unmarshal(msg.Payload(), &gotService)
+			if err != nil {
+				t.Fatalf("Error while fetching services: %s", err)
+				return
+			}
+			if sameServices(updateService, &gotService, false) {
+				log.Println("Announcement: Service deleted %s", gotService.ID)
+				gotDead <- true
+			}
+		} else {
+			//t.Fatalf("The message topic was something not expected")
+		}
+
+	}); token1.Wait() && token1.Error() != nil {
+		t.Fatal(token1.Error())
+	}
+
+	b, _ := json.Marshal(service)
+	if token3 := manager.client.Publish("LS/v2/IT/someid/service/"+id, 1, false, b); token3.Wait() && token3.Error() != nil {
+		t.Fatalf("Error publishing: %s", token3.Error())
+	}
+
+	//wait for creation
+	select {
+	case <-create:
+		log.Println("Creation Announcement was successful")
+	case <-time.After(10 * time.Second):
+		t.Fatalf("timeout waiting for creation announcement")
+	}
+
+	b, _ = json.Marshal(updateService)
+	if token4 := manager.client.Publish("LS/v2/IT/someid/service/"+id, 1, false, b); token4.Wait() && token4.Error() != nil {
+		t.Fatalf("Error publishing: %s", token4.Error())
+	}
+
+	//wait for update announcement
+	select {
+	case <-update:
+		log.Println("Update announcement was successful")
+	case <-time.After(10 * time.Second):
+		t.Fatalf("timeout waiting for update announcement")
+	}
+
+	if token5 := manager.client.Publish("LS/v2/IT/someid/will/"+id, 1, false, b); token5.Wait() && token5.Error() != nil {
+		t.Fatalf("Error publishing: %s", token5.Error())
+	}
+
+	for i := 0; i < 2; i++ {
+		//wait for gotDead announcement
+		select {
+		case <-gotDead:
+			log.Println("Delete announcement was successful")
+		case <-deleteRetain:
+			log.Println("DeleteRetain announcement was successful")
+		case <-time.After(10 * time.Second):
+			t.Fatalf("timeout waiting for gotDead/deleteRetain announcements")
+		}
 	}
 
 }

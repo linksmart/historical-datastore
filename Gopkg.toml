@@ -50,7 +50,7 @@
   version = "1.4.0"
 
 [[constraint]]
-  name = "github.com/influxdb/influxdb"
+  name = "github.com/influxdata/influxdb"
   version = "1.3.4"
 
 [[constraint]]
