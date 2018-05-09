@@ -132,12 +132,12 @@ func TestMemstorageDelete(t *testing.T) {
 
 	err = storage.delete(ID)
 	if err != nil {
-		t.Error("Unexpected error on delete: %v", err.Error())
+		t.Errorf("Unexpected error on delete: %v", err.Error())
 	}
 
 	err = storage.delete(ID)
 	if err == nil {
-		t.Error("The previous call hasn't deleted the data source: %v", err.Error())
+		t.Errorf("The previous call hasn't deleted the data source: %v", err.Error())
 	}
 }
 
