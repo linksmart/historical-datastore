@@ -49,7 +49,7 @@ func validateCreation(ds DataSource) error {
 
 	// retention
 	if ds.Retention != "" {
-		if !common.SupportedInterval(ds.Retention) {
+		if !common.SupportedPeriod(ds.Retention) {
 			e.invalid = append(e.invalid, "retention")
 		}
 	}
@@ -80,12 +80,12 @@ func validateCreation(ds DataSource) error {
 				e.readOnly = append(e.readOnly, "aggregation.data")
 			}
 			// interval
-			if !common.SupportedInterval(aggr.Interval) {
+			if !common.SupportedPeriod(aggr.Interval) {
 				e.invalid = append(e.invalid, "aggregation.interval")
 			}
 			// retention
 			if aggr.Retention != "" {
-				if !common.SupportedInterval(aggr.Retention) {
+				if !common.SupportedPeriod(aggr.Retention) {
 					e.invalid = append(e.invalid, "aggregation.retention")
 				}
 			}
@@ -134,7 +134,7 @@ func validateUpdate(ds DataSource, oldDS DataSource) error {
 
 	// retention
 	if ds.Retention != "" {
-		if !common.SupportedInterval(ds.Retention) {
+		if !common.SupportedPeriod(ds.Retention) {
 			e.invalid = append(e.invalid, "retention")
 		}
 	}
@@ -162,12 +162,12 @@ func validateUpdate(ds DataSource, oldDS DataSource) error {
 				e.readOnly = append(e.readOnly, "aggregation.data")
 			}
 			// interval
-			if !common.SupportedInterval(aggr.Interval) {
+			if !common.SupportedPeriod(aggr.Interval) {
 				e.invalid = append(e.invalid, "aggregation.interval")
 			}
 			// retention
 			if aggr.Retention != "" {
-				if !common.SupportedInterval(aggr.Retention) {
+				if !common.SupportedPeriod(aggr.Retention) {
 					e.invalid = append(e.invalid, "aggregation.retention")
 				}
 			}

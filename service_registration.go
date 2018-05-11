@@ -15,7 +15,7 @@ import (
 	"code.linksmart.eu/com/go-sec/auth/obtainer"
 )
 
-func registerInServiceCatalog(conf *Config) func() {
+func registerInServiceCatalog(conf *common.Config) func() {
 	var unregisterFuncs []func() error
 
 	unregisterAll := func() {

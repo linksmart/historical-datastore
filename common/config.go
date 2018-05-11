@@ -1,6 +1,6 @@
 // Copyright 2016 Fraunhofer Institute for Applied Information Technology FIT
 
-package main
+package common
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
+	"strings"
 
 	"code.linksmart.eu/com/go-sec/authz"
 )
@@ -71,6 +72,7 @@ type RegBackendConf struct {
 // Data config
 type DataConf struct {
 	Backend          DataBackendConf `json:"backend"`
+	RetentionPeriods []string        `json:"retentionPeriods"`
 	AutoRegistration bool            `json:"autoRegistration"`
 }
 
@@ -92,7 +94,7 @@ type ServiceCatalogConf struct {
 }
 
 // Load API configuration from config file
-func loadConfig(confPath *string) (*Config, error) {
+func LoadConfig(confPath *string) (*Config, error) {
 	file, err := ioutil.ReadFile(*confPath)
 	if err != nil {
 		return nil, err
@@ -138,6 +140,13 @@ func loadConfig(confPath *string) (*Config, error) {
 	_, err = url.Parse(conf.Data.Backend.DSN)
 	if err != nil {
 		return nil, err
+	}
+	// Check retention periods
+	for _, rp := range conf.Data.RetentionPeriods {
+		if !SupportedPeriod(rp) {
+			return nil, fmt.Errorf("Data retentionPeriod is not valid: %s. Supported period suffixes are: %s",
+				rp, strings.Join(supportedPeriods, ", "))
+		}
 	}
 
 	// VALIDATE AGGREGATION API CONFIG

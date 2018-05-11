@@ -35,7 +35,7 @@ func main() {
 	flag.Parse()
 
 	// Load Config File
-	conf, err := loadConfig(confPath)
+	conf, err := common.LoadConfig(confPath)
 	if err != nil {
 		logger.Fatalf("Config File: %s\n", err)
 	}
@@ -73,7 +73,7 @@ func main() {
 		dataStorage = mongoStorage
 	case "influxdb":
 		var influxStorage *data.InfluxStorage
-		influxStorage, ntRcvDataCh, _ = data.NewInfluxStorage(conf.Data.Backend.DSN)
+		influxStorage, ntRcvDataCh, _ = data.NewInfluxStorage(&conf.Data)
 		dataAggr, ntRcvAggrCh, _ = aggregation.NewInfluxAggr(influxStorage)
 		dataStorage = influxStorage
 	}
@@ -176,7 +176,7 @@ func main() {
 	}
 }
 
-func webServer(conf *Config) {
+func webServer(conf *common.Config) {
 	staticConf := map[string]interface{}{
 		"apiPort": conf.HTTP.BindPort,
 	}

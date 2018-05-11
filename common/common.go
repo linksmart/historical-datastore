@@ -44,7 +44,7 @@ const (
 var (
 	supportedTypes      = []string{STRING, BOOL, FLOAT}
 	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}
-	supportedIntervals  = []string{"m", "h", "d", "w"}
+	supportedPeriods    = []string{"m", "h", "d", "w"}
 )
 
 // Error describes an API error (serializable in JSON)
@@ -68,9 +68,9 @@ func ErrorResponse(code int, msg string, w http.ResponseWriter) {
 	w.Write(b)
 }
 
-func SupportedInterval(i string) bool {
+func SupportedPeriod(i string) bool {
 	// Create regexp: ^[0-9]*(h|d|w|m)$
-	intervals := strings.Join(supportedIntervals, "|")
+	intervals := strings.Join(supportedPeriods, "|")
 	re := regexp.MustCompile("^[0-9]*(" + intervals + ")$")
 	return re.MatchString(i)
 }

@@ -21,6 +21,7 @@
       "type": "influxdb",
       "dsn": "http://user:password@influxdb-hostname:8086/db"
     },
+    "retentionPeriods": ["1h", "1w"],
     "autoRegistration": false
   },
   "serviceCatalogs": [

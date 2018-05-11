@@ -16,16 +16,19 @@ import (
 	"github.com/influxdata/influxdb/models"
 )
 
-// InfluxStorage implements a simple data storage back-end with SQLite
+const influxPingTimeout = 30 * time.Second
+
+// InfluxStorage implements a InfluxDB client for HDS Data API
 type InfluxStorage struct {
-	sync.Mutex
-	client influx.Client
-	config *InfluxStorageConfig
+	client           influx.Client
+	config           InfluxStorageConfig
+	retentionPeriods []string
+	prepare          sync.WaitGroup
 }
 
 // NewInfluxStorage returns a new Storage given a configuration
-func NewInfluxStorage(DSN string) (*InfluxStorage, chan<- common.Notification, error) {
-	cfg, err := initInfluxConf(DSN)
+func NewInfluxStorage(dataConf *common.DataConf) (*InfluxStorage, chan<- common.Notification, error) {
+	cfg, err := initInfluxConf(dataConf.Backend.DSN)
 	if err != nil {
 		return nil, nil, logger.Errorf("Influx config error: %s", err)
 	}
@@ -41,9 +44,13 @@ func NewInfluxStorage(DSN string) (*InfluxStorage, chan<- common.Notification, e
 	}
 
 	s := &InfluxStorage{
-		client: c,
-		config: cfg,
+		client:           c,
+		config:           *cfg,
+		retentionPeriods: dataConf.RetentionPeriods,
 	}
+
+	s.prepare.Add(1)
+	go s.prepareStorage()
 
 	// Run the notification listener
 	ntChan := make(chan common.Notification)
@@ -52,22 +59,27 @@ func NewInfluxStorage(DSN string) (*InfluxStorage, chan<- common.Notification, e
 	return s, ntChan, nil
 }
 
-// Formatted measurement name for a given data source
-func (s *InfluxStorage) Msrmt(ds *registry.DataSource) string {
+// UTILITY FUNCTIONS
+
+// MeasurementName returns formatted measurement name for a given data source
+func (s *InfluxStorage) MeasurementName(ds *registry.DataSource) string {
 	return fmt.Sprintf("data_%s", ds.ID)
 }
 
-// Formatted retention policy name for a given data source
-func (s *InfluxStorage) Retention(ds *registry.DataSource) string {
-	return fmt.Sprintf("policy_%s", ds.ID)
+// RetentionPolicyName returns formatted retention policy name for a given period
+func (s *InfluxStorage) RetentionPolicyName(period string) string {
+	if period == "" {
+		return "autogen" // default retention policy name
+	}
+	return fmt.Sprintf("policy_%s", period)
 }
 
-// Fully qualified measurement name
-func (s *InfluxStorage) FQMsrmt(ds *registry.DataSource) string {
-	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.Database, s.Retention(ds), s.Msrmt(ds))
+// MeasurementNameFQ returns formatted fully-qualified measurement name
+func (s *InfluxStorage) MeasurementNameFQ(ds *registry.DataSource) string {
+	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.Database, s.RetentionPolicyName(ds.Retention), s.MeasurementName(ds))
 }
 
-// The field-name for HDS data types
+// FieldForType returns the field-name for HDS data types
 func (s *InfluxStorage) FieldForType(t string) string {
 	switch t {
 	case common.FLOAT:
@@ -80,12 +92,12 @@ func (s *InfluxStorage) FieldForType(t string) string {
 	return ""
 }
 
-// Database name
+// Database returns database name
 func (s *InfluxStorage) Database() string {
 	return s.config.Database
 }
 
-// Influx Replication
+// Replication returns Influxdb Replication factor
 func (s *InfluxStorage) Replication() int {
 	return s.config.Replication
 }
@@ -98,7 +110,7 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*
 		bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
 			Database:        s.config.Database,
 			Precision:       "ms",
-			RetentionPolicy: s.Retention(sources[id]),
+			RetentionPolicy: s.RetentionPolicyName(sources[id].Retention),
 		})
 		if err != nil {
 			return logger.Errorf("%s", err)
@@ -135,7 +147,7 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*
 				timestamp = time.Unix(dp.Time, 0)
 			}
 			pt, err := influx.NewPoint(
-				s.Msrmt(sources[id]),
+				s.MeasurementName(sources[id]),
 				tags,
 				fields,
 				timestamp,
@@ -153,6 +165,7 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*
 	return nil
 }
 
+// pointsFromRow converts Influxdb rows to HDS data points
 func pointsFromRow(r models.Row) ([]DataPoint, error) {
 	points := []DataPoint{}
 
@@ -246,7 +259,7 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 	for i, ds := range sources {
 		// Count total
 		count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s WHERE %s",
-			s.FieldForType(ds.Type), s.FQMsrmt(ds), timeCond)
+			s.FieldForType(ds.Type), s.MeasurementNameFQ(ds), timeCond)
 		if err != nil {
 			return NewDataSet(), 0, logger.Errorf("Error counting records for source %v: %s", ds.Resource, err)
 		}
@@ -257,7 +270,7 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 		total += int(count)
 
 		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
-			s.FQMsrmt(ds), timeCond, sort, perItems[i], offsets[i])
+			s.MeasurementNameFQ(ds), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
 			return NewDataSet(), 0, logger.Errorf("Error retrieving a data point for source %v: %s", ds.Resource, err)
 		}
@@ -288,72 +301,43 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 
 // Handles the creation of a new data source
 func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) {
-	// Lock to avoid race condition (influxdb 1.5.2): https://boards.linksmart.eu/browse/LS-277
-	s.Lock()
-	defer s.Unlock()
+	s.prepare.Wait()
 
-	duration := "INF"
-	if ds.Retention != "" {
-		duration = ds.Retention
+	// Validate
+	if !common.SupportedPeriod(ds.Retention) {
+		callback <- logger.Errorf("Invalid retention period: %s", ds.Retention)
 	}
-	_, err := s.QuerySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
-		s.Retention(&ds), s.config.Database, duration, s.config.Replication)
-	if err != nil {
-		callback <- logger.Errorf("Error creating retention policy: %s", err)
-		return
-	}
-	logger.Println("InfluxStorage: created retention policy for", ds.ID)
 
 	callback <- nil
 }
 
 // Handles updates of a data source
 func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
-	// Lock to avoid race condition (influxdb 1.5.2): https://boards.linksmart.eu/browse/LS-277
-	s.Lock()
-	defer s.Unlock()
+	s.prepare.Wait()
 
-	if oldDS.Retention != newDS.Retention {
-		duration := "INF"
-		if newDS.Retention != "" {
-			duration = newDS.Retention
-		}
-		// Setting SHARD DURATION 0s tells influx to use the default duration
-		// https://docs.influxdata.com/influxdb/v1.5/query_language/database_management/#retention-policy-management
-		_, err := s.QuerySprintf("ALTER RETENTION POLICY \"%s\" ON %s DURATION %v SHARD DURATION 0s", s.Retention(&oldDS), s.config.Database, duration)
-		if err != nil {
-			callback <- logger.Errorf("Error modifying the retention policy for source: %s", err)
-			return
-		}
-		logger.Println("InfluxStorage: altered retention policy for", oldDS.ID)
+	// Validate
+	if !common.SupportedPeriod(newDS.Retention) {
+		callback <- logger.Errorf("Invalid retention period: %s", newDS.Retention)
 	}
+
 	callback <- nil
 }
 
 // Handles deletion of a data source
 func (s *InfluxStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
-	// Lock to avoid race condition (influxdb 1.5.2): https://boards.linksmart.eu/browse/LS-277
-	s.Lock()
-	defer s.Unlock()
+	s.prepare.Wait()
 
-	_, err := s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.Msrmt(&ds))
+	_, err := s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.MeasurementName(&ds))
 	if err != nil {
 		if strings.Contains(err.Error(), "measurement not found") {
 			// Not an error, No data to delete.
-			goto DROP_RETENTION
+			callback <- nil
+			return
 		}
 		callback <- logger.Errorf("Error removing the historical data: %s", err)
 		return
 	}
 	logger.Println("InfluxStorage: dropped measurements for", ds.ID)
-
-DROP_RETENTION:
-	_, err = s.QuerySprintf("DROP RETENTION POLICY \"%s\" ON %s", s.Retention(&ds), s.config.Database)
-	if err != nil {
-		callback <- logger.Errorf("Error removing the retention policy for source: %s", err)
-		return
-	}
-	logger.Println("InfluxStorage: dropped retention policy for", ds.ID)
 
 	callback <- nil
 }
@@ -400,8 +384,6 @@ func (s *InfluxStorage) CountSprintf(format string, a ...interface{}) (int64, er
 	return count, nil
 }
 
-// InfluxStorageConfig configuration
-
 type InfluxStorageConfig struct {
 	DSN         string
 	Database    string
@@ -434,4 +416,35 @@ func initInfluxConf(DSN string) (*InfluxStorageConfig, error) {
 	}
 
 	return &c, nil
+}
+
+func (s *InfluxStorage) prepareStorage() {
+	// wait for influxdb
+	for interval := 5; ; interval *= 2 {
+		if interval >= 60 {
+			interval = 10
+		}
+		_, version, err := s.client.Ping(influxPingTimeout)
+		if err != nil {
+			logger.Printf("InfluxStorage: Unable to reach influxdb backend: %s", err)
+			time.Sleep(time.Duration(interval) * time.Second)
+			continue
+		}
+		logger.Printf("InfluxStorage: Connected to InfluxDB %s", version)
+		break
+	}
+
+	// TODO check database?
+
+	// create retention policies
+	for _, period := range s.retentionPeriods {
+		_, err := s.QuerySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
+			s.RetentionPolicyName(period), s.config.Database, period, s.config.Replication)
+		if err != nil {
+			logger.Printf("Error creating retention policies: %s", err)
+		}
+		logger.Printf("InfluxStorage: Created retention policy for period: %s", period)
+	}
+
+	s.prepare.Done()
 }
