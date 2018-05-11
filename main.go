@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 
@@ -37,7 +38,10 @@ var (
 
 func main() {
 	flag.Parse()
-
+	if *version {
+		fmt.Println(Version)
+		return
+	}
 	fmt.Print(LINKSMART)
 	logger.Printf("Starting Historical Datastore")
 	logger.Printf("Version: %s", Version)
