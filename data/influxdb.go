@@ -18,26 +18,26 @@ import (
 
 const influxPingTimeout = 30 * time.Second
 
-// InfluxStorage implements a InfluxDB client for HDS Data API
+// InfluxStorage implements a InfluxDB storage client for HDS Data API
 type InfluxStorage struct {
 	client           influx.Client
-	config           InfluxStorageConfig
+	config           influxStorageConfig
 	retentionPeriods []string
 	prepare          sync.WaitGroup
 }
 
-// NewInfluxStorage returns a new Storage given a configuration
+// NewInfluxStorage returns a new InfluxStorage
 func NewInfluxStorage(dataConf *common.DataConf) (*InfluxStorage, chan<- common.Notification, error) {
 	cfg, err := initInfluxConf(dataConf.Backend.DSN)
 	if err != nil {
 		return nil, nil, logger.Errorf("Influx config error: %s", err)
 	}
-	cfg.Replication = 1
+	cfg.replication = 1
 
 	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr:     cfg.DSN,
-		Username: cfg.Username,
-		Password: cfg.Password,
+		Addr:     cfg.dsn,
+		Username: cfg.username,
+		Password: cfg.password,
 	})
 	if err != nil {
 		return nil, nil, logger.Errorf("Error initializing influxdb client: %s", err)
@@ -59,56 +59,13 @@ func NewInfluxStorage(dataConf *common.DataConf) (*InfluxStorage, chan<- common.
 	return s, ntChan, nil
 }
 
-// UTILITY FUNCTIONS
-
-// MeasurementName returns formatted measurement name for a given data source
-func (s *InfluxStorage) MeasurementName(ds *registry.DataSource) string {
-	return fmt.Sprintf("data_%s", ds.ID)
-}
-
-// RetentionPolicyName returns formatted retention policy name for a given period
-func (s *InfluxStorage) RetentionPolicyName(period string) string {
-	if period == "" {
-		return "autogen" // default retention policy name
-	}
-	return fmt.Sprintf("policy_%s", period)
-}
-
-// MeasurementNameFQ returns formatted fully-qualified measurement name
-func (s *InfluxStorage) MeasurementNameFQ(ds *registry.DataSource) string {
-	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.Database, s.RetentionPolicyName(ds.Retention), s.MeasurementName(ds))
-}
-
-// FieldForType returns the field-name for HDS data types
-func (s *InfluxStorage) FieldForType(t string) string {
-	switch t {
-	case common.FLOAT:
-		return "value"
-	case common.STRING:
-		return "stringValue"
-	case common.BOOL:
-		return "booleanValue"
-	}
-	return ""
-}
-
-// Database returns database name
-func (s *InfluxStorage) Database() string {
-	return s.config.Database
-}
-
-// Replication returns Influxdb Replication factor
-func (s *InfluxStorage) Replication() int {
-	return s.config.Replication
-}
-
-// Adds multiple data points for multiple data sources
+// Submit adds multiple data points for multiple data sources
 // data is a map where keys are data source ids
 func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*registry.DataSource) error {
 	for id, dps := range data {
 
 		bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
-			Database:        s.config.Database,
+			Database:        s.config.database,
 			Precision:       "ms",
 			RetentionPolicy: s.RetentionPolicyName(sources[id].Retention),
 		})
@@ -165,69 +122,7 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*
 	return nil
 }
 
-// pointsFromRow converts Influxdb rows to HDS data points
-func pointsFromRow(r models.Row) ([]DataPoint, error) {
-	points := []DataPoint{}
-
-	for _, e := range r.Values {
-		p := NewDataPoint()
-
-		// fields and tags
-		for i, v := range e {
-			// point with nil column
-			if v == nil {
-				continue
-			}
-			switch r.Columns[i] {
-			case "time":
-				if val, ok := v.(string); ok {
-					t, err := time.Parse(time.RFC3339, val)
-					if err != nil {
-						return nil, logger.Errorf("Invalid time format: %v", val)
-					}
-					p.Time = t.Unix()
-				} else {
-					return nil, logger.Errorf("Interface conversion error. time not string?")
-				}
-			case "name":
-				if val, ok := v.(string); ok {
-					p.Name = val
-				} else {
-					return nil, logger.Errorf("Interface conversion error. name not string?")
-				}
-			case "value":
-				if val, err := v.(json.Number).Float64(); err == nil {
-					p.Value = &val
-				} else {
-					return nil, logger.Errorf("%s", err)
-				}
-			case "booleanValue":
-				if val, ok := v.(bool); ok {
-					p.BooleanValue = &val
-				} else {
-					return nil, logger.Errorf("Interface conversion error. booleanValue not bool?")
-				}
-			case "stringValue":
-				if val, ok := v.(string); ok {
-					p.StringValue = &val
-				} else {
-					return nil, logger.Errorf("Interface conversion error. stringValue not string?")
-				}
-			case "units":
-				if val, ok := v.(string); ok {
-					p.Units = val
-				} else {
-					return nil, logger.Errorf("Interface conversion error. units not string?")
-				}
-			} // endswitch
-		}
-		points = append(points, p)
-	}
-
-	return points, nil
-}
-
-// Queries data for specified data sources
+// Query retrieves data for specified data sources
 func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.DataSource) (DataSet, int, error) {
 	points := []DataPoint{}
 	total := 0
@@ -299,7 +194,7 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 	return dataset, total, nil
 }
 
-// Handles the creation of a new data source
+// NtfCreated handles the creation of a new data source
 func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) {
 	s.prepare.Wait()
 
@@ -311,7 +206,7 @@ func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) 
 	callback <- nil
 }
 
-// Handles updates of a data source
+// NtfUpdated handles updates of a data source
 func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
 	s.prepare.Wait()
 
@@ -323,7 +218,7 @@ func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 	callback <- nil
 }
 
-// Handles deletion of a data source
+// NtfDeleted handles deletion of a data source
 func (s *InfluxStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
 	s.prepare.Wait()
 
@@ -342,12 +237,14 @@ func (s *InfluxStorage) NtfDeleted(ds registry.DataSource, callback chan error) 
 	callback <- nil
 }
 
-// Query influxdb
+// UTILITY FUNCTIONS
+
+// QuerySprintf constructs a query for influxdb
 func (s *InfluxStorage) QuerySprintf(format string, a ...interface{}) (res []influx.Result, err error) {
 	logger.Debugln("Influx:", fmt.Sprintf(format, a...))
 	q := influx.Query{
 		Command:  fmt.Sprintf(format, a...),
-		Database: s.config.Database,
+		Database: s.config.database,
 	}
 	response, err := s.client.Query(q)
 	if err != nil {
@@ -360,6 +257,7 @@ func (s *InfluxStorage) QuerySprintf(format string, a ...interface{}) (res []inf
 	return response.Results, nil
 }
 
+// CountSprintf constructs a counting query for influxdb
 func (s *InfluxStorage) CountSprintf(format string, a ...interface{}) (int64, error) {
 	res, err := s.QuerySprintf(format, a...)
 	if err != nil {
@@ -384,15 +282,16 @@ func (s *InfluxStorage) CountSprintf(format string, a ...interface{}) (int64, er
 	return count, nil
 }
 
-type InfluxStorageConfig struct {
-	DSN         string
-	Database    string
-	Username    string
-	Password    string
-	Replication int
+type influxStorageConfig struct {
+	dsn         string
+	database    string
+	username    string
+	password    string
+	replication int
 }
 
-func initInfluxConf(DSN string) (*InfluxStorageConfig, error) {
+// initInfluxConf initializes the influxdb configuration
+func initInfluxConf(DSN string) (*influxStorageConfig, error) {
 	// Parse config's DSN string
 	PDSN, err := url.Parse(DSN)
 	if err != nil {
@@ -406,18 +305,19 @@ func initInfluxConf(DSN string) (*InfluxStorageConfig, error) {
 		return nil, logger.Errorf("Influxdb config: db must be not empty")
 	}
 
-	var c InfluxStorageConfig
-	c.DSN = fmt.Sprintf("%v://%v", PDSN.Scheme, PDSN.Host)
-	c.Database = strings.Trim(PDSN.Path, "/")
+	var c influxStorageConfig
+	c.dsn = fmt.Sprintf("%v://%v", PDSN.Scheme, PDSN.Host)
+	c.database = strings.Trim(PDSN.Path, "/")
 	// Optional username and password
 	if PDSN.User != nil {
-		c.Username = PDSN.User.Username()
-		c.Password, _ = PDSN.User.Password()
+		c.username = PDSN.User.Username()
+		c.password, _ = PDSN.User.Password()
 	}
 
 	return &c, nil
 }
 
+// prepareStorage prepares the backend for storage
 func (s *InfluxStorage) prepareStorage() {
 	// wait for influxdb
 	for interval := 5; ; interval *= 2 {
@@ -439,7 +339,7 @@ func (s *InfluxStorage) prepareStorage() {
 	// create retention policies
 	for _, period := range s.retentionPeriods {
 		_, err := s.QuerySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
-			s.RetentionPolicyName(period), s.config.Database, period, s.config.Replication)
+			s.RetentionPolicyName(period), s.config.database, period, s.config.replication)
 		if err != nil {
 			logger.Printf("Error creating retention policies: %s", err)
 		}
@@ -447,4 +347,107 @@ func (s *InfluxStorage) prepareStorage() {
 	}
 
 	s.prepare.Done()
+}
+
+// MeasurementName returns formatted measurement name for a given data source
+func (s *InfluxStorage) MeasurementName(ds *registry.DataSource) string {
+	return fmt.Sprintf("data_%s", ds.ID)
+}
+
+// MeasurementNameFQ returns formatted fully-qualified measurement name
+func (s *InfluxStorage) MeasurementNameFQ(ds *registry.DataSource) string {
+	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.database, s.RetentionPolicyName(ds.Retention), s.MeasurementName(ds))
+}
+
+// RetentionPolicyName returns formatted retention policy name for a given period
+func (s *InfluxStorage) RetentionPolicyName(period string) string {
+	if period == "" {
+		return "autogen" // default retention policy name
+	}
+	return fmt.Sprintf("policy_%s", period)
+}
+
+// FieldForType returns the field-name for HDS data types
+func (s *InfluxStorage) FieldForType(t string) string {
+	switch t {
+	case common.FLOAT:
+		return "value"
+	case common.STRING:
+		return "stringValue"
+	case common.BOOL:
+		return "booleanValue"
+	}
+	return ""
+}
+
+// Database returns database name
+func (s *InfluxStorage) Database() string {
+	return s.config.database
+}
+
+// Replication returns Influxdb Replication factor
+func (s *InfluxStorage) Replication() int {
+	return s.config.replication
+}
+
+// pointsFromRow converts Influxdb rows to HDS data points
+func pointsFromRow(r models.Row) ([]DataPoint, error) {
+	points := []DataPoint{}
+
+	for _, e := range r.Values {
+		p := NewDataPoint()
+
+		// fields and tags
+		for i, v := range e {
+			// point with nil column
+			if v == nil {
+				continue
+			}
+			switch r.Columns[i] {
+			case "time":
+				if val, ok := v.(string); ok {
+					t, err := time.Parse(time.RFC3339, val)
+					if err != nil {
+						return nil, logger.Errorf("Invalid time format: %v", val)
+					}
+					p.Time = t.Unix()
+				} else {
+					return nil, logger.Errorf("Interface conversion error. time not string?")
+				}
+			case "name":
+				if val, ok := v.(string); ok {
+					p.Name = val
+				} else {
+					return nil, logger.Errorf("Interface conversion error. name not string?")
+				}
+			case "value":
+				if val, err := v.(json.Number).Float64(); err == nil {
+					p.Value = &val
+				} else {
+					return nil, logger.Errorf("%s", err)
+				}
+			case "booleanValue":
+				if val, ok := v.(bool); ok {
+					p.BooleanValue = &val
+				} else {
+					return nil, logger.Errorf("Interface conversion error. booleanValue not bool?")
+				}
+			case "stringValue":
+				if val, ok := v.(string); ok {
+					p.StringValue = &val
+				} else {
+					return nil, logger.Errorf("Interface conversion error. stringValue not string?")
+				}
+			case "units":
+				if val, ok := v.(string); ok {
+					p.Units = val
+				} else {
+					return nil, logger.Errorf("Interface conversion error. units not string?")
+				}
+			} // endswitch
+		}
+		points = append(points, p)
+	}
+
+	return points, nil
 }

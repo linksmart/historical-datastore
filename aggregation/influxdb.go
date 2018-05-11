@@ -14,10 +14,12 @@ import (
 	"github.com/influxdata/influxdb/models"
 )
 
+// InfluxAggr implements a InfluxDB aggregation client for HDS Data API
 type InfluxAggr struct {
 	influxStorage *data.InfluxStorage
 }
 
+// NewInfluxAggr returns a new InfluxAggr
 func NewInfluxAggr(influxStorage *data.InfluxStorage) (Storage, chan<- common.Notification, error) {
 
 	a := &InfluxAggr{
@@ -31,6 +33,7 @@ func NewInfluxAggr(influxStorage *data.InfluxStorage) (Storage, chan<- common.No
 	return a, ntChan, nil
 }
 
+// Query retrieves aggregated data
 func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPage int, sources ...registry.DataSource) (DataSet, int, error) {
 	points := []DataEntry{}
 	total := 0
@@ -102,7 +105,7 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 	return dataset, total, nil
 }
 
-// Handles the creation of a new data source
+// NtfCreated handles the creation of a new data source
 func (a *InfluxAggr) NtfCreated(ds registry.DataSource, callback chan error) {
 
 	for _, dsa := range ds.Aggregation {
@@ -122,7 +125,7 @@ func (a *InfluxAggr) NtfCreated(ds registry.DataSource, callback chan error) {
 	callback <- nil
 }
 
-// Handles updates of a data source
+// NtfUpdated handles updates of a data source
 func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
 
 	aggrs := make(map[string]registry.Aggregation)
@@ -181,7 +184,7 @@ func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSo
 	callback <- nil
 }
 
-// Handles deletion of a data source
+// NtfDeleted handles deletion of a data source
 func (a *InfluxAggr) NtfDeleted(ds registry.DataSource, callback chan error) {
 
 	for _, dsa := range ds.Aggregation {
