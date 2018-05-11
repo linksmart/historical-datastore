@@ -201,6 +201,7 @@ func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) 
 	// Validate
 	if !common.SupportedPeriod(ds.Retention) {
 		callback <- logger.Errorf("Invalid retention period: %s", ds.Retention)
+		return
 	}
 
 	callback <- nil
@@ -213,6 +214,7 @@ func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 	// Validate
 	if !common.SupportedPeriod(newDS.Retention) {
 		callback <- logger.Errorf("Invalid retention period: %s", newDS.Retention)
+		return
 	}
 
 	callback <- nil
@@ -334,14 +336,13 @@ func (s *InfluxStorage) prepareStorage() {
 		break
 	}
 
-	// TODO check database?
-
 	// create retention policies
 	for _, period := range s.retentionPeriods {
 		_, err := s.QuerySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
 			s.RetentionPolicyName(period), s.config.database, period, s.config.replication)
 		if err != nil {
-			logger.Printf("Error creating retention policies: %s", err)
+			// TODO check database before this?
+			logger.Fatalf("Error creating retention policies: %s", err)
 		}
 		logger.Printf("InfluxStorage: Created retention policy for period: %s", period)
 	}
