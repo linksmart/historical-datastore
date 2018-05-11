@@ -12,10 +12,6 @@ import (
 const (
 	// IDSeparator is used for separation of IDs in the URL
 	IDSeparator = ","
-	// APIVersion defines the API version
-	APIVersion = "0.4.0"
-	// Default MIME type for all responses
-	DefaultMIMEType = "application/vnd.eu.linksmart.hds+json;version=" + APIVersion
 
 	// Location of APIs
 	RegistryAPILoc = "/registry"
@@ -42,6 +38,11 @@ const (
 )
 
 var (
+	// APIVersion defines the API version
+	APIVersion = "N/A"
+	// Default MIME type for all responses
+	DefaultMIMEType = "application/vnd.eu.linksmart.hds+json;version=" + APIVersion
+
 	supportedTypes      = []string{STRING, BOOL, FLOAT}
 	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}
 	supportedPeriods    = []string{"m", "h", "d", "w"}
