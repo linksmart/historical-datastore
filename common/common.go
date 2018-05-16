@@ -3,8 +3,6 @@
 package common
 
 import (
-	"encoding/json"
-	"net/http"
 	"regexp"
 	"strings"
 )
@@ -43,32 +41,15 @@ var (
 	// Default MIME type for all responses
 	DefaultMIMEType = "application/vnd.eu.linksmart.hds+json;version=" + APIVersion
 
-	supportedTypes      = []string{STRING, BOOL, FLOAT}
+	// supported type values
+	supportedTypes = []string{STRING, BOOL, FLOAT}
+	// supported aggregates
 	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}
-	supportedPeriods    = []string{"m", "h", "d", "w"}
+	// supported period suffixes
+	supportedPeriods = []string{"m", "h", "d", "w"}
 )
 
-// Error describes an API error (serializable in JSON)
-type Error struct {
-	// Code is the (http) code of the error
-	Code int `json:"code"`
-	// Message is the (human-readable) error message
-	Message string `json:"message"`
-}
-
-// ErrorResponse writes error to HTTP ResponseWriter
-func ErrorResponse(code int, msg string, w http.ResponseWriter) {
-	e := &Error{
-		code,
-		msg,
-	}
-	logger.DebugOutput(2, "Error: "+msg)
-	b, _ := json.Marshal(e)
-	w.Header().Set("Content-Type", "application/json;version="+APIVersion)
-	w.WriteHeader(code)
-	w.Write(b)
-}
-
+// SupportedPeriod validates a period
 func SupportedPeriod(p string) bool {
 	if p == "" {
 		// empty means no retention
@@ -79,9 +60,13 @@ func SupportedPeriod(p string) bool {
 	re := regexp.MustCompile("^[0-9]*(" + intervals + ")$")
 	return re.MatchString(p)
 }
+
+// SupportedType validates a type
 func SupportedType(t string) bool {
 	return stringInSlice(t, supportedTypes)
 }
+
+// SupportedAggregate validates an aggregate
 func SupportedAggregate(a string) bool {
 	return stringInSlice(a, supportedAggregates)
 }
