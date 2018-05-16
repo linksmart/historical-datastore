@@ -198,24 +198,12 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) {
 	s.prepare.Wait()
 
-	// Validate
-	if !common.SupportedPeriod(ds.Retention) {
-		callback <- logger.Errorf("Invalid retention period: %s", ds.Retention)
-		return
-	}
-
 	callback <- nil
 }
 
 // NtfUpdated handles updates of a data source
 func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
 	s.prepare.Wait()
-
-	// Validate
-	if !common.SupportedPeriod(newDS.Retention) {
-		callback <- logger.Errorf("Invalid retention period: %s", newDS.Retention)
-		return
-	}
 
 	callback <- nil
 }

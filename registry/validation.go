@@ -133,10 +133,8 @@ func validateUpdate(ds DataSource, oldDS DataSource) error {
 	}
 
 	// retention
-	if ds.Retention != "" {
-		if !common.SupportedPeriod(ds.Retention) {
-			e.invalid = append(e.invalid, "retention")
-		}
+	if !common.SupportedPeriod(ds.Retention) {
+		e.invalid = append(e.invalid, "retention")
 	}
 
 	// type
@@ -166,10 +164,8 @@ func validateUpdate(ds DataSource, oldDS DataSource) error {
 				e.invalid = append(e.invalid, "aggregation.interval")
 			}
 			// retention
-			if aggr.Retention != "" {
-				if !common.SupportedPeriod(aggr.Retention) {
-					e.invalid = append(e.invalid, "aggregation.retention")
-				}
+			if !common.SupportedPeriod(aggr.Retention) {
+				e.invalid = append(e.invalid, "aggregation.retention")
 			}
 			// aggregates
 			for _, aggregate := range aggr.Aggregates {

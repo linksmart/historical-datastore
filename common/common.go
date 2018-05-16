@@ -69,11 +69,15 @@ func ErrorResponse(code int, msg string, w http.ResponseWriter) {
 	w.Write(b)
 }
 
-func SupportedPeriod(i string) bool {
+func SupportedPeriod(p string) bool {
+	if p == "" {
+		// empty means no retention
+		return true
+	}
 	// Create regexp: ^[0-9]*(h|d|w|m)$
 	intervals := strings.Join(supportedPeriods, "|")
 	re := regexp.MustCompile("^[0-9]*(" + intervals + ")$")
-	return re.MatchString(i)
+	return re.MatchString(p)
 }
 func SupportedType(t string) bool {
 	return stringInSlice(t, supportedTypes)

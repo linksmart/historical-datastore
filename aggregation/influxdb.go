@@ -109,11 +109,6 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 func (a *InfluxAggr) NtfCreated(ds registry.DataSource, callback chan error) {
 
 	for _, dsa := range ds.Aggregation {
-		// Validate
-		if !common.SupportedPeriod(dsa.Retention) {
-			callback <- logger.Errorf("Invalid retention period: %s", dsa.Retention)
-			return
-		}
 
 		err := a.createContinuousQuery(ds, dsa)
 		if err != nil {
@@ -138,11 +133,6 @@ func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSo
 
 		// NEW AGGREGATION
 		if !found {
-			// Validate
-			if !common.SupportedPeriod(dsa.Retention) {
-				callback <- logger.Errorf("Invalid retention period: %s", dsa.Retention)
-				return
-			}
 			// Create Continuous Query
 			err := a.createContinuousQuery(newDS, dsa)
 			if err != nil {
