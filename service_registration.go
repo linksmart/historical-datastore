@@ -42,7 +42,7 @@ func registerInServiceCatalog(conf *common.Config) func() {
 			Docs: []catalog.Doc{{
 				Description: "Documentation",
 				APIs:        []string{"REST API"},
-				URL:         "http://doc.linksmart.eu/HDS",
+				URL:         "https://docs.linksmart.eu/display/HDS",
 				Type:        "text/html",
 			}},
 			Meta: map[string]interface{}{
