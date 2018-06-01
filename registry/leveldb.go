@@ -98,7 +98,7 @@ func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
 	}
 
 	// Convert to json bytes
-	dsBytes, err := json.Marshal(&ds)
+	dsBytes, err := ds.MarshalSensitiveJSON()
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s", err)
 	}
@@ -156,7 +156,7 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 	}
 
 	// Convert to json bytes
-	dsBytes, err := json.Marshal(&tempDS)
+	dsBytes, err := tempDS.MarshalSensitiveJSON()
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s", err)
 	}

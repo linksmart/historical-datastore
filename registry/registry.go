@@ -31,6 +31,7 @@ type Registry struct {
 
 // DataSource describes a single data source such as a sensor (LinkSmart Resource)
 type DataSource struct {
+	keepSensitiveInfo bool
 	// ID is a unique ID of the data source
 	ID string `json:"id"`
 	// URL is the URL of the Data Source in the Registry API
@@ -54,6 +55,38 @@ type DataSource struct {
 	Format string `json:"format"`
 }
 
+// MarshalJSON masks sensitive information when using the default marshaller
+func (ds DataSource) MarshalJSON() ([]byte, error) {
+
+	if !ds.keepSensitiveInfo {
+		// mask MQTT credentials and key paths
+		if ds.Connector.MQTT.Username != "" {
+			ds.Connector.MQTT.Username = "*****"
+		}
+		if ds.Connector.MQTT.Password != "" {
+			ds.Connector.MQTT.Password = "*****"
+		}
+		if ds.Connector.MQTT.CaFile != "" {
+			ds.Connector.MQTT.CaFile = "*****"
+		}
+		if ds.Connector.MQTT.CertFile != "" {
+			ds.Connector.MQTT.CertFile = "*****"
+		}
+		if ds.Connector.MQTT.KeyFile != "" {
+			ds.Connector.MQTT.KeyFile = "*****"
+		}
+	}
+
+	type Alias DataSource
+	return json.Marshal((*Alias)(&ds))
+}
+
+// MarshalSensitiveJSON serializes the datasource including the sensitive information
+func (ds DataSource) MarshalSensitiveJSON() ([]byte, error) {
+	ds.keepSensitiveInfo = true
+	return json.Marshal(&ds)
+}
+
 // Connector describes additional connectors to the Data API
 type Connector struct {
 	MQTT *MQTTConf `json:"mqtt,omitempty"`
@@ -69,29 +102,6 @@ type MQTTConf struct {
 	CaFile   string `json:"caFile,omitempty"`
 	CertFile string `json:"certFile,omitempty"`
 	KeyFile  string `json:"keyFile,omitempty"`
-}
-
-// MarshalJSON hides sensitive MQTT client information
-func (c MQTTConf) MarshalJSON() ([]byte, error) {
-
-	if c.Username != "" {
-		c.Username = "*****"
-	}
-	if c.Password != "" {
-		c.Password = "*****"
-	}
-	if c.CaFile != "" {
-		c.CaFile = "*****"
-	}
-	if c.CertFile != "" {
-		c.CertFile = "*****"
-	}
-	if c.KeyFile != "" {
-		c.KeyFile = "*****"
-	}
-
-	type Alias MQTTConf
-	return json.Marshal((*Alias)(&c))
 }
 
 func (ds *DataSource) ParsedResource() *url.URL {
