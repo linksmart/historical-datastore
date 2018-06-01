@@ -60,20 +60,22 @@ func (ds DataSource) MarshalJSON() ([]byte, error) {
 
 	if !ds.keepSensitiveInfo {
 		// mask MQTT credentials and key paths
-		if ds.Connector.MQTT.Username != "" {
-			ds.Connector.MQTT.Username = "*****"
-		}
-		if ds.Connector.MQTT.Password != "" {
-			ds.Connector.MQTT.Password = "*****"
-		}
-		if ds.Connector.MQTT.CaFile != "" {
-			ds.Connector.MQTT.CaFile = "*****"
-		}
-		if ds.Connector.MQTT.CertFile != "" {
-			ds.Connector.MQTT.CertFile = "*****"
-		}
-		if ds.Connector.MQTT.KeyFile != "" {
-			ds.Connector.MQTT.KeyFile = "*****"
+		if ds.Connector.MQTT != nil {
+			if ds.Connector.MQTT.Username != "" {
+				ds.Connector.MQTT.Username = "*****"
+			}
+			if ds.Connector.MQTT.Password != "" {
+				ds.Connector.MQTT.Password = "*****"
+			}
+			if ds.Connector.MQTT.CaFile != "" {
+				ds.Connector.MQTT.CaFile = "*****"
+			}
+			if ds.Connector.MQTT.CertFile != "" {
+				ds.Connector.MQTT.CertFile = "*****"
+			}
+			if ds.Connector.MQTT.KeyFile != "" {
+				ds.Connector.MQTT.KeyFile = "*****"
+			}
 		}
 	}
 
