@@ -89,6 +89,10 @@ func NewMQTTConnector(registryClient registry.Client, storage Storage) (chan<- c
 	return ntChan, nil
 }
 
+func (c *MQTTConnector) flushCache() {
+	c.cache = make(map[string]*registry.DataSource)
+}
+
 func (c *MQTTConnector) retryRegistrations() {
 	for {
 		time.Sleep(mqttRetryInterval * time.Second)
@@ -333,6 +337,10 @@ func (c *MQTTConnector) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 	c.Lock()
 	defer c.Unlock()
 
+	if oldDS.Retention != newDS.Retention {
+		c.flushCache()
+	}
+
 	if oldDS.Connector.MQTT != newDS.Connector.MQTT {
 		// Remove old subscription
 		if oldDS.Connector.MQTT != nil {
@@ -359,6 +367,8 @@ func (c *MQTTConnector) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 func (c *MQTTConnector) NtfDeleted(oldDS registry.DataSource, callback chan error) {
 	c.Lock()
 	defer c.Unlock()
+
+	c.flushCache()
 
 	// Remove old subscription
 	if oldDS.Connector.MQTT != nil {

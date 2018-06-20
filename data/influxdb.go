@@ -63,12 +63,14 @@ func NewInfluxStorage(dataConf *common.DataConf) (*InfluxStorage, chan<- common.
 // data is a map where keys are data source ids
 func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*registry.DataSource) error {
 	for id, dps := range data {
-
-		bp, err := influx.NewBatchPoints(influx.BatchPointsConfig{
+		bpConf := influx.BatchPointsConfig{
 			Database:        s.config.database,
-			Precision:       "ms",
+			Precision:       "s", // SenML supports s precision only
 			RetentionPolicy: s.RetentionPolicyName(sources[id].Retention),
-		})
+		}
+		logger.Debugf("Influx: %+v", bpConf)
+
+		bp, err := influx.NewBatchPoints(bpConf)
 		if err != nil {
 			return logger.Errorf("%s", err)
 		}
