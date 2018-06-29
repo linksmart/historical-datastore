@@ -57,6 +57,12 @@
   revision = "122e062de95f1f03e80baa633e2e62e21bcc80c9"
 
 [[projects]]
+  name = "github.com/gogo/protobuf"
+  packages = ["proto"]
+  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/golang/snappy"
   packages = ["."]
@@ -83,6 +89,15 @@
   ]
   revision = "0c54d8fc744220b8dc70f2987e04e78fec951285"
   version = "v1.3.4"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/influxdata/influxql"
+  packages = [
+    ".",
+    "internal"
+  ]
+  revision = "5e999e6a81820d4450f2a1f35c5597b569258f01"
 
 [[projects]]
   name = "github.com/justinas/alice"
@@ -151,6 +166,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "320180c3546a4ef1dc2a60ad2ff6888fabed5eabbb36371cd0073f6289152b8e"
+  inputs-digest = "8b119b142c144d23fdc32c6d0b1a57228670116343c432a966233532912bf28e"
   solver-name = "gps-cdcl"
   solver-version = 1

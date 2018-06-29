@@ -14,6 +14,8 @@ import (
 	"code.linksmart.eu/hds/historical-datastore/registry"
 	influx "github.com/influxdata/influxdb/client/v2"
 	"github.com/influxdata/influxdb/models"
+	"github.com/influxdata/influxql"
+	"github.com/satori/go.uuid"
 )
 
 const influxPingTimeout = 30 * time.Second
@@ -207,6 +209,52 @@ func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) 
 func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
 	s.prepare.Wait()
 
+	retention, err := influxql.ParseDuration(newDS.Retention)
+	if err != nil {
+		callback <- logger.Errorf("Error parsing retention period: %s: %s", newDS.Retention, err)
+	}
+	retention -= time.Minute // reduce 1m to avoid overshooting the new RP
+
+	if oldDS.Retention != newDS.Retention {
+		tempUUID := uuid.NewV4().String()
+		// keep required data in temp measurement
+		_, err := s.QuerySprintf("SELECT * INTO %s FROM %s WHERE time > '%s'",
+			s.MeasurementNameTempFQ(tempUUID), s.MeasurementNameFQ(&oldDS), time.Now().UTC().Add(-retention).Format(time.RFC3339))
+		if err != nil {
+			callback <- logger.Errorf("Error moving the historical data to new retention policy: %s", err)
+			return
+		}
+		// delete the data from old measurement (on all RPs)
+		_, err = s.QuerySprintf("DELETE FROM \"%s\"", s.MeasurementName(&oldDS))
+		if err != nil {
+			if strings.Contains(err.Error(), "measurement not found") {
+				// Not an error, No data to delete.
+				callback <- nil
+				return
+			}
+			callback <- logger.Errorf("Error removing the historical data: %s", err)
+			return
+		}
+		// move data from temp into new RP
+		_, err = s.QuerySprintf("SELECT * INTO %s FROM %s",
+			s.MeasurementNameFQ(&newDS), s.MeasurementNameTempFQ(tempUUID))
+		if err != nil {
+			callback <- logger.Errorf("Error moving the historical data to new retention policy: %s", err)
+			return
+		}
+		// drop temp
+		_, err = s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.MeasurementNameTemp(tempUUID))
+		if err != nil {
+			if strings.Contains(err.Error(), "measurement not found") {
+				// Not an error, No data to delete.
+				callback <- nil
+				return
+			}
+			callback <- logger.Errorf("Error removing the historical data: %s", err)
+			return
+		}
+	}
+
 	callback <- nil
 }
 
@@ -348,6 +396,16 @@ func (s *InfluxStorage) MeasurementName(ds *registry.DataSource) string {
 // MeasurementNameFQ returns formatted fully-qualified measurement name
 func (s *InfluxStorage) MeasurementNameFQ(ds *registry.DataSource) string {
 	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.database, s.RetentionPolicyName(ds.Retention), s.MeasurementName(ds))
+}
+
+// MeasurementNameTemp returns formatted temporary measurement name
+func (s *InfluxStorage) MeasurementNameTemp(uuid string) string {
+	return fmt.Sprintf("temp_%s", uuid)
+}
+
+// MeasurementNameTempFQ returns formatted fully-qualified temporary measurement name
+func (s *InfluxStorage) MeasurementNameTempFQ(uuid string) string {
+	return fmt.Sprintf("%s.\"%s\".\"temp_%s\"", s.config.database, s.RetentionPolicyName(""), uuid)
 }
 
 // RetentionPolicyName returns formatted retention policy name for a given period
