@@ -1,4 +1,4 @@
-FROM golang:1.8-alpine as builder
+FROM golang:1.10-alpine as builder
 
 ENV PACKAGE code.linksmart.eu/hds/historical-datastore
 
