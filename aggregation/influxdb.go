@@ -89,13 +89,13 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 			return DataSet{}, 0, logger.Errorf("Unrecognized/Corrupted database schema.")
 		}
 
-		pds, err := pointsFromRow(res[0].Series[0], aggr, ds)
+		rowPoints, err := pointsFromRow(res[0].Series[0], aggr, ds)
 		if err != nil {
 			return DataSet{}, 0, logger.Errorf("Error parsing records for source %v: %s", ds.Resource, err)
 		}
 
 		if perItems[i] != 0 { // influx ignores `limit 0`
-			points = append(points, pds...)
+			points = append(points, rowPoints...)
 		}
 	}
 	var dataset DataSet
@@ -112,9 +112,9 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 // NtfCreated handles the creation of a new data source
 func (a *InfluxAggr) NtfCreated(ds registry.DataSource, callback chan error) {
 
-	for _, dsa := range ds.Aggregation {
+	for _, aggr := range ds.Aggregation {
 
-		err := a.createContinuousQuery(ds, dsa)
+		err := a.createContinuousQuery(ds, aggr)
 		if err != nil {
 			callback <- err
 			return
@@ -212,15 +212,15 @@ func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSo
 // NtfDeleted handles deletion of a data source
 func (a *InfluxAggr) NtfDeleted(ds registry.DataSource, callback chan error) {
 
-	for _, dsa := range ds.Aggregation {
+	for _, aggr := range ds.Aggregation {
 		// Drop Continuous Query
-		err := a.dropContinuousQuery(ds, dsa)
+		err := a.dropContinuousQuery(ds, aggr)
 		if err != nil {
 			callback <- err
 			return
 		}
 		// Drop Measurement
-		err = a.dropMeasurement(ds, dsa)
+		err = a.dropMeasurement(ds, aggr)
 		if err != nil {
 			callback <- err
 			return
@@ -297,9 +297,9 @@ func (a *InfluxAggr) measurementNameFQ(retention, measurementName string) string
 }
 
 // functions returned formatted function signatures. E.g. min(value),max(value)
-func (a *InfluxAggr) functions(dsa registry.Aggregation) string {
+func (a *InfluxAggr) functions(aggr registry.Aggregation) string {
 	var funcs []string
-	for _, aggr := range dsa.Aggregates {
+	for _, aggr := range aggr.Aggregates {
 		funcs = append(funcs, fmt.Sprintf("%s(value)", aggr))
 	}
 	return strings.Join(funcs, ",")
@@ -308,17 +308,17 @@ func (a *InfluxAggr) functions(dsa registry.Aggregation) string {
 // INFLUX QUERIES
 
 // Backfill aggregates for the historical data
-func (a *InfluxAggr) backfill(ds registry.DataSource, dsa registry.Aggregation) error {
+func (a *InfluxAggr) backfill(ds registry.DataSource, aggr registry.Aggregation) error {
 	const SINCE int = -10 // years ago
 	now := time.Now().UTC()
 
 	dur, _ := a.influxStorage.ParseDuration(ds.Retention)
-	aggrDur, _ := a.influxStorage.ParseDuration(dsa.Retention)
+	aggrDur, _ := a.influxStorage.ParseDuration(aggr.Retention)
 	if aggrDur < dur {
 		dur = aggrDur
 	}
 	dur -= time.Minute // reduce a minute to avoid overshooting the retention interval
-	defer logger.Printf("InfluxAggr: backfilled aggregates of %s/%s for %s.", dsa.ID, ds.ID, dur+time.Minute)
+	defer logger.Printf("InfluxAggr: backfilled aggregates of %s/%s for %s.", aggr.ID, ds.ID, dur+time.Minute)
 
 	// backfill one year at a time
 	for s := 0; s > SINCE; s-- {
@@ -332,11 +332,11 @@ func (a *InfluxAggr) backfill(ds registry.DataSource, dsa registry.Aggregation) 
 		}
 
 		_, err := a.influxStorage.QuerySprintf("SELECT %s INTO %s FROM %s WHERE time >= '%v' AND time < '%v' GROUP BY time(%s) fill(none)",
-			a.functions(dsa),
-			a.measurementNameFQ(dsa.Retention, a.measurementName(ds.ID, dsa.ID)),
+			a.functions(aggr),
+			a.measurementNameFQ(aggr.Retention, a.measurementName(ds.ID, aggr.ID)),
 			a.influxStorage.MeasurementNameFQ(ds.Retention, a.influxStorage.MeasurementName(ds.ID)),
 			from.Format(time.RFC3339), to.Format(time.RFC3339),
-			dsa.Interval)
+			aggr.Interval)
 		if err != nil {
 			return logger.Errorf("Error backfilling aggregates: %s", err)
 		}
@@ -345,42 +345,42 @@ func (a *InfluxAggr) backfill(ds registry.DataSource, dsa registry.Aggregation) 
 	return nil
 }
 
-func (a *InfluxAggr) createContinuousQuery(ds registry.DataSource, dsa registry.Aggregation) error {
+func (a *InfluxAggr) createContinuousQuery(ds registry.DataSource, aggr registry.Aggregation) error {
 	_, err := a.influxStorage.QuerySprintf("CREATE CONTINUOUS QUERY %s ON %s BEGIN SELECT %s INTO %s FROM %s GROUP BY time(%s) fill(none) END",
-		a.cqName(ds.ID, dsa.ID),
+		a.cqName(ds.ID, aggr.ID),
 		a.influxStorage.Database(),
-		a.functions(dsa),
-		a.measurementNameFQ(dsa.Retention, a.measurementName(ds.ID, dsa.ID)),
+		a.functions(aggr),
+		a.measurementNameFQ(aggr.Retention, a.measurementName(ds.ID, aggr.ID)),
 		a.influxStorage.MeasurementNameFQ(ds.Retention, a.influxStorage.MeasurementName(ds.ID)),
-		dsa.Interval)
+		aggr.Interval)
 	if err != nil {
 		if strings.Contains(err.Error(), "continuous query already exists") {
-			logger.Printf("WARNING: %s: %v", err, a.cqName(ds.ID, dsa.ID))
+			logger.Printf("WARNING: %s: %v", err, a.cqName(ds.ID, aggr.ID))
 			return nil
 		}
 		return logger.Errorf("Error creating aggregation: %s", err)
 	}
-	logger.Printf("InfluxAggr: created continuous query %s/%s", dsa.ID, ds.ID)
+	logger.Printf("InfluxAggr: created continuous query %s/%s", aggr.ID, ds.ID)
 	return nil
 }
 
-func (a *InfluxAggr) dropContinuousQuery(ds registry.DataSource, dsa registry.Aggregation) error {
+func (a *InfluxAggr) dropContinuousQuery(ds registry.DataSource, aggr registry.Aggregation) error {
 	_, err := a.influxStorage.QuerySprintf("DROP CONTINUOUS QUERY %s ON %s",
-		a.cqName(ds.ID, dsa.ID),
+		a.cqName(ds.ID, aggr.ID),
 		a.influxStorage.Database())
 	if err != nil {
 		if strings.Contains(err.Error(), "continuous query not found") {
-			logger.Printf("WARNING: %s: %v", err, a.cqName(ds.ID, dsa.ID))
+			logger.Printf("WARNING: %s: %v", err, a.cqName(ds.ID, aggr.ID))
 			return nil
 		}
 		return logger.Errorf("Error dropping continuous query: %s", err)
 	}
-	logger.Printf("InfluxAggr: dropped continuous query %s/%s", dsa.ID, ds.ID)
+	logger.Printf("InfluxAggr: dropped continuous query %s/%s", aggr.ID, ds.ID)
 	return nil
 }
 
-func (a *InfluxAggr) dropMeasurement(ds registry.DataSource, dsa registry.Aggregation) error {
-	_, err := a.influxStorage.QuerySprintf("DROP MEASUREMENT \"%s\"", a.measurementName(ds.ID, dsa.ID))
+func (a *InfluxAggr) dropMeasurement(ds registry.DataSource, aggr registry.Aggregation) error {
+	_, err := a.influxStorage.QuerySprintf("DROP MEASUREMENT \"%s\"", a.measurementName(ds.ID, aggr.ID))
 	if err != nil {
 		if strings.Contains(err.Error(), "measurement not found") {
 			// Not an error, No data to delete.
@@ -388,6 +388,6 @@ func (a *InfluxAggr) dropMeasurement(ds registry.DataSource, dsa registry.Aggreg
 		}
 		return logger.Errorf("Error removing historical data: %s", err)
 	}
-	logger.Printf("InfluxAggr: dropped measurement %s/%s", dsa.ID, ds.ID)
+	logger.Printf("InfluxAggr: dropped measurement %s/%s", aggr.ID, ds.ID)
 	return nil
 }
