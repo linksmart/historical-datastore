@@ -290,7 +290,7 @@ func (a *InfluxAggr) measurementName(dsID, aggrID string) string {
 
 // measurementNameFQ returns fully qualified measurement name
 func (a *InfluxAggr) measurementNameFQ(retention, measurementName string) string {
-	return fmt.Sprintf("%s.\"%s\".\"%s\"",
+	return fmt.Sprintf("\"%s\".\"%s\".\"%s\"",
 		a.influxStorage.Database(),
 		a.influxStorage.RetentionPolicyName(retention),
 		measurementName)

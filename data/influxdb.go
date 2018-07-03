@@ -411,7 +411,7 @@ func (s *InfluxStorage) prepareStorage() {
 
 	// create retention policies
 	for _, period := range s.retentionPeriods {
-		_, err := s.QuerySprintf("CREATE RETENTION POLICY \"%s\" ON %s DURATION %v REPLICATION %d",
+		_, err := s.QuerySprintf("CREATE RETENTION POLICY \"%s\" ON \"%s\" DURATION %v REPLICATION %d",
 			s.RetentionPolicyName(period), s.config.database, period, s.config.replication)
 		if err != nil {
 			// TODO check database before this?
@@ -430,7 +430,7 @@ func (s *InfluxStorage) MeasurementName(id string) string {
 
 // MeasurementNameFQ returns formatted fully-qualified measurement name
 func (s *InfluxStorage) MeasurementNameFQ(retention, measurementName string) string {
-	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.database, s.RetentionPolicyName(retention), measurementName)
+	return fmt.Sprintf("\"%s\".\"%s\".\"%s\"", s.config.database, s.RetentionPolicyName(retention), measurementName)
 }
 
 // RetentionPolicyName returns formatted retention policy name for a given period
