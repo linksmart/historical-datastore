@@ -397,7 +397,7 @@ func (s *InfluxStorage) prepareStorage() {
 	// wait for influxdb
 	for interval := 5; ; interval *= 2 {
 		if interval >= 60 {
-			interval = 10
+			interval = 60
 		}
 		_, version, err := s.client.Ping(influxPingTimeout)
 		if err != nil {
