@@ -354,6 +354,9 @@ func (s *InfluxStorage) ChangeRetentionPolicy(measurement, countField, oldRP, ne
 }
 
 func (s *InfluxStorage) ParseDuration(durationStr string) (time.Duration, error) {
+	if durationStr == "" {
+		return time.Since(time.Unix(0, 0)), nil
+	}
 	return influxql.ParseDuration(durationStr)
 }
 
