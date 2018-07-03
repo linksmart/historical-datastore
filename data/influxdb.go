@@ -74,7 +74,7 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*
 
 		bp, err := influx.NewBatchPoints(bpConf)
 		if err != nil {
-			return logger.Errorf("%s", err)
+			return logger.Errorf("Error creating batch points: %s", err)
 		}
 		for _, dp := range dps {
 			var (
@@ -108,7 +108,7 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*
 				timestamp = time.Unix(dp.Time, 0)
 			}
 			pt, err := influx.NewPoint(
-				s.MeasurementName(sources[id]),
+				s.MeasurementName(id),
 				tags,
 				fields,
 				timestamp,
@@ -120,7 +120,17 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*
 		}
 		err = s.client.Write(bp)
 		if err != nil {
-			return logger.Errorf("%s", err)
+			var influxResponse influx.Response
+			marshalErr := json.Unmarshal([]byte(err.Error()), &influxResponse)
+			if marshalErr != nil {
+				return logger.Errorf("Error writing: %s: %s", marshalErr, err)
+			}
+			if strings.Contains(influxResponse.Err, "partial write: points beyond retention policy dropped") {
+				// TODO: send this to the client?
+				logger.Println(influxResponse.Err)
+				return nil
+			}
+			return logger.Errorf("Error writing: %s", influxResponse.Err)
 		}
 	}
 	return nil
@@ -158,7 +168,7 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 	for i, ds := range sources {
 		// Count total
 		count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s WHERE %s",
-			s.FieldForType(ds.Type), s.MeasurementNameFQ(ds), timeCond)
+			s.FieldForType(ds.Type), s.MeasurementNameFQ(ds.Retention, s.MeasurementName(ds.ID)), timeCond)
 		if err != nil {
 			return NewDataSet(), 0, logger.Errorf("Error counting records for source %v: %s", ds.Resource, err)
 		}
@@ -169,7 +179,7 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 		total += int(count)
 
 		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
-			s.MeasurementNameFQ(ds), timeCond, sort, perItems[i], offsets[i])
+			s.MeasurementNameFQ(ds.Retention, s.MeasurementName(ds.ID)), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
 			return NewDataSet(), 0, logger.Errorf("Error retrieving a data point for source %v: %s", ds.Resource, err)
 		}
@@ -209,50 +219,13 @@ func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) 
 func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
 	s.prepare.Wait()
 
-	retention, err := influxql.ParseDuration(newDS.Retention)
-	if err != nil {
-		callback <- logger.Errorf("Error parsing retention period: %s: %s", newDS.Retention, err)
-	}
-	retention -= time.Minute // reduce 1m to avoid overshooting the new RP
-
 	if oldDS.Retention != newDS.Retention {
-		tempUUID := uuid.NewV4().String()
-		// keep required data in temp measurement
-		_, err := s.QuerySprintf("SELECT * INTO %s FROM %s WHERE time > '%s'",
-			s.MeasurementNameTempFQ(tempUUID), s.MeasurementNameFQ(&oldDS), time.Now().UTC().Add(-retention).Format(time.RFC3339))
+		err := s.ChangeRetentionPolicy(s.MeasurementName(oldDS.ID), s.FieldForType(oldDS.Type), oldDS.Retention, newDS.Retention)
 		if err != nil {
-			callback <- logger.Errorf("Error moving the historical data to new retention policy: %s", err)
+			callback <- logger.Errorf("Error changing retention policy: %s", err)
 			return
 		}
-		// delete the data from old measurement (on all RPs)
-		_, err = s.QuerySprintf("DELETE FROM \"%s\"", s.MeasurementName(&oldDS))
-		if err != nil {
-			if strings.Contains(err.Error(), "measurement not found") {
-				// Not an error, No data to delete.
-				callback <- nil
-				return
-			}
-			callback <- logger.Errorf("Error removing the historical data: %s", err)
-			return
-		}
-		// move data from temp into new RP
-		_, err = s.QuerySprintf("SELECT * INTO %s FROM %s",
-			s.MeasurementNameFQ(&newDS), s.MeasurementNameTempFQ(tempUUID))
-		if err != nil {
-			callback <- logger.Errorf("Error moving the historical data to new retention policy: %s", err)
-			return
-		}
-		// drop temp
-		_, err = s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.MeasurementNameTemp(tempUUID))
-		if err != nil {
-			if strings.Contains(err.Error(), "measurement not found") {
-				// Not an error, No data to delete.
-				callback <- nil
-				return
-			}
-			callback <- logger.Errorf("Error removing the historical data: %s", err)
-			return
-		}
+		logger.Println("InfluxAggr: changed retenton policy for", newDS.ID)
 	}
 
 	callback <- nil
@@ -262,7 +235,7 @@ func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 func (s *InfluxStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
 	s.prepare.Wait()
 
-	_, err := s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.MeasurementName(&ds))
+	_, err := s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.MeasurementName(ds.ID))
 	if err != nil {
 		if strings.Contains(err.Error(), "measurement not found") {
 			// Not an error, No data to delete.
@@ -320,6 +293,68 @@ func (s *InfluxStorage) CountSprintf(format string, a ...interface{}) (int64, er
 		return 0, logger.Errorf("Unable to parse count from database response.")
 	}
 	return count, nil
+}
+
+//
+func (s *InfluxStorage) ChangeRetentionPolicy(measurement, countField, oldRP, newRP string) error {
+	count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s GROUP BY *",
+		countField, s.MeasurementNameFQ(oldRP, measurement))
+	if err != nil {
+		return logger.Errorf("Error counting historical data: %s", err)
+	}
+	if count == 0 {
+		// no data to move
+		return nil
+	}
+
+	retention, err := s.ParseDuration(newRP)
+	if err != nil {
+		return logger.Errorf("Error parsing retention period: %s: %s", newRP, err)
+	}
+	retention -= time.Minute // reduce 1m to avoid overshooting the new RP
+
+	// formatting functions
+	measurementNameTemp := func(uuid string) string {
+		return fmt.Sprintf("temp_%s", uuid)
+	}
+	measurementNameTempFQ := func(uuid string) string {
+		return fmt.Sprintf("%s.\"%s\".\"temp_%s\"", s.config.database, s.RetentionPolicyName(""), uuid)
+	}
+
+	tempUUID := uuid.NewV4().String()
+
+	// Changing retention policy in four steps:
+	// 1) keep required data in temp measurement
+	_, err = s.QuerySprintf("SELECT * INTO %s FROM %s WHERE time > '%s'",
+		measurementNameTempFQ(tempUUID), s.MeasurementNameFQ(oldRP, measurement), time.Now().UTC().Add(-retention).Format(time.RFC3339))
+	if err != nil {
+		return logger.Errorf("Error moving the historical data to new retention policy: %s", err)
+	}
+	// 2) delete the data from old measurement (on all RPs)
+	_, err = s.QuerySprintf("DELETE FROM \"%s\"", measurement)
+	if err != nil {
+		return logger.Errorf("Error removing the historical data: %s", err)
+	}
+	// 3) move data from temp into new RP
+	_, err = s.QuerySprintf("SELECT * INTO %s FROM %s",
+		s.MeasurementNameFQ(newRP, measurement), measurementNameTempFQ(tempUUID))
+	if err != nil {
+		return logger.Errorf("Error moving the historical data to new retention policy: %s", err)
+	}
+	// 4) drop temp
+	_, err = s.QuerySprintf("DROP MEASUREMENT \"%s\"", measurementNameTemp(tempUUID))
+	if err != nil {
+		if strings.Contains(err.Error(), "measurement not found") {
+			// Not an error, No data to delete.
+			return nil
+		}
+		return logger.Errorf("Error removing the historical data: %s", err)
+	}
+	return nil
+}
+
+func (s *InfluxStorage) ParseDuration(durationStr string) (time.Duration, error) {
+	return influxql.ParseDuration(durationStr)
 }
 
 type influxStorageConfig struct {
@@ -389,23 +424,13 @@ func (s *InfluxStorage) prepareStorage() {
 }
 
 // MeasurementName returns formatted measurement name for a given data source
-func (s *InfluxStorage) MeasurementName(ds *registry.DataSource) string {
-	return fmt.Sprintf("data_%s", ds.ID)
+func (s *InfluxStorage) MeasurementName(id string) string {
+	return fmt.Sprintf("data_%s", id)
 }
 
 // MeasurementNameFQ returns formatted fully-qualified measurement name
-func (s *InfluxStorage) MeasurementNameFQ(ds *registry.DataSource) string {
-	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.database, s.RetentionPolicyName(ds.Retention), s.MeasurementName(ds))
-}
-
-// MeasurementNameTemp returns formatted temporary measurement name
-func (s *InfluxStorage) MeasurementNameTemp(uuid string) string {
-	return fmt.Sprintf("temp_%s", uuid)
-}
-
-// MeasurementNameTempFQ returns formatted fully-qualified temporary measurement name
-func (s *InfluxStorage) MeasurementNameTempFQ(uuid string) string {
-	return fmt.Sprintf("%s.\"%s\".\"temp_%s\"", s.config.database, s.RetentionPolicyName(""), uuid)
+func (s *InfluxStorage) MeasurementNameFQ(retention, measurementName string) string {
+	return fmt.Sprintf("%s.\"%s\".\"%s\"", s.config.database, s.RetentionPolicyName(retention), measurementName)
 }
 
 // RetentionPolicyName returns formatted retention policy name for a given period
