@@ -183,7 +183,7 @@ func TestHttpCreate(t *testing.T) {
 		{
 			"resource": "any_url",
 			"meta": {},
-			"retention": "1m",
+			"retention": "",
 			"aggregation": [],
 			"type": "string",
 			"format": "any_format"

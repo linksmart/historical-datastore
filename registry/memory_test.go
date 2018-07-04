@@ -26,7 +26,7 @@ func generateDummyData(quantity int, c Client) ([]string, error) {
 		ds.Resource = fmt.Sprintf("http://example.com/sensor%d", i)
 		ds.Meta = make(map[string]interface{})
 		ds.Meta["SerialNumber"] = randInt(10000, 99999)
-		ds.Retention = fmt.Sprintf("%d%s", randInt(1, 20), []string{"m", "h", "d", "w"}[randInt(0, 3)])
+		//ds.Retention = fmt.Sprintf("%d%s", randInt(1, 20), []string{"m", "h", "d", "w"}[randInt(0, 3)])
 		//ds.Aggregation TODO
 		ds.Type = []string{"float", "bool", "string"}[randInt(0, 2)]
 		ds.Format = "application/senml+json"
@@ -52,7 +52,7 @@ func dummyListener() chan<- common.Notification {
 }
 
 func setupMemStorage() Storage {
-	storage, in := NewMemoryStorage()
+	storage, in := NewMemoryStorage(common.RegConf{})
 	out := dummyListener()
 	common.StartNotifier(in, out)
 
@@ -64,7 +64,7 @@ func TestMemstorageAdd(t *testing.T) {
 	ds.Resource = "any_url"
 	ds.Meta = make(map[string]interface{})
 	ds.Meta["SerialNumber"] = 12345
-	ds.Retention = "2w"
+	ds.Retention = ""
 	//ds.Aggregation TODO
 	ds.Type = "string"
 	ds.Format = "application/senml+json"

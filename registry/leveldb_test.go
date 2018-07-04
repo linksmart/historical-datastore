@@ -19,7 +19,12 @@ func setupLevelDB() (Storage, func() error, error) {
 	// Replace Windows-based backslashes with slash (not parsed as Path by net/url)
 	os_temp := strings.Replace(os.TempDir(), "\\", "/", -1)
 	temp_file := fmt.Sprintf("%s/hds-test.ldb/%d.ldb", os_temp, time.Now().UnixNano())
-	storage, in, closeDB, err := NewLevelDBStorage(temp_file, nil)
+	conf := common.RegConf{
+		Backend: common.RegBackendConf{
+			DSN: temp_file,
+		},
+	}
+	storage, in, closeDB, err := NewLevelDBStorage(conf, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -50,7 +55,7 @@ func TestLevelDBAdd(t *testing.T) {
 	ds.Resource = "any_url"
 	ds.Meta = make(map[string]interface{})
 	ds.Meta["SerialNumber"] = 12345
-	ds.Retention = "2w"
+	ds.Retention = ""
 	//ds.Aggregation TODO
 	ds.Type = "string"
 	ds.Format = "application/senml+json"
@@ -99,7 +104,7 @@ func TestLevelDBUpdate(t *testing.T) {
 	// Update the following
 	ds.Meta = make(map[string]interface{})
 	ds.Meta["SerialNumber"] = 12345
-	ds.Retention = "20w"
+	//ds.Retention = "20w"
 	//ds.Aggregation TODO
 	ds.Format = "new_format"
 
