@@ -20,6 +20,7 @@ import (
 
 // LevelDB storage
 type LevelDBStorage struct {
+	conf         common.RegConf
 	db           *leveldb.DB
 	nt           chan common.Notification
 	wg           sync.WaitGroup
@@ -27,8 +28,8 @@ type LevelDBStorage struct {
 	resources    map[string]string
 }
 
-func NewLevelDBStorage(dsn string, opts *opt.Options) (Storage, *chan common.Notification, func() error, error) {
-	url, err := url.Parse(dsn)
+func NewLevelDBStorage(conf common.RegConf, opts *opt.Options) (Storage, *chan common.Notification, func() error, error) {
+	url, err := url.Parse(conf.Backend.DSN)
 	if err != nil {
 		return nil, nil, nil, logger.Errorf("%s", err)
 	}
@@ -40,6 +41,7 @@ func NewLevelDBStorage(dsn string, opts *opt.Options) (Storage, *chan common.Not
 	}
 
 	s := &LevelDBStorage{
+		conf:         conf,
 		db:           db,
 		lastModified: time.Now(),
 		resources:    make(map[string]string),
@@ -74,7 +76,7 @@ func (s *LevelDBStorage) close() error {
 }
 
 func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
-	err := validateCreation(ds)
+	err := validateCreation(ds, s.conf)
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
 	}
@@ -128,7 +130,7 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 		return DataSource{}, logger.Errorf("%s", err)
 	}
 
-	err = validateUpdate(ds, oldDS)
+	err = validateUpdate(ds, oldDS, s.conf)
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
 	}

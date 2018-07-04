@@ -60,7 +60,16 @@ type WebConfig struct {
 
 // Registry config
 type RegConf struct {
-	Backend RegBackendConf `json:"backend"`
+	Backend          RegBackendConf `json:"backend"`
+	RetentionPeriods []string       `json:"retentionPeriods"`
+}
+
+func (c RegConf) ConfiguredRetention(period string) bool {
+	if period == "" {
+		// empty means no retention
+		return true
+	}
+	return stringInSlice(period, c.RetentionPeriods)
 }
 
 // Registry backend config
@@ -71,9 +80,10 @@ type RegBackendConf struct {
 
 // Data config
 type DataConf struct {
-	Backend          DataBackendConf `json:"backend"`
-	RetentionPeriods []string        `json:"retentionPeriods"`
-	AutoRegistration bool            `json:"autoRegistration"`
+	Backend DataBackendConf `json:"backend"`
+	// RetentionPeriods is deprecated, will be removed from v0.6.0. Use registry.retentionPeriods instead.
+	RetentionPeriods []string `json:"retentionPeriods"`
+	AutoRegistration bool     `json:"autoRegistration"`
 }
 
 // Data backend config
@@ -130,6 +140,13 @@ func LoadConfig(confPath *string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Check retention periods
+	for _, rp := range conf.Reg.RetentionPeriods {
+		if !SupportedPeriod(rp) {
+			return nil, fmt.Errorf("Registry retentionPeriod is not valid: %s. Supported period suffixes are: %s",
+				rp, strings.Join(supportedPeriods, ", "))
+		}
+	}
 
 	// VALIDATE DATA API CONFIG
 	// Check if backend is supported
@@ -141,12 +158,16 @@ func LoadConfig(confPath *string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	// TODO: deprecate from v0.6 and remove the following section
 	// Check retention periods
-	for _, rp := range conf.Data.RetentionPeriods {
-		if !SupportedPeriod(rp) {
-			return nil, fmt.Errorf("Data retentionPeriod is not valid: %s. Supported period suffixes are: %s",
-				rp, strings.Join(supportedPeriods, ", "))
+	if len(conf.Reg.RetentionPeriods) == 0 {
+		for _, rp := range conf.Data.RetentionPeriods {
+			if !SupportedPeriod(rp) {
+				return nil, fmt.Errorf("Data retentionPeriod is not valid: %s. Supported period suffixes are: %s",
+					rp, strings.Join(supportedPeriods, ", "))
+			}
 		}
+		conf.Reg.RetentionPeriods = conf.Data.RetentionPeriods
 	}
 
 	// VALIDATE AGGREGATION API CONFIG

@@ -29,8 +29,8 @@ type InfluxStorage struct {
 }
 
 // NewInfluxStorage returns a new InfluxStorage
-func NewInfluxStorage(dataConf *common.DataConf) (*InfluxStorage, chan<- common.Notification, error) {
-	cfg, err := initInfluxConf(dataConf.Backend.DSN)
+func NewInfluxStorage(conf common.DataConf, retentionPeriods []string) (*InfluxStorage, chan<- common.Notification, error) {
+	cfg, err := initInfluxConf(conf.Backend.DSN)
 	if err != nil {
 		return nil, nil, logger.Errorf("Influx config error: %s", err)
 	}
@@ -48,7 +48,7 @@ func NewInfluxStorage(dataConf *common.DataConf) (*InfluxStorage, chan<- common.
 	s := &InfluxStorage{
 		client:           c,
 		config:           *cfg,
-		retentionPeriods: dataConf.RetentionPeriods,
+		retentionPeriods: retentionPeriods,
 	}
 
 	s.prepare.Add(1)

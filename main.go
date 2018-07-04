@@ -67,9 +67,9 @@ func main() {
 	)
 	switch conf.Reg.Backend.Type {
 	case "memory":
-		regStorage, ntSndRegCh = registry.NewMemoryStorage()
+		regStorage, ntSndRegCh = registry.NewMemoryStorage(conf.Reg)
 	case "leveldb":
-		regStorage, ntSndRegCh, closeReg, err = registry.NewLevelDBStorage(conf.Reg.Backend.DSN, nil)
+		regStorage, ntSndRegCh, closeReg, err = registry.NewLevelDBStorage(conf.Reg, nil)
 		if err != nil {
 			logger.Fatalf("Failed to start LevelDB: %s\n", err)
 		}
@@ -92,7 +92,7 @@ func main() {
 		dataStorage = mongoStorage
 	case "influxdb":
 		var influxStorage *data.InfluxStorage
-		influxStorage, ntRcvDataCh, _ = data.NewInfluxStorage(&conf.Data)
+		influxStorage, ntRcvDataCh, _ = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
 		dataAggr, ntRcvAggrCh, _ = aggregation.NewInfluxAggr(influxStorage)
 		dataStorage = influxStorage
 	}

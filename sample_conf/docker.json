@@ -14,14 +14,14 @@
     "backend": {
       "type": "leveldb",
       "dsn": "/data/hds-registry"
-    }
+    },
+    "retentionPeriods": ["1h", "1w"]
   },
   "data": {
     "backend": {
       "type": "influxdb",
       "dsn": "http://user:password@influxdb:8086/hds"
     },
-    "retentionPeriods": ["1h", "1w"],
     "autoRegistration": false
   }
 }

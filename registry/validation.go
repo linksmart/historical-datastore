@@ -3,6 +3,7 @@
 package registry
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -20,7 +21,7 @@ import (
 // type: mandatory, fixed
 // format: mandatory
 
-func validateCreation(ds DataSource) error {
+func validateCreation(ds DataSource, conf common.RegConf) error {
 	var e validationError
 
 	// id
@@ -51,6 +52,9 @@ func validateCreation(ds DataSource) error {
 	if ds.Retention != "" {
 		if !common.SupportedPeriod(ds.Retention) {
 			e.invalid = append(e.invalid, "retention")
+		}
+		if !conf.ConfiguredRetention(ds.Retention) {
+			e.other = append(e.other, fmt.Sprintf("retention must be empty or one of the configured periods: %s", strings.Join(conf.RetentionPeriods, ", ")))
 		}
 	}
 
@@ -88,6 +92,10 @@ func validateCreation(ds DataSource) error {
 				if !common.SupportedPeriod(aggr.Retention) {
 					e.invalid = append(e.invalid, "aggregation.retention")
 				}
+				if !conf.ConfiguredRetention(ds.Retention) {
+					e.other = append(e.other, fmt.Sprintf("aggregation.retention must be empty or one of the configured periods: %s",
+						strings.Join(conf.RetentionPeriods, ", ")))
+				}
 			}
 			// aggregates
 			for _, aggregate := range aggr.Aggregates {
@@ -109,7 +117,7 @@ func validateCreation(ds DataSource) error {
 	return nil
 }
 
-func validateUpdate(ds DataSource, oldDS DataSource) error {
+func validateUpdate(ds DataSource, oldDS DataSource, conf common.RegConf) error {
 	var e validationError
 
 	// id
@@ -213,5 +221,5 @@ func (e validationError) Error() string {
 }
 
 func (e validationError) Err() bool {
-	return len(e.readOnly)+len(e.mandatory)+len(e.invalid) > 0
+	return len(e.readOnly)+len(e.mandatory)+len(e.invalid)+len(e.other) > 0
 }

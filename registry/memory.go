@@ -16,6 +16,7 @@ import (
 
 // In-memory storage
 type MemoryStorage struct {
+	conf common.RegConf
 	data         map[string]DataSource
 	mutex        sync.RWMutex
 	nt           chan common.Notification
@@ -23,8 +24,9 @@ type MemoryStorage struct {
 	resources    map[string]string
 }
 
-func NewMemoryStorage() (Storage, *chan common.Notification) {
+func NewMemoryStorage(conf common.RegConf) (Storage, *chan common.Notification) {
 	ms := &MemoryStorage{
+		conf: conf,
 		data:         make(map[string]DataSource),
 		lastModified: time.Now(),
 		resources:    make(map[string]string),
@@ -34,7 +36,7 @@ func NewMemoryStorage() (Storage, *chan common.Notification) {
 }
 
 func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
-	err := validateCreation(ds)
+	err := validateCreation(ds, ms.conf)
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
 	}
@@ -84,7 +86,7 @@ func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 
 	oldDS := ms.data[id] // for comparison
 
-	err := validateUpdate(ds, oldDS)
+	err := validateUpdate(ds, oldDS, ms.conf)
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
 	}
