@@ -222,8 +222,6 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 	logger.Debugf("MQTT: %s %s", msg.Topic(), msg.Payload())
 
-	data := make(map[string][]DataPoint)
-	sources := make(map[string]*registry.DataSource)
 	var senmlMessage senml.Message
 
 	err := json.Unmarshal(msg.Payload(), &senmlMessage)
@@ -240,10 +238,12 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 	// Fill the data map with provided data points
 	entries := senmlMessage.Expand().Entries
+	data := make(map[string][]DataPoint)
+	sources := make(map[string]*registry.DataSource)
 	for _, e := range entries {
 		if e.Name == "" {
 			logMQTTError(http.StatusBadRequest, "Resource name not specified: %s", msg.Payload())
-			return
+			continue
 		}
 		// Find the data source for this entry
 		ds, exists := s.connector.cache[e.Name]
@@ -251,11 +251,11 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 			ds, err = s.connector.registryClient.FindDataSource("resource", "equals", e.Name)
 			if err != nil {
 				logMQTTError(http.StatusInternalServerError, "Error finding resource: %v", e.Name)
-				return
+				continue
 			}
 			if ds == nil {
 				logMQTTError(http.StatusNotFound, "Resource not found: %v", e.Name)
-				return
+				continue
 			}
 			s.connector.cache[e.Name] = ds
 		}
@@ -263,15 +263,15 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		// Check if the message is wanted
 		if ds.Connector.MQTT == nil {
 			logMQTTError(http.StatusNotAcceptable, "Ignoring unwanted message for resource: %v", e.Name)
-			return
+			continue
 		}
 		if ds.Connector.MQTT.URL != s.url {
 			logMQTTError(http.StatusNotAcceptable, "Ignoring message from unwanted broker %v for data source: %v", s.url, e.Name)
-			return
+			continue
 		}
 		if ds.Connector.MQTT.Topic != s.topic {
-			// logger.Printf("MQTT: Ignoring message with unwanted topic %v for data source: %v", s.topic, e.Name)
-			return
+			logMQTTError(http.StatusNotAcceptable, "Ignoring message with unwanted topic %v for data source: %v", s.topic, e.Name)
+			continue
 		}
 
 		// Check if type of value matches the data source type in registry
@@ -292,7 +292,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		}
 		if typeError {
 			logMQTTError(http.StatusBadRequest, "Error: Entry for data point %v has a type that is incompatible with source registration. Source %v has type %v.", e.Name, ds.ID, ds.Type)
-			return
+			continue
 		}
 
 		_, ok := data[ds.ID]
@@ -304,14 +304,16 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		data[ds.ID] = append(data[ds.ID], p.FromEntry(e))
 	}
 
-	// Add data to the storage
-	err = s.connector.storage.Submit(data, sources)
-	if err != nil {
-		logMQTTError(http.StatusInternalServerError, "Error writing data to the database: %v", err)
-		return
-	}
+	if len(data) > 0 {
+		// Add data to the storage
+		err = s.connector.storage.Submit(data, sources)
+		if err != nil {
+			logMQTTError(http.StatusInternalServerError, "Error writing data to the database: %v", err)
+			return
+		}
 
-	logger.Printf("%s %d %v\n", logHeader, http.StatusAccepted, time.Now().Sub(t1))
+		logger.Printf("%s %d %v\n", logHeader, http.StatusAccepted, time.Now().Sub(t1))
+	}
 }
 
 // NOTIFICATION HANDLERS
