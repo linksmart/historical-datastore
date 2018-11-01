@@ -188,6 +188,11 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 			return NewDataSet(), 0, logger.Errorf("Unrecognized/Corrupted database schema.")
 		}
 
+		if len(res[0].Series) == 0 {
+			// page out of range
+			continue
+		}
+
 		rowPoints, err := pointsFromRow(res[0].Series[0])
 		if err != nil {
 			return NewDataSet(), 0, logger.Errorf("Error parsing points for source %v: %s", ds.Resource, err)
