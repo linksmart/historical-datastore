@@ -3,8 +3,8 @@
 package data
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/cisco/senml"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -14,7 +14,6 @@ import (
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
 	paho "github.com/eclipse/paho.mqtt.golang"
-	senml "github.com/krylovsk/gosenml"
 	"github.com/pborman/uuid"
 )
 
@@ -222,55 +221,43 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 	logger.Debugf("MQTT: %s %s", msg.Topic(), msg.Payload())
 
-	var senmlMessage senml.Message
-
-	err := json.Unmarshal(msg.Payload(), &senmlMessage)
+	senmlPack, err := senml.Decode(msg.Payload(), senml.JSON)
 	if err != nil {
 		logMQTTError(http.StatusBadRequest, "Error parsing json: %s : %v", msg.Payload(), err)
 		return
 	}
 
-	err = senmlMessage.Validate()
-	if err != nil {
-		logMQTTError(http.StatusBadRequest, "Invalid SenML: %s : %v", msg.Payload(), err)
-		return
-	}
-
 	// Fill the data map with provided data points
-	entries := senmlMessage.Expand().Entries
-	data := make(map[string][]DataPoint)
+	records := senml.Normalize(senmlPack).Records
+	data := make(map[string][]senml.SenMLRecord)
 	sources := make(map[string]*registry.DataSource)
-	for _, e := range entries {
-		if e.Name == "" {
-			logMQTTError(http.StatusBadRequest, "Resource name not specified: %s", msg.Payload())
-			continue
-		}
+	for _, r := range records {
 		// Find the data source for this entry
-		ds, exists := s.connector.cache[e.Name]
+		ds, exists := s.connector.cache[r.Name]
 		if !exists {
-			ds, err = s.connector.registryClient.FindDataSource("resource", "equals", e.Name)
+			ds, err = s.connector.registryClient.FindDataSource("resource", "equals", r.Name)
 			if err != nil {
-				logMQTTError(http.StatusInternalServerError, "Error finding resource: %v", e.Name)
+				logMQTTError(http.StatusInternalServerError, "Error finding resource: %v", r.Name)
 				continue
 			}
 			if ds == nil {
-				logMQTTError(http.StatusNotFound, "Resource not found: %v", e.Name)
+				logMQTTError(http.StatusNotFound, "Resource not found: %v", r.Name)
 				continue
 			}
-			s.connector.cache[e.Name] = ds
+			s.connector.cache[r.Name] = ds
 		}
 
 		// Check if the message is wanted
 		if ds.Connector.MQTT == nil {
-			logMQTTError(http.StatusNotAcceptable, "Ignoring unwanted message for resource: %v", e.Name)
+			logMQTTError(http.StatusNotAcceptable, "Ignoring unwanted message for resource: %v", r.Name)
 			continue
 		}
 		if ds.Connector.MQTT.URL != s.url {
-			logMQTTError(http.StatusNotAcceptable, "Ignoring message from unwanted broker %v for data source: %v", s.url, e.Name)
+			logMQTTError(http.StatusNotAcceptable, "Ignoring message from unwanted broker %v for data source: %v", s.url, r.Name)
 			continue
 		}
 		if ds.Connector.MQTT.Topic != s.topic {
-			logMQTTError(http.StatusNotAcceptable, "Ignoring message with unwanted topic %v for data source: %v", s.topic, e.Name)
+			logMQTTError(http.StatusNotAcceptable, "Ignoring message with unwanted topic %v for data source: %v", s.topic, r.Name)
 			continue
 		}
 
@@ -278,30 +265,30 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		typeError := false
 		switch ds.Type {
 		case common.FLOAT:
-			if e.BooleanValue != nil || e.StringValue != nil && *e.StringValue != "" {
+			if r.Value == nil {
 				typeError = true
 			}
 		case common.STRING:
-			if e.Value != nil || e.BooleanValue != nil {
+			if r.StringValue == "" {
 				typeError = true
 			}
 		case common.BOOL:
-			if e.Value != nil || e.StringValue != nil && *e.StringValue != "" {
+			if r.BoolValue == nil {
 				typeError = true
 			}
 		}
 		if typeError {
-			logMQTTError(http.StatusBadRequest, "Error: Entry for data point %v has a type that is incompatible with source registration. Source %v has type %v.", e.Name, ds.ID, ds.Type)
+			logMQTTError(http.StatusBadRequest,
+				"Value for %v is empty or has a type other than what is set in registry: %v", r.Name, ds.Type)
 			continue
 		}
 
 		_, ok := data[ds.ID]
 		if !ok {
-			data[ds.ID] = []DataPoint{}
+			data[ds.ID] = []senml.SenMLRecord{}
 			sources[ds.ID] = ds
 		}
-		p := NewDataPoint()
-		data[ds.ID] = append(data[ds.ID], p.FromEntry(e))
+		data[ds.ID] = append(data[ds.ID], r)
 	}
 
 	if len(data) > 0 {

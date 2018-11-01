@@ -76,3 +76,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/influxdata/influxql"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/cisco/senml"

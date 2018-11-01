@@ -5,6 +5,7 @@ package data
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -13,8 +14,8 @@ import (
 
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
+	"github.com/cisco/senml"
 	"github.com/gorilla/mux"
-	senml "github.com/krylovsk/gosenml"
 )
 
 const (
@@ -39,7 +40,7 @@ func NewHTTPAPI(registryClient registry.Client, storage Storage, autoRegistratio
 // TODO: check SupportedContentTypes instead of hard-coding SenML
 func (d *HTTPAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	data := make(map[string][]DataPoint)
+	data := make(map[string][]senml.SenMLRecord)
 	sources := make(map[string]*registry.DataSource)
 
 	//contentType := strings.Split(r.Header.Get("Content-Type"), ";")[0]
@@ -52,11 +53,16 @@ func (d *HTTPAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	// Parse id(s)
 	ids := strings.Split(params["id"], common.IDSeparator)
 
-	// Parse payload
-	var senmlMessage senml.Message
-	decoder := json.NewDecoder(r.Body)
+	// Read body
+	body, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
-	err := decoder.Decode(&senmlMessage)
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
+	}
+
+	// Parse payload
+	senmlPack, err := senml.Decode(body, senml.JSON)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, "Error parsing message body: "+err.Error(), w)
 		return
@@ -75,23 +81,17 @@ func (d *HTTPAPI) Submit(w http.ResponseWriter, r *http.Request) {
 		dsResources[ds.Resource] = &ds
 	}
 
-	err = senmlMessage.Validate()
-	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
-		return
-	}
-
 	// Fill the data map with provided data points
-	entries := senmlMessage.Expand().Entries
-	for _, e := range entries {
-		if e.Name == "" {
+	records := senml.Normalize(senmlPack).Records
+	for _, r := range records {
+		if r.Name == "" {
 			common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Data source name not specified."), w)
 			return
 		}
 		// Check if there is a data source for this entry
-		ds, ok := dsResources[e.Name]
+		ds, ok := dsResources[r.Name]
 		if !ok {
-			common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data point for unknown data source %v.", e.Name), w)
+			common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data point for unknown data source %v.", r.Name), w)
 			return
 		}
 
@@ -99,31 +99,30 @@ func (d *HTTPAPI) Submit(w http.ResponseWriter, r *http.Request) {
 		typeError := false
 		switch ds.Type {
 		case common.FLOAT:
-			if e.BooleanValue != nil || e.StringValue != nil && *e.StringValue != "" {
+			if r.Value == nil {
 				typeError = true
 			}
 		case common.STRING:
-			if e.Value != nil || e.BooleanValue != nil {
+			if r.StringValue == "" {
 				typeError = true
 			}
 		case common.BOOL:
-			if e.Value != nil || e.StringValue != nil && *e.StringValue != "" {
+			if r.BoolValue == nil {
 				typeError = true
 			}
 		}
 		if typeError {
 			common.ErrorResponse(http.StatusBadRequest,
-				fmt.Sprintf("Entry for data point %v has a type that is incompatible with source registration. Source %v has type %v.", e.Name, ds.ID, ds.Type), w)
+				fmt.Sprintf("Value for %v is empty or has a type other than what is set in registry: %v", r.Name, ds.Type), w)
 			return
 		}
 
 		_, ok = data[ds.ID]
 		if !ok {
-			data[ds.ID] = []DataPoint{}
+			data[ds.ID] = []senml.SenMLRecord{}
 			sources[ds.ID] = ds
 		}
-		p := NewDataPoint()
-		data[ds.ID] = append(data[ds.ID], p.FromEntry(e))
+		data[ds.ID] = append(data[ds.ID], r)
 	}
 
 	// Add data to the storage
@@ -141,11 +140,16 @@ func (d *HTTPAPI) Submit(w http.ResponseWriter, r *http.Request) {
 // Expected parameters: none
 func (d *HTTPAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
-	// Parse payload
-	var senmlMessage senml.Message
-	decoder := json.NewDecoder(r.Body)
+	// Read body
+	body, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
-	err := decoder.Decode(&senmlMessage)
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		return
+	}
+
+	// Parse payload
+	senmlPack, err := senml.Decode(body, senml.JSON)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, "Error parsing message body: "+err.Error(), w)
 		return
@@ -154,88 +158,80 @@ func (d *HTTPAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	// map of resource name -> data source
 	nameDSs := make(map[string]*registry.DataSource)
 
-	err = senmlMessage.Validate()
-	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
-		return
-	}
-
 	// Fill the data map with provided data points
-	data := make(map[string][]DataPoint)
+	data := make(map[string][]senml.SenMLRecord)
 	sources := make(map[string]*registry.DataSource)
-	entries := senmlMessage.Expand().Entries
-	for _, e := range entries {
-		if e.Name == "" {
-			common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("SenML name not specified."), w)
-			return
-		}
+	records := senml.Normalize(senmlPack).Records
+	for _, r := range records {
 
-		ds, found := nameDSs[e.Name]
+		ds, found := nameDSs[r.Name]
 		if !found {
-			ds, err = d.registryClient.FindDataSource("resource", "equals", e.Name)
+			ds, err = d.registryClient.FindDataSource("resource", "equals", r.Name)
 			if err != nil {
-				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error retrieving data source with name %v from the registry: %v", e.Name, err.Error()), w)
+				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error retrieving data source with name %v from the registry: %v", r.Name, err.Error()), w)
 				return
 			}
 			if ds == nil {
 				if !d.autoRegistration {
-					common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data source with name %v is not registered.", e.Name), w)
+					common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data source with name %v is not registered.", r.Name), w)
 					return
 				}
 
 				// Register a data source with this name
-				logger.Printf("Registering data source for %s", e.Name)
+				logger.Printf("Registering data source for %s", r.Name)
 				newDS := registry.DataSource{
-					Resource: e.Name,
+					Resource: r.Name,
 					Format:   "application/senml+json",
 					Meta: map[string]interface{}{
 						"registrar": "Data API",
 					},
 				}
-				if e.Value != nil {
+				if r.Value != nil {
 					newDS.Type = common.FLOAT
-				} else if e.StringValue != nil {
+				} else if r.StringValue != "" {
 					newDS.Type = common.STRING
 				} else {
 					newDS.Type = common.BOOL
 				}
 				addedDS, err := d.registryClient.Add(newDS)
 				if err != nil {
-					common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error registering %v in the registry: %v", e.Name, err.Error()), w)
+					common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error registering %v in the registry: %v", r.Name, err.Error()), w)
 					return
 				}
 				ds = &addedDS
 			}
-			nameDSs[e.Name] = ds
+			nameDSs[r.Name] = ds
 		}
 
 		// Check if type of value matches the data source type in registry
+		typeError := false
 		switch ds.Type {
 		case common.FLOAT:
-			if e.Value == nil {
-				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Entry %s has type float that mismatches the registration type %s.", e.Name, ds.Type), w)
-				return
+			if r.Value == nil {
+				typeError = true
 			}
 		case common.STRING:
-			if e.StringValue == nil {
-				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Entry %s has type string that mismatches the registration type %s.", e.Name, ds.Type), w)
-				return
+			if r.StringValue == "" {
+				typeError = true
 			}
 		case common.BOOL:
-			if e.BooleanValue == nil {
-				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Entry %s has type boolean that mismatches the registration type %s.", e.Name, ds.Type), w)
-				return
+			if r.BoolValue == nil {
+				typeError = true
 			}
+		}
+		if typeError {
+			common.ErrorResponse(http.StatusBadRequest,
+				fmt.Sprintf("Value for %v is empty or has a type other than what is set in registry: %v", r.Name, ds.Type), w)
+			return
 		}
 
 		// Prepare for storage
 		_, found = data[ds.ID]
 		if !found {
-			data[ds.ID] = []DataPoint{}
+			data[ds.ID] = []senml.SenMLRecord{}
 			sources[ds.ID] = ds
 		}
-		p := NewDataPoint()
-		data[ds.ID] = append(data[ds.ID], p.FromEntry(e))
+		data[ds.ID] = append(data[ds.ID], r)
 	}
 
 	// Add data to the storage
@@ -318,8 +314,8 @@ func (d *HTTPAPI) Query(w http.ResponseWriter, r *http.Request) {
 	v.Add(common.ParamPerPage, fmt.Sprintf("%d", perPage))
 	recordSet = RecordSet{
 		URL:     fmt.Sprintf("%s?%s", r.URL.Path, v.Encode()),
-		Data:    data,
 		Time:    time.Since(timeStart).Seconds() * 1000,
+		Data:    data.Records,
 		Page:    page,
 		PerPage: perPage,
 		Total:   total,

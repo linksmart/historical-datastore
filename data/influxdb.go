@@ -5,6 +5,8 @@ package data
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/cisco/senml"
+	"math"
 	"net/url"
 	"strings"
 	"sync"
@@ -63,11 +65,11 @@ func NewInfluxStorage(conf common.DataConf, retentionPeriods []string) (*InfluxS
 
 // Submit adds multiple data points for multiple data sources
 // data is a map where keys are data source ids
-func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*registry.DataSource) error {
+func (s *InfluxStorage) Submit(data map[string][]senml.SenMLRecord, sources map[string]*registry.DataSource) error {
 	for id, dps := range data {
 		bpConf := influx.BatchPointsConfig{
 			Database:        s.config.database,
-			Precision:       "s", // SenML supports s precision only
+			Precision:       "us", // float64 can keep unix seconds at most with 7 significant digits: not enough for ns
 			RetentionPolicy: s.RetentionPolicyName(sources[id].Retention),
 		}
 		logger.Debugf("Influx: %+v", bpConf)
@@ -78,16 +80,15 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*
 		}
 		for _, dp := range dps {
 			var (
-				timestamp time.Time
-				tags      map[string]string
-				fields    map[string]interface{}
+				tags   map[string]string
+				fields map[string]interface{}
 			)
 			// tags
 			tags = make(map[string]string)
 			tags["name"] = dp.Name // must be the same as sources[id].Resource
 			//tags["id"] = sources[id].ID
-			if dp.Units != "" {
-				tags["units"] = dp.Units
+			if dp.Unit != "" {
+				tags["units"] = dp.Unit
 			}
 
 			// fields
@@ -95,23 +96,20 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*
 			// The "value", "stringValue", and "booleanValue" fields MUST NOT appear together.
 			if dp.Value != nil {
 				fields["value"] = *dp.Value
-			} else if dp.StringValue != nil && *dp.StringValue != "" {
-				fields["stringValue"] = *dp.StringValue
-			} else if dp.BooleanValue != nil {
-				fields["booleanValue"] = *dp.BooleanValue
+			} else if dp.StringValue != "" {
+				fields["stringValue"] = dp.StringValue
+			} else if dp.BoolValue != nil {
+				fields["booleanValue"] = *dp.BoolValue
 			}
 
 			// timestamp
-			if dp.Time == 0 {
-				timestamp = time.Now()
-			} else {
-				timestamp = time.Unix(dp.Time, 0)
-			}
+			sec, frac := math.Modf(dp.Time)
+
 			pt, err := influx.NewPoint(
 				s.MeasurementName(id),
 				tags,
 				fields,
-				timestamp,
+				time.Unix(int64(sec), int64(frac*(1e9))),
 			)
 			if err != nil {
 				return logger.Errorf("Error creating data point for source %v: %s", sources[id].ID, err)
@@ -137,15 +135,14 @@ func (s *InfluxStorage) Submit(data map[string][]DataPoint, sources map[string]*
 }
 
 // Query retrieves data for specified data sources
-func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.DataSource) (DataSet, int, error) {
-	points := []DataPoint{}
+func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.SenML, int, error) {
 	total := 0
 
 	// Set minimum time to 1970-01-01T00:00:00Z
 	if q.Start.Before(time.Unix(0, 0)) {
 		q.Start = time.Unix(0, 0)
 		if q.End.Before(time.Unix(0, 1)) {
-			return NewDataSet(), 0, logger.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
+			return senml.SenML{}, 0, logger.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
 		}
 	}
 
@@ -165,12 +162,15 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 		sort = "ASC"
 	}
 
+	pack := senml.SenML{}
+	pack.Records = make([]senml.SenMLRecord, 0)
+
 	for i, ds := range sources {
 		// Count total
 		count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s WHERE %s",
 			s.FieldForType(ds.Type), s.MeasurementNameFQ(ds.Retention, s.MeasurementName(ds.ID)), timeCond)
 		if err != nil {
-			return NewDataSet(), 0, logger.Errorf("Error counting records for source %v: %s", ds.Resource, err)
+			return senml.SenML{}, 0, logger.Errorf("Error counting records for source %v: %s", ds.Resource, err)
 		}
 		if count < 1 {
 			//logger.Printf("There is no data for source %v", ds.Resource)
@@ -181,11 +181,11 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
 			s.MeasurementNameFQ(ds.Retention, s.MeasurementName(ds.ID)), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
-			return NewDataSet(), 0, logger.Errorf("Error retrieving a data point for source %v: %s", ds.Resource, err)
+			return senml.SenML{}, 0, logger.Errorf("Error retrieving a data point for source %v: %s", ds.Resource, err)
 		}
 
 		if len(res[0].Series) > 1 {
-			return NewDataSet(), 0, logger.Errorf("Unrecognized/Corrupted database schema.")
+			return senml.SenML{}, 0, logger.Errorf("Unrecognized/Corrupted database schema.")
 		}
 
 		if len(res[0].Series) == 0 {
@@ -193,24 +193,22 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 			continue
 		}
 
-		rowPoints, err := pointsFromRow(res[0].Series[0])
+		serieRecords, err := serieToRecords(res[0].Series[0])
 		if err != nil {
-			return NewDataSet(), 0, logger.Errorf("Error parsing points for source %v: %s", ds.Resource, err)
+			return senml.SenML{}, 0, logger.Errorf("Error parsing points for source %v: %s", ds.Resource, err)
 		}
 
 		if perItems[i] != 0 { // influx ignores `limit 0`
-			points = append(points, rowPoints...)
+			pack.Records = append(pack.Records, serieRecords...)
 		}
 	}
-	dataset := NewDataSet()
-	dataset.Entries = points
 
 	// q.Limit overrides total
 	if q.Limit > 0 && q.Limit < total {
 		total = q.Limit
 	}
 
-	return dataset, total, nil
+	return pack, total, nil
 }
 
 // NtfCreated handles the creation of a new data source
@@ -473,11 +471,11 @@ func (s *InfluxStorage) Replication() int {
 }
 
 // pointsFromRow converts Influxdb rows to HDS data points
-func pointsFromRow(r models.Row) ([]DataPoint, error) {
-	points := []DataPoint{}
+func serieToRecords(r models.Row) ([]senml.SenMLRecord, error) {
+	var records []senml.SenMLRecord
 
 	for _, e := range r.Values {
-		p := NewDataPoint()
+		var record senml.SenMLRecord
 
 		// fields and tags
 		for i, v := range e {
@@ -492,44 +490,44 @@ func pointsFromRow(r models.Row) ([]DataPoint, error) {
 					if err != nil {
 						return nil, logger.Errorf("Invalid time format: %v", val)
 					}
-					p.Time = t.Unix()
+					record.Time = float64(t.UnixNano()) / 1000000000
 				} else {
 					return nil, logger.Errorf("Interface conversion error. time not string?")
 				}
 			case "name":
 				if val, ok := v.(string); ok {
-					p.Name = val
+					record.Name = val
 				} else {
 					return nil, logger.Errorf("Interface conversion error. name not string?")
 				}
 			case "value":
 				if val, err := v.(json.Number).Float64(); err == nil {
-					p.Value = &val
+					record.Value = &val
 				} else {
 					return nil, logger.Errorf("%s", err)
 				}
 			case "booleanValue":
 				if val, ok := v.(bool); ok {
-					p.BooleanValue = &val
+					record.BoolValue = &val
 				} else {
 					return nil, logger.Errorf("Interface conversion error. booleanValue not bool?")
 				}
 			case "stringValue":
 				if val, ok := v.(string); ok {
-					p.StringValue = &val
+					record.StringValue = val
 				} else {
 					return nil, logger.Errorf("Interface conversion error. stringValue not string?")
 				}
 			case "units":
 				if val, ok := v.(string); ok {
-					p.Units = val
+					record.Unit = val
 				} else {
 					return nil, logger.Errorf("Interface conversion error. units not string?")
 				}
 			} // endswitch
 		}
-		points = append(points, p)
+		records = append(records, record)
 	}
 
-	return points, nil
+	return records, nil
 }

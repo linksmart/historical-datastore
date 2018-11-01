@@ -7,41 +7,8 @@ import (
 	"time"
 
 	"code.linksmart.eu/hds/historical-datastore/registry"
-	senml "github.com/krylovsk/gosenml"
+	"github.com/cisco/senml"
 )
-
-// DataPoint is a data record embedding a SenML Entry
-type DataPoint struct {
-	*senml.Entry
-}
-
-// NewDataPoint returns a DataPoint given an SenML Entry
-func NewDataPoint() DataPoint {
-	return DataPoint{&senml.Entry{}}
-}
-
-// FromEntry returns a DataPoint given an SenML Entry
-func (p *DataPoint) FromEntry(e senml.Entry) DataPoint {
-	p.Entry = &e
-	return *p
-}
-
-// DataSet is a set of DataPoints embedding a SenML Message
-type DataSet struct {
-	*senml.Message
-	Entries []DataPoint `json:"e"`
-}
-
-// NewDataSet returns a DataSet given an SenML Message
-func NewDataSet() DataSet {
-	return DataSet{&senml.Message{Version: 1}, []DataPoint{}}
-}
-
-// FromMessage returns a DataSet given a SenML Message
-func (s *DataSet) FromMessage(m senml.Message) DataSet {
-	s.Message = &m
-	return *s
-}
 
 // RecordSet describes the recordset returned on querying the Data API
 type RecordSet struct {
@@ -49,7 +16,7 @@ type RecordSet struct {
 	URL string `json:"url"`
 	// Data is a SenML object with data records, where
 	// Name (bn and n) constitute the resource URL of the corresponding Data Source(s)
-	Data DataSet `json:"data"`
+	Data []senml.SenMLRecord `json:"data"`
 	// Time is the time of query in milliseconds
 	Time float64 `json:"time"`
 	// Page is the current page in Data pagination
@@ -72,10 +39,10 @@ type Storage interface {
 	// Adds data points for multiple data sources
 	// data is a map where keys are data source ids
 	// sources is a map where keys are data source ids
-	Submit(data map[string][]DataPoint, sources map[string]*registry.DataSource) error
+	Submit(data map[string][]senml.SenMLRecord, sources map[string]*registry.DataSource) error
 
 	// Queries data for specified data sources
-	Query(q Query, page, perPage int, sources ...*registry.DataSource) (DataSet, int, error)
+	Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.SenML, int, error)
 
 	// Methods for handling notifications
 	NtfCreated(ds registry.DataSource, callback chan error)

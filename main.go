@@ -86,10 +86,11 @@ func main() {
 	var ntRcvAggrCh chan<- common.Notification
 	switch conf.Data.Backend.Type {
 	case "mongodb":
-		var mongoStorage *data.MongoStorage
-		mongoStorage, ntRcvDataCh, _ = data.NewMongoStorage(conf.Data.Backend.DSN)
-		dataAggr, ntRcvAggrCh, _ = aggregation.NewMongoAggr(mongoStorage)
-		dataStorage = mongoStorage
+		logger.Fatalln("Mongodb is not supported after HDS v0.5.3")
+		//var mongoStorage *data.MongoStorage
+		//mongoStorage, ntRcvDataCh, _ = data.NewMongoStorage(conf.Data.Backend.DSN)
+		//dataAggr, ntRcvAggrCh, _ = aggregation.NewMongoAggr(mongoStorage)
+		//dataStorage = mongoStorage
 	case "influxdb":
 		var influxStorage *data.InfluxStorage
 		influxStorage, ntRcvDataCh, _ = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
