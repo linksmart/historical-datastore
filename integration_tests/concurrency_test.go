@@ -6,12 +6,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/satori/go.uuid"
-
 	"code.linksmart.eu/hds/historical-datastore/data"
-
 	"code.linksmart.eu/hds/historical-datastore/registry"
-	"github.com/krylovsk/gosenml"
+	"github.com/cisco/senml"
+	"github.com/satori/go.uuid"
 )
 
 const endpoint = "http://localhost:8085"
@@ -120,12 +118,12 @@ func TestConcurrentUpdates(t *testing.T) {
 
 	// send some data
 	for _, ds := range entries {
-		var senml gosenml.Message
+		var records []senml.SenMLRecord
 		for i := 0; i < 100; i++ {
 			v := float64(i)
-			senml.Entries = append(senml.Entries, gosenml.Entry{Name: ds.Resource, Value: &v})
+			records = append(records, senml.SenMLRecord{Name: ds.Resource, Value: &v})
 		}
-		b, _ := json.Marshal(senml)
+		b, _ := json.Marshal(records)
 		err := dataClient.Submit(b, "application/senml+json", ds.ID)
 		if err != nil {
 			t.Fatal(err)
@@ -189,12 +187,12 @@ func TestConcurrentDeletes(t *testing.T) {
 
 	// send some data
 	for _, ds := range entries {
-		var senml gosenml.Message
+		var records []senml.SenMLRecord
 		for i := 0; i < 100; i++ {
 			v := float64(i)
-			senml.Entries = append(senml.Entries, gosenml.Entry{Name: ds.Resource, Value: &v})
+			records = append(records, senml.SenMLRecord{Name: ds.Resource, Value: &v})
 		}
-		b, _ := json.Marshal(senml)
+		b, _ := json.Marshal(records)
 		err := dataClient.Submit(b, "application/senml+json", ds.ID)
 		if err != nil {
 			t.Fatal(err)

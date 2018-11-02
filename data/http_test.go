@@ -4,6 +4,8 @@ package data
 
 import (
 	"bytes"
+	"encoding/json"
+	"github.com/cisco/senml"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +13,6 @@ import (
 
 	"code.linksmart.eu/hds/historical-datastore/registry"
 	"github.com/gorilla/mux"
-	senml "github.com/krylovsk/gosenml"
 )
 
 func setupHTTPAPI() *mux.Router {
@@ -29,29 +30,28 @@ func TestHttpSubmit(t *testing.T) {
 	defer ts.Close()
 
 	v1 := 42.0
-	e1 := senml.Entry{
+	r1 := senml.SenMLRecord{
 		Name:  "sensor1",
-		Units: "degC",
+		Unit:  "degC",
 		Value: &v1,
 	}
 	v2 := true
-	e2 := senml.Entry{
-		Name:         "sensor2",
-		Units:        "flag",
-		BooleanValue: &v2,
+	r2 := senml.SenMLRecord{
+		Name:      "sensor2",
+		Unit:      "flag",
+		BoolValue: &v2,
 	}
 	v3 := "test string"
-	e3 := senml.Entry{
+	r3 := senml.SenMLRecord{
 		Name:        "sensor3",
-		Units:       "char",
-		StringValue: &v3,
+		Unit:        "char",
+		StringValue: v3,
 	}
 
-	m := senml.NewMessage(e1, e2, e3)
-	m.BaseName = "http://example.com/"
+	r1.BaseName = "http://example.com/"
+	records := []senml.SenMLRecord{r1, r2, r3}
 
-	encoder := senml.NewJSONEncoder()
-	b, _ := encoder.EncodeMessage(m)
+	b, _ := json.Marshal(records)
 
 	// try html - should be not supported
 	res, err := http.Post(ts.URL+"/data/12345,67890,1337", "application/text+html", bytes.NewReader(b))
@@ -111,11 +111,11 @@ func TestHttpQuery(t *testing.T) {
 
 type dummyDataStorage struct{}
 
-func (s *dummyDataStorage) Submit(data map[string][]DataPoint, sources map[string]*registry.DataSource) error {
+func (s *dummyDataStorage) Submit(data map[string][]senml.SenMLRecord, sources map[string]*registry.DataSource) error {
 	return nil
 }
-func (s *dummyDataStorage) Query(q Query, page, perPage int, ds ...*registry.DataSource) (DataSet, int, error) {
-	return DataSet{}, 0, nil
+func (s *dummyDataStorage) Query(q Query, page, perPage int, ds ...*registry.DataSource) (senml.SenML, int, error) {
+	return senml.SenML{}, 0, nil
 }
 func (s *dummyDataStorage) NtfCreated(ds registry.DataSource, callback chan error) {
 }

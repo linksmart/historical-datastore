@@ -112,12 +112,6 @@
   version = "1.0.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/krylovsk/gosenml"
-  packages = ["."]
-  revision = "58b3dba4d56feb12e121868a4468ad3443334d3b"
-
-[[projects]]
   name = "github.com/pborman/uuid"
   packages = ["."]
   revision = "e790cca94e6cc75c7064b1332e63811d4aae1a53"
@@ -163,21 +157,9 @@
   ]
   revision = "57efc9c3d9f91fb3277f8da1cff370539c4d3dc5"
 
-[[projects]]
-  branch = "v2"
-  name = "gopkg.in/mgo.v2"
-  packages = [
-    ".",
-    "bson",
-    "internal/json",
-    "internal/sasl",
-    "internal/scram"
-  ]
-  revision = "3f83fa5005286a7fe593b055f0d7771a7dce4655"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "29bb9c172ac786df39db9b480c6fe71761324cff5d610602a366941dc5165880"
+  inputs-digest = "ce591a8d5a1aa81814e480ad83702be5276c0fd69251f273ed39ff4843bd9efd"
   solver-name = "gps-cdcl"
   solver-version = 1
