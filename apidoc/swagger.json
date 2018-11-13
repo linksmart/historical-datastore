@@ -756,7 +756,10 @@
             "type" : "string"
           },
           "data" : {
-            "$ref" : "#/components/schemas/Dataset"
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SenmlRecord"
+            }
           },
           "time" : {
             "type" : "number",
@@ -773,7 +776,7 @@
           }
         }
       },
-      "Dataset" : {
+      "SenmlRecord" : {
         "type" : "object",
         "properties" : {
           "bn" : {
@@ -781,41 +784,33 @@
           },
           "bt" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "double"
           },
           "bu" : {
             "type" : "string"
           },
-          "ver" : {
+          "bver" : {
             "type" : "integer"
           },
-          "e" : {
-            "type" : "array",
-            "items" : {
-              "type" : "object",
-              "properties" : {
-                "t" : {
-                  "type" : "integer",
-                  "format" : "int64"
-                },
-                "n" : {
-                  "type" : "string"
-                },
-                "u" : {
-                  "type" : "string"
-                },
-                "v" : {
-                  "type" : "number",
-                  "format" : "float"
-                },
-                "sv" : {
-                  "type" : "string"
-                },
-                "bv" : {
-                  "type" : "boolean"
-                }
-              }
-            }
+          "n" : {
+            "type" : "string"
+          },
+          "t" : {
+            "type" : "integer",
+            "format" : "double"
+          },
+          "u" : {
+            "type" : "string"
+          },
+          "v" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "vs" : {
+            "type" : "string"
+          },
+          "vb" : {
+            "type" : "boolean"
           }
         }
       },
