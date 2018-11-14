@@ -18,7 +18,7 @@
     "/registry/" : {
       "get" : {
         "tags" : [ "registry" ],
-        "summary" : "Retrieves Registry API index",
+        "summary" : "Retrieves list of Datasources",
         "parameters" : [ {
           "$ref" : "#/components/parameters/ParamPage"
         }, {
@@ -38,7 +38,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/RegistryIndex"
+                  "$ref" : "#/components/schemas/Registry"
                 }
               }
             }
@@ -59,7 +59,7 @@
       },
       "post" : {
         "tags" : [ "registry" ],
-        "summary" : "Creates new `Datasource` object",
+        "summary" : "Creates new Datasource",
         "responses" : {
           "201" : {
             "description" : "Created successfully",
@@ -99,7 +99,7 @@
     "/registry/{id}" : {
       "get" : {
         "tags" : [ "registry" ],
-        "summary" : "Retrieves a `Datasource` object",
+        "summary" : "Retrieves the Datasource",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -139,7 +139,7 @@
       },
       "put" : {
         "tags" : [ "registry" ],
-        "summary" : "Updates the `Datasource`",
+        "summary" : "Updates the Datasource",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -181,7 +181,7 @@
       },
       "delete" : {
         "tags" : [ "registry" ],
-        "summary" : "Deletes the `Datasource`",
+        "summary" : "Deletes the Datasource",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -216,7 +216,7 @@
     "/registry/{type}/{path}/{op}/{value}" : {
       "get" : {
         "tags" : [ "registry" ],
-        "summary" : "Datasource filtering API",
+        "summary" : "Filters Datasources",
         "description" : "The filtering API enables filtering based on a given path, operator, and value. Below are few examples:\n* Get datasource with name:\n  `/registry/one/name/equals/home/bedroom/temperature`\n* Filter all datasources with prefix `home` in name:\n  `/registry/many/name/prefix/home`\n* Filter all datasources based on address meta field:\n  `/registry/many/meta.address/contains/Bonn`\n",
         "parameters" : [ {
           "name" : "type",
@@ -261,7 +261,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/RegistryIndex"
+                  "$ref" : "#/components/schemas/Registry"
                 }
               }
             }
@@ -281,16 +281,7 @@
     "/data/" : {
       "post" : {
         "tags" : [ "data" ],
-        "summary" : "Submits `Dataset`",
-        "parameters" : [ {
-          "name" : "Content-Type",
-          "in" : "header",
-          "description" : "MIME Type of dataset",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
+        "summary" : "Submits data",
         "responses" : {
           "202" : {
             "description" : "Accepted"
@@ -325,19 +316,11 @@
     "/data/{id}" : {
       "post" : {
         "tags" : [ "data" ],
-        "summary" : "Submits `Dataset`",
+        "summary" : "Submits data with ID",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
           "description" : "ID of the `Datasource`",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "Content-Type",
-          "in" : "header",
-          "description" : "MIME Type of dataset",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -375,7 +358,7 @@
       },
       "get" : {
         "tags" : [ "data" ],
-        "summary" : "Retrieves data `Recordset`",
+        "summary" : "Retrieves data",
         "parameters" : [ {
           "$ref" : "#/components/parameters/ParamPage"
         }, {
@@ -383,7 +366,7 @@
         }, {
           "name" : "id",
           "in" : "path",
-          "description" : "ID(s) of the `Datasource`(s)",
+          "description" : "ID of the `Datasource`. Multiple IDs should be seperated by commas",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -395,7 +378,7 @@
             "content" : {
               "application/senml+json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Recordset"
+                  "$ref" : "#/components/schemas/Data"
                 }
               }
             }
@@ -418,42 +401,10 @@
         }
       }
     },
-    "/aggr/" : {
-      "get" : {
-        "tags" : [ "aggr" ],
-        "summary" : "Retrieves Aggregation API index.",
-        "parameters" : [ {
-          "$ref" : "#/components/parameters/ParamPage"
-        }, {
-          "$ref" : "#/components/parameters/ParamPerPage"
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "Successful response",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/AggregationIndex"
-                }
-              }
-            }
-          },
-          "401" : {
-            "$ref" : "#/components/responses/RespUnauthorized"
-          },
-          "403" : {
-            "$ref" : "#/components/responses/RespForbidden"
-          },
-          "500" : {
-            "$ref" : "#/components/responses/RespInternalServerError"
-          }
-        }
-      }
-    },
     "/aggr/{aggr_id}/{id}" : {
       "get" : {
         "tags" : [ "aggr" ],
-        "summary" : "Retrieves aggregated data `Recordset`",
+        "summary" : "Retrieves aggregated data",
         "parameters" : [ {
           "$ref" : "#/components/parameters/ParamPage"
         }, {
@@ -461,7 +412,7 @@
         }, {
           "name" : "aggr_id",
           "in" : "path",
-          "description" : "ID of the `Aggregation`",
+          "description" : "ID of the `Aggregation` from registry",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -469,7 +420,7 @@
         }, {
           "name" : "id",
           "in" : "path",
-          "description" : "ID of the `Datasource`",
+          "description" : "ID of the `Datasource` from registry",
           "required" : true,
           "schema" : {
             "type" : "string"
@@ -481,7 +432,7 @@
             "content" : {
               "application/senml+json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/AggrRecordset"
+                  "$ref" : "#/components/schemas/Aggregation"
                 }
               }
             }
@@ -615,11 +566,11 @@
         "content" : {
           "application/json" : {
             "schema" : {
-              "$ref" : "#/components/schemas/Dataset"
+              "$ref" : "#/components/schemas/SenmlPack"
             }
           }
         },
-        "description" : "Dataset to be submitted. \n\nThe dataset is a [SenML](https://tools.ietf.org/html/draft-jennings-senml-10) object.\n",
+        "description" : "Dataset to be submitted. \n\nThe dataset is a [SenML](https://tools.ietf.org/html/rfc8428) pack.\n",
         "required" : true
       },
       "Datasource" : {
@@ -635,7 +586,7 @@
       }
     },
     "schemas" : {
-      "RegistryIndex" : {
+      "Registry" : {
         "type" : "object",
         "properties" : {
           "url" : {
@@ -685,7 +636,23 @@
             "type" : "object"
           },
           "connector" : {
-            "$ref" : "#/components/schemas/Connector"
+            "type" : "object",
+            "properties" : {
+              "mqtt" : {
+                "type" : "object",
+                "properties" : {
+                  "url" : {
+                    "type" : "string"
+                  },
+                  "topic" : {
+                    "type" : "string"
+                  },
+                  "qos" : {
+                    "type" : "integer"
+                  }
+                }
+              }
+            }
           },
           "retention" : {
             "type" : "string"
@@ -693,7 +660,30 @@
           "aggregation" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/Aggregation"
+              "type" : "object",
+              "properties" : {
+                "id" : {
+                  "type" : "string",
+                  "readOnly" : true
+                },
+                "interval" : {
+                  "type" : "string"
+                },
+                "data" : {
+                  "type" : "string",
+                  "format" : "url",
+                  "readOnly" : true
+                },
+                "aggregates" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "string"
+                  }
+                },
+                "retention" : {
+                  "type" : "string"
+                }
+              }
             }
           },
           "type" : {
@@ -704,21 +694,67 @@
           }
         }
       },
-      "Connector" : {
+      "Data" : {
         "type" : "object",
         "properties" : {
-          "mqtt" : {
-            "type" : "object",
-            "properties" : {
-              "url" : {
-                "type" : "string"
-              },
-              "topic" : {
-                "type" : "string"
-              },
-              "qos" : {
-                "type" : "integer"
-              }
+          "url" : {
+            "type" : "string"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SenmlPack"
+          },
+          "time" : {
+            "type" : "number",
+            "format" : "float"
+          },
+          "page" : {
+            "type" : "integer"
+          },
+          "per_page" : {
+            "type" : "integer"
+          },
+          "total" : {
+            "type" : "integer"
+          }
+        }
+      },
+      "SenmlPack" : {
+        "type" : "array",
+        "items" : {
+          "type" : "object",
+          "properties" : {
+            "bn" : {
+              "type" : "string"
+            },
+            "bt" : {
+              "type" : "integer",
+              "format" : "double"
+            },
+            "bu" : {
+              "type" : "string"
+            },
+            "bver" : {
+              "type" : "integer"
+            },
+            "n" : {
+              "type" : "string"
+            },
+            "t" : {
+              "type" : "integer",
+              "format" : "double"
+            },
+            "u" : {
+              "type" : "string"
+            },
+            "v" : {
+              "type" : "number",
+              "format" : "double"
+            },
+            "vs" : {
+              "type" : "string"
+            },
+            "vb" : {
+              "type" : "boolean"
             }
           }
         }
@@ -726,40 +762,11 @@
       "Aggregation" : {
         "type" : "object",
         "properties" : {
-          "id" : {
-            "type" : "string",
-            "readOnly" : true
-          },
-          "interval" : {
-            "type" : "string"
-          },
-          "data" : {
-            "type" : "string",
-            "format" : "url",
-            "readOnly" : true
-          },
-          "aggregates" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "retention" : {
-            "type" : "string"
-          }
-        }
-      },
-      "Recordset" : {
-        "type" : "object",
-        "properties" : {
           "url" : {
             "type" : "string"
           },
           "data" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/SenmlRecord"
-            }
+            "$ref" : "#/components/schemas/AggrPack"
           },
           "time" : {
             "type" : "number",
@@ -776,74 +783,9 @@
           }
         }
       },
-      "SenmlRecord" : {
+      "AggrPack" : {
         "type" : "object",
         "properties" : {
-          "bn" : {
-            "type" : "string"
-          },
-          "bt" : {
-            "type" : "integer",
-            "format" : "double"
-          },
-          "bu" : {
-            "type" : "string"
-          },
-          "bver" : {
-            "type" : "integer"
-          },
-          "n" : {
-            "type" : "string"
-          },
-          "t" : {
-            "type" : "integer",
-            "format" : "double"
-          },
-          "u" : {
-            "type" : "string"
-          },
-          "v" : {
-            "type" : "number",
-            "format" : "double"
-          },
-          "vs" : {
-            "type" : "string"
-          },
-          "vb" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "AggrRecordset" : {
-        "type" : "object",
-        "properties" : {
-          "url" : {
-            "type" : "string"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/AggrDataset"
-          },
-          "time" : {
-            "type" : "number",
-            "format" : "float"
-          },
-          "page" : {
-            "type" : "integer"
-          },
-          "per_page" : {
-            "type" : "integer"
-          },
-          "total" : {
-            "type" : "integer"
-          }
-        }
-      },
-      "AggrDataset" : {
-        "type" : "object",
-        "properties" : {
-          "ver" : {
-            "type" : "integer"
-          },
           "e" : {
             "type" : "array",
             "items" : {
@@ -883,40 +825,6 @@
                 "sum" : {
                   "type" : "number",
                   "format" : "float"
-                }
-              }
-            }
-          }
-        }
-      },
-      "AggregationIndex" : {
-        "type" : "object",
-        "properties" : {
-          "aggregations" : {
-            "type" : "array",
-            "items" : {
-              "type" : "object",
-              "properties" : {
-                "id" : {
-                  "type" : "string"
-                },
-                "interval" : {
-                  "type" : "string"
-                },
-                "aggregates" : {
-                  "type" : "array",
-                  "items" : {
-                    "type" : "string"
-                  }
-                },
-                "retention" : {
-                  "type" : "string"
-                },
-                "sources" : {
-                  "type" : "array",
-                  "items" : {
-                    "type" : "string"
-                  }
                 }
               }
             }
