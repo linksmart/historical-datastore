@@ -75,7 +75,7 @@ func main() {
 		}
 	}
 
-	regAPI := registry.NewHTTPAPI(regStorage)
+	regAPI := registry.NewAPI(regStorage)
 	registryClient := registry.NewLocalClient(regStorage)
 
 	// data and aggregation backends
@@ -111,6 +111,35 @@ func main() {
 	// Start the notifier
 	common.StartNotifier(regPubCh, dataSubCh, aggrSubCh, mqttSubCh)
 
+	// Register in the service catalog(s)
+	unregisterService := registerInServiceCatalog(conf)
+
+	// Start servers
+	go startHTTPServer(conf, regAPI, dataAPI, aggrAPI)
+	go startWebServer(conf)
+
+	// Ctrl+C / Kill handling
+	handler := make(chan os.Signal, 1)
+	signal.Notify(handler, os.Interrupt, os.Kill)
+
+	<-handler
+	logger.Println("Shutting down...")
+
+	// Unregister from the service catalog(s)
+	unregisterService()
+
+	// Close the Registry Storage
+	if closeReg != nil {
+		err := closeReg()
+		if err != nil {
+			logger.Println(err.Error())
+		}
+	}
+
+	logger.Println("Stopped.")
+}
+
+func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API, aggr *aggregation.API) {
 	commonHandlers := alice.New(
 		context.ClearHandler,
 		loggingHandler,
@@ -144,60 +173,32 @@ func main() {
 	router.get("/", commonHandlers.ThenFunc(indexHandler))
 
 	// registry api
-	router.get("/registry", commonHandlers.ThenFunc(regAPI.Index))
-	router.post("/registry", commonHandlers.ThenFunc(regAPI.Create))
-	router.get("/registry/{id}", commonHandlers.ThenFunc(regAPI.Retrieve))
-	router.put("/registry/{id}", commonHandlers.ThenFunc(regAPI.Update))
-	router.delete("/registry/{id}", commonHandlers.ThenFunc(regAPI.Delete))
-	router.get("/registry/{type}/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(regAPI.Filter))
+	router.get("/registry", commonHandlers.ThenFunc(reg.Index))
+	router.post("/registry", commonHandlers.ThenFunc(reg.Create))
+	router.get("/registry/{id}", commonHandlers.ThenFunc(reg.Retrieve))
+	router.put("/registry/{id}", commonHandlers.ThenFunc(reg.Update))
+	router.delete("/registry/{id}", commonHandlers.ThenFunc(reg.Delete))
+	router.get("/registry/{type}/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(reg.Filter))
 
 	// data api
-	router.post("/data", commonHandlers.ThenFunc(dataAPI.SubmitWithoutID))
-	router.post("/data/{id}", commonHandlers.ThenFunc(dataAPI.Submit))
-	router.get("/data/{id}", commonHandlers.ThenFunc(dataAPI.Query))
+	router.post("/data", commonHandlers.ThenFunc(data.SubmitWithoutID))
+	router.post("/data/{id}", commonHandlers.ThenFunc(data.Submit))
+	router.get("/data/{id}", commonHandlers.ThenFunc(data.Query))
 
 	// aggregation api
-	router.get("/aggr", commonHandlers.ThenFunc(aggrAPI.Index))
-	router.get("/aggr/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(aggrAPI.Filter))
-	router.get("/aggr/{aggrid}/{uuid}", commonHandlers.ThenFunc(aggrAPI.Query))
-
-	// Register in the service catalog(s)
-	unregisterService := registerInServiceCatalog(conf)
-
-	// Ctrl+C / Kill handling
-	handler := make(chan os.Signal, 1)
-	signal.Notify(handler, os.Interrupt, os.Kill)
-	go func() {
-		<-handler
-		logger.Println("Shutting down...")
-
-		// Unregister from the service catalog(s)
-		unregisterService()
-
-		// Close the Registry Storage
-		if closeReg != nil {
-			err := closeReg()
-			if err != nil {
-				logger.Println(err.Error())
-			}
-		}
-
-		logger.Println("Stopped.")
-		os.Exit(0)
-	}()
-
-	// Serve static web directory
-	go webServer(conf)
+	router.get("/aggr", commonHandlers.ThenFunc(aggr.Index))
+	router.get("/aggr/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(aggr.Filter))
+	router.get("/aggr/{aggrid}/{uuid}", commonHandlers.ThenFunc(aggr.Query))
 
 	// start http server
 	logger.Printf("Listening on %s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
-	err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort), router)
+	err := http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort), router)
 	if err != nil {
 		logger.Fatalln(err)
 	}
 }
 
-func webServer(conf *common.Config) {
+func startWebServer(conf *common.Config) {
 	staticConf := map[string]interface{}{
 		"apiPort": conf.HTTP.BindPort,
 	}
