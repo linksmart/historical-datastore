@@ -228,10 +228,9 @@ func startWebServer(conf *common.Config) {
 	mux := http.NewServeMux()
 	fs := http.FileServer(http.Dir(conf.Web.StaticDir))
 	mux.Handle("/", fs)
-	go func() {
-		err := http.ListenAndServe(fmt.Sprintf("%s:%d", conf.Web.BindAddr, conf.Web.BindPort), mux)
-		if err != nil {
-			logger.Fatalln(err)
-		}
-	}()
+
+	err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.Web.BindAddr, conf.Web.BindPort), mux)
+	if err != nil {
+		logger.Fatalln(err)
+	}
 }
