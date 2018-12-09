@@ -78,24 +78,24 @@ func main() {
 	regAPI := registry.NewHTTPAPI(regStorage)
 	registryClient := registry.NewLocalClient(regStorage)
 
-	//TODO:refactor below code
-	//data and aggregation backends
-	var dataStorage data.Storage
-	var ntRcvDataCh chan<- common.Notification
-	var dataAggr aggregation.Storage
-	var ntRcvAggrCh chan<- common.Notification
+	// data and aggregation backends
+	var (
+		dataStorage              data.Storage
+		aggrStorage              aggregation.Storage
+		ntRcvDataCh, ntRcvAggrCh chan<- common.Notification
+	)
 	switch conf.Data.Backend.Type {
 	case "mongodb":
 		logger.Fatalln("Mongodb is not supported after HDS v0.5.3")
-		//var mongoStorage *data.MongoStorage
-		//mongoStorage, ntRcvDataCh, _ = data.NewMongoStorage(conf.Data.Backend.DSN)
-		//dataAggr, ntRcvAggrCh, _ = aggregation.NewMongoAggr(mongoStorage)
-		//dataStorage = mongoStorage
 	case "influxdb":
-		var influxStorage *data.InfluxStorage
-		influxStorage, ntRcvDataCh, _ = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
-		dataAggr, ntRcvAggrCh, _ = aggregation.NewInfluxAggr(influxStorage)
-		dataStorage = influxStorage
+		dataStorage, ntRcvDataCh, err = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
+		if err != nil {
+			logger.Fatalf("Error creating influx storage: %v", err)
+		}
+		aggrStorage, ntRcvAggrCh, err = aggregation.NewInfluxAggr(dataStorage.(*data.InfluxStorage))
+		if err != nil {
+			logger.Fatalf("Error creating influx aggr: %v", err)
+		}
 	}
 
 	// TODO: disconnect on shutdown
@@ -106,7 +106,7 @@ func main() {
 	dataAPI := data.NewHTTPAPI(registryClient, dataStorage, conf.Data.AutoRegistration)
 
 	// aggregation
-	aggrAPI := aggregation.NewAPI(registryClient, dataAggr)
+	aggrAPI := aggregation.NewAPI(registryClient, aggrStorage)
 
 	// Start the notifier
 	common.StartNotifier(ntSndRegCh, ntRcvDataCh, ntRcvAggrCh, ntRcvMQTTCh)
@@ -120,6 +120,8 @@ func main() {
 
 	// http api
 	router := newRouter()
+	// generic handlers
+	router.get("/health", commonHandlers.ThenFunc(healthHandler))
 	router.options("/{path:.*}", commonHandlers.ThenFunc(optionsHandler))
 
 	// Append auth handler if enabled
@@ -138,8 +140,7 @@ func main() {
 		commonHandlers = commonHandlers.Append(v.Handler)
 	}
 
-	// generic handlers
-	router.get("/health", commonHandlers.ThenFunc(healthHandler))
+	// api root
 	router.get("/", commonHandlers.ThenFunc(indexHandler))
 
 	// registry api
