@@ -316,7 +316,6 @@ func TestHttpUpdate(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	ds.Retention = "3h"
-	ds.Format = "some_other_format"
 	b, err := json.Marshal(&ds)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -393,17 +392,14 @@ func TestHttpFilter(t *testing.T) {
 		DataSource{
 			Resource: "dimmer.eu/sensor1",
 			Type:     "string",
-			Format:   "application/json",
 		},
 		DataSource{
 			Resource: "dimmer.eu/sensor2",
 			Type:     "bool",
-			Format:   "application/json",
 		},
 		DataSource{
 			Resource: "dimmer.eu/actuator1",
 			Type:     "string",
-			Format:   "application/json",
 		},
 	}
 	for _, ds := range dummyDSs {

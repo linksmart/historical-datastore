@@ -58,7 +58,6 @@ func TestLevelDBAdd(t *testing.T) {
 	ds.Retention = ""
 	//ds.Aggregation TODO
 	ds.Type = "string"
-	ds.Format = "application/senml+json"
 
 	addedDS, err := storage.add(ds)
 	if err != nil {
@@ -106,7 +105,6 @@ func TestLevelDBUpdate(t *testing.T) {
 	ds.Meta["SerialNumber"] = 12345
 	//ds.Retention = "20w"
 	//ds.Aggregation TODO
-	ds.Format = "new_format"
 
 	updatedDS, err := storage.update(ID, ds)
 	if err != nil {
@@ -259,12 +257,12 @@ func TestLevelDBPathFilter(t *testing.T) {
 	}
 	for i := 0; i < expected; i++ {
 		ds, _ := storage.get(IDs[i])
-		ds.Format = "newtype/newsubtype"
+		ds.Meta["newkey"] = "a/b"
 		storage.update(ds.ID, ds)
 	}
 
 	// Query for format with prefix "newtype"
-	_, total, err := storage.pathFilter("format", "prefix", "newtype", 1, 100)
+	_, total, err := storage.pathFilter("meta.newkey", "prefix", "a", 1, 100)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

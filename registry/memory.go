@@ -98,7 +98,6 @@ func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 	tempDS.Connector = ds.Connector
 	tempDS.Retention = ds.Retention
 	tempDS.Aggregation = ds.Aggregation
-	tempDS.Format = ds.Format
 	//tempDS.Resource
 	//tempDS.Type
 

@@ -106,11 +106,6 @@ func validateCreation(ds DataSource, conf common.RegConf) error {
 		}
 	}
 
-	// format
-	if ds.Format == "" {
-		e.mandatory = append(e.mandatory, "format")
-	}
-
 	if e.Err() {
 		return e
 	}
@@ -182,11 +177,6 @@ func validateUpdate(ds DataSource, oldDS DataSource, conf common.RegConf) error 
 				}
 			}
 		}
-	}
-
-	// format
-	if ds.Format == "" {
-		e.mandatory = append(e.mandatory, "format")
 	}
 
 	if e.Err() {

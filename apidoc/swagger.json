@@ -612,7 +612,7 @@
       },
       "Datasource" : {
         "type" : "object",
-        "required" : [ "resource", "type", "format" ],
+        "required" : [ "resource", "type" ],
         "properties" : {
           "id" : {
             "type" : "string",
@@ -687,9 +687,6 @@
             }
           },
           "type" : {
-            "type" : "string"
-          },
-          "format" : {
             "type" : "string"
           }
         }

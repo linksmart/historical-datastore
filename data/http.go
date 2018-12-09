@@ -181,7 +181,6 @@ func (d *HTTPAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 				logger.Printf("Registering data source for %s", r.Name)
 				newDS := registry.DataSource{
 					Resource: r.Name,
-					Format:   "application/senml+json",
 					Meta: map[string]interface{}{
 						"registrar": "Data API",
 					},

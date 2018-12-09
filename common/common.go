@@ -39,7 +39,7 @@ var (
 	// APIVersion defines the API version
 	APIVersion = "N/A"
 	// Default MIME type for all responses
-	DefaultMIMEType = "application/vnd.eu.linksmart.hds+json;version=" + APIVersion
+	DefaultMIMEType = "application/json;version=" + APIVersion
 
 	// supported type values
 	supportedTypes = []string{STRING, BOOL, FLOAT}

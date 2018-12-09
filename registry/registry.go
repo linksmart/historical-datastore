@@ -38,8 +38,7 @@ type DataSource struct {
 	URL string `json:"url"`
 	// Data is the URL to the data of this Data Source Data API
 	Data string `json:"data"`
-	// Resource is the URL identifying the corresponding
-	// LinkSmart Resource (e.g., @id in the Resource Catalog)
+	// Resource URI (i.e., name in SenML)
 	Resource string `json:"resource"`
 	// Meta is a hash-map with optional meta-information
 	Meta map[string]interface{} `json:"meta"`
@@ -51,8 +50,6 @@ type DataSource struct {
 	Aggregation []Aggregation `json:"aggregation"`
 	// Type is the values type used in payload
 	Type string `json:"type"`
-	// Format is the MIME type of the payload
-	Format string `json:"format"`
 }
 
 // MarshalJSON masks sensitive information when using the default marshaller
