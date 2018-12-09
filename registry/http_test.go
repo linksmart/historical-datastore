@@ -18,7 +18,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func setupRouter(regAPI *HTTPAPI) *mux.Router {
+func setupRouter(regAPI *API) *mux.Router {
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("GET").Path("/registry").HandlerFunc(regAPI.Index)
 	r.Methods("POST").Path("/registry").HandlerFunc(regAPI.Create)
@@ -29,9 +29,9 @@ func setupRouter(regAPI *HTTPAPI) *mux.Router {
 	return r
 }
 
-func setupAPI() (*HTTPAPI, Client) {
+func setupAPI() (*API, Client) {
 	regStorage := setupMemStorage()
-	regAPI := NewHTTPAPI(regStorage)
+	regAPI := NewAPI(regStorage)
 	registryClient := NewLocalClient(regStorage)
 
 	return regAPI, registryClient

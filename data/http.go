@@ -22,33 +22,25 @@ const (
 	MaxPerPage = 1000
 )
 
-// HTTPAPI describes the RESTful HTTP data API
-type HTTPAPI struct {
+// API describes the RESTful HTTP data API
+type API struct {
 	registryClient   registry.Client
 	storage          Storage
 	autoRegistration bool
 }
 
-// NewHTTPAPI returns the configured Data API
-func NewHTTPAPI(registryClient registry.Client, storage Storage, autoRegistration bool) *HTTPAPI {
+// NewAPI returns the configured Data API
+func NewAPI(registryClient registry.Client, storage Storage, autoRegistration bool) *API {
 	logger.Printf("Automatic registration: %v", autoRegistration)
-	return &HTTPAPI{registryClient, storage, autoRegistration}
+	return &API{registryClient, storage, autoRegistration}
 }
 
 // Submit is a handler for submitting a new data point
 // Expected parameters: id(s)
-// TODO: check SupportedContentTypes instead of hard-coding SenML
-func (d *HTTPAPI) Submit(w http.ResponseWriter, r *http.Request) {
+func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	data := make(map[string][]senml.SenMLRecord)
 	sources := make(map[string]*registry.DataSource)
-
-	//contentType := strings.Split(r.Header.Get("Content-Type"), ";")[0]
-	//// Only SenML is supported for now
-	//if contentType != "application/senml+json" {
-	//	common.ErrorResponse(http.StatusUnsupportedMediaType, "Unsupported content type: "+contentType+". Currently, only `application/senml+json` is supported.", w)
-	//	return
-	//}
 
 	// Parse id(s)
 	ids := strings.Split(params["id"], common.IDSeparator)
@@ -71,7 +63,7 @@ func (d *HTTPAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	// Check if DataSources are registered in the Registry
 	dsResources := make(map[string]*registry.DataSource)
 	for _, id := range ids {
-		ds, err := d.registryClient.Get(id)
+		ds, err := api.registryClient.Get(id)
 		if err != nil {
 			common.ErrorResponse(http.StatusNotFound,
 				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()),
@@ -126,7 +118,7 @@ func (d *HTTPAPI) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add data to the storage
-	err = d.storage.Submit(data, sources)
+	err = api.storage.Submit(data, sources)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
 		return
@@ -138,7 +130,7 @@ func (d *HTTPAPI) Submit(w http.ResponseWriter, r *http.Request) {
 
 // SubmitWithoutID is a handler for submitting a new data point
 // Expected parameters: none
-func (d *HTTPAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
+func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 	// Read body
 	body, err := ioutil.ReadAll(r.Body)
@@ -166,13 +158,13 @@ func (d *HTTPAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 		ds, found := nameDSs[r.Name]
 		if !found {
-			ds, err = d.registryClient.FindDataSource("resource", "equals", r.Name)
+			ds, err = api.registryClient.FindDataSource("resource", "equals", r.Name)
 			if err != nil {
 				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error retrieving data source with name %v from the registry: %v", r.Name, err.Error()), w)
 				return
 			}
 			if ds == nil {
-				if !d.autoRegistration {
+				if !api.autoRegistration {
 					common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data source with name %v is not registered.", r.Name), w)
 					return
 				}
@@ -192,7 +184,7 @@ func (d *HTTPAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 				} else {
 					newDS.Type = common.BOOL
 				}
-				addedDS, err := d.registryClient.Add(newDS)
+				addedDS, err := api.registryClient.Add(newDS)
 				if err != nil {
 					common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error registering %v in the registry: %v", r.Name, err.Error()), w)
 					return
@@ -234,7 +226,7 @@ func (d *HTTPAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add data to the storage
-	err = d.storage.Submit(data, sources)
+	err = api.storage.Submit(data, sources)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
 		return
@@ -246,7 +238,7 @@ func (d *HTTPAPI) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 // Query is a handler for querying data
 // Expected parameters: id(s), optional: pagination, query string
-func (d *HTTPAPI) Query(w http.ResponseWriter, r *http.Request) {
+func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	timeStart := time.Now()
 	params := mux.Vars(r)
@@ -265,7 +257,7 @@ func (d *HTTPAPI) Query(w http.ResponseWriter, r *http.Request) {
 	ids := strings.Split(params["id"], common.IDSeparator)
 	sources := []*registry.DataSource{}
 	for _, id := range ids {
-		ds, err := d.registryClient.Get(id)
+		ds, err := api.registryClient.Get(id)
 		if err != nil {
 			common.ErrorResponse(http.StatusNotFound,
 				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()),
@@ -293,7 +285,7 @@ func (d *HTTPAPI) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, total, err := d.storage.Query(q, page, perPage, sources...)
+	data, total, err := api.storage.Query(q, page, perPage, sources...)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
 		return

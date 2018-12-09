@@ -17,7 +17,7 @@ import (
 
 func setupHTTPAPI() *mux.Router {
 	registryClient := registry.NewLocalClient(&registry.DummyRegistryStorage{})
-	api := NewHTTPAPI(registryClient, &dummyDataStorage{}, false)
+	api := NewAPI(registryClient, &dummyDataStorage{}, false)
 
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("POST").Path("/data/{id}").HandlerFunc(api.Submit)

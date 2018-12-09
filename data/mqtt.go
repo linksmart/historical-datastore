@@ -48,7 +48,7 @@ type Subscription struct {
 	receivers int
 }
 
-func NewMQTTConnector(registryClient registry.Client, storage Storage) (chan<- common.Notification, error) {
+func StartMQTTConnector(registryClient registry.Client, storage Storage) (chan<- common.Notification, error) {
 	c := &MQTTConnector{
 		registryClient:      registryClient,
 		storage:             storage,

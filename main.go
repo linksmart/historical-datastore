@@ -62,14 +62,14 @@ func main() {
 	// registry
 	var (
 		regStorage registry.Storage
-		ntSndRegCh *chan common.Notification
+		regPubCh   *chan common.Notification
 		closeReg   func() error
 	)
 	switch conf.Reg.Backend.Type {
 	case "memory":
-		regStorage, ntSndRegCh = registry.NewMemoryStorage(conf.Reg)
+		regStorage, regPubCh = registry.NewMemoryStorage(conf.Reg)
 	case "leveldb":
-		regStorage, ntSndRegCh, closeReg, err = registry.NewLevelDBStorage(conf.Reg, nil)
+		regStorage, regPubCh, closeReg, err = registry.NewLevelDBStorage(conf.Reg, nil)
 		if err != nil {
 			logger.Fatalf("Failed to start LevelDB: %s\n", err)
 		}
@@ -80,36 +80,36 @@ func main() {
 
 	// data and aggregation backends
 	var (
-		dataStorage              data.Storage
-		aggrStorage              aggregation.Storage
-		ntRcvDataCh, ntRcvAggrCh chan<- common.Notification
+		dataStorage          data.Storage
+		aggrStorage          aggregation.Storage
+		dataSubCh, aggrSubCh chan<- common.Notification
 	)
 	switch conf.Data.Backend.Type {
 	case "mongodb":
 		logger.Fatalln("Mongodb is not supported after HDS v0.5.3")
 	case "influxdb":
-		dataStorage, ntRcvDataCh, err = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
+		dataStorage, dataSubCh, err = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
 		if err != nil {
 			logger.Fatalf("Error creating influx storage: %v", err)
 		}
-		aggrStorage, ntRcvAggrCh, err = aggregation.NewInfluxAggr(dataStorage.(*data.InfluxStorage))
+		aggrStorage, aggrSubCh, err = aggregation.NewInfluxAggr(dataStorage.(*data.InfluxStorage))
 		if err != nil {
 			logger.Fatalf("Error creating influx aggr: %v", err)
 		}
 	}
 
 	// TODO: disconnect on shutdown
-	ntRcvMQTTCh, err := data.NewMQTTConnector(registryClient, dataStorage)
+	mqttSubCh, err := data.StartMQTTConnector(registryClient, dataStorage)
 	if err != nil {
 		logger.Fatalf("Error starting MQTT Connector: %v", err)
 	}
-	dataAPI := data.NewHTTPAPI(registryClient, dataStorage, conf.Data.AutoRegistration)
+	dataAPI := data.NewAPI(registryClient, dataStorage, conf.Data.AutoRegistration)
 
 	// aggregation
 	aggrAPI := aggregation.NewAPI(registryClient, aggrStorage)
 
 	// Start the notifier
-	common.StartNotifier(ntSndRegCh, ntRcvDataCh, ntRcvAggrCh, ntRcvMQTTCh)
+	common.StartNotifier(regPubCh, dataSubCh, aggrSubCh, mqttSubCh)
 
 	commonHandlers := alice.New(
 		context.ClearHandler,

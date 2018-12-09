@@ -31,13 +31,13 @@ func ErrType(err, e error) bool {
 }
 
 // RESTful HTTP API
-type HTTPAPI struct {
+type API struct {
 	storage Storage
 }
 
 // Returns the configured Registry API
-func NewHTTPAPI(storage Storage) *HTTPAPI {
-	return &HTTPAPI{
+func NewAPI(storage Storage) *API {
+	return &API{
 		storage,
 	}
 }
@@ -45,10 +45,10 @@ func NewHTTPAPI(storage Storage) *HTTPAPI {
 // Handlers ///////////////////////////////////////////////////////////////////////
 
 // Index is a handler for the registry index
-func (regAPI *HTTPAPI) Index(w http.ResponseWriter, r *http.Request) {
+func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
-	lastModified, err := regAPI.storage.modifiedDate()
+	lastModified, err := api.storage.modifiedDate()
 	if err != nil {
 		logger.Println("Error retrieving last modified date: %s", err)
 		lastModified = time.Now()
@@ -73,7 +73,7 @@ func (regAPI *HTTPAPI) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	datasources, total, err := regAPI.storage.getMany(page, perPage)
+	datasources, total, err := api.storage.getMany(page, perPage)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, err.Error(), w)
 		return
@@ -96,13 +96,7 @@ func (regAPI *HTTPAPI) Index(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create is a handler for creating a new DataSource
-func (regAPI *HTTPAPI) Create(w http.ResponseWriter, r *http.Request) {
-
-	//	contentType := strings.Split(r.Header.Get("Content-Type"), ";")[0]
-	//	if contentType != "application/json" {
-	//		common.ErrorResponse(http.StatusUnsupportedMediaType, "Unsupported content type: "+contentType, w)
-	//		return
-	//	}
+func (api *API) Create(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -118,7 +112,7 @@ func (regAPI *HTTPAPI) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addedDS, err := regAPI.storage.add(ds)
+	addedDS, err := api.storage.add(ds)
 	if err != nil {
 		if ErrType(err, ErrConflict) {
 			common.ErrorResponse(http.StatusConflict, err.Error(), w)
@@ -139,11 +133,11 @@ func (regAPI *HTTPAPI) Create(w http.ResponseWriter, r *http.Request) {
 
 // Retrieve is a handler for retrieving a new DataSource
 // Expected parameters: id
-func (regAPI *HTTPAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
+func (api *API) Retrieve(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
-	ds, err := regAPI.storage.get(id)
+	ds, err := api.storage.get(id)
 	if err != nil {
 		if ErrType(err, ErrNotFound) {
 			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
@@ -163,7 +157,7 @@ func (regAPI *HTTPAPI) Retrieve(w http.ResponseWriter, r *http.Request) {
 
 // Update is a handler for updating the given DataSource
 // Expected parameters: id
-func (regAPI *HTTPAPI) Update(w http.ResponseWriter, r *http.Request) {
+func (api *API) Update(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
@@ -181,7 +175,7 @@ func (regAPI *HTTPAPI) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = regAPI.storage.update(id, ds)
+	_, err = api.storage.update(id, ds)
 	if err != nil {
 		if ErrType(err, ErrConflict) {
 			common.ErrorResponse(http.StatusConflict, err.Error(), w)
@@ -199,11 +193,11 @@ func (regAPI *HTTPAPI) Update(w http.ResponseWriter, r *http.Request) {
 
 // Delete is a handler for deleting the given DataSource
 // Expected parameters: id
-func (regAPI *HTTPAPI) Delete(w http.ResponseWriter, r *http.Request) {
+func (api *API) Delete(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
-	err := regAPI.storage.delete(id)
+	err := api.storage.delete(id)
 	if err != nil {
 		if ErrType(err, ErrNotFound) {
 			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
@@ -218,7 +212,7 @@ func (regAPI *HTTPAPI) Delete(w http.ResponseWriter, r *http.Request) {
 
 // Filter is a handler for registry filtering API
 // Expected parameters: path, type, op, value
-func (regAPI *HTTPAPI) Filter(w http.ResponseWriter, r *http.Request) {
+func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	fpath := params["path"]
 	ftype := params["type"]
@@ -235,7 +229,7 @@ func (regAPI *HTTPAPI) Filter(w http.ResponseWriter, r *http.Request) {
 	var body []byte
 	switch ftype {
 	case FTypeOne:
-		datasource, err := regAPI.storage.pathFilterOne(fpath, fop, fvalue)
+		datasource, err := api.storage.pathFilterOne(fpath, fop, fvalue)
 		if err != nil {
 			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
 			return
@@ -249,7 +243,7 @@ func (regAPI *HTTPAPI) Filter(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case FTypeMany:
-		datasources, total, err := regAPI.storage.pathFilter(fpath, fop, fvalue, page, perPage)
+		datasources, total, err := api.storage.pathFilter(fpath, fop, fvalue, page, perPage)
 		if err != nil {
 			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
 			return
