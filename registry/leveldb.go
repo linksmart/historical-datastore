@@ -22,27 +22,28 @@ import (
 type LevelDBStorage struct {
 	conf         common.RegConf
 	db           *leveldb.DB
-	nt           chan common.Notification
+	event        eventHandler
 	wg           sync.WaitGroup
 	lastModified time.Time
 	resources    map[string]string
 }
 
-func NewLevelDBStorage(conf common.RegConf, opts *opt.Options) (Storage, *chan common.Notification, func() error, error) {
+func NewLevelDBStorage(conf common.RegConf, opts *opt.Options, listeners ...EventListener) (Storage, func() error, error) {
 	url, err := url.Parse(conf.Backend.DSN)
 	if err != nil {
-		return nil, nil, nil, logger.Errorf("%s", err)
+		return nil, nil, logger.Errorf("%s", err)
 	}
 
 	// Open the database
 	db, err := leveldb.OpenFile(url.Path, opts)
 	if err != nil {
-		return nil, nil, nil, logger.Errorf("%s", err)
+		return nil, nil, logger.Errorf("%s", err)
 	}
 
 	s := &LevelDBStorage{
 		conf:         conf,
 		db:           db,
+		event:        listeners,
 		lastModified: time.Now(),
 		resources:    make(map[string]string),
 	}
@@ -55,7 +56,7 @@ func NewLevelDBStorage(conf common.RegConf, opts *opt.Options) (Storage, *chan c
 		var ds DataSource
 		err = json.Unmarshal(iter.Value(), &ds)
 		if err != nil {
-			return nil, nil, nil, logger.Errorf("Error parsing registry data: %v", err)
+			return nil, nil, logger.Errorf("Error parsing registry data: %v", err)
 		}
 		s.resources[ds.Resource] = ds.ID
 	}
@@ -63,10 +64,10 @@ func NewLevelDBStorage(conf common.RegConf, opts *opt.Options) (Storage, *chan c
 	s.wg.Done()
 	err = iter.Error()
 	if err != nil {
-		return nil, nil, nil, logger.Errorf("Error loading registry: %v", err)
+		return nil, nil, logger.Errorf("Error loading registry: %v", err)
 	}
 
-	return s, &s.nt, s.close, nil
+	return s, s.close, nil
 }
 
 func (s *LevelDBStorage) close() error {
@@ -93,8 +94,8 @@ func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
 		ds.Aggregation[i].Make(ds.ID)
 	}
 
-	// Send a create notification
-	err = sendNotification(ds, common.CREATE, s.nt)
+	// Send a create event
+	err = s.event.created(ds)
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s", err)
 	}
@@ -150,8 +151,8 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 		tempDS.Aggregation[i].Make(ds.ID)
 	}
 
-	// Send an update notification
-	err = sendNotification([]DataSource{oldDS, tempDS}, common.UPDATE, s.nt)
+	// Send an update event
+	err = s.event.updated(oldDS, tempDS)
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s", err)
 	}
@@ -179,8 +180,8 @@ func (s *LevelDBStorage) delete(id string) error {
 		return logger.Errorf("%s", err)
 	}
 
-	// Send a delete notification
-	err = sendNotification(ds, common.DELETE, s.nt)
+	// Send a delete event
+	err = s.event.deleted(ds)
 	if err != nil {
 		return logger.Errorf("%s", err)
 	}

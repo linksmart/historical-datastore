@@ -16,23 +16,24 @@ import (
 
 // In-memory storage
 type MemoryStorage struct {
-	conf common.RegConf
+	conf         common.RegConf
 	data         map[string]DataSource
 	mutex        sync.RWMutex
-	nt           chan common.Notification
+	event        eventHandler
 	lastModified time.Time
 	resources    map[string]string
 }
 
-func NewMemoryStorage(conf common.RegConf) (Storage, *chan common.Notification) {
+func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 	ms := &MemoryStorage{
-		conf: conf,
+		conf:         conf,
 		data:         make(map[string]DataSource),
 		lastModified: time.Now(),
 		resources:    make(map[string]string),
+		event:        listeners,
 	}
 
-	return ms, &ms.nt
+	return ms
 }
 
 func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
@@ -56,8 +57,8 @@ func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
-	// Send a create notification
-	err = sendNotification(ds, common.CREATE, ms.nt)
+	// Send a create event
+	err = ms.event.created(ds)
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s", err)
 	}
@@ -106,8 +107,8 @@ func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 		tempDS.Aggregation[i].Make(ds.ID)
 	}
 
-	// Send an update notification
-	err = sendNotification([]DataSource{oldDS, tempDS}, common.UPDATE, ms.nt)
+	// Send an update event
+	err = ms.event.updated(oldDS, tempDS)
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s", err)
 	}
@@ -128,8 +129,8 @@ func (ms *MemoryStorage) delete(id string) error {
 		return logger.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
 	}
 
-	// Send a delete notification
-	err := sendNotification(ms.data[id], common.DELETE, ms.nt)
+	// Send a delete event
+	err := ms.event.deleted(ms.data[id])
 	if err != nil {
 		return logger.Errorf("%s", err)
 	}

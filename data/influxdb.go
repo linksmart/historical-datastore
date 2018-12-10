@@ -31,10 +31,10 @@ type InfluxStorage struct {
 }
 
 // NewInfluxStorage returns a new InfluxStorage
-func NewInfluxStorage(conf common.DataConf, retentionPeriods []string) (*InfluxStorage, chan<- common.Notification, error) {
+func NewInfluxStorage(conf common.DataConf, retentionPeriods []string) (*InfluxStorage, error) {
 	cfg, err := initInfluxConf(conf.Backend.DSN)
 	if err != nil {
-		return nil, nil, logger.Errorf("Influx config error: %s", err)
+		return nil,  logger.Errorf("Influx config error: %s", err)
 	}
 	cfg.replication = 1
 
@@ -44,7 +44,7 @@ func NewInfluxStorage(conf common.DataConf, retentionPeriods []string) (*InfluxS
 		Password: cfg.password,
 	})
 	if err != nil {
-		return nil, nil, logger.Errorf("Error initializing influxdb client: %s", err)
+		return nil,  logger.Errorf("Error initializing influxdb client: %s", err)
 	}
 
 	s := &InfluxStorage{
@@ -56,11 +56,7 @@ func NewInfluxStorage(conf common.DataConf, retentionPeriods []string) (*InfluxS
 	s.prepare.Add(1)
 	go s.prepareStorage()
 
-	// Run the notification listener
-	ntChan := make(chan common.Notification)
-	go NtfListener(s, ntChan)
-
-	return s, ntChan, nil
+	return s,  nil
 }
 
 // Submit adds multiple data points for multiple data sources
@@ -211,46 +207,42 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 	return pack, total, nil
 }
 
-// NtfCreated handles the creation of a new data source
-func (s *InfluxStorage) NtfCreated(ds registry.DataSource, callback chan error) {
+// CreateHandler handles the creation of a new data source
+func (s *InfluxStorage) CreateHandler(ds registry.DataSource) error {
 	s.prepare.Wait()
-
-	callback <- nil
+	return nil
 }
 
-// NtfUpdated handles updates of a data source
-func (s *InfluxStorage) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
+// UpdateHandler handles updates of a data source
+func (s *InfluxStorage) UpdateHandler(oldDS registry.DataSource, newDS registry.DataSource) error {
 	s.prepare.Wait()
 
 	if oldDS.Retention != newDS.Retention {
 		err := s.ChangeRetentionPolicy(s.MeasurementName(oldDS.ID), s.FieldForType(oldDS.Type), oldDS.Retention, newDS.Retention)
 		if err != nil {
-			callback <- logger.Errorf("Error changing retention policy: %s", err)
-			return
+			return logger.Errorf("Error changing retention policy: %s", err)
 		}
 		logger.Println("InfluxAggr: changed retenton policy for", newDS.ID)
 	}
 
-	callback <- nil
+	return nil
 }
 
-// NtfDeleted handles deletion of a data source
-func (s *InfluxStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
+// DeleteHandler handles deletion of a data source
+func (s *InfluxStorage) DeleteHandler(ds registry.DataSource) error {
 	s.prepare.Wait()
 
 	_, err := s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.MeasurementName(ds.ID))
 	if err != nil {
 		if strings.Contains(err.Error(), "measurement not found") {
 			// Not an error, No data to delete.
-			callback <- nil
-			return
+			return nil
 		}
-		callback <- logger.Errorf("Error removing the historical data: %s", err)
-		return
+		return logger.Errorf("Error removing the historical data: %s", err)
 	}
 	logger.Println("InfluxStorage: dropped measurements for", ds.ID)
 
-	callback <- nil
+	return nil
 }
 
 // UTILITY FUNCTIONS

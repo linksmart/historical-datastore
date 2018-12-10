@@ -5,7 +5,6 @@ package data
 import (
 	"fmt"
 	"github.com/cisco/senml"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -48,24 +47,24 @@ type Subscription struct {
 	receivers int
 }
 
-func StartMQTTConnector(registryClient registry.Client, storage Storage) (chan<- common.Notification, error) {
+func NewMQTTConnector(storage Storage) (*MQTTConnector, error) {
 	c := &MQTTConnector{
-		registryClient:      registryClient,
 		storage:             storage,
 		managers:            make(map[string]*Manager),
 		cache:               make(map[string]*registry.DataSource),
 		failedRegistrations: make(map[string]*registry.MQTTConf),
 	}
+	return c, nil
+}
 
-	// Run the notification listener
-	ntChan := make(chan common.Notification)
-	go NtfListenerMQTT(c, ntChan)
+func (c *MQTTConnector) Start(registryClient registry.Client) error {
+	c.registryClient = registryClient
 
 	perPage := 100
 	for page := 1; ; page++ {
 		datasources, total, err := c.registryClient.GetDataSources(page, perPage)
 		if err != nil {
-			return nil, logger.Errorf("MQTT: Error getting data sources: %v", err)
+			return logger.Errorf("MQTT: Error getting data sources: %v", err)
 		}
 
 		for _, ds := range datasources {
@@ -85,7 +84,7 @@ func StartMQTTConnector(registryClient registry.Client, storage Storage) (chan<-
 
 	go c.retryRegistrations()
 
-	return ntChan, nil
+	return nil
 }
 
 func (c *MQTTConnector) flushCache() {
@@ -305,24 +304,23 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 // NOTIFICATION HANDLERS
 
-// Handles the creation of a new data source
-func (c *MQTTConnector) NtfCreated(ds registry.DataSource, callback chan error) {
+// CreateHandler handles the creation of a new data source
+func (c *MQTTConnector) CreateHandler(ds registry.DataSource) error {
 	c.Lock()
 	defer c.Unlock()
 
 	if ds.Connector.MQTT != nil {
 		err := c.register(ds.Connector.MQTT)
 		if err != nil {
-			callback <- logger.Errorf("MQTT: Error adding subscription: %v", err)
-			return
+			return logger.Errorf("MQTT: Error adding subscription: %v", err)
 		}
 	}
 
-	callback <- nil
+	return nil
 }
 
-// Handles updates of a data source
-func (c *MQTTConnector) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
+// UpdateHandler handles updates of a data source
+func (c *MQTTConnector) UpdateHandler(oldDS registry.DataSource, newDS registry.DataSource) error {
 	c.Lock()
 	defer c.Unlock()
 
@@ -335,8 +333,7 @@ func (c *MQTTConnector) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 		if oldDS.Connector.MQTT != nil {
 			err := c.unregister(oldDS.Connector.MQTT)
 			if err != nil {
-				callback <- logger.Errorf("MQTT: Error removing subscription: %v", err)
-				return
+				return logger.Errorf("MQTT: Error removing subscription: %v", err)
 			}
 		}
 		delete(c.failedRegistrations, oldDS.ID)
@@ -344,16 +341,15 @@ func (c *MQTTConnector) NtfUpdated(oldDS registry.DataSource, newDS registry.Dat
 		if newDS.Connector.MQTT != nil {
 			err := c.register(newDS.Connector.MQTT)
 			if err != nil {
-				callback <- logger.Errorf("MQTT: Error adding subscription: %v", err)
-				return
+				return logger.Errorf("MQTT: Error adding subscription: %v", err)
 			}
 		}
 	}
-	callback <- nil
+	return nil
 }
 
-// Handles deletion of a data source
-func (c *MQTTConnector) NtfDeleted(oldDS registry.DataSource, callback chan error) {
+// DeleteHandler handles deletion of a data source
+func (c *MQTTConnector) DeleteHandler(oldDS registry.DataSource) error {
 	c.Lock()
 	defer c.Unlock()
 
@@ -364,47 +360,9 @@ func (c *MQTTConnector) NtfDeleted(oldDS registry.DataSource, callback chan erro
 		delete(c.cache, oldDS.Resource)
 		err := c.unregister(oldDS.Connector.MQTT)
 		if err != nil {
-			callback <- logger.Errorf("MQTT: Error removing subscription: %v", err)
-			return
+			return logger.Errorf("MQTT: Error removing subscription: %v", err)
 		}
 		delete(c.failedRegistrations, oldDS.ID)
 	}
-	callback <- nil
-}
-
-// Handles an incoming notification
-func NtfListenerMQTT(c *MQTTConnector, ntChan <-chan common.Notification) {
-	for ntf := range ntChan {
-		defer func() {
-			if r := recover(); r != nil {
-				logger.Printf("Recovered from panic: %v\n%v", r, string(debug.Stack()))
-				ntf.Callback <- logger.Errorf("panic: %v", r)
-			}
-		}()
-		switch ntf.Type {
-		case common.CREATE:
-			ds, ok := ntf.Payload.(registry.DataSource)
-			if !ok {
-				logger.Println("ntListener() create: Bad notification!", ds)
-				continue
-			}
-			c.NtfCreated(ds, ntf.Callback)
-		case common.UPDATE:
-			dss, ok := ntf.Payload.([]registry.DataSource)
-			if !ok || len(dss) < 2 {
-				logger.Println("ntListener() update: Bad notification!", dss)
-				continue
-			}
-			c.NtfUpdated(dss[0], dss[1], ntf.Callback)
-		case common.DELETE:
-			ds, ok := ntf.Payload.(registry.DataSource)
-			if !ok {
-				logger.Println("ntListener() delete: Bad notification!", ds)
-				continue
-			}
-			c.NtfDeleted(ds, ntf.Callback)
-		default:
-			// other notifications
-		}
-	}
+	return nil
 }

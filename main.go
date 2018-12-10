@@ -59,57 +59,57 @@ func main() {
 		logger.Fatalf("Config File: %s\n", err)
 	}
 
-	// registry
+	// Setup data and aggregation backends
 	var (
-		regStorage registry.Storage
-		regPubCh   *chan common.Notification
-		closeReg   func() error
-	)
-	switch conf.Reg.Backend.Type {
-	case "memory":
-		regStorage, regPubCh = registry.NewMemoryStorage(conf.Reg)
-	case "leveldb":
-		regStorage, regPubCh, closeReg, err = registry.NewLevelDBStorage(conf.Reg, nil)
-		if err != nil {
-			logger.Fatalf("Failed to start LevelDB: %s\n", err)
-		}
-	}
-
-	regAPI := registry.NewAPI(regStorage)
-	registryClient := registry.NewLocalClient(regStorage)
-
-	// data and aggregation backends
-	var (
-		dataStorage          data.Storage
-		aggrStorage          aggregation.Storage
-		dataSubCh, aggrSubCh chan<- common.Notification
+		dataStorage data.Storage
+		aggrStorage aggregation.Storage
 	)
 	switch conf.Data.Backend.Type {
 	case "mongodb":
 		logger.Fatalln("Mongodb is not supported after HDS v0.5.3")
 	case "influxdb":
-		dataStorage, dataSubCh, err = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
+		dataStorage, err = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
 		if err != nil {
 			logger.Fatalf("Error creating influx storage: %v", err)
 		}
-		aggrStorage, aggrSubCh, err = aggregation.NewInfluxAggr(dataStorage.(*data.InfluxStorage))
+		aggrStorage, err = aggregation.NewInfluxAggr(dataStorage.(*data.InfluxStorage))
 		if err != nil {
 			logger.Fatalf("Error creating influx aggr: %v", err)
 		}
 	}
+	// MQTT connector
+	mqttConn, err := data.NewMQTTConnector(dataStorage)
+	if err != nil {
+		logger.Fatalf("Error creating MQTT Connector: %v", err)
+	}
 
+	// Setup registry
+	var (
+		regStorage registry.Storage
+		closeReg   func() error
+	)
+	switch conf.Reg.Backend.Type {
+	case "memory":
+		regStorage = registry.NewMemoryStorage(conf.Reg, dataStorage, aggrStorage, mqttConn)
+	case "leveldb":
+		regStorage, closeReg, err = registry.NewLevelDBStorage(conf.Reg, nil, dataStorage, aggrStorage, mqttConn)
+		if err != nil {
+			logger.Fatalf("Failed to start LevelDB: %s\n", err)
+		}
+	}
+
+	// Setup APIs
+	regAPI := registry.NewAPI(regStorage)
+	registryClient := registry.NewLocalClient(regStorage)
+	dataAPI := data.NewAPI(registryClient, dataStorage, conf.Data.AutoRegistration)
+	aggrAPI := aggregation.NewAPI(registryClient, aggrStorage)
+
+	// Start MQTT connector
 	// TODO: disconnect on shutdown
-	mqttSubCh, err := data.StartMQTTConnector(registryClient, dataStorage)
+	err = mqttConn.Start(registryClient)
 	if err != nil {
 		logger.Fatalf("Error starting MQTT Connector: %v", err)
 	}
-	dataAPI := data.NewAPI(registryClient, dataStorage, conf.Data.AutoRegistration)
-
-	// aggregation
-	aggrAPI := aggregation.NewAPI(registryClient, aggrStorage)
-
-	// Start the notifier
-	common.StartNotifier(regPubCh, dataSubCh, aggrSubCh, mqttSubCh)
 
 	// Register in the service catalog(s)
 	unregisterService := registerInServiceCatalog(conf)

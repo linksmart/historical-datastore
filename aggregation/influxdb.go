@@ -20,17 +20,13 @@ type InfluxAggr struct {
 }
 
 // NewInfluxAggr returns a new InfluxAggr
-func NewInfluxAggr(influxStorage *data.InfluxStorage) (Storage, chan<- common.Notification, error) {
+func NewInfluxAggr(influxStorage *data.InfluxStorage) (Storage, error) {
 
 	a := &InfluxAggr{
 		influxStorage: influxStorage,
 	}
 
-	// Run the notification listener
-	ntChan := make(chan common.Notification)
-	go NtfListener(a, ntChan)
-
-	return a, ntChan, nil
+	return a, nil
 }
 
 // Query retrieves aggregated data
@@ -109,23 +105,22 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 	return dataset, total, nil
 }
 
-// NtfCreated handles the creation of a new data source
-func (a *InfluxAggr) NtfCreated(ds registry.DataSource, callback chan error) {
+// CreateHandler handles the creation of a new data source
+func (a *InfluxAggr) CreateHandler(ds registry.DataSource) error {
 
 	for _, aggr := range ds.Aggregation {
 
 		err := a.createContinuousQuery(ds, aggr)
 		if err != nil {
-			callback <- err
-			return
+			return err
 		}
 	}
 
-	callback <- nil
+	return nil
 }
 
-// NtfUpdated handles updates of a data source
-func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSource, callback chan error) {
+// UpdateHandler handles updates of a data source
+func (a *InfluxAggr) UpdateHandler(oldDS registry.DataSource, newDS registry.DataSource) error {
 
 	oldAggrs := make(map[string]registry.Aggregation)
 	for _, aggr := range oldDS.Aggregation {
@@ -140,14 +135,12 @@ func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSo
 			// Create Continuous Query
 			err := a.createContinuousQuery(newDS, newAggr)
 			if err != nil {
-				callback <- err
-				return
+				return err
 			}
 			// Backfill
 			err = a.backfill(newDS, newAggr)
 			if err != nil {
-				callback <- err
-				return
+				return err
 			}
 
 			continue
@@ -160,20 +153,17 @@ func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSo
 			// move aggr data to new RP
 			err := a.influxStorage.ChangeRetentionPolicy(a.measurementName(oldDS.ID, oldAggr.ID), oldAggr.Aggregates[0], oldAggr.Retention, newAggr.Retention)
 			if err != nil {
-				callback <- logger.Errorf("Error moving the historical aggregated data to new retention policy: %s", err)
-				return
+				return logger.Errorf("Error moving the historical aggregated data to new retention policy: %s", err)
 			}
 			// drop old CQ
 			err = a.dropContinuousQuery(oldDS, oldAggr)
 			if err != nil {
-				callback <- err
-				return
+				return err
 			}
 			// create new CQ
 			err = a.createContinuousQuery(newDS, newAggr)
 			if err != nil {
-				callback <- err
-				return
+				return err
 			}
 			// backfill in case retention has increased
 			oldDur, _ := a.influxStorage.ParseDuration(oldAggr.Retention)
@@ -181,8 +171,7 @@ func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSo
 			if newDur > oldDur {
 				err = a.backfill(newDS, newAggr)
 				if err != nil {
-					callback <- err
-					return
+					return err
 				}
 			}
 		}
@@ -195,39 +184,35 @@ func (a *InfluxAggr) NtfUpdated(oldDS registry.DataSource, newDS registry.DataSo
 		// Drop Continuous Query
 		err := a.dropContinuousQuery(oldDS, oldAggr)
 		if err != nil {
-			callback <- err
-			return
+			return err
 		}
 		// Drop Measurement
 		err = a.dropMeasurement(oldDS, oldAggr)
 		if err != nil {
-			callback <- err
-			return
+			return err
 		}
 	}
 
-	callback <- nil
+	return nil
 }
 
-// NtfDeleted handles deletion of a data source
-func (a *InfluxAggr) NtfDeleted(ds registry.DataSource, callback chan error) {
+// DeleteHandler handles deletion of a data source
+func (a *InfluxAggr) DeleteHandler(ds registry.DataSource) error {
 
 	for _, aggr := range ds.Aggregation {
 		// Drop Continuous Query
 		err := a.dropContinuousQuery(ds, aggr)
 		if err != nil {
-			callback <- err
-			return
+			return err
 		}
 		// Drop Measurement
 		err = a.dropMeasurement(ds, aggr)
 		if err != nil {
-			callback <- err
-			return
+			return err
 		}
 	}
 
-	callback <- nil
+	return nil
 }
 
 // Utility functions

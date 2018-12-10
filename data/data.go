@@ -44,10 +44,8 @@ type Storage interface {
 	// Queries data for specified data sources
 	Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.SenML, int, error)
 
-	// Methods for handling notifications
-	NtfCreated(ds registry.DataSource, callback chan error)
-	NtfUpdated(old registry.DataSource, new registry.DataSource, callback chan error)
-	NtfDeleted(ds registry.DataSource, callback chan error)
+	// EventListener includes methods for event handling
+	registry.EventListener
 }
 
 // Supported content-types for data ingestion
