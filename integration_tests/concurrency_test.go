@@ -39,8 +39,7 @@ func TestConcurrentCreates(t *testing.T) {
 					Aggregates: []string{"mean", "stddev"},
 				},
 			},
-			Type:   "float",
-			Format: "application/senml+json",
+			Type: "float",
 		}
 		entries = append(entries, ds)
 	}
@@ -102,8 +101,7 @@ func TestConcurrentUpdates(t *testing.T) {
 					Aggregates: []string{"mean", "stddev"},
 				},
 			},
-			Type:   "float",
-			Format: "application/senml+json",
+			Type: "float",
 		}
 		ds.ID, err = registryClient.Add(&ds)
 		if err != nil {
@@ -175,8 +173,7 @@ func TestConcurrentDeletes(t *testing.T) {
 					Aggregates: []string{"mean", "stddev"},
 				},
 			},
-			Type:   "float",
-			Format: "application/senml+json",
+			Type: "float",
 		}
 		ds.ID, err = registryClient.Add(&ds)
 		if err != nil {
