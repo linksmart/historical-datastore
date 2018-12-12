@@ -6,7 +6,6 @@ package data
 import (
 	"time"
 
-	"code.linksmart.eu/hds/historical-datastore/registry"
 	"github.com/cisco/senml"
 )
 
@@ -23,7 +22,7 @@ type RecordSet struct {
 	Page int `json:"page"`
 	// PerPage is the results per page in Data pagination
 	PerPage int `json:"per_page"`
-	// Total is the total #of pages in Data pagination
+	// Total is the total records in Data pagination
 	Total int `json:"total"`
 }
 
@@ -32,23 +31,4 @@ type Query struct {
 	End   time.Time
 	Sort  string
 	Limit int
-}
-
-// Storage is an interface of a Data storage backend
-type Storage interface {
-	// Adds data points for multiple data sources
-	// data is a map where keys are data source ids
-	// sources is a map where keys are data source ids
-	Submit(data map[string][]senml.SenMLRecord, sources map[string]*registry.DataSource) error
-
-	// Queries data for specified data sources
-	Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.SenML, int, error)
-
-	// EventListener includes methods for event handling
-	registry.EventListener
-}
-
-// Supported content-types for data ingestion
-var SupportedContentTypes = map[string]bool{
-	"application/senml+json": true,
 }

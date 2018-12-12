@@ -61,6 +61,13 @@ func SupportedPeriod(p string) bool {
 	return re.MatchString(p)
 }
 
+// SupportedPeriods returns supported periods
+func SupportedPeriods() []string {
+	var periods []string
+	copy(periods, supportedPeriods)
+	return periods
+}
+
 // SupportedType validates a type
 func SupportedType(t string) bool {
 	return stringInSlice(t, supportedTypes)

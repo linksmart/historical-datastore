@@ -55,7 +55,7 @@ func main() {
 	}
 
 	// Load Config File
-	conf, err := common.LoadConfig(confPath)
+	conf, err := loadConfig(confPath)
 	if err != nil {
 		log.Fatalf("Config File: %s\n", err)
 	}
@@ -66,9 +66,7 @@ func main() {
 		aggrStorage aggregation.Storage
 	)
 	switch conf.Data.Backend.Type {
-	case "mongodb":
-		log.Fatalln("Mongodb is not supported after HDS v0.5.3")
-	case "influxdb":
+	case data.INFLUXDB:
 		dataStorage, err = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
 		if err != nil {
 			log.Fatalf("Error creating influx storage: %v", err)
@@ -93,9 +91,9 @@ func main() {
 		closeReg   func() error
 	)
 	switch conf.Reg.Backend.Type {
-	case "memory":
+	case registry.MEMORY:
 		regStorage = registry.NewMemoryStorage(conf.Reg, dataStorage, aggrStorage, mqttConn)
-	case "leveldb":
+	case registry.LEVELDB:
 		regStorage, closeReg, err = registry.NewLevelDBStorage(conf.Reg, nil, dataStorage, aggrStorage, mqttConn)
 		if err != nil {
 			log.Fatalf("Failed to start LevelDB: %s\n", err)

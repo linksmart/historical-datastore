@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"sort"
 	"strings"
-	"time"
 )
 
 // Registry describes a registry of registered Data Sources
@@ -127,20 +126,4 @@ func (a *Aggregation) Make(dsID string) {
 	sort.Strings(a.Aggregates)
 	a.ID = fmt.Sprintf("%x", crc32.ChecksumIEEE([]byte(a.Interval+strings.Join(a.Aggregates, ""))))
 	a.Data = fmt.Sprintf("%s/%s/%s", common.AggrAPILoc, a.ID, dsID)
-}
-
-// Storage is an interface of a Registry storage backend
-type Storage interface {
-	// CRUD
-	Add(ds DataSource) (DataSource, error)
-	Update(id string, ds DataSource) (DataSource, error)
-	Get(id string) (DataSource, error)
-	Delete(id string) error
-	// Utility functions
-	GetMany(page, perPage int) ([]DataSource, int, error)
-	FilterOne(path, op, value string) (*DataSource, error)
-	Filter(path, op, value string, page, perPage int) ([]DataSource, int, error)
-	// needed internally
-	getTotal() (int, error)
-	getLastModifiedTime() (time.Time, error)
 }
