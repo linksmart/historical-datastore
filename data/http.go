@@ -31,7 +31,6 @@ type API struct {
 
 // NewAPI returns the configured Data API
 func NewAPI(registry registry.Storage, storage Storage, autoRegistration bool) *API {
-	logger.Printf("Automatic registration: %v", autoRegistration)
 	return &API{registry, storage, autoRegistration}
 }
 

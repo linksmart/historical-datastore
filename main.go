@@ -77,6 +77,9 @@ func main() {
 			logger.Fatalf("Error creating influx aggr: %v", err)
 		}
 	}
+	if conf.Data.AutoRegistration {
+		logger.Println("Auto Registration is enabled: Data HTTP API will automatically create new data sources.")
+	}
 	// MQTT connector
 	mqttConn, err := data.NewMQTTConnector(dataStorage)
 	if err != nil {
