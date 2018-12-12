@@ -24,12 +24,10 @@ func setupLevelDB() (Storage, func() error, error) {
 			DSN: temp_file,
 		},
 	}
-	storage, in, closeDB, err := NewLevelDBStorage(conf, nil)
+	storage, closeDB, err := NewLevelDBStorage(conf, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	out := dummyListener()
-	common.StartNotifier(in, out)
 
 	return storage, closeDB, nil
 }

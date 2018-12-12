@@ -40,22 +40,8 @@ func generateDummyData(quantity int, c Client) ([]string, error) {
 	return IDs, nil
 }
 
-func dummyListener() chan<- common.Notification {
-	ntChan := make(chan common.Notification)
-	go func() {
-		for nt := range ntChan {
-			nt.Callback <- nil
-		}
-	}()
-	return ntChan
-}
-
 func setupMemStorage() Storage {
-	storage, in := NewMemoryStorage(common.RegConf{})
-	out := dummyListener()
-	common.StartNotifier(in, out)
-
-	return storage
+	return NewMemoryStorage(common.RegConf{})
 }
 
 func TestMemstorageAdd(t *testing.T) {
