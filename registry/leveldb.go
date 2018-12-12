@@ -31,13 +31,13 @@ type LevelDBStorage struct {
 func NewLevelDBStorage(conf common.RegConf, opts *opt.Options, listeners ...EventListener) (Storage, func() error, error) {
 	url, err := url.Parse(conf.Backend.DSN)
 	if err != nil {
-		return nil, nil, logger.Errorf("%s", err)
+		return nil, nil, err
 	}
 
 	// Open the database
 	db, err := leveldb.OpenFile(url.Path, opts)
 	if err != nil {
-		return nil, nil, logger.Errorf("%s", err)
+		return nil, nil, err
 	}
 
 	s := &LevelDBStorage{
@@ -56,7 +56,7 @@ func NewLevelDBStorage(conf common.RegConf, opts *opt.Options, listeners ...Even
 		var ds DataSource
 		err = json.Unmarshal(iter.Value(), &ds)
 		if err != nil {
-			return nil, nil, logger.Errorf("Error parsing registry data: %v", err)
+			return nil, nil, fmt.Errorf("Error parsing registry data: %v", err)
 		}
 		s.resources[ds.Resource] = ds.ID
 	}
@@ -64,7 +64,7 @@ func NewLevelDBStorage(conf common.RegConf, opts *opt.Options, listeners ...Even
 	s.wg.Done()
 	err = iter.Error()
 	if err != nil {
-		return nil, nil, logger.Errorf("Error loading registry: %v", err)
+		return nil, nil, fmt.Errorf("Error loading registry: %v", err)
 	}
 
 	return s, s.close, nil
@@ -79,7 +79,7 @@ func (s *LevelDBStorage) close() error {
 func (s *LevelDBStorage) Add(ds DataSource) (DataSource, error) {
 	err := validateCreation(ds, s.conf)
 	if err != nil {
-		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
+		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	// Get a new UUID and convert it to string (UUID type can't be used as map-key)
@@ -97,23 +97,23 @@ func (s *LevelDBStorage) Add(ds DataSource) (DataSource, error) {
 	// Send a create event
 	err = s.event.created(ds)
 	if err != nil {
-		return DataSource{}, logger.Errorf("%s", err)
+		return DataSource{}, err
 	}
 
 	// Convert to json bytes
 	dsBytes, err := ds.MarshalSensitiveJSON()
 	if err != nil {
-		return DataSource{}, logger.Errorf("%s", err)
+		return DataSource{}, err
 	}
 
 	if _, exists := s.resources[ds.Resource]; exists {
-		return DataSource{}, logger.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Resource)
+		return DataSource{}, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Resource)
 	}
 
 	// Add the new DataSource to database
 	err = s.db.Put([]byte(ds.ID), dsBytes, nil)
 	if err != nil {
-		return DataSource{}, logger.Errorf("%s", err)
+		return DataSource{}, err
 	}
 	// Add secondary index
 	s.resources[ds.Resource] = ds.ID
@@ -126,14 +126,14 @@ func (s *LevelDBStorage) Update(id string, ds DataSource) (DataSource, error) {
 
 	oldDS, err := s.Get(id) // for comparison
 	if err == leveldb.ErrNotFound {
-		return DataSource{}, logger.Errorf("%s: %s", ErrNotFound, err)
+		return DataSource{}, fmt.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
-		return DataSource{}, logger.Errorf("%s", err)
+		return DataSource{}, err
 	}
 
 	err = validateUpdate(ds, oldDS, s.conf)
 	if err != nil {
-		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
+		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	tempDS := oldDS
@@ -154,19 +154,19 @@ func (s *LevelDBStorage) Update(id string, ds DataSource) (DataSource, error) {
 	// Send an update event
 	err = s.event.updated(oldDS, tempDS)
 	if err != nil {
-		return DataSource{}, logger.Errorf("%s", err)
+		return DataSource{}, err
 	}
 
 	// Convert to json bytes
 	dsBytes, err := tempDS.MarshalSensitiveJSON()
 	if err != nil {
-		return DataSource{}, logger.Errorf("%s", err)
+		return DataSource{}, err
 	}
 
 	// Store the modified DS
 	err = s.db.Put([]byte(tempDS.ID), dsBytes, nil)
 	if err != nil {
-		return DataSource{}, logger.Errorf("%s", err)
+		return DataSource{}, err
 	}
 
 	s.lastModified = time.Now()
@@ -177,20 +177,20 @@ func (s *LevelDBStorage) Delete(id string) error {
 
 	ds, err := s.Get(id) // for notification
 	if err != nil {
-		return logger.Errorf("%s", err)
+		return err
 	}
 
 	// Send a delete event
 	err = s.event.deleted(ds)
 	if err != nil {
-		return logger.Errorf("%s", err)
+		return err
 	}
 
 	err = s.db.Delete([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
-		return logger.Errorf("%s: %s", ErrNotFound, err)
+		return fmt.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
-		return logger.Errorf("%s", err)
+		return err
 	}
 	delete(s.resources, ds.Resource)
 
@@ -202,15 +202,15 @@ func (s *LevelDBStorage) Get(id string) (DataSource, error) {
 	// Query from database
 	dsBytes, err := s.db.Get([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
-		return DataSource{}, logger.Errorf("%s: %s", ErrNotFound, err)
+		return DataSource{}, fmt.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
-		return DataSource{}, logger.Errorf("%s", err)
+		return DataSource{}, err
 	}
 
 	var ds DataSource
 	err = json.Unmarshal(dsBytes, &ds)
 	if err != nil {
-		return ds, logger.Errorf("%s", err)
+		return ds, err
 	}
 
 	return ds, nil
@@ -220,7 +220,7 @@ func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 
 	total, err := s.getTotal()
 	if err != nil {
-		return nil, 0, logger.Errorf("%s", err)
+		return nil, 0, err
 	}
 
 	// Extract keys from database
@@ -234,14 +234,14 @@ func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 	s.wg.Done()
 	err = iter.Error()
 	if err != nil {
-		return nil, 0, logger.Errorf("%s", err)
+		return nil, 0, err
 	}
 	// LevelDB keys are sorted
 
 	// Get the queried page
 	offset, limit, err := utils.GetPagingAttr(total, page, perPage, MaxPerPage)
 	if err != nil {
-		return nil, 0, logger.Errorf("%s", err)
+		return nil, 0, err
 	}
 
 	// page/registry is empty
@@ -267,7 +267,7 @@ func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 		var ds DataSource
 		err = json.Unmarshal(dsBytes, &ds)
 		if err != nil {
-			return nil, 0, logger.Errorf("%s", err)
+			return nil, 0, err
 		}
 		datasources = append(datasources, ds)
 	}
@@ -275,7 +275,7 @@ func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 	s.wg.Done()
 	err = iter.Error()
 	if err != nil {
-		return nil, 0, logger.Errorf("%s", err)
+		return nil, 0, err
 	}
 
 	return datasources, total, nil
@@ -293,7 +293,7 @@ func (s *LevelDBStorage) getTotal() (int, error) {
 	s.wg.Done()
 	err := iter.Error()
 	if err != nil {
-		return 0, logger.Errorf("%s", err)
+		return 0, err
 	}
 
 	return counter, nil
@@ -317,14 +317,14 @@ func (s *LevelDBStorage) FilterOne(path, op, value string) (*DataSource, error) 
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return nil, logger.Errorf("%s", err)
+			return nil, err
 		}
 
 		matched, err := utils.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return nil, logger.Errorf("%s", err)
+			return nil, err
 		}
 		if matched {
 			iter.Release()
@@ -336,7 +336,7 @@ func (s *LevelDBStorage) FilterOne(path, op, value string) (*DataSource, error) 
 	s.wg.Done()
 	err := iter.Error()
 	if err != nil {
-		return nil, logger.Errorf("%s", err)
+		return nil, err
 	}
 
 	// No match
@@ -357,14 +357,14 @@ func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]Da
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return []DataSource{}, 0, logger.Errorf("%s", err)
+			return []DataSource{}, 0, err
 		}
 
 		matched, err := utils.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return []DataSource{}, 0, logger.Errorf("%s", err)
+			return []DataSource{}, 0, err
 		}
 		if matched {
 			matchedIDs = append(matchedIDs, ds.ID)
@@ -374,13 +374,13 @@ func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]Da
 	s.wg.Done()
 	err := iter.Error()
 	if err != nil {
-		return nil, 0, logger.Errorf("%s", err)
+		return nil, 0, err
 	}
 
 	// Apply pagination
 	slice, err := utils.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
 	if err != nil {
-		return nil, 0, logger.Errorf("%s", err)
+		return nil, 0, err
 	}
 
 	// page/registry is empty
@@ -392,7 +392,7 @@ func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]Da
 	for i, id := range slice {
 		ds, err := s.Get(id)
 		if err != nil {
-			return nil, len(matchedIDs), logger.Errorf("%s", err)
+			return nil, len(matchedIDs), err
 		}
 		datasources[i] = ds
 	}

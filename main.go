@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -43,20 +44,20 @@ func main() {
 		return
 	}
 	fmt.Print(LINKSMART)
-	logger.Printf("Starting Historical Datastore")
-	logger.Printf("Version: %s", Version)
-	logger.Printf("Build Number: %s", BuildNumber)
+	log.Printf("Starting Historical Datastore")
+	log.Printf("Version: %s", Version)
+	log.Printf("Build Number: %s", BuildNumber)
 	common.APIVersion = Version
 
 	if *profile {
-		logger.Println("Starting runtime profiling server")
-		go func() { logger.Println(http.ListenAndServe("0.0.0.0:6060", nil)) }()
+		log.Println("Starting runtime profiling server")
+		go func() { log.Println(http.ListenAndServe("0.0.0.0:6060", nil)) }()
 	}
 
 	// Load Config File
 	conf, err := common.LoadConfig(confPath)
 	if err != nil {
-		logger.Fatalf("Config File: %s\n", err)
+		log.Fatalf("Config File: %s\n", err)
 	}
 
 	// Setup data and aggregation backends
@@ -66,24 +67,24 @@ func main() {
 	)
 	switch conf.Data.Backend.Type {
 	case "mongodb":
-		logger.Fatalln("Mongodb is not supported after HDS v0.5.3")
+		log.Fatalln("Mongodb is not supported after HDS v0.5.3")
 	case "influxdb":
 		dataStorage, err = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
 		if err != nil {
-			logger.Fatalf("Error creating influx storage: %v", err)
+			log.Fatalf("Error creating influx storage: %v", err)
 		}
 		aggrStorage, err = aggregation.NewInfluxAggr(dataStorage.(*data.InfluxStorage))
 		if err != nil {
-			logger.Fatalf("Error creating influx aggr: %v", err)
+			log.Fatalf("Error creating influx aggr: %v", err)
 		}
 	}
 	if conf.Data.AutoRegistration {
-		logger.Println("Auto Registration is enabled: Data HTTP API will automatically create new data sources.")
+		log.Println("Auto Registration is enabled: Data HTTP API will automatically create new data sources.")
 	}
 	// MQTT connector
 	mqttConn, err := data.NewMQTTConnector(dataStorage)
 	if err != nil {
-		logger.Fatalf("Error creating MQTT Connector: %v", err)
+		log.Fatalf("Error creating MQTT Connector: %v", err)
 	}
 
 	// Setup registry
@@ -97,7 +98,7 @@ func main() {
 	case "leveldb":
 		regStorage, closeReg, err = registry.NewLevelDBStorage(conf.Reg, nil, dataStorage, aggrStorage, mqttConn)
 		if err != nil {
-			logger.Fatalf("Failed to start LevelDB: %s\n", err)
+			log.Fatalf("Failed to start LevelDB: %s\n", err)
 		}
 	}
 
@@ -110,7 +111,7 @@ func main() {
 	// TODO: disconnect on shutdown
 	err = mqttConn.Start(regStorage)
 	if err != nil {
-		logger.Fatalf("Error starting MQTT Connector: %v", err)
+		log.Fatalf("Error starting MQTT Connector: %v", err)
 	}
 
 	// Register in the service catalog(s)
@@ -125,7 +126,7 @@ func main() {
 	signal.Notify(handler, os.Interrupt, os.Kill)
 
 	<-handler
-	logger.Println("Shutting down...")
+	log.Println("Shutting down...")
 
 	// Unregister from the service catalog(s)
 	unregisterService()
@@ -134,11 +135,11 @@ func main() {
 	if closeReg != nil {
 		err := closeReg()
 		if err != nil {
-			logger.Println(err.Error())
+			log.Println(err.Error())
 		}
 	}
 
-	logger.Println("Stopped.")
+	log.Println("Stopped.")
 }
 
 func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API, aggr *aggregation.API) {
@@ -165,7 +166,7 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API, agg
 			conf.Auth.BasicEnabled,
 			conf.Auth.Authz)
 		if err != nil {
-			logger.Fatalf(err.Error())
+			log.Fatalf(err.Error())
 		}
 
 		commonHandlers = commonHandlers.Append(v.Handler)
@@ -193,10 +194,10 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API, agg
 	router.get("/aggr/{aggrid}/{uuid}", commonHandlers.ThenFunc(aggr.Query))
 
 	// start http server
-	logger.Printf("Listening on %s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
+	log.Printf("Listening on %s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
 	err := http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort), router)
 	if err != nil {
-		logger.Fatalln(err)
+		log.Fatalln(err)
 	}
 }
 
@@ -214,17 +215,17 @@ func startWebServer(conf *common.Config) {
 
 	b, err := json.Marshal(staticConf)
 	if err != nil {
-		logger.Fatalln("Error marshalling web config file:", err)
+		log.Fatalln("Error marshalling web config file:", err)
 	}
 
 	err = os.MkdirAll(conf.Web.StaticDir+"/conf", 0755)
 	if err != nil {
-		logger.Fatalln("Error writing web config file:", err)
+		log.Fatalln("Error writing web config file:", err)
 	}
 
 	err = ioutil.WriteFile(conf.Web.StaticDir+"/conf/autogen_config.json", b, 0644)
 	if err != nil {
-		logger.Fatalln("Error writing web config file:", err)
+		log.Fatalln("Error writing web config file:", err)
 	}
 
 	mux := http.NewServeMux()
@@ -233,6 +234,6 @@ func startWebServer(conf *common.Config) {
 
 	err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.Web.BindAddr, conf.Web.BindPort), mux)
 	if err != nil {
-		logger.Fatalln(err)
+		log.Fatalln(err)
 	}
 }

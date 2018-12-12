@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -17,9 +18,9 @@ func loggingHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		t1 := time.Now()
 		nw := negroni.NewResponseWriter(w)
-		logger.Debugf("\"%s %s\"\n", r.Method, r.URL.String())
+		// log.Printf("\"%s %s\"\n", r.Method, r.URL.String())
 		next.ServeHTTP(nw, r)
-		logger.Printf("\"%s %s %s\" %d %d %v\n", r.Method, r.URL.String(), r.Proto, nw.Status(), nw.Size(), time.Now().Sub(t1))
+		log.Printf("\"%s %s %s\" %d %d %v\n", r.Method, r.URL.String(), r.Proto, nw.Status(), nw.Size(), time.Now().Sub(t1))
 	}
 	return http.HandlerFunc(fn)
 }
@@ -28,7 +29,7 @@ func recoverHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Printf("PANIC: %v\n%v", r, string(debug.Stack()))
+				log.Printf("PANIC: %v\n%v", r, string(debug.Stack()))
 				http.Error(w, http.StatusText(500), 500)
 			}
 		}()

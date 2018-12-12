@@ -212,7 +212,6 @@
     "github.com/cisco/senml",
     "github.com/codegangsta/negroni",
     "github.com/eclipse/paho.mqtt.golang",
-    "github.com/farshidtz/elog",
     "github.com/gorilla/context",
     "github.com/gorilla/mux",
     "github.com/influxdata/influxdb/client/v2",

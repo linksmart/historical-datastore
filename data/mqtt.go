@@ -5,6 +5,7 @@ package data
 import (
 	"fmt"
 	"github.com/cisco/senml"
+	"log"
 	"sync"
 	"time"
 
@@ -23,8 +24,8 @@ const (
 type MQTTConnector struct {
 	sync.Mutex
 	registry registry.Storage
-	storage        Storage
-	managers       map[string]*Manager
+	storage  Storage
+	managers map[string]*Manager
 	// cache of resource->ds
 	cache map[string]*registry.DataSource
 	// failed mqtt registrations
@@ -64,14 +65,14 @@ func (c *MQTTConnector) Start(registry registry.Storage) error {
 	for page := 1; ; page++ {
 		datasources, total, err := c.registry.GetMany(page, perPage)
 		if err != nil {
-			return logger.Errorf("MQTT: Error getting data sources: %v", err)
+			return fmt.Errorf("MQTT: Error getting data sources: %v", err)
 		}
 
 		for _, ds := range datasources {
 			if ds.Connector.MQTT != nil {
 				err := c.register(ds.Connector.MQTT)
 				if err != nil {
-					logger.Printf("MQTT: Error registering subscription: %v. Retrying in %ds", err, mqttRetryInterval)
+					log.Printf("MQTT: Error registering subscription: %v. Retrying in %ds", err, mqttRetryInterval)
 					c.failedRegistrations[ds.ID] = ds.Connector.MQTT
 				}
 			}
@@ -98,7 +99,7 @@ func (c *MQTTConnector) retryRegistrations() {
 		for id, mqttConf := range c.failedRegistrations {
 			err := c.register(mqttConf)
 			if err != nil {
-				logger.Printf("MQTT: Error registering subscription: %v. Retrying in %ds", err, mqttRetryInterval)
+				log.Printf("MQTT: Error registering subscription: %v. Retrying in %ds", err, mqttRetryInterval)
 				continue
 			}
 			delete(c.failedRegistrations, id)
@@ -137,7 +138,7 @@ func (c *MQTTConnector) register(mqttConf *registry.MQTTConf) error {
 		manager.client = paho.NewClient(opts)
 
 		if token := manager.client.Connect(); token.Wait() && token.Error() != nil {
-			return logger.Errorf("MQTT: Error connecting to broker %v: %v", mqttConf.URL, token.Error())
+			return fmt.Errorf("MQTT: Error connecting to broker %v: %v", mqttConf.URL, token.Error())
 		}
 		c.managers[mqttConf.URL] = manager
 
@@ -155,13 +156,13 @@ func (c *MQTTConnector) register(mqttConf *registry.MQTTConf) error {
 			}
 			// Subscribe
 			if token := manager.client.Subscribe(subscription.topic, subscription.qos, subscription.onMessage); token.Wait() && token.Error() != nil {
-				return logger.Errorf("MQTT: Error subscribing: %v", token.Error())
+				return fmt.Errorf("MQTT: Error subscribing: %v", token.Error())
 			}
 			manager.subscriptions[mqttConf.Topic] = subscription
-			logger.Printf("MQTT: %s: Subscribed to %s", mqttConf.URL, mqttConf.Topic)
+			log.Printf("MQTT: %s: Subscribed to %s", mqttConf.URL, mqttConf.Topic)
 
 		} else { // There is a subscription for this topic
-			logger.Debugf("MQTT: %s: Already subscribed to %s", mqttConf.URL, mqttConf.Topic)
+			//log.Printf("MQTT: %s: Already subscribed to %s", mqttConf.URL, mqttConf.Topic)
 			manager.subscriptions[mqttConf.Topic].receivers++
 		}
 	}
@@ -180,34 +181,34 @@ func (c *MQTTConnector) unregister(mqttConf *registry.MQTTConf) error {
 	if manager.subscriptions[mqttConf.Topic].receivers == 0 {
 		// Unsubscribe
 		if token := manager.client.Unsubscribe(mqttConf.Topic); token.Wait() && token.Error() != nil {
-			return logger.Errorf("MQTT: Error unsubscribing: %v", token.Error())
+			return fmt.Errorf("MQTT: Error unsubscribing: %v", token.Error())
 		}
 		delete(manager.subscriptions, mqttConf.Topic)
-		logger.Printf("MQTT: %s: Unsubscribed from %s", mqttConf.URL, mqttConf.Topic)
+		log.Printf("MQTT: %s: Unsubscribed from %s", mqttConf.URL, mqttConf.Topic)
 	}
 	if len(manager.subscriptions) == 0 {
 		// Disconnect
 		manager.client.Disconnect(250)
 		delete(c.managers, mqttConf.URL)
-		logger.Printf("MQTT: %s: Disconnected!", mqttConf.URL)
+		log.Printf("MQTT: %s: Disconnected!", mqttConf.URL)
 	}
 
 	return nil
 }
 
 func (m *Manager) onConnectHandler(client paho.Client) {
-	logger.Printf("MQTT: %s: Connected.", m.url)
+	log.Printf("MQTT: %s: Connected.", m.url)
 	m.client = client
 	for _, subscription := range m.subscriptions {
 		if token := m.client.Subscribe(subscription.topic, subscription.qos, subscription.onMessage); token.Wait() && token.Error() != nil {
-			logger.Printf("MQTT: %s: Error subscribing: %v", m.url, token.Error())
+			log.Printf("MQTT: %s: Error subscribing: %v", m.url, token.Error())
 		}
-		logger.Printf("MQTT: %s: Subscribed to %s", m.url, subscription.topic)
+		log.Printf("MQTT: %s: Subscribed to %s", m.url, subscription.topic)
 	}
 }
 
 func (m *Manager) onConnectionLostHandler(client paho.Client, err error) {
-	logger.Printf("MQTT: %s: Connection lost: %v", m.url, err)
+	log.Printf("MQTT: %s: Connection lost: %v", m.url, err)
 }
 
 func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
@@ -215,10 +216,10 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 	logHeader := fmt.Sprintf("\"SUB %s MQTT/QOS%d\"", msg.Topic(), msg.Qos())
 	logMQTTError := func(code int, format string, v ...interface{}) {
-		logger.Printf("%s %d %v %s", logHeader, code, time.Now().Sub(t1), fmt.Sprintf(format, v...))
+		log.Printf("%s %d %v %s", logHeader, code, time.Now().Sub(t1), fmt.Sprintf(format, v...))
 	}
 
-	logger.Debugf("MQTT: %s %s", msg.Topic(), msg.Payload())
+	//log.Printf("MQTT: %s %s", msg.Topic(), msg.Payload())
 
 	senmlPack, err := senml.Decode(msg.Payload(), senml.JSON)
 	if err != nil {
@@ -298,7 +299,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 			return
 		}
 
-		logger.Printf("%s %d %v\n", logHeader, http.StatusAccepted, time.Now().Sub(t1))
+		log.Printf("%s %d %v\n", logHeader, http.StatusAccepted, time.Now().Sub(t1))
 	}
 }
 
@@ -312,7 +313,7 @@ func (c *MQTTConnector) CreateHandler(ds registry.DataSource) error {
 	if ds.Connector.MQTT != nil {
 		err := c.register(ds.Connector.MQTT)
 		if err != nil {
-			return logger.Errorf("MQTT: Error adding subscription: %v", err)
+			return fmt.Errorf("MQTT: Error adding subscription: %v", err)
 		}
 	}
 
@@ -333,7 +334,7 @@ func (c *MQTTConnector) UpdateHandler(oldDS registry.DataSource, newDS registry.
 		if oldDS.Connector.MQTT != nil {
 			err := c.unregister(oldDS.Connector.MQTT)
 			if err != nil {
-				return logger.Errorf("MQTT: Error removing subscription: %v", err)
+				return fmt.Errorf("MQTT: Error removing subscription: %v", err)
 			}
 		}
 		delete(c.failedRegistrations, oldDS.ID)
@@ -341,7 +342,7 @@ func (c *MQTTConnector) UpdateHandler(oldDS registry.DataSource, newDS registry.
 		if newDS.Connector.MQTT != nil {
 			err := c.register(newDS.Connector.MQTT)
 			if err != nil {
-				return logger.Errorf("MQTT: Error adding subscription: %v", err)
+				return fmt.Errorf("MQTT: Error adding subscription: %v", err)
 			}
 		}
 	}
@@ -360,7 +361,7 @@ func (c *MQTTConnector) DeleteHandler(oldDS registry.DataSource) error {
 		delete(c.cache, oldDS.Resource)
 		err := c.unregister(oldDS.Connector.MQTT)
 		if err != nil {
-			return logger.Errorf("MQTT: Error removing subscription: %v", err)
+			return fmt.Errorf("MQTT: Error removing subscription: %v", err)
 		}
 		delete(c.failedRegistrations, oldDS.ID)
 	}

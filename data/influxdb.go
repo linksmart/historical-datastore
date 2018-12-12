@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cisco/senml"
+	"log"
 	"math"
 	"net/url"
 	"strings"
@@ -34,7 +35,7 @@ type InfluxStorage struct {
 func NewInfluxStorage(conf common.DataConf, retentionPeriods []string) (*InfluxStorage, error) {
 	cfg, err := initInfluxConf(conf.Backend.DSN)
 	if err != nil {
-		return nil,  logger.Errorf("Influx config error: %s", err)
+		return nil, fmt.Errorf("Influx config error: %s", err)
 	}
 	cfg.replication = 1
 
@@ -44,7 +45,7 @@ func NewInfluxStorage(conf common.DataConf, retentionPeriods []string) (*InfluxS
 		Password: cfg.password,
 	})
 	if err != nil {
-		return nil,  logger.Errorf("Error initializing influxdb client: %s", err)
+		return nil, fmt.Errorf("Error initializing influxdb client: %s", err)
 	}
 
 	s := &InfluxStorage{
@@ -56,7 +57,7 @@ func NewInfluxStorage(conf common.DataConf, retentionPeriods []string) (*InfluxS
 	s.prepare.Add(1)
 	go s.prepareStorage()
 
-	return s,  nil
+	return s, nil
 }
 
 // Submit adds multiple data points for multiple data sources
@@ -68,11 +69,11 @@ func (s *InfluxStorage) Submit(data map[string][]senml.SenMLRecord, sources map[
 			Precision:       "us", // float64 can keep unix seconds at most with 7 significant digits: not enough for ns
 			RetentionPolicy: s.RetentionPolicyName(sources[id].Retention),
 		}
-		logger.Debugf("Influx: %+v", bpConf)
+		//log.Printf("Influx: %+v", bpConf)
 
 		bp, err := influx.NewBatchPoints(bpConf)
 		if err != nil {
-			return logger.Errorf("Error creating batch points: %s", err)
+			return fmt.Errorf("Error creating batch points: %s", err)
 		}
 		for _, dp := range dps {
 			var (
@@ -108,7 +109,7 @@ func (s *InfluxStorage) Submit(data map[string][]senml.SenMLRecord, sources map[
 				time.Unix(int64(sec), int64(frac*(1e9))),
 			)
 			if err != nil {
-				return logger.Errorf("Error creating data point for source %v: %s", sources[id].ID, err)
+				return fmt.Errorf("Error creating data point for source %v: %s", sources[id].ID, err)
 			}
 			bp.AddPoint(pt)
 		}
@@ -117,14 +118,14 @@ func (s *InfluxStorage) Submit(data map[string][]senml.SenMLRecord, sources map[
 			var influxResponse influx.Response
 			marshalErr := json.Unmarshal([]byte(err.Error()), &influxResponse)
 			if marshalErr != nil {
-				return logger.Errorf("Error writing: %s: %s", marshalErr, err)
+				return fmt.Errorf("Error writing: %s: %s", marshalErr, err)
 			}
 			if strings.Contains(influxResponse.Err, "partial write: points beyond retention policy dropped") {
 				// TODO: send this to the client?
-				logger.Println(influxResponse.Err)
+				log.Println(influxResponse.Err)
 				return nil
 			}
-			return logger.Errorf("Error writing: %s", influxResponse.Err)
+			return fmt.Errorf("Error writing: %s", influxResponse.Err)
 		}
 	}
 	return nil
@@ -138,7 +139,7 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 	if q.Start.Before(time.Unix(0, 0)) {
 		q.Start = time.Unix(0, 0)
 		if q.End.Before(time.Unix(0, 1)) {
-			return senml.SenML{}, 0, logger.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
+			return senml.SenML{}, 0, fmt.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
 		}
 	}
 
@@ -166,10 +167,10 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 		count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s WHERE %s",
 			s.FieldForType(ds.Type), s.MeasurementNameFQ(ds.Retention, s.MeasurementName(ds.ID)), timeCond)
 		if err != nil {
-			return senml.SenML{}, 0, logger.Errorf("Error counting records for source %v: %s", ds.Resource, err)
+			return senml.SenML{}, 0, fmt.Errorf("Error counting records for source %v: %s", ds.Resource, err)
 		}
 		if count < 1 {
-			//logger.Printf("There is no data for source %v", ds.Resource)
+			//log.Printf("There is no data for source %v", ds.Resource)
 			continue
 		}
 		total += int(count)
@@ -177,11 +178,11 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
 			s.MeasurementNameFQ(ds.Retention, s.MeasurementName(ds.ID)), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
-			return senml.SenML{}, 0, logger.Errorf("Error retrieving a data point for source %v: %s", ds.Resource, err)
+			return senml.SenML{}, 0, fmt.Errorf("Error retrieving a data point for source %v: %s", ds.Resource, err)
 		}
 
 		if len(res[0].Series) > 1 {
-			return senml.SenML{}, 0, logger.Errorf("Unrecognized/Corrupted database schema.")
+			return senml.SenML{}, 0, fmt.Errorf("Unrecognized/Corrupted database schema.")
 		}
 
 		if len(res[0].Series) == 0 {
@@ -191,7 +192,7 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 
 		serieRecords, err := serieToRecords(res[0].Series[0])
 		if err != nil {
-			return senml.SenML{}, 0, logger.Errorf("Error parsing points for source %v: %s", ds.Resource, err)
+			return senml.SenML{}, 0, fmt.Errorf("Error parsing points for source %v: %s", ds.Resource, err)
 		}
 
 		if perItems[i] != 0 { // influx ignores `limit 0`
@@ -220,9 +221,9 @@ func (s *InfluxStorage) UpdateHandler(oldDS registry.DataSource, newDS registry.
 	if oldDS.Retention != newDS.Retention {
 		err := s.ChangeRetentionPolicy(s.MeasurementName(oldDS.ID), s.FieldForType(oldDS.Type), oldDS.Retention, newDS.Retention)
 		if err != nil {
-			return logger.Errorf("Error changing retention policy: %s", err)
+			return fmt.Errorf("Error changing retention policy: %s", err)
 		}
-		logger.Println("InfluxAggr: changed retenton policy for", newDS.ID)
+		log.Println("InfluxAggr: changed retenton policy for", newDS.ID)
 	}
 
 	return nil
@@ -238,9 +239,9 @@ func (s *InfluxStorage) DeleteHandler(ds registry.DataSource) error {
 			// Not an error, No data to delete.
 			return nil
 		}
-		return logger.Errorf("Error removing the historical data: %s", err)
+		return fmt.Errorf("Error removing the historical data: %s", err)
 	}
-	logger.Println("InfluxStorage: dropped measurements for", ds.ID)
+	log.Println("InfluxStorage: dropped measurements for", ds.ID)
 
 	return nil
 }
@@ -249,17 +250,17 @@ func (s *InfluxStorage) DeleteHandler(ds registry.DataSource) error {
 
 // QuerySprintf constructs a query for influxdb
 func (s *InfluxStorage) QuerySprintf(format string, a ...interface{}) (res []influx.Result, err error) {
-	logger.Debugln("Influx:", fmt.Sprintf(format, a...))
+	//log.Println("Influx:", fmt.Sprintf(format, a...))
 	q := influx.Query{
 		Command:  fmt.Sprintf(format, a...),
 		Database: s.config.database,
 	}
 	response, err := s.client.Query(q)
 	if err != nil {
-		return res, logger.Errorf("Request error: %v", err)
+		return res, fmt.Errorf("Request error: %v", err)
 	}
 	if response.Error() != nil {
-		return res, logger.Errorf("Statement error: %v", response.Error())
+		return res, fmt.Errorf("Statement error: %v", response.Error())
 	}
 
 	return response.Results, nil
@@ -269,11 +270,11 @@ func (s *InfluxStorage) QuerySprintf(format string, a ...interface{}) (res []inf
 func (s *InfluxStorage) CountSprintf(format string, a ...interface{}) (int64, error) {
 	res, err := s.QuerySprintf(format, a...)
 	if err != nil {
-		return 0, logger.Errorf("%s", err)
+		return 0, err
 	}
 
 	if len(res) < 1 {
-		return 0, logger.Errorf("Unable to get count from database: response empty")
+		return 0, fmt.Errorf("Unable to get count from database: response empty")
 	}
 	if len(res[0].Series) < 1 {
 		// No data
@@ -281,11 +282,11 @@ func (s *InfluxStorage) CountSprintf(format string, a ...interface{}) (int64, er
 	}
 	if len(res[0].Series[0].Values) < 1 ||
 		len(res[0].Series[0].Values[0]) < 2 {
-		return 0, logger.Errorf("Unable to get count from database: bad response")
+		return 0, fmt.Errorf("Unable to get count from database: bad response")
 	}
 	count, err := res[0].Series[0].Values[0][1].(json.Number).Int64()
 	if err != nil {
-		return 0, logger.Errorf("Unable to parse count from database response.")
+		return 0, fmt.Errorf("Unable to parse count from database response.")
 	}
 	return count, nil
 }
@@ -295,7 +296,7 @@ func (s *InfluxStorage) ChangeRetentionPolicy(measurement, countField, oldRP, ne
 	count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s GROUP BY *",
 		countField, s.MeasurementNameFQ(oldRP, measurement))
 	if err != nil {
-		return logger.Errorf("Error counting historical data: %s", err)
+		return fmt.Errorf("Error counting historical data: %s", err)
 	}
 	if count == 0 {
 		// no data to move
@@ -304,7 +305,7 @@ func (s *InfluxStorage) ChangeRetentionPolicy(measurement, countField, oldRP, ne
 
 	retention, err := s.ParseDuration(newRP)
 	if err != nil {
-		return logger.Errorf("Error parsing retention period: %s: %s", newRP, err)
+		return fmt.Errorf("Error parsing retention period: %s: %s", newRP, err)
 	}
 	retention -= time.Minute // reduce 1m to avoid overshooting the new RP
 
@@ -323,18 +324,18 @@ func (s *InfluxStorage) ChangeRetentionPolicy(measurement, countField, oldRP, ne
 	_, err = s.QuerySprintf("SELECT * INTO %s FROM %s WHERE time > '%s'",
 		measurementNameTempFQ(tempUUID), s.MeasurementNameFQ(oldRP, measurement), time.Now().UTC().Add(-retention).Format(time.RFC3339))
 	if err != nil {
-		return logger.Errorf("Error moving the historical data to new retention policy: %s", err)
+		return fmt.Errorf("Error moving the historical data to new retention policy: %s", err)
 	}
 	// 2) delete the data from old measurement (on all RPs)
 	_, err = s.QuerySprintf("DELETE FROM \"%s\"", measurement)
 	if err != nil {
-		return logger.Errorf("Error removing the historical data: %s", err)
+		return fmt.Errorf("Error removing the historical data: %s", err)
 	}
 	// 3) move data from temp into new RP
 	_, err = s.QuerySprintf("SELECT * INTO %s FROM %s",
 		s.MeasurementNameFQ(newRP, measurement), measurementNameTempFQ(tempUUID))
 	if err != nil {
-		return logger.Errorf("Error moving the historical data to new retention policy: %s", err)
+		return fmt.Errorf("Error moving the historical data to new retention policy: %s", err)
 	}
 	// 4) drop temp
 	_, err = s.QuerySprintf("DROP MEASUREMENT \"%s\"", measurementNameTemp(tempUUID))
@@ -343,7 +344,7 @@ func (s *InfluxStorage) ChangeRetentionPolicy(measurement, countField, oldRP, ne
 			// Not an error, No data to delete.
 			return nil
 		}
-		return logger.Errorf("Error removing the historical data: %s", err)
+		return fmt.Errorf("Error removing the historical data: %s", err)
 	}
 	return nil
 }
@@ -368,14 +369,14 @@ func initInfluxConf(DSN string) (*influxStorageConfig, error) {
 	// Parse config's DSN string
 	PDSN, err := url.Parse(DSN)
 	if err != nil {
-		return nil, logger.Errorf("%s", err)
+		return nil, err
 	}
 	// Validate
 	if PDSN.Host == "" {
-		return nil, logger.Errorf("Influxdb config: host:port in the URL must be not empty")
+		return nil, fmt.Errorf("Influxdb config: host:port in the URL must be not empty")
 	}
 	if PDSN.Path == "" {
-		return nil, logger.Errorf("Influxdb config: db must be not empty")
+		return nil, fmt.Errorf("Influxdb config: db must be not empty")
 	}
 
 	var c influxStorageConfig
@@ -399,11 +400,11 @@ func (s *InfluxStorage) prepareStorage() {
 		}
 		_, version, err := s.client.Ping(influxPingTimeout)
 		if err != nil {
-			logger.Printf("InfluxStorage: Unable to reach influxdb backend: %s", err)
+			log.Printf("InfluxStorage: Unable to reach influxdb backend: %s", err)
 			time.Sleep(time.Duration(interval) * time.Second)
 			continue
 		}
-		logger.Printf("InfluxStorage: Connected to InfluxDB %s", version)
+		log.Printf("InfluxStorage: Connected to InfluxDB %s", version)
 		break
 	}
 
@@ -413,9 +414,9 @@ func (s *InfluxStorage) prepareStorage() {
 			s.RetentionPolicyName(period), s.config.database, period, s.config.replication)
 		if err != nil {
 			// TODO check database before this?
-			logger.Fatalf("Error creating retention policies: %s", err)
+			log.Fatalf("Error creating retention policies: %s", err)
 		}
-		logger.Printf("InfluxStorage: Created retention policy for period: %s", period)
+		log.Printf("InfluxStorage: Created retention policy for period: %s", period)
 	}
 
 	s.prepare.Done()
@@ -480,41 +481,41 @@ func serieToRecords(r models.Row) ([]senml.SenMLRecord, error) {
 				if val, ok := v.(string); ok {
 					t, err := time.Parse(time.RFC3339, val)
 					if err != nil {
-						return nil, logger.Errorf("Invalid time format: %v", val)
+						return nil, fmt.Errorf("Invalid time format: %v", val)
 					}
 					record.Time = float64(t.UnixNano()) / 1000000000
 				} else {
-					return nil, logger.Errorf("Interface conversion error. time not string?")
+					return nil, fmt.Errorf("Interface conversion error. time not string?")
 				}
 			case "name":
 				if val, ok := v.(string); ok {
 					record.Name = val
 				} else {
-					return nil, logger.Errorf("Interface conversion error. name not string?")
+					return nil, fmt.Errorf("Interface conversion error. name not string?")
 				}
 			case "value":
 				if val, err := v.(json.Number).Float64(); err == nil {
 					record.Value = &val
 				} else {
-					return nil, logger.Errorf("%s", err)
+					return nil, err
 				}
 			case "booleanValue":
 				if val, ok := v.(bool); ok {
 					record.BoolValue = &val
 				} else {
-					return nil, logger.Errorf("Interface conversion error. booleanValue not bool?")
+					return nil, fmt.Errorf("Interface conversion error. booleanValue not bool?")
 				}
 			case "stringValue":
 				if val, ok := v.(string); ok {
 					record.StringValue = val
 				} else {
-					return nil, logger.Errorf("Interface conversion error. stringValue not string?")
+					return nil, fmt.Errorf("Interface conversion error. stringValue not string?")
 				}
 			case "units":
 				if val, ok := v.(string); ok {
 					record.Unit = val
 				} else {
-					return nil, logger.Errorf("Interface conversion error. units not string?")
+					return nil, fmt.Errorf("Interface conversion error. units not string?")
 				}
 			} // endswitch
 		}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -169,7 +170,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 				}
 
 				// Register a data source with this name
-				logger.Printf("Registering data source for %s", r.Name)
+				log.Printf("Registering data source for %s", r.Name)
 				newDS := registry.DataSource{
 					Resource: r.Name,
 					Meta: map[string]interface{}{
@@ -335,7 +336,7 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	} else {
 		q.Start, err = time.Parse(time.RFC3339, form.Get(common.ParamStart))
 		if err != nil {
-			return Query{}, logger.Errorf("Error parsing start argument: %s", err)
+			return Query{}, fmt.Errorf("Error parsing start argument: %s", err)
 		}
 	}
 
@@ -346,12 +347,12 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	} else {
 		q.End, err = time.Parse(time.RFC3339, form.Get(common.ParamEnd))
 		if err != nil {
-			return Query{}, logger.Errorf("Error parsing end argument: %s", err)
+			return Query{}, fmt.Errorf("Error parsing end argument: %s", err)
 		}
 	}
 
 	if !q.End.After(q.Start) {
-		return Query{}, logger.Errorf("end argument is before or equal to start")
+		return Query{}, fmt.Errorf("end argument is before or equal to start")
 	}
 
 	// limit
@@ -360,7 +361,7 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	} else {
 		q.Limit, err = strconv.Atoi(form.Get(common.ParamLimit))
 		if err != nil {
-			return Query{}, logger.Errorf("Error parsing limit argument: %s", err)
+			return Query{}, fmt.Errorf("Error parsing limit argument: %s", err)
 		}
 	}
 
@@ -370,7 +371,7 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 		// default sorting order
 		q.Sort = common.DESC
 	} else if q.Sort != common.ASC && q.Sort != common.DESC {
-		return Query{}, logger.Errorf("Invalid sort argument: %v", q.Sort)
+		return Query{}, fmt.Errorf("Invalid sort argument: %v", q.Sort)
 	}
 
 	return q, nil

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -50,7 +51,7 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 
 	lastModified, err := api.storage.getLastModifiedTime()
 	if err != nil {
-		logger.Println("Error retrieving last modified date: %s", err)
+		log.Println("Error retrieving last modified date: %s", err)
 		lastModified = time.Now()
 	}
 

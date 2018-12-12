@@ -5,6 +5,7 @@ package aggregation
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -38,7 +39,7 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 	if q.Start.Before(time.Unix(0, 0)) {
 		q.Start = time.Unix(0, 0)
 		if q.End.Before(time.Unix(0, 1)) {
-			return DataSet{}, 0, logger.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
+			return DataSet{}, 0, fmt.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
 		}
 	}
 
@@ -63,10 +64,10 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 		count, err := a.influxStorage.CountSprintf("SELECT COUNT(%s) FROM %s WHERE %s",
 			aggr.Aggregates[0], a.measurementNameFQ(aggr.Retention, a.measurementName(ds.ID, aggr.ID)), timeCond)
 		if err != nil {
-			return DataSet{}, 0, logger.Errorf("Error counting records for source %v: %s", ds.Resource, err)
+			return DataSet{}, 0, fmt.Errorf("Error counting records for source %v: %s", ds.Resource, err)
 		}
 		if count < 1 {
-			logger.Printf("There is no data for source %v", ds.Resource)
+			log.Printf("There is no data for source %v", ds.Resource)
 			continue
 		}
 		total += int(count)
@@ -78,16 +79,16 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 			perItems[i],
 			offsets[i])
 		if err != nil {
-			return DataSet{}, 0, logger.Errorf("Error retrieving aggregated data records for source %v: %s", ds.Resource, err)
+			return DataSet{}, 0, fmt.Errorf("Error retrieving aggregated data records for source %v: %s", ds.Resource, err)
 		}
 
 		if len(res[0].Series) > 1 {
-			return DataSet{}, 0, logger.Errorf("Unrecognized/Corrupted database schema.")
+			return DataSet{}, 0, fmt.Errorf("Unrecognized/Corrupted database schema.")
 		}
 
 		rowPoints, err := pointsFromRow(res[0].Series[0], aggr, ds)
 		if err != nil {
-			return DataSet{}, 0, logger.Errorf("Error parsing records for source %v: %s", ds.Resource, err)
+			return DataSet{}, 0, fmt.Errorf("Error parsing records for source %v: %s", ds.Resource, err)
 		}
 
 		if perItems[i] != 0 { // influx ignores `limit 0`
@@ -149,11 +150,11 @@ func (a *InfluxAggr) UpdateHandler(oldDS registry.DataSource, newDS registry.Dat
 		// UPDATED AGGREGATION
 		// modified retention
 		if oldAggr.Retention != newAggr.Retention {
-			logger.Debugf("Changing aggr retention from %s to %s", oldAggr.Retention, newAggr.Retention)
+			//log.Printf("Changing aggr retention from %s to %s", oldAggr.Retention, newAggr.Retention)
 			// move aggr data to new RP
 			err := a.influxStorage.ChangeRetentionPolicy(a.measurementName(oldDS.ID, oldAggr.ID), oldAggr.Aggregates[0], oldAggr.Retention, newAggr.Retention)
 			if err != nil {
-				return logger.Errorf("Error moving the historical aggregated data to new retention policy: %s", err)
+				return fmt.Errorf("Error moving the historical aggregated data to new retention policy: %s", err)
 			}
 			// drop old CQ
 			err = a.dropContinuousQuery(oldDS, oldAggr)
@@ -235,23 +236,23 @@ func pointsFromRow(r models.Row, aggr registry.Aggregation, ds registry.DataSour
 				if val, ok := v.(string); ok {
 					t, err := time.Parse(time.RFC3339, val)
 					if err != nil {
-						return nil, logger.Errorf("Invalid time format %v: %s", val, err)
+						return nil, fmt.Errorf("Invalid time format %v: %s", val, err)
 					}
 					entry.TimeStart = t.Unix()
 					dur, err := time.ParseDuration(aggr.Interval)
 					if err != nil {
-						return nil, logger.Errorf("Invalid aggregation interval %v: %s", aggr.Interval, err)
+						return nil, fmt.Errorf("Invalid aggregation interval %v: %s", aggr.Interval, err)
 					}
 					entry.TimeEnd = t.Add(dur).Unix()
 				} else {
-					return nil, logger.Errorf("Interface conversion error. time not string?")
+					return nil, fmt.Errorf("Interface conversion error. time not string?")
 				}
 			default:
 				if common.SupportedAggregate(r.Columns[i]) {
 					if val, err := v.(json.Number).Float64(); err == nil {
 						entry.Aggregates[r.Columns[i]] = val
 					} else {
-						return nil, logger.Errorf("%s", err)
+						return nil, err
 					}
 				}
 			} // endswitch
@@ -303,7 +304,7 @@ func (a *InfluxAggr) backfill(ds registry.DataSource, aggr registry.Aggregation)
 		dur = aggrDur
 	}
 	dur -= time.Minute // reduce a minute to avoid overshooting the retention interval
-	defer logger.Printf("InfluxAggr: backfilled aggregates of %s/%s for %s.", aggr.ID, ds.ID, dur+time.Minute)
+	defer log.Printf("InfluxAggr: backfilled aggregates of %s/%s for %s.", aggr.ID, ds.ID, dur+time.Minute)
 
 	// backfill one year at a time
 	for s := 0; s > SINCE; s-- {
@@ -323,7 +324,7 @@ func (a *InfluxAggr) backfill(ds registry.DataSource, aggr registry.Aggregation)
 			from.Format(time.RFC3339), to.Format(time.RFC3339),
 			aggr.Interval)
 		if err != nil {
-			return logger.Errorf("Error backfilling aggregates: %s", err)
+			return fmt.Errorf("Error backfilling aggregates: %s", err)
 		}
 	}
 
@@ -340,12 +341,12 @@ func (a *InfluxAggr) createContinuousQuery(ds registry.DataSource, aggr registry
 		aggr.Interval)
 	if err != nil {
 		if strings.Contains(err.Error(), "continuous query already exists") {
-			logger.Printf("WARNING: %s: %v", err, a.cqName(ds.ID, aggr.ID))
+			log.Printf("WARNING: %s: %v", err, a.cqName(ds.ID, aggr.ID))
 			return nil
 		}
-		return logger.Errorf("Error creating aggregation: %s", err)
+		return fmt.Errorf("Error creating aggregation: %s", err)
 	}
-	logger.Printf("InfluxAggr: created continuous query %s/%s", aggr.ID, ds.ID)
+	log.Printf("InfluxAggr: created continuous query %s/%s", aggr.ID, ds.ID)
 	return nil
 }
 
@@ -355,12 +356,12 @@ func (a *InfluxAggr) dropContinuousQuery(ds registry.DataSource, aggr registry.A
 		a.influxStorage.Database())
 	if err != nil {
 		if strings.Contains(err.Error(), "continuous query not found") {
-			logger.Printf("WARNING: %s: %v", err, a.cqName(ds.ID, aggr.ID))
+			log.Printf("WARNING: %s: %v", err, a.cqName(ds.ID, aggr.ID))
 			return nil
 		}
-		return logger.Errorf("Error dropping continuous query: %s", err)
+		return fmt.Errorf("Error dropping continuous query: %s", err)
 	}
-	logger.Printf("InfluxAggr: dropped continuous query %s/%s", aggr.ID, ds.ID)
+	log.Printf("InfluxAggr: dropped continuous query %s/%s", aggr.ID, ds.ID)
 	return nil
 }
 
@@ -371,8 +372,8 @@ func (a *InfluxAggr) dropMeasurement(ds registry.DataSource, aggr registry.Aggre
 			// Not an error, No data to delete.
 			return nil
 		}
-		return logger.Errorf("Error removing historical data: %s", err)
+		return fmt.Errorf("Error removing historical data: %s", err)
 	}
-	logger.Printf("InfluxAggr: dropped measurement %s/%s", aggr.ID, ds.ID)
+	log.Printf("InfluxAggr: dropped measurement %s/%s", aggr.ID, ds.ID)
 	return nil
 }

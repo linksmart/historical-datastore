@@ -180,7 +180,7 @@ func validateUpdate(ds DataSource, oldDS DataSource, conf common.RegConf) error 
 	}
 
 	if e.Err() {
-		return logger.Errorf("%s", e)
+		return e
 	}
 	return nil
 }
