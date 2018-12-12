@@ -51,7 +51,7 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 
 	lastModified, err := api.storage.getLastModifiedTime()
 	if err != nil {
-		log.Println("Error retrieving last modified date: %s", err)
+		log.Printf("Error retrieving last modified date: %s", err)
 		lastModified = time.Now()
 	}
 
