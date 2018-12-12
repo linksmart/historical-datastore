@@ -117,9 +117,12 @@ func (s *dummyDataStorage) Submit(data map[string][]senml.SenMLRecord, sources m
 func (s *dummyDataStorage) Query(q Query, page, perPage int, ds ...*registry.DataSource) (senml.SenML, int, error) {
 	return senml.SenML{}, 0, nil
 }
-func (s *dummyDataStorage) NtfCreated(ds registry.DataSource, callback chan error) {
+func (s *dummyDataStorage) CreateHandler(ds registry.DataSource) error {
+	return nil
 }
-func (s *dummyDataStorage) NtfUpdated(old registry.DataSource, new registry.DataSource, callback chan error) {
+func (s *dummyDataStorage) UpdateHandler(old registry.DataSource, new registry.DataSource) error {
+	return nil
 }
-func (s *dummyDataStorage) NtfDeleted(ds registry.DataSource, callback chan error) {
+func (s *dummyDataStorage) DeleteHandler(ds registry.DataSource) error {
+	return nil
 }
