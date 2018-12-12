@@ -69,17 +69,6 @@ func loadConfig(confPath *string) (*common.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: deprecate from v0.6 and remove the following section
-	// Check retention periods
-	if len(conf.Reg.RetentionPeriods) == 0 {
-		for _, rp := range conf.Data.RetentionPeriods {
-			if !common.SupportedPeriod(rp) {
-				return nil, fmt.Errorf("Data retentionPeriod is not valid: %s. Supported period suffixes are: %s",
-					rp, strings.Join(common.SupportedPeriods(), ", "))
-			}
-		}
-		conf.Reg.RetentionPeriods = conf.Data.RetentionPeriods
-	}
 
 	// VALIDATE AGGREGATION API CONFIG
 	//
