@@ -100,13 +100,12 @@ func main() {
 
 	// Setup APIs
 	regAPI := registry.NewAPI(regStorage)
-	registryClient := registry.NewLocalClient(regStorage)
-	dataAPI := data.NewAPI(registryClient, dataStorage, conf.Data.AutoRegistration)
-	aggrAPI := aggregation.NewAPI(registryClient, aggrStorage)
+	dataAPI := data.NewAPI(regStorage, dataStorage, conf.Data.AutoRegistration)
+	aggrAPI := aggregation.NewAPI(regStorage, aggrStorage)
 
 	// Start MQTT connector
 	// TODO: disconnect on shutdown
-	err = mqttConn.Start(registryClient)
+	err = mqttConn.Start(regStorage)
 	if err != nil {
 		logger.Fatalf("Error starting MQTT Connector: %v", err)
 	}

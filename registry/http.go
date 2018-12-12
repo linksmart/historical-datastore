@@ -48,7 +48,7 @@ func NewAPI(storage Storage) *API {
 func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
-	lastModified, err := api.storage.modifiedDate()
+	lastModified, err := api.storage.getLastModifiedTime()
 	if err != nil {
 		logger.Println("Error retrieving last modified date: %s", err)
 		lastModified = time.Now()
@@ -73,7 +73,7 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	datasources, total, err := api.storage.getMany(page, perPage)
+	datasources, total, err := api.storage.GetMany(page, perPage)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, err.Error(), w)
 		return
@@ -112,7 +112,7 @@ func (api *API) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addedDS, err := api.storage.add(ds)
+	addedDS, err := api.storage.Add(ds)
 	if err != nil {
 		if ErrType(err, ErrConflict) {
 			common.ErrorResponse(http.StatusConflict, err.Error(), w)
@@ -137,7 +137,7 @@ func (api *API) Retrieve(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
-	ds, err := api.storage.get(id)
+	ds, err := api.storage.Get(id)
 	if err != nil {
 		if ErrType(err, ErrNotFound) {
 			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
@@ -175,7 +175,7 @@ func (api *API) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = api.storage.update(id, ds)
+	_, err = api.storage.Update(id, ds)
 	if err != nil {
 		if ErrType(err, ErrConflict) {
 			common.ErrorResponse(http.StatusConflict, err.Error(), w)
@@ -197,7 +197,7 @@ func (api *API) Delete(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
-	err := api.storage.delete(id)
+	err := api.storage.Delete(id)
 	if err != nil {
 		if ErrType(err, ErrNotFound) {
 			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
@@ -229,7 +229,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 	var body []byte
 	switch ftype {
 	case FTypeOne:
-		datasource, err := api.storage.pathFilterOne(fpath, fop, fvalue)
+		datasource, err := api.storage.FilterOne(fpath, fop, fvalue)
 		if err != nil {
 			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
 			return
@@ -243,7 +243,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case FTypeMany:
-		datasources, total, err := api.storage.pathFilter(fpath, fop, fvalue, page, perPage)
+		datasources, total, err := api.storage.Filter(fpath, fop, fvalue, page, perPage)
 		if err != nil {
 			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
 			return

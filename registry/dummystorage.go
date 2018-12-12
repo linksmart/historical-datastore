@@ -6,16 +6,16 @@ import "time"
 
 type DummyRegistryStorage struct{}
 
-func (s *DummyRegistryStorage) add(ds DataSource) (DataSource, error) {
+func (s *DummyRegistryStorage) Add(ds DataSource) (DataSource, error) {
 	return DataSource{}, nil
 }
-func (s *DummyRegistryStorage) update(id string, ds DataSource) (DataSource, error) {
+func (s *DummyRegistryStorage) Update(id string, ds DataSource) (DataSource, error) {
 	return DataSource{}, nil
 }
-func (s *DummyRegistryStorage) delete(id string) error {
+func (s *DummyRegistryStorage) Delete(id string) error {
 	return nil
 }
-func (s *DummyRegistryStorage) get(id string) (DataSource, error) {
+func (s *DummyRegistryStorage) Get(id string) (DataSource, error) {
 	if id == "12345" {
 		return DataSource{
 			ID:       "12345",
@@ -34,18 +34,18 @@ func (s *DummyRegistryStorage) get(id string) (DataSource, error) {
 	}
 	return DataSource{}, nil
 }
-func (s *DummyRegistryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
+func (s *DummyRegistryStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 	return []DataSource{}, 0, nil
 }
-func (s *DummyRegistryStorage) getCount() (int, error) {
+func (s *DummyRegistryStorage) getTotal() (int, error) {
 	return 0, nil
 }
-func (s *DummyRegistryStorage) pathFilterOne(path, op, value string) (*DataSource, error) {
+func (s *DummyRegistryStorage) FilterOne(path, op, value string) (*DataSource, error) {
 	return nil, nil
 }
-func (s *DummyRegistryStorage) pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
+func (s *DummyRegistryStorage) Filter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
 	return []DataSource{}, 0, nil
 }
-func (s *DummyRegistryStorage) modifiedDate() (time.Time, error) {
+func (s *DummyRegistryStorage) getLastModifiedTime() (time.Time, error) {
 	return time.Now(), nil
 }

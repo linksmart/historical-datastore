@@ -22,7 +22,7 @@ const (
 
 type MQTTConnector struct {
 	sync.Mutex
-	registryClient registry.Client
+	registry registry.Storage
 	storage        Storage
 	managers       map[string]*Manager
 	// cache of resource->ds
@@ -57,12 +57,12 @@ func NewMQTTConnector(storage Storage) (*MQTTConnector, error) {
 	return c, nil
 }
 
-func (c *MQTTConnector) Start(registryClient registry.Client) error {
-	c.registryClient = registryClient
+func (c *MQTTConnector) Start(registry registry.Storage) error {
+	c.registry = registry
 
 	perPage := 100
 	for page := 1; ; page++ {
-		datasources, total, err := c.registryClient.GetDataSources(page, perPage)
+		datasources, total, err := c.registry.GetMany(page, perPage)
 		if err != nil {
 			return logger.Errorf("MQTT: Error getting data sources: %v", err)
 		}
@@ -234,7 +234,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		// Find the data source for this entry
 		ds, exists := s.connector.cache[r.Name]
 		if !exists {
-			ds, err = s.connector.registryClient.FindDataSource("resource", "equals", r.Name)
+			ds, err = s.connector.registry.FilterOne("resource", "equals", r.Name)
 			if err != nil {
 				logMQTTError(http.StatusInternalServerError, "Error finding resource: %v", r.Name)
 				continue

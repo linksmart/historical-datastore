@@ -57,12 +57,12 @@ func TestLevelDBAdd(t *testing.T) {
 	//ds.Aggregation TODO
 	ds.Type = "string"
 
-	addedDS, err := storage.add(ds)
+	addedDS, err := storage.Add(ds)
 	if err != nil {
 		t.Fatalf("Received unexpected error on add: %v", err.Error())
 	}
 
-	getDS, err := storage.get(addedDS.ID)
+	getDS, err := storage.Get(addedDS.ID)
 	if err != nil {
 		t.Fatalf("Received unexpected error on get: %v", err.Error())
 	}
@@ -87,13 +87,13 @@ func TestLevelDBUpdate(t *testing.T) {
 	defer clean()
 	defer closeDB()
 
-	IDs, err := generateDummyData(1, NewLocalClient(storage))
+	IDs, err := generateDummyData(1, storage)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	ID := IDs[0]
 
-	ds, err := storage.get(ID)
+	ds, err := storage.Get(ID)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err.Error())
 	}
@@ -104,7 +104,7 @@ func TestLevelDBUpdate(t *testing.T) {
 	//ds.Retention = "20w"
 	//ds.Aggregation TODO
 
-	updatedDS, err := storage.update(ID, ds)
+	updatedDS, err := storage.Update(ID, ds)
 	if err != nil {
 		t.Fatalf("Unexpected error on update: %v", err.Error())
 	}
@@ -125,18 +125,18 @@ func TestLevelDBDelete(t *testing.T) {
 	defer clean()
 	defer closeDB()
 
-	IDs, err := generateDummyData(1, NewLocalClient(storage))
+	IDs, err := generateDummyData(1, storage)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	ID := IDs[0]
 
-	err = storage.delete(ID)
+	err = storage.Delete(ID)
 	if err != nil {
 		t.Errorf("Unexpected error on delete: %v\n", err.Error())
 	}
 
-	_, err = storage.get(ID)
+	_, err = storage.Get(ID)
 	if err == nil {
 		t.Error("The previous call hasn't deleted the datasource!")
 	}
@@ -153,9 +153,9 @@ func TestLevelDBGetMany(t *testing.T) {
 		defer clean()
 		defer closeDB()
 
-		generateDummyData(TOTAL, NewLocalClient(storage))
+		generateDummyData(TOTAL, storage)
 
-		_, total, _ := storage.getMany(1, perPage)
+		_, total, _ := storage.GetMany(1, perPage)
 		if total != TOTAL {
 			t.Errorf("Returned total is %d instead of %d", total, TOTAL)
 		}
@@ -168,7 +168,7 @@ func TestLevelDBGetMany(t *testing.T) {
 				inThisPage = int(math.Mod(float64(TOTAL), float64(perPage)))
 			}
 
-			DSs, _, _ := storage.getMany(page, perPage)
+			DSs, _, _ := storage.GetMany(page, perPage)
 			if len(DSs) != inThisPage {
 				t.Errorf("Wrong number of entries per page. Returned %d instead of %d", len(DSs), inThisPage)
 			}
@@ -189,16 +189,16 @@ func TestLevelDBGetCount(t *testing.T) {
 	defer closeDB()
 
 	// Get the current total
-	c1, err := storage.getCount()
+	c1, err := storage.getTotal()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
 	// Add few datasources
 	const total = 5
-	generateDummyData(total, NewLocalClient(storage))
+	generateDummyData(total, storage)
 
-	c2, err := storage.getCount()
+	c2, err := storage.getTotal()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -215,14 +215,14 @@ func TestLevelDBPathFilterOne(t *testing.T) {
 	defer clean()
 	defer closeDB()
 
-	IDs, err := generateDummyData(10, NewLocalClient(storage))
+	IDs, err := generateDummyData(10, storage)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 	ID := IDs[0]
 
-	targetDS, _ := storage.get(ID)
-	matchedDS, err := storage.pathFilterOne("id", "equals", targetDS.ID)
+	targetDS, _ := storage.Get(ID)
+	matchedDS, err := storage.FilterOne("id", "equals", targetDS.ID)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -243,7 +243,7 @@ func TestLevelDBPathFilter(t *testing.T) {
 	defer clean()
 	defer closeDB()
 
-	IDs, err := generateDummyData(10, NewLocalClient(storage))
+	IDs, err := generateDummyData(10, storage)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -254,13 +254,13 @@ func TestLevelDBPathFilter(t *testing.T) {
 		t.Fatalf("Need more dummies!")
 	}
 	for i := 0; i < expected; i++ {
-		ds, _ := storage.get(IDs[i])
+		ds, _ := storage.Get(IDs[i])
 		ds.Meta["newkey"] = "a/b"
-		storage.update(ds.ID, ds)
+		storage.Update(ds.ID, ds)
 	}
 
 	// Query for format with prefix "newtype"
-	_, total, err := storage.pathFilter("meta.newkey", "prefix", "a", 1, 100)
+	_, total, err := storage.Filter("meta.newkey", "prefix", "a", 1, 100)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

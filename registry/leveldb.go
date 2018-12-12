@@ -76,7 +76,7 @@ func (s *LevelDBStorage) close() error {
 	return s.db.Close()
 }
 
-func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
+func (s *LevelDBStorage) Add(ds DataSource) (DataSource, error) {
 	err := validateCreation(ds, s.conf)
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
@@ -122,9 +122,9 @@ func (s *LevelDBStorage) add(ds DataSource) (DataSource, error) {
 	return ds, nil
 }
 
-func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
+func (s *LevelDBStorage) Update(id string, ds DataSource) (DataSource, error) {
 
-	oldDS, err := s.get(id) // for comparison
+	oldDS, err := s.Get(id) // for comparison
 	if err == leveldb.ErrNotFound {
 		return DataSource{}, logger.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
@@ -173,9 +173,9 @@ func (s *LevelDBStorage) update(id string, ds DataSource) (DataSource, error) {
 	return tempDS, nil
 }
 
-func (s *LevelDBStorage) delete(id string) error {
+func (s *LevelDBStorage) Delete(id string) error {
 
-	ds, err := s.get(id) // for notification
+	ds, err := s.Get(id) // for notification
 	if err != nil {
 		return logger.Errorf("%s", err)
 	}
@@ -198,7 +198,7 @@ func (s *LevelDBStorage) delete(id string) error {
 	return nil
 }
 
-func (s *LevelDBStorage) get(id string) (DataSource, error) {
+func (s *LevelDBStorage) Get(id string) (DataSource, error) {
 	// Query from database
 	dsBytes, err := s.db.Get([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
@@ -216,9 +216,9 @@ func (s *LevelDBStorage) get(id string) (DataSource, error) {
 	return ds, nil
 }
 
-func (s *LevelDBStorage) getMany(page, perPage int) ([]DataSource, int, error) {
+func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 
-	total, err := s.getCount()
+	total, err := s.getTotal()
 	if err != nil {
 		return nil, 0, logger.Errorf("%s", err)
 	}
@@ -281,7 +281,7 @@ func (s *LevelDBStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	return datasources, total, nil
 }
 
-func (s *LevelDBStorage) getCount() (int, error) {
+func (s *LevelDBStorage) getTotal() (int, error) {
 	counter := 0
 
 	s.wg.Add(1)
@@ -299,13 +299,13 @@ func (s *LevelDBStorage) getCount() (int, error) {
 	return counter, nil
 }
 
-func (s *LevelDBStorage) modifiedDate() (time.Time, error) {
+func (s *LevelDBStorage) getLastModifiedTime() (time.Time, error) {
 	return s.lastModified, nil
 }
 
 // Path filtering
 // Filter one registration
-func (s *LevelDBStorage) pathFilterOne(path, op, value string) (*DataSource, error) {
+func (s *LevelDBStorage) FilterOne(path, op, value string) (*DataSource, error) {
 	pathTknz := strings.Split(path, ".")
 
 	// return the first one found
@@ -344,7 +344,7 @@ func (s *LevelDBStorage) pathFilterOne(path, op, value string) (*DataSource, err
 }
 
 // Filter multiple registrations
-func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
+func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
 
 	matchedIDs := []string{}
 	pathTknz := strings.Split(path, ".")
@@ -390,7 +390,7 @@ func (s *LevelDBStorage) pathFilter(path, op, value string, page, perPage int) (
 
 	datasources := make([]DataSource, len(slice))
 	for i, id := range slice {
-		ds, err := s.get(id)
+		ds, err := s.Get(id)
 		if err != nil {
 			return nil, len(matchedIDs), logger.Errorf("%s", err)
 		}

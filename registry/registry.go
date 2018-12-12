@@ -4,6 +4,7 @@
 package registry
 
 import (
+	"code.linksmart.eu/hds/historical-datastore/common"
 	"encoding/json"
 	"fmt"
 	"hash/crc32"
@@ -11,8 +12,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"code.linksmart.eu/hds/historical-datastore/common"
 )
 
 // Registry describes a registry of registered Data Sources
@@ -133,37 +132,15 @@ func (a *Aggregation) Make(dsID string) {
 // Storage is an interface of a Registry storage backend
 type Storage interface {
 	// CRUD
-	add(ds DataSource) (DataSource, error)
-	update(id string, ds DataSource) (DataSource, error)
-	get(id string) (DataSource, error)
-	delete(id string) error
-
-	// Utility functions
-	getMany(page, perPage int) ([]DataSource, int, error)
-	getCount() (int, error)
-	modifiedDate() (time.Time, error)
-
-	// Path filtering
-	pathFilterOne(path, op, value string) (*DataSource, error)
-	pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error)
-}
-
-// Client is an interface of a Registry client
-type Client interface {
-	// CRUD
-	Add(d DataSource) (DataSource, error)
-	Update(id string, d DataSource) (DataSource, error)
+	Add(ds DataSource) (DataSource, error)
+	Update(id string, ds DataSource) (DataSource, error)
 	Get(id string) (DataSource, error)
 	Delete(id string) error
-
-	// Returns a slice of DataSources given:
-	// page - page in the collection
-	// perPage - number of entries per page
-	GetDataSources(page, perPage int) ([]DataSource, int, error)
-
-	// Returns a single DataSource given: path, operation, value
-	FindDataSource(path, op, value string) (*DataSource, error)
-
-	// Returns a slice of DataSources given: path, operation, value, page, perPage
-	FindDataSources(path, op, value string, page, perPage int) ([]DataSource, int, error)
+	// Utility functions
+	GetMany(page, perPage int) ([]DataSource, int, error)
+	FilterOne(path, op, value string) (*DataSource, error)
+	Filter(path, op, value string, page, perPage int) ([]DataSource, int, error)
+	// needed internally
+	getTotal() (int, error)
+	getLastModifiedTime() (time.Time, error)
 }

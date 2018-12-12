@@ -27,12 +27,12 @@ var (
 )
 
 type API struct {
-	registryClient registry.Client
-	storage        Storage
+	registry registry.Storage
+	storage  Storage
 }
 
-func NewAPI(registryClient registry.Client, storage Storage) *API {
-	return &API{registryClient, storage}
+func NewAPI(registry registry.Storage, storage Storage) *API {
+	return &API{registry, storage}
 }
 
 func (api *API) Index(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +133,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 
 OUTERLOOP:
 	for _, id := range ids {
-		ds, err := api.registryClient.Get(id)
+		ds, err := api.registry.Get(id)
 		if err != nil {
 			common.ErrorResponse(http.StatusNotFound,
 				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()), w)
@@ -209,7 +209,7 @@ func (api *API) Aggregations() (map[string]Aggregation, error) {
 	aggrs := make(map[string]Aggregation)
 	perPage := 100
 	for page := 1; ; page++ {
-		datasources, total, err := api.registryClient.GetDataSources(page, perPage)
+		datasources, total, err := api.registry.GetMany(page, perPage)
 		if err != nil {
 			return aggrs, err
 		}

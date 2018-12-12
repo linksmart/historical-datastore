@@ -14,7 +14,7 @@ import (
 )
 
 // Generate dummy data sources
-func generateDummyData(quantity int, c Client) ([]string, error) {
+func generateDummyData(quantity int, storage Storage) ([]string, error) {
 	rand.Seed(time.Now().UTC().UnixNano())
 	randInt := func(min int, max int) int {
 		return min + rand.Intn(max-min)
@@ -30,7 +30,7 @@ func generateDummyData(quantity int, c Client) ([]string, error) {
 		//ds.Aggregation TODO
 		ds.Type = []string{"float", "bool", "string"}[randInt(0, 2)]
 
-		newDS, err := c.Add(ds)
+		newDS, err := storage.Add(ds)
 		if err != nil {
 			return nil, fmt.Errorf("Error adding dummy: %s", err)
 		}
@@ -54,12 +54,12 @@ func TestMemstorageAdd(t *testing.T) {
 	ds.Type = "string"
 
 	storage := setupMemStorage()
-	addedDS, err := storage.add(ds)
+	addedDS, err := storage.Add(ds)
 	if err != nil {
 		t.Errorf("Received unexpected error on add: %v", err.Error())
 	}
 
-	getDS, err := storage.get(addedDS.ID)
+	getDS, err := storage.Get(addedDS.ID)
 	if err != nil {
 		t.Errorf("Received unexpected error on get: %v", err.Error())
 	}
@@ -76,13 +76,13 @@ func TestMemstorageGet(t *testing.T) {
 
 func TestMemstorageUpdate(t *testing.T) {
 	storage := setupMemStorage()
-	IDs, err := generateDummyData(1, NewLocalClient(storage))
+	IDs, err := generateDummyData(1, storage)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	ID := IDs[0]
 
-	ds, err := storage.get(ID)
+	ds, err := storage.Get(ID)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err.Error())
 	}
@@ -93,7 +93,7 @@ func TestMemstorageUpdate(t *testing.T) {
 	ds.Retention = "20w"
 	//ds.Aggregation TODO
 
-	updatedDS, err := storage.update(ID, ds)
+	updatedDS, err := storage.Update(ID, ds)
 	if err != nil {
 		t.Fatalf("Unexpected error on update: %v", err.Error())
 	}
@@ -107,18 +107,18 @@ func TestMemstorageUpdate(t *testing.T) {
 func TestMemstorageDelete(t *testing.T) {
 	storage := setupMemStorage()
 
-	IDs, err := generateDummyData(1, NewLocalClient(storage))
+	IDs, err := generateDummyData(1, storage)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	ID := IDs[0]
 
-	err = storage.delete(ID)
+	err = storage.Delete(ID)
 	if err != nil {
 		t.Errorf("Unexpected error on delete: %v", err.Error())
 	}
 
-	err = storage.delete(ID)
+	err = storage.Delete(ID)
 	if err == nil {
 		t.Errorf("The previous call hasn't deleted the data source: %v", err.Error())
 	}
@@ -128,9 +128,9 @@ func TestMemstorageGetMany(t *testing.T) {
 	// Check based on different inputs
 	subTest := func(TOTAL int, perPage int) {
 		storage := setupMemStorage()
-		generateDummyData(TOTAL, NewLocalClient(storage))
+		generateDummyData(TOTAL, storage)
 
-		_, total, _ := storage.getMany(1, perPage)
+		_, total, _ := storage.GetMany(1, perPage)
 		if total != TOTAL {
 			t.Errorf("Returned total is %d instead of %d", total, TOTAL)
 		}
@@ -143,7 +143,7 @@ func TestMemstorageGetMany(t *testing.T) {
 				inThisPage = int(math.Mod(float64(TOTAL), float64(perPage)))
 			}
 
-			DSs, _, _ := storage.getMany(page, perPage)
+			DSs, _, _ := storage.GetMany(page, perPage)
 			if len(DSs) != inThisPage {
 				t.Errorf("Wrong number of entries per page. Returned %d instead of %d", len(DSs), inThisPage)
 			}
@@ -158,9 +158,9 @@ func TestMemstorageGetMany(t *testing.T) {
 func TestMemstorageGetCount(t *testing.T) {
 	storage := setupMemStorage()
 	const total = 5
-	generateDummyData(total, NewLocalClient(storage))
+	generateDummyData(total, storage)
 
-	c, _ := storage.getCount()
+	c, _ := storage.getTotal()
 	if c != total {
 		t.Errorf("Stored %d but counted %d", total, c)
 	}
@@ -169,14 +169,14 @@ func TestMemstorageGetCount(t *testing.T) {
 func TestMemstoragePathFilterOne(t *testing.T) {
 	storage := setupMemStorage()
 
-	IDs, err := generateDummyData(10, NewLocalClient(storage))
+	IDs, err := generateDummyData(10, storage)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	ID := IDs[0]
 
-	targetDS, _ := storage.get(ID)
-	matchedDS, err := storage.pathFilterOne("id", "equals", targetDS.ID)
+	targetDS, _ := storage.Get(ID)
+	matchedDS, err := storage.FilterOne("id", "equals", targetDS.ID)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -190,7 +190,7 @@ func TestMemstoragePathFilterOne(t *testing.T) {
 func TestMemstoragePathFilter(t *testing.T) {
 	storage := setupMemStorage()
 
-	IDs, err := generateDummyData(10, NewLocalClient(storage))
+	IDs, err := generateDummyData(10, storage)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -201,13 +201,13 @@ func TestMemstoragePathFilter(t *testing.T) {
 		t.Fatalf("Need more dummies!")
 	}
 	for i := 0; i < expected; i++ {
-		ds, _ := storage.get(IDs[i])
+		ds, _ := storage.Get(IDs[i])
 		ds.Meta["newkey"] = "a/b"
-		storage.update(ds.ID, ds)
+		storage.Update(ds.ID, ds)
 	}
 
 	// Query for format with prefix "newtype"
-	_, total, err := storage.pathFilter("meta.newkey", "prefix", "a", 1, 100)
+	_, total, err := storage.Filter("meta.newkey", "prefix", "a", 1, 100)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

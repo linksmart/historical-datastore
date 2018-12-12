@@ -34,7 +34,7 @@ func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) (*RemoteCli
 	}, nil
 }
 
-func (c *RemoteClient) Index(page int, perPage int) (*Registry, error) {
+func (c *RemoteClient) GetMany(page int, perPage int) (*Registry, error) {
 	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v?%v=%v&%v=%v", c.serverEndpoint, common.ParamPage, page, common.ParamPerPage, perPage),
 		nil,
@@ -208,7 +208,7 @@ func (c *RemoteClient) FilterOne(path, op, value string) (*DataSource, error) {
 	return &ds, nil
 }
 
-func (c *RemoteClient) FilterMany(path, op, value string) ([]DataSource, error) {
+func (c *RemoteClient) Filter(path, op, value string) ([]DataSource, error) {
 	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v/%v/%v/%v/%v", c.serverEndpoint, FTypeMany, path, op, value),
 		nil,

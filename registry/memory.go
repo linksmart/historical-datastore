@@ -36,7 +36,7 @@ func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 	return ms
 }
 
-func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
+func (ms *MemoryStorage) Add(ds DataSource) (DataSource, error) {
 	err := validateCreation(ds, ms.conf)
 	if err != nil {
 		return DataSource{}, logger.Errorf("%s: %s", ErrConflict, err)
@@ -76,7 +76,7 @@ func (ms *MemoryStorage) add(ds DataSource) (DataSource, error) {
 	return ms.data[newUUID], nil
 }
 
-func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
+func (ms *MemoryStorage) Update(id string, ds DataSource) (DataSource, error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
@@ -120,7 +120,7 @@ func (ms *MemoryStorage) update(id string, ds DataSource) (DataSource, error) {
 	return ms.data[id], nil
 }
 
-func (ms *MemoryStorage) delete(id string) error {
+func (ms *MemoryStorage) Delete(id string) error {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
@@ -142,7 +142,7 @@ func (ms *MemoryStorage) delete(id string) error {
 	return nil
 }
 
-func (ms *MemoryStorage) get(id string) (DataSource, error) {
+func (ms *MemoryStorage) Get(id string) (DataSource, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
@@ -154,11 +154,11 @@ func (ms *MemoryStorage) get(id string) (DataSource, error) {
 	return ds, nil
 }
 
-func (ms *MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
+func (ms *MemoryStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
-	total, _ := ms.getCount()
+	total, _ := ms.getTotal()
 
 	// Extract keys out of maps
 	allKeys := make([]string, 0, total)
@@ -187,17 +187,17 @@ func (ms *MemoryStorage) getMany(page, perPage int) ([]DataSource, int, error) {
 	return datasources, total, nil
 }
 
-func (ms *MemoryStorage) getCount() (int, error) {
+func (ms *MemoryStorage) getTotal() (int, error) {
 	return len(ms.data), nil
 }
 
-func (ms *MemoryStorage) modifiedDate() (time.Time, error) {
+func (ms *MemoryStorage) getLastModifiedTime() (time.Time, error) {
 	return ms.lastModified, nil
 }
 
 // Path filtering
 // Filter one registration
-func (ms *MemoryStorage) pathFilterOne(path, op, value string) (*DataSource, error) {
+func (ms *MemoryStorage) FilterOne(path, op, value string) (*DataSource, error) {
 	pathTknz := strings.Split(path, ".")
 
 	ms.mutex.RLock()
@@ -218,7 +218,7 @@ func (ms *MemoryStorage) pathFilterOne(path, op, value string) (*DataSource, err
 }
 
 // Filter multiple registrations
-func (ms *MemoryStorage) pathFilter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
+func (ms *MemoryStorage) Filter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
 	matchedIDs := []string{}
 	pathTknz := strings.Split(path, ".")
 

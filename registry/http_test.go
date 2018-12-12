@@ -29,12 +29,11 @@ func setupRouter(regAPI *API) *mux.Router {
 	return r
 }
 
-func setupAPI() (*API, Client) {
+func setupAPI() (*API, Storage) {
 	regStorage := setupMemStorage()
 	regAPI := NewAPI(regStorage)
-	registryClient := NewLocalClient(regStorage)
 
-	return regAPI, registryClient
+	return regAPI, regStorage
 }
 
 // Manually send an HTTP request and get the response
@@ -114,7 +113,7 @@ func TestHttpIndex(t *testing.T) {
 		}
 
 		// Query the local data for comparison
-		dummyDSs, _, _ := registryClient.GetDataSources(page, perPage)
+		dummyDSs, _, _ := registryClient.GetMany(page, perPage)
 
 		// Number of expected items in this page
 		inThisPage := len(dummyDSs)

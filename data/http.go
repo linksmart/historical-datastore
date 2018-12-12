@@ -24,15 +24,15 @@ const (
 
 // API describes the RESTful HTTP data API
 type API struct {
-	registryClient   registry.Client
+	registry         registry.Storage
 	storage          Storage
 	autoRegistration bool
 }
 
 // NewAPI returns the configured Data API
-func NewAPI(registryClient registry.Client, storage Storage, autoRegistration bool) *API {
+func NewAPI(registry registry.Storage, storage Storage, autoRegistration bool) *API {
 	logger.Printf("Automatic registration: %v", autoRegistration)
-	return &API{registryClient, storage, autoRegistration}
+	return &API{registry, storage, autoRegistration}
 }
 
 // Submit is a handler for submitting a new data point
@@ -63,7 +63,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	// Check if DataSources are registered in the Registry
 	dsResources := make(map[string]*registry.DataSource)
 	for _, id := range ids {
-		ds, err := api.registryClient.Get(id)
+		ds, err := api.registry.Get(id)
 		if err != nil {
 			common.ErrorResponse(http.StatusNotFound,
 				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()),
@@ -158,7 +158,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 		ds, found := nameDSs[r.Name]
 		if !found {
-			ds, err = api.registryClient.FindDataSource("resource", "equals", r.Name)
+			ds, err = api.registry.FilterOne("resource", "equals", r.Name)
 			if err != nil {
 				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error retrieving data source with name %v from the registry: %v", r.Name, err.Error()), w)
 				return
@@ -184,7 +184,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 				} else {
 					newDS.Type = common.BOOL
 				}
-				addedDS, err := api.registryClient.Add(newDS)
+				addedDS, err := api.registry.Add(newDS)
 				if err != nil {
 					common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error registering %v in the registry: %v", r.Name, err.Error()), w)
 					return
@@ -257,7 +257,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	ids := strings.Split(params["id"], common.IDSeparator)
 	sources := []*registry.DataSource{}
 	for _, id := range ids {
-		ds, err := api.registryClient.Get(id)
+		ds, err := api.registry.Get(id)
 		if err != nil {
 			common.ErrorResponse(http.StatusNotFound,
 				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()),
