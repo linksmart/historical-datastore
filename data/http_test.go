@@ -4,28 +4,59 @@ package data
 
 import (
 	"bytes"
+	"code.linksmart.eu/hds/historical-datastore/common"
 	"encoding/json"
+	"fmt"
 	"github.com/cisco/senml"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"code.linksmart.eu/hds/historical-datastore/registry"
 	"github.com/gorilla/mux"
 )
 
-func setupHTTPAPI() *mux.Router {
-	api := NewAPI(&registry.DummyRegistryStorage{}, &dummyDataStorage{}, false)
+func setupHTTPAPI() (*mux.Router, []string) {
+	regStorage := registry.NewMemoryStorage(common.RegConf{})
+
+	// Create three dummy datasources with different types
+	var testIDs []string
+	dss := []registry.DataSource{
+		{
+			Resource: "http://example.com/sensor1",
+			Type:     "float",
+		},
+		{
+			Resource: "http://example.com/sensor2",
+			Type:     "bool",
+		},
+		{
+			Resource: "http://example.com/sensor3",
+			Type:     "string",
+		},
+	}
+	for _, ds := range dss {
+		created, err := regStorage.Add(ds)
+		if err != nil {
+			fmt.Println("Error creating dummy DS:", err)
+			break
+		}
+		testIDs = append(testIDs, created.ID)
+	}
+
+	api := NewAPI(regStorage, &dummyDataStorage{}, false)
 
 	r := mux.NewRouter().StrictSlash(true)
 	r.Methods("POST").Path("/data/{id}").HandlerFunc(api.Submit)
 	r.Methods("GET").Path("/data/{id}").HandlerFunc(api.Query)
-	return r
+	return r, testIDs
 }
 
 func TestHttpSubmit(t *testing.T) {
-	ts := httptest.NewServer(setupHTTPAPI())
+	router, testIDs := setupHTTPAPI()
+	ts := httptest.NewServer(router)
 	defer ts.Close()
 
 	v1 := 42.0
@@ -52,8 +83,9 @@ func TestHttpSubmit(t *testing.T) {
 
 	b, _ := json.Marshal(records)
 
+	all := strings.Join(testIDs, ",")
 	// try html - should be not supported
-	res, err := http.Post(ts.URL+"/data/12345,67890,1337", "application/text+html", bytes.NewReader(b))
+	res, err := http.Post(ts.URL+"/data/"+all, "application/text+html", bytes.NewReader(b))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +95,7 @@ func TestHttpSubmit(t *testing.T) {
 	//}
 
 	// try bad payload
-	res, err = http.Post(ts.URL+"/data/12345,67890,1337", "application/senml+json", bytes.NewReader([]byte{0xde, 0xad}))
+	res, err = http.Post(ts.URL+"/data/"+all, "application/senml+json", bytes.NewReader([]byte{0xde, 0xad}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +105,7 @@ func TestHttpSubmit(t *testing.T) {
 	}
 
 	// try a good one
-	res, err = http.Post(ts.URL+"/data/12345,67890,1337", "application/senml+json", bytes.NewReader(b))
+	res, err = http.Post(ts.URL+"/data/"+all, "application/senml+json", bytes.NewReader(b))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,10 +116,12 @@ func TestHttpSubmit(t *testing.T) {
 }
 
 func TestHttpQuery(t *testing.T) {
-	ts := httptest.NewServer(setupHTTPAPI())
+	router, testIDs := setupHTTPAPI()
+	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	res, err := http.Get(ts.URL + "/data/12345,67890,1337?limit=3&start=2015-04-24T11:56:51Z&page=1&per_page=12")
+	all := strings.Join(testIDs, ",")
+	res, err := http.Get(ts.URL + "/data/" + all + "?limit=3&start=2015-04-24T11:56:51Z&page=1&per_page=12")
 	if err != nil {
 		t.Fatal(err)
 	}
