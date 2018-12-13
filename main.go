@@ -109,11 +109,14 @@ func main() {
 	// TODO: disconnect on shutdown
 	err = mqttConn.Start(regStorage)
 	if err != nil {
-		log.Fatalf("Error starting MQTT Connector: %v", err)
+		log.Fatalf("Error starting MQTT Connector: %s", err)
 	}
 
 	// Register in the service catalog(s)
-	unregisterService := registerInServiceCatalog(conf)
+	unregisterService, err := registerInServiceCatalog(conf)
+	if err != nil {
+		log.Fatalf("Error registering service: %s", err)
+	}
 
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI, aggrAPI)

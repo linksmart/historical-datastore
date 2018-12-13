@@ -24,6 +24,6 @@
     },
     "autoRegistration": false
   },
-  "serviceCatalogs": [],
+  "serviceCatalog": {},
   "auth": {}
 }

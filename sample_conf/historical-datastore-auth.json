@@ -24,20 +24,18 @@
     },
     "autoRegistration": false
   },
-  "serviceCatalogs": [
-    {
-      "discover": false,
-      "endpoint": "http://localhost:8082/sc",
-      "ttl": 60,
-      "auth": {
-        "provider": "cas",
-        "providerURL": "http://example.com/cas",
-        "username": "",
-        "password": "",
-        "serviceID": ""
-      }
+  "serviceCatalog": {
+    "discover": false,
+    "endpoint": "http://localhost:8082",
+    "ttl": 60,
+    "auth": {
+      "provider": "cas",
+      "providerURL": "http://example.com/cas",
+      "username": "",
+      "password": "",
+      "serviceID": ""
     }
-  ],
+  },
   "auth": {
     "enabled": true,
     "provider": "cas",

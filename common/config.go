@@ -21,8 +21,8 @@ type Config struct {
 	Data DataConf `json:"data"`
 	// Aggregation API Config
 	Aggr AggrConf `json:"aggregation"`
-	// Service Catalogs Registration Config
-	ServiceCatalogs []ServiceCatalogConf `json:"serviceCatalogs"`
+	// LinkSmart Service Catalog registration config
+	ServiceCatalog ServiceCatalogConf `json:"serviceCatalog"`
 	// Auth config
 	Auth ValidatorConf `json:"auth"`
 }
@@ -78,14 +78,13 @@ type DataBackendConf struct {
 // Aggregation config
 type AggrConf struct{}
 
-// Service Catalogs Registration Config
+// LinkSmart Service Catalog registration config
 type ServiceCatalogConf struct {
 	Discover bool          `json:"discover"`
 	Endpoint string        `json:"endpoint"`
 	TTL      uint          `json:"ttl"`
 	Auth     *ObtainerConf `json:"auth"`
 }
-
 
 // Ticket Validator Config
 type ValidatorConf struct {
