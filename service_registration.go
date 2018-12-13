@@ -10,20 +10,14 @@ import (
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/sc/service-catalog/catalog"
 	"code.linksmart.eu/sc/service-catalog/client"
-	"github.com/pborman/uuid"
 )
 
 func registerInServiceCatalog(conf *common.Config) (func() error, error) {
 
-	serviceID := conf.ServiceID
-	if conf.ServiceID == "" {
-		serviceID = uuid.New()
-	}
-
 	cat := conf.ServiceCatalog
 
 	service := catalog.Service{
-		ID:          serviceID,
+		ID:          conf.ServiceID,
 		Name:        "_linksmart-hds._tcp",
 		Description: "LinkSmart® Historical Datastore",
 		APIs:        map[string]string{"REST API": conf.HTTP.PublicEndpoint},

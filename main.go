@@ -13,6 +13,8 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/pborman/uuid"
+
 	_ "code.linksmart.eu/com/go-sec/auth/keycloak/validator"
 	"code.linksmart.eu/com/go-sec/auth/validator"
 	"code.linksmart.eu/hds/historical-datastore/aggregation"
@@ -58,6 +60,10 @@ func main() {
 	conf, err := loadConfig(confPath)
 	if err != nil {
 		log.Fatalf("Config File: %s\n", err)
+	}
+	if conf.ServiceID == "" {
+		conf.ServiceID = uuid.New()
+		log.Printf("Service ID not set. Generated new UUID: %s", conf.ServiceID)
 	}
 
 	// Setup data and aggregation backends
@@ -112,7 +118,7 @@ func main() {
 		log.Fatalf("Error starting MQTT Connector: %s", err)
 	}
 
-	// Register in the service catalog(s)
+	// Register in the LinkSmart Service Catalog
 	unregisterService, err := registerInServiceCatalog(conf)
 	if err != nil {
 		log.Fatalf("Error registering service: %s", err)
@@ -129,7 +135,7 @@ func main() {
 	<-handler
 	log.Println("Shutting down...")
 
-	// Unregister from the service catalog(s)
+	// Unregister from the Service Catalog
 	unregisterService()
 
 	// Close the Registry Storage
