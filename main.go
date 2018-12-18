@@ -119,9 +119,13 @@ func main() {
 	}
 
 	// Register in the LinkSmart Service Catalog
-	unregisterService, err := registerInServiceCatalog(conf)
-	if err != nil {
-		log.Fatalf("Error registering service: %s", err)
+	if conf.ServiceCatalog != nil {
+		unregisterService, err := registerInServiceCatalog(conf)
+		if err != nil {
+			log.Fatalf("Error registering service: %s", err)
+		}
+		// Unregister from the Service Catalog
+		defer unregisterService()
 	}
 
 	// Start servers
@@ -134,9 +138,6 @@ func main() {
 
 	<-handler
 	log.Println("Shutting down...")
-
-	// Unregister from the Service Catalog
-	unregisterService()
 
 	// Close the Registry Storage
 	if closeReg != nil {

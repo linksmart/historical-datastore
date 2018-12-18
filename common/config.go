@@ -22,7 +22,7 @@ type Config struct {
 	// Aggregation API Config
 	Aggr AggrConf `json:"aggregation"`
 	// LinkSmart Service Catalog registration config
-	ServiceCatalog ServiceCatalogConf `json:"serviceCatalog"`
+	ServiceCatalog *ServiceCatalogConf `json:"serviceCatalog"`
 	// Auth config
 	Auth ValidatorConf `json:"auth"`
 }

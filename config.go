@@ -75,17 +75,19 @@ func loadConfig(confPath *string) (*common.Config, error) {
 	//
 
 	// VALIDATE SERVICE CATALOG CONFIG
-	if conf.ServiceCatalog.Endpoint == "" && conf.ServiceCatalog.Discover == false {
-		return nil, errors.New("All ServiceCatalog entries must have either endpoint or a discovery flag defined")
-	}
-	if conf.ServiceCatalog.TTL <= 0 {
-		return nil, errors.New("All ServiceCatalog entries must have TTL >= 0")
-	}
-	if conf.ServiceCatalog.Auth != nil {
-		// Validate ticket obtainer config
-		err = conf.ServiceCatalog.Auth.Validate()
-		if err != nil {
-			return nil, err
+	if conf.ServiceCatalog != nil {
+		if conf.ServiceCatalog.Endpoint == "" && conf.ServiceCatalog.Discover == false {
+			return nil, errors.New("All ServiceCatalog entries must have either endpoint or a discovery flag defined")
+		}
+		if conf.ServiceCatalog.TTL <= 0 {
+			return nil, errors.New("All ServiceCatalog entries must have TTL >= 0")
+		}
+		if conf.ServiceCatalog.Auth != nil {
+			// Validate ticket obtainer config
+			err = conf.ServiceCatalog.Auth.Validate()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
