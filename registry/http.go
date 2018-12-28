@@ -236,12 +236,19 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if datasource.ID != "" {
-			body, _ = json.Marshal(&datasource)
-		} else {
-			common.ErrorResponse(http.StatusNotFound, "No matched entries found.", w)
-			return
+		// Respond with a catalog
+		registry := Registry{
+			URL:     common.RegistryAPILoc,
+			Entries: []DataSource{},
+			Page:    page,
+			PerPage: perPage,
+			Total: 0,
 		}
+		if datasource != nil {
+			registry.Entries = append(registry.Entries, *datasource)
+			registry.Total++
+		}
+		body, _ = json.Marshal(&registry)
 
 	case FTypeMany:
 		datasources, total, err := api.storage.Filter(fpath, fop, fvalue, page, perPage)
@@ -250,7 +257,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Create a registry catalog
+		// Respond with a catalog
 		registry := Registry{
 			URL:     common.RegistryAPILoc,
 			Entries: datasources,
@@ -258,13 +265,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 			PerPage: perPage,
 			Total:   total,
 		}
-
-		if registry.Total != 0 {
-			body, _ = json.Marshal(&registry)
-		} else {
-			common.ErrorResponse(http.StatusNotFound, "No matched entries found.", w)
-			return
-		}
+		body, _ = json.Marshal(&registry)
 	}
 
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
