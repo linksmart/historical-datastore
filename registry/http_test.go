@@ -428,13 +428,16 @@ func TestHttpFilter(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	// Check if it was queried correctly
-	var ds DataSource
-	err = json.Unmarshal(b, &ds)
+	var reg Registry
+	err = json.Unmarshal(b, &reg)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if ds.Type != "bool" {
-		t.Errorf("Instead of the expected datasource (Type:bool), it returned:\n%+v", ds)
+	if len(reg.Entries) != 1 {
+		t.Errorf("Instead of one, it returned %d datasources.", len(reg.Entries))
+	}
+	if reg.Entries[0].Type != "bool" {
+		t.Errorf("Instead of the expected datasource (Type:bool), it returned:\n%+v", reg.Entries[0])
 	}
 
 	// Search for data sources that contains "sensor" in Resource
@@ -447,7 +450,6 @@ func TestHttpFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	var reg Registry
 	err = json.Unmarshal(b, &reg)
 	if err != nil {
 		t.Fatalf(err.Error())
