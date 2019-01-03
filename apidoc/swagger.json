@@ -687,7 +687,8 @@
             }
           },
           "type" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "float", "string", "bool" ]
           }
         }
       },
