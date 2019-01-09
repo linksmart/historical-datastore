@@ -374,7 +374,7 @@
         } ],
         "responses" : {
           "200" : {
-            "description" : "Successful response\n\nDataset `data` is a [SenML](https://tools.ietf.org/html/draft-jennings-senml-10) object.\n",
+            "description" : "Successful response.\n\n`data` is a SenML Pack, following the [Sensor Measurement Lists (SenML)](https://tools.ietf.org/html/rfc8428) specification.\n",
             "content" : {
               "application/senml+json" : {
                 "schema" : {
@@ -570,7 +570,7 @@
             }
           }
         },
-        "description" : "Dataset to be submitted. \n\nThe dataset is a [SenML](https://tools.ietf.org/html/rfc8428) pack.\n",
+        "description" : "Dataset to be submitted. \n\nThe body is a SenML Pack, following the [Sensor Measurement Lists (SenML)](https://tools.ietf.org/html/rfc8428) specification.\n",
         "required" : true
       },
       "Datasource" : {
@@ -730,9 +730,6 @@
             },
             "bu" : {
               "type" : "string"
-            },
-            "bver" : {
-              "type" : "integer"
             },
             "n" : {
               "type" : "string"
