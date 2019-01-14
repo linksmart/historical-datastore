@@ -14,11 +14,12 @@ import (
 	"code.linksmart.eu/hds/historical-datastore/common"
 )
 
-func setupLevelDB() (Storage, func() error, error) {
+func setupLevelDB() (Storage, string, func() error, error) {
 	// Temp database file
 	// Replace Windows-based backslashes with slash (not parsed as Path by net/url)
 	os_temp := strings.Replace(os.TempDir(), "\\", "/", -1)
-	temp_file := fmt.Sprintf("%s/hds-test.ldb/%d.ldb", os_temp, time.Now().UnixNano())
+	dbName := fmt.Sprintf("%d.ldb", time.Now().UnixNano())
+	temp_file := fmt.Sprintf("%s/hds-test/%s", os_temp, dbName)
 	conf := common.RegConf{
 		Backend: common.RegBackendConf{
 			DSN: temp_file,
@@ -26,15 +27,15 @@ func setupLevelDB() (Storage, func() error, error) {
 	}
 	storage, closeDB, err := NewLevelDBStorage(conf, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, dbName, nil, err
 	}
 
-	return storage, closeDB, nil
+	return storage, dbName, closeDB, nil
 }
 
 // Remove temporary database files
-func clean() {
-	temp_dir := fmt.Sprintf("%s%chds-test.ldb", os.TempDir(), os.PathSeparator)
+func clean(dbName string) {
+	temp_dir := fmt.Sprintf("%s/hds-test/%s", os.TempDir(), dbName)
 	err := os.RemoveAll(temp_dir)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -42,11 +43,11 @@ func clean() {
 }
 
 func TestLevelDBAdd(t *testing.T) {
-	storage, closeDB, err := setupLevelDB()
+	storage, dbName, closeDB, err := setupLevelDB()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer clean()
+	defer clean(dbName)
 	defer closeDB()
 
 	var ds DataSource
@@ -80,11 +81,11 @@ func TestLevelDBGet(t *testing.T) {
 }
 
 func TestLevelDBUpdate(t *testing.T) {
-	storage, closeDB, err := setupLevelDB()
+	storage, dbName, closeDB, err := setupLevelDB()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer clean()
+	defer clean(dbName)
 	defer closeDB()
 
 	IDs, err := generateDummyData(1, storage)
@@ -118,11 +119,11 @@ func TestLevelDBUpdate(t *testing.T) {
 }
 
 func TestLevelDBDelete(t *testing.T) {
-	storage, closeDB, err := setupLevelDB()
+	storage, dbName, closeDB, err := setupLevelDB()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer clean()
+	defer clean(dbName)
 	defer closeDB()
 
 	IDs, err := generateDummyData(1, storage)
@@ -146,11 +147,11 @@ func TestLevelDBGetMany(t *testing.T) {
 
 	// Check based on different inputs
 	subTest := func(TOTAL int, perPage int) {
-		storage, closeDB, err := setupLevelDB()
+		storage, dbName, closeDB, err := setupLevelDB()
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		defer clean()
+		defer clean(dbName)
 		defer closeDB()
 
 		generateDummyData(TOTAL, storage)
@@ -181,11 +182,11 @@ func TestLevelDBGetMany(t *testing.T) {
 }
 
 func TestLevelDBGetCount(t *testing.T) {
-	storage, closeDB, err := setupLevelDB()
+	storage, dbName, closeDB, err := setupLevelDB()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer clean()
+	defer clean(dbName)
 	defer closeDB()
 
 	// Get the current total
@@ -208,11 +209,11 @@ func TestLevelDBGetCount(t *testing.T) {
 }
 
 func TestLevelDBPathFilterOne(t *testing.T) {
-	storage, closeDB, err := setupLevelDB()
+	storage, dbName, closeDB, err := setupLevelDB()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer clean()
+	defer clean(dbName)
 	defer closeDB()
 
 	IDs, err := generateDummyData(10, storage)
@@ -236,11 +237,11 @@ func TestLevelDBPathFilterOne(t *testing.T) {
 }
 
 func TestLevelDBPathFilter(t *testing.T) {
-	storage, closeDB, err := setupLevelDB()
+	storage, dbName, closeDB, err := setupLevelDB()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer clean()
+	defer clean(dbName)
 	defer closeDB()
 
 	IDs, err := generateDummyData(10, storage)
