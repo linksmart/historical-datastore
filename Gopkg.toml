@@ -67,4 +67,4 @@
 
 [[constraint]]
   branch = "master"
-  name = "github.com/cisco/senml"
+  name = "github.com/farshidtz/senml"

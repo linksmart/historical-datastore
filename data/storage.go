@@ -3,9 +3,10 @@
 package data
 
 import (
-	"code.linksmart.eu/hds/historical-datastore/registry"
-	"github.com/cisco/senml"
 	"strings"
+
+	"code.linksmart.eu/hds/historical-datastore/registry"
+	"github.com/farshidtz/senml"
 )
 
 const (
@@ -27,10 +28,10 @@ type Storage interface {
 	// Adds data points for multiple data sources
 	// data is a map where keys are data source ids
 	// sources is a map where keys are data source ids
-	Submit(data map[string][]senml.SenMLRecord, sources map[string]*registry.DataSource) error
+	Submit(data map[string]senml.Pack, sources map[string]*registry.DataSource) error
 
 	// Queries data for specified data sources
-	Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.SenML, int, error)
+	Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.Pack, int, error)
 
 	// EventListener includes methods for event handling
 	registry.EventListener

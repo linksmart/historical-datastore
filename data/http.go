@@ -15,7 +15,7 @@ import (
 
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
-	"github.com/cisco/senml"
+	"github.com/farshidtz/senml"
 	"github.com/gorilla/mux"
 )
 
@@ -39,7 +39,7 @@ func NewAPI(registry registry.Storage, storage Storage, autoRegistration bool) *
 // Expected parameters: id(s)
 func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	data := make(map[string][]senml.SenMLRecord)
+	data := make(map[string]senml.Pack)
 	sources := make(map[string]*registry.DataSource)
 
 	// Parse id(s)
@@ -74,7 +74,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fill the data map with provided data points
-	records := senml.Normalize(senmlPack).Records
+	records := senmlPack.Normalize()
 	for _, r := range records {
 		if r.Name == "" {
 			common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Data source name not specified."), w)
@@ -111,7 +111,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 
 		_, ok = data[ds.ID]
 		if !ok {
-			data[ds.ID] = []senml.SenMLRecord{}
+			data[ds.ID] = senml.Pack{}
 			sources[ds.ID] = ds
 		}
 		data[ds.ID] = append(data[ds.ID], r)
@@ -151,9 +151,9 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	nameDSs := make(map[string]*registry.DataSource)
 
 	// Fill the data map with provided data points
-	data := make(map[string][]senml.SenMLRecord)
+	data := make(map[string]senml.Pack)
 	sources := make(map[string]*registry.DataSource)
-	records := senml.Normalize(senmlPack).Records
+	records := senmlPack.Normalize()
 	for _, r := range records {
 
 		ds, found := nameDSs[r.Name]
@@ -219,7 +219,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 		// Prepare for storage
 		_, found = data[ds.ID]
 		if !found {
-			data[ds.ID] = []senml.SenMLRecord{}
+			data[ds.ID] = senml.Pack{}
 			sources[ds.ID] = ds
 		}
 		data[ds.ID] = append(data[ds.ID], r)
@@ -306,7 +306,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	recordSet = RecordSet{
 		URL:     fmt.Sprintf("%s?%s", r.URL.Path, v.Encode()),
 		Time:    time.Since(timeStart).Seconds() * 1000,
-		Data:    data.Records,
+		Data:    data,
 		Page:    page,
 		PerPage: perPage,
 		Total:   total,

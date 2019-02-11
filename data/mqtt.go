@@ -4,10 +4,11 @@ package data
 
 import (
 	"fmt"
-	"github.com/cisco/senml"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/farshidtz/senml"
 
 	"net/http"
 
@@ -228,8 +229,8 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 	}
 
 	// Fill the data map with provided data points
-	records := senml.Normalize(senmlPack).Records
-	data := make(map[string][]senml.SenMLRecord)
+	records := senmlPack.Normalize()
+	data := make(map[string]senml.Pack)
 	sources := make(map[string]*registry.DataSource)
 	for _, r := range records {
 		// Find the data source for this entry
@@ -285,7 +286,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 		_, ok := data[ds.ID]
 		if !ok {
-			data[ds.ID] = []senml.SenMLRecord{}
+			data[ds.ID] = []senml.Record{}
 			sources[ds.ID] = ds
 		}
 		data[ds.ID] = append(data[ds.ID], r)

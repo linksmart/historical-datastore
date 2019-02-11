@@ -5,7 +5,6 @@ package data
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cisco/senml"
 	"log"
 	"math"
 	"net/url"
@@ -13,12 +12,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/farshidtz/senml"
+
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
 	influx "github.com/influxdata/influxdb/client/v2"
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxql"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 const influxPingTimeout = 30 * time.Second
@@ -62,7 +63,7 @@ func NewInfluxStorage(conf common.DataConf, retentionPeriods []string) (*InfluxS
 
 // Submit adds multiple data points for multiple data sources
 // data is a map where keys are data source ids
-func (s *InfluxStorage) Submit(data map[string][]senml.SenMLRecord, sources map[string]*registry.DataSource) error {
+func (s *InfluxStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataSource) error {
 	for id, dps := range data {
 		bpConf := influx.BatchPointsConfig{
 			Database:        s.config.database,
@@ -132,14 +133,14 @@ func (s *InfluxStorage) Submit(data map[string][]senml.SenMLRecord, sources map[
 }
 
 // Query retrieves data for specified data sources
-func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.SenML, int, error) {
+func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.Pack, int, error) {
 	total := 0
 
 	// Set minimum time to 1970-01-01T00:00:00Z
 	if q.Start.Before(time.Unix(0, 0)) {
 		q.Start = time.Unix(0, 0)
 		if q.End.Before(time.Unix(0, 1)) {
-			return senml.SenML{}, 0, fmt.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
+			return senml.Pack{}, 0, fmt.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
 		}
 	}
 
@@ -159,15 +160,15 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 		sort = "ASC"
 	}
 
-	pack := senml.SenML{}
-	pack.Records = make([]senml.SenMLRecord, 0)
+	pack := senml.Pack{}
+	pack = make([]senml.Record, 0)
 
 	for i, ds := range sources {
 		// Count total
 		count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s WHERE %s",
 			s.FieldForType(ds.Type), s.MeasurementNameFQ(ds.Retention, s.MeasurementName(ds.ID)), timeCond)
 		if err != nil {
-			return senml.SenML{}, 0, fmt.Errorf("Error counting records for source %v: %s", ds.Resource, err)
+			return senml.Pack{}, 0, fmt.Errorf("Error counting records for source %v: %s", ds.Resource, err)
 		}
 		if count < 1 {
 			//log.Printf("There is no data for source %v", ds.Resource)
@@ -178,11 +179,11 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
 			s.MeasurementNameFQ(ds.Retention, s.MeasurementName(ds.ID)), timeCond, sort, perItems[i], offsets[i])
 		if err != nil {
-			return senml.SenML{}, 0, fmt.Errorf("Error retrieving a data point for source %v: %s", ds.Resource, err)
+			return senml.Pack{}, 0, fmt.Errorf("Error retrieving a data point for source %v: %s", ds.Resource, err)
 		}
 
 		if len(res[0].Series) > 1 {
-			return senml.SenML{}, 0, fmt.Errorf("Unrecognized/Corrupted database schema.")
+			return senml.Pack{}, 0, fmt.Errorf("Unrecognized/Corrupted database schema.")
 		}
 
 		if len(res[0].Series) == 0 {
@@ -192,11 +193,11 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 
 		serieRecords, err := serieToRecords(res[0].Series[0])
 		if err != nil {
-			return senml.SenML{}, 0, fmt.Errorf("Error parsing points for source %v: %s", ds.Resource, err)
+			return senml.Pack{}, 0, fmt.Errorf("Error parsing points for source %v: %s", ds.Resource, err)
 		}
 
 		if perItems[i] != 0 { // influx ignores `limit 0`
-			pack.Records = append(pack.Records, serieRecords...)
+			pack = append(pack, serieRecords...)
 		}
 	}
 
@@ -464,11 +465,11 @@ func (s *InfluxStorage) Replication() int {
 }
 
 // pointsFromRow converts Influxdb rows to HDS data points
-func serieToRecords(r models.Row) ([]senml.SenMLRecord, error) {
-	var records []senml.SenMLRecord
+func serieToRecords(r models.Row) ([]senml.Record, error) {
+	var records []senml.Record
 
 	for _, e := range r.Values {
-		var record senml.SenMLRecord
+		var record senml.Record
 
 		// fields and tags
 		for i, v := range e {

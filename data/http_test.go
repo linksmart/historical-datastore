@@ -4,15 +4,16 @@ package data
 
 import (
 	"bytes"
-	"code.linksmart.eu/hds/historical-datastore/common"
 	"encoding/json"
 	"fmt"
-	"github.com/cisco/senml"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"code.linksmart.eu/hds/historical-datastore/common"
+	"github.com/farshidtz/senml"
 
 	"code.linksmart.eu/hds/historical-datastore/registry"
 	"github.com/gorilla/mux"
@@ -60,26 +61,26 @@ func TestHttpSubmit(t *testing.T) {
 	defer ts.Close()
 
 	v1 := 42.0
-	r1 := senml.SenMLRecord{
+	r1 := senml.Record{
 		Name:  "sensor1",
 		Unit:  "degC",
 		Value: &v1,
 	}
 	v2 := true
-	r2 := senml.SenMLRecord{
+	r2 := senml.Record{
 		Name:      "sensor2",
 		Unit:      "flag",
 		BoolValue: &v2,
 	}
 	v3 := "test string"
-	r3 := senml.SenMLRecord{
+	r3 := senml.Record{
 		Name:        "sensor3",
 		Unit:        "char",
 		StringValue: v3,
 	}
 
 	r1.BaseName = "http://example.com/"
-	records := []senml.SenMLRecord{r1, r2, r3}
+	records := []senml.Record{r1, r2, r3}
 
 	b, _ := json.Marshal(records)
 
@@ -144,11 +145,11 @@ func TestHttpQuery(t *testing.T) {
 
 type dummyDataStorage struct{}
 
-func (s *dummyDataStorage) Submit(data map[string][]senml.SenMLRecord, sources map[string]*registry.DataSource) error {
+func (s *dummyDataStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataSource) error {
 	return nil
 }
-func (s *dummyDataStorage) Query(q Query, page, perPage int, ds ...*registry.DataSource) (senml.SenML, int, error) {
-	return senml.SenML{}, 0, nil
+func (s *dummyDataStorage) Query(q Query, page, perPage int, ds ...*registry.DataSource) (senml.Pack, int, error) {
+	return senml.Pack{}, 0, nil
 }
 func (s *dummyDataStorage) CreateHandler(ds registry.DataSource) error {
 	return nil

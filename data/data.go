@@ -6,7 +6,7 @@ package data
 import (
 	"time"
 
-	"github.com/cisco/senml"
+	"github.com/farshidtz/senml"
 )
 
 // RecordSet describes the recordset returned on querying the Data API
@@ -15,7 +15,7 @@ type RecordSet struct {
 	URL string `json:"url"`
 	// Data is a SenML object with data records, where
 	// Name (bn and n) constitute the resource URL of the corresponding Data Source(s)
-	Data []senml.SenMLRecord `json:"data"`
+	Data senml.Pack `json:"data"`
 	// Time is the time of query in milliseconds
 	Time float64 `json:"time"`
 	// Page is the current page in Data pagination

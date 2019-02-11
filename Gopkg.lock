@@ -79,6 +79,14 @@
   revision = "122e062de95f1f03e80baa633e2e62e21bcc80c9"
 
 [[projects]]
+  branch = "master"
+  digest = "1:618f6e01a072d934d00082c5a2b91dee2ed8275957df2305a1386d8cefde45e2"
+  name = "github.com/farshidtz/senml"
+  packages = ["."]
+  pruneopts = ""
+  revision = "cebbd2dc91e1eae09fefb0b9921b3259deaca87b"
+
+[[projects]]
   digest = "1:0a3f6a0c68ab8f3d455f8892295503b179e571b7fefe47cc6c556405d1f83411"
   name = "github.com/gogo/protobuf"
   packages = ["proto"]
@@ -197,6 +205,14 @@
   pruneopts = ""
   revision = "57efc9c3d9f91fb3277f8da1cff370539c4d3dc5"
 
+[[projects]]
+  branch = "master"
+  digest = "1:489610147902fe0c7229218c749bb25a8a9ecce0d726ae4f8662517319f32554"
+  name = "golang.org/x/sys"
+  packages = ["unix"]
+  pruneopts = ""
+  revision = "41f3e6584952bb034a481797859f6ab34b6803bd"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -209,9 +225,10 @@
     "code.linksmart.eu/sc/service-catalog/catalog",
     "code.linksmart.eu/sc/service-catalog/client",
     "code.linksmart.eu/sc/service-catalog/utils",
-    "github.com/cisco/senml",
     "github.com/codegangsta/negroni",
+    "github.com/dschowta/senml.datastore",
     "github.com/eclipse/paho.mqtt.golang",
+    "github.com/farshidtz/senml",
     "github.com/gorilla/context",
     "github.com/gorilla/mux",
     "github.com/influxdata/influxdb/client/v2",
