@@ -36,14 +36,6 @@
   revision = "4ba4b949e04ae520ba87de82bb82d8f3a6be7e11"
 
 [[projects]]
-  branch = "master"
-  digest = "1:6e28ccca521944c2b15ae847b60eeb714bea0b92b67bb6e58e0dd0e1b3d9de77"
-  name = "github.com/cisco/senml"
-  packages = ["."]
-  pruneopts = ""
-  revision = "910a55054e168c1122b905e3f8acdc5ff97cbec1"
-
-[[projects]]
   digest = "1:80cf22cc45eb6fdfce2515a2401b04bffa2be83261577761ab788688dad699a1"
   name = "github.com/codegangsta/negroni"
   packages = ["."]
@@ -205,14 +197,6 @@
   pruneopts = ""
   revision = "57efc9c3d9f91fb3277f8da1cff370539c4d3dc5"
 
-[[projects]]
-  branch = "master"
-  digest = "1:489610147902fe0c7229218c749bb25a8a9ecce0d726ae4f8662517319f32554"
-  name = "golang.org/x/sys"
-  packages = ["unix"]
-  pruneopts = ""
-  revision = "41f3e6584952bb034a481797859f6ab34b6803bd"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -226,7 +210,6 @@
     "code.linksmart.eu/sc/service-catalog/client",
     "code.linksmart.eu/sc/service-catalog/utils",
     "github.com/codegangsta/negroni",
-    "github.com/dschowta/senml.datastore",
     "github.com/eclipse/paho.mqtt.golang",
     "github.com/farshidtz/senml",
     "github.com/gorilla/context",
