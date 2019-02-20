@@ -17,7 +17,6 @@ import (
 
 	_ "code.linksmart.eu/com/go-sec/auth/keycloak/validator"
 	"code.linksmart.eu/com/go-sec/auth/validator"
-	"code.linksmart.eu/hds/historical-datastore/aggregation"
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/data"
 	"code.linksmart.eu/hds/historical-datastore/registry"
@@ -69,7 +68,7 @@ func main() {
 	// Setup data and aggregation backends
 	var (
 		dataStorage data.Storage
-		aggrStorage aggregation.Storage
+		//aggrStorage aggregation.Storage
 	)
 	switch conf.Data.Backend.Type {
 	case data.INFLUXDB:
@@ -77,9 +76,14 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error creating influx storage: %v", err)
 		}
-		aggrStorage, err = aggregation.NewInfluxAggr(dataStorage.(*data.InfluxStorage))
+		//aggrStorage, err = aggregation.NewInfluxAggr(dataStorage.(*data.InfluxStorage))
+		//if err != nil {
+		//log.Fatalf("Error creating influx aggr: %v", err)
+		//}
+	case data.SENMLSTORE:
+		dataStorage, err = data.NewSenmlStorage(conf.Data)
 		if err != nil {
-			log.Fatalf("Error creating influx aggr: %v", err)
+			log.Fatal("Error creating senml storage")
 		}
 	}
 	if conf.Data.AutoRegistration {
@@ -98,9 +102,9 @@ func main() {
 	)
 	switch conf.Reg.Backend.Type {
 	case registry.MEMORY:
-		regStorage = registry.NewMemoryStorage(conf.Reg, dataStorage, aggrStorage, mqttConn)
+		regStorage = registry.NewMemoryStorage(conf.Reg, dataStorage, mqttConn)
 	case registry.LEVELDB:
-		regStorage, closeReg, err = registry.NewLevelDBStorage(conf.Reg, nil, dataStorage, aggrStorage, mqttConn)
+		regStorage, closeReg, err = registry.NewLevelDBStorage(conf.Reg, nil, dataStorage, mqttConn)
 		if err != nil {
 			log.Fatalf("Failed to start LevelDB: %s\n", err)
 		}
@@ -109,7 +113,7 @@ func main() {
 	// Setup APIs
 	regAPI := registry.NewAPI(regStorage)
 	dataAPI := data.NewAPI(regStorage, dataStorage, conf.Data.AutoRegistration)
-	aggrAPI := aggregation.NewAPI(regStorage, aggrStorage)
+	//aggrAPI := aggregation.NewAPI(regStorage, aggrStorage)
 
 	// Start MQTT connector
 	// TODO: disconnect on shutdown
@@ -129,7 +133,7 @@ func main() {
 	}
 
 	// Start servers
-	go startHTTPServer(conf, regAPI, dataAPI, aggrAPI)
+	go startHTTPServer(conf, regAPI, dataAPI)
 	go startWebServer(conf)
 
 	// Ctrl+C / Kill handling
@@ -150,7 +154,7 @@ func main() {
 	log.Println("Stopped.")
 }
 
-func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API, aggr *aggregation.API) {
+func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
 	commonHandlers := alice.New(
 		context.ClearHandler,
 		loggingHandler,
@@ -195,11 +199,6 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API, agg
 	router.post("/data", commonHandlers.ThenFunc(data.SubmitWithoutID))
 	router.post("/data/{id}", commonHandlers.ThenFunc(data.Submit))
 	router.get("/data/{id}", commonHandlers.ThenFunc(data.Query))
-
-	// aggregation api
-	router.get("/aggr", commonHandlers.ThenFunc(aggr.Index))
-	router.get("/aggr/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(aggr.Filter))
-	router.get("/aggr/{aggrid}/{uuid}", commonHandlers.ThenFunc(aggr.Query))
 
 	// start http server
 	log.Printf("Listening on %s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)

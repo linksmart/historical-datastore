@@ -132,8 +132,12 @@ func (s *InfluxStorage) Submit(data map[string]senml.Pack, sources map[string]*r
 	return nil
 }
 
+func (s *InfluxStorage) Query(q Query, sources ...*registry.DataSource) (senml.Pack, int, *time.Time, error) {
+	return nil, 0, nil, fmt.Errorf("Not implemented!!")
+}
+
 // Query retrieves data for specified data sources
-func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.Pack, int, error) {
+/*func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.Pack, int, error) {
 	total := 0
 
 	// Set minimum time to 1970-01-01T00:00:00Z
@@ -207,7 +211,7 @@ func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.D
 	}
 
 	return pack, total, nil
-}
+}*/
 
 // CreateHandler handles the creation of a new data source
 func (s *InfluxStorage) CreateHandler(ds registry.DataSource) error {

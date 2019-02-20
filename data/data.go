@@ -18,10 +18,8 @@ type RecordSet struct {
 	Data senml.Pack `json:"data"`
 	// Time is the time of query in milliseconds
 	Time float64 `json:"time"`
-	// Page is the current page in Data pagination
-	Page int `json:"page"`
-	// PerPage is the results per page in Data pagination
-	PerPage int `json:"per_page"`
+	//Next link for the same query, in case there more entries to follow for the same query
+	NextLink string `json:"url"`
 	// Total is the total records in Data pagination
 	Total int `json:"total"`
 }

@@ -12,10 +12,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-const endpoint = "http://localhost:8085"
-const registryEndpoint = endpoint + "/registry"
-const dataEndpoint = endpoint + "/data"
-
 func TestConcurrentCreates(t *testing.T) {
 	registryClient, err := registry.NewRemoteClient(registryEndpoint, nil)
 	if err != nil {
@@ -29,17 +25,7 @@ func TestConcurrentCreates(t *testing.T) {
 	for i := 0; i < TOTAL; i++ {
 		ds := &registry.DataSource{
 			Resource: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
-			Aggregation: []registry.Aggregation{
-				{
-					Interval:   "1h",
-					Aggregates: []string{"max", "min"},
-				},
-				{
-					Interval:   "1h",
-					Aggregates: []string{"mean", "stddev"},
-				},
-			},
-			Type: "float",
+			Type:     "float",
 		}
 		entries = append(entries, ds)
 	}
@@ -91,17 +77,7 @@ func TestConcurrentUpdates(t *testing.T) {
 	for i := 0; i < TOTAL; i++ {
 		ds := registry.DataSource{
 			Resource: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
-			Aggregation: []registry.Aggregation{
-				{
-					Interval:   "1h",
-					Aggregates: []string{"max", "min"},
-				},
-				{
-					Interval:   "1h",
-					Aggregates: []string{"mean", "stddev"},
-				},
-			},
-			Type: "float",
+			Type:     "float",
 		}
 		ds.ID, err = registryClient.Add(&ds)
 		if err != nil {
@@ -163,17 +139,7 @@ func TestConcurrentDeletes(t *testing.T) {
 	for i := 0; i < TOTAL; i++ {
 		ds := registry.DataSource{
 			Resource: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
-			Aggregation: []registry.Aggregation{
-				{
-					Interval:   "1h",
-					Aggregates: []string{"max", "min"},
-				},
-				{
-					Interval:   "1h",
-					Aggregates: []string{"mean", "stddev"},
-				},
-			},
-			Type: "float",
+			Type:     "float",
 		}
 		ds.ID, err = registryClient.Add(&ds)
 		if err != nil {
