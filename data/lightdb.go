@@ -26,7 +26,7 @@ func NewSenmlStorage(conf common.DataConf) (*LightdbStorage, error) {
 	return storage, nil
 }
 
-func (s *LightdbStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataSource) error {
+func (s *LightdbStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error {
 	for _, dps := range data {
 		err := s.storage.Add(dps)
 		if err != nil {
@@ -36,7 +36,7 @@ func (s *LightdbStorage) Submit(data map[string]senml.Pack, sources map[string]*
 	return nil
 }
 
-func (s *LightdbStorage) Query(q Query, sources ...*registry.DataSource) (senml.Pack, int, *time.Time, error) {
+func (s *LightdbStorage) Query(q Query, sources ...*registry.DataStream) (senml.Pack, int, *time.Time, error) {
 	//TODO: Support multidimensional queries
 	/*Multi dimensional queries have problems with pagination:
 
@@ -53,7 +53,7 @@ func (s *LightdbStorage) Query(q Query, sources ...*registry.DataSource) (senml.
 		Start:  datastore.ToSenmlTime(q.Start),
 		End:    datastore.ToSenmlTime(q.End),
 		Limit:  q.Limit,
-		Series: sources[0].ID,
+		Series: sources[0].Name,
 		Sort:   q.Sort,
 	}
 	retPack, nextlink, err := s.storage.Query(senmlQuery)
@@ -72,25 +72,23 @@ func (s *LightdbStorage) Query(q Query, sources ...*registry.DataSource) (senml.
 }
 
 // CreateHandler handles the creation of a new data source
-func (s *LightdbStorage) CreateHandler(ds registry.DataSource) error {
+func (s *LightdbStorage) CreateHandler(ds registry.DataStream) error {
 	return nil
 }
 
 // UpdateHandler handles updates of a data source
-func (s *LightdbStorage) UpdateHandler(oldDS registry.DataSource, newDS registry.DataSource) error {
-	if oldDS.Retention != newDS.Retention {
-		//TODO supporting retetion
-	}
+func (s *LightdbStorage) UpdateHandler(oldDS registry.DataStream, newDS registry.DataStream) error {
+	//TODO supporting retetion
 
 	return nil
 }
 
 // DeleteHandler handles deletion of a data source
-func (s *LightdbStorage) DeleteHandler(ds registry.DataSource) error {
-	err := s.storage.Delete(ds.ID)
+func (s *LightdbStorage) DeleteHandler(ds registry.DataStream) error {
+	err := s.storage.Delete(ds.Name)
 	if err != nil {
 		return err
 	}
-	log.Println("LightdbStorage: dropped measurements for", ds.ID)
+	log.Println("LightdbStorage: dropped measurements for", ds.Name)
 	return nil
 }

@@ -12,7 +12,6 @@ import (
 
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/sc/service-catalog/utils"
-	"github.com/pborman/uuid"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -25,7 +24,6 @@ type LevelDBStorage struct {
 	event        eventHandler
 	wg           sync.WaitGroup
 	lastModified time.Time
-	resources    map[string]string
 }
 
 func NewLevelDBStorage(conf common.RegConf, opts *opt.Options, listeners ...EventListener) (Storage, func() error, error) {
@@ -45,27 +43,26 @@ func NewLevelDBStorage(conf common.RegConf, opts *opt.Options, listeners ...Even
 		db:           db,
 		event:        listeners,
 		lastModified: time.Now(),
-		resources:    make(map[string]string),
 	}
 
-	// bootstrap
-	// Iterate over a latest snapshot of the database
-	s.wg.Add(1)
-	iter := s.db.NewIterator(nil, nil)
-	for iter.Next() {
-		var ds DataSource
-		err = json.Unmarshal(iter.Value(), &ds)
-		if err != nil {
-			return nil, nil, fmt.Errorf("Error parsing registry data: %v", err)
+	/*	// bootstrap
+		// Iterate over a latest snapshot of the database
+		s.wg.Add(1)
+		iter := s.db.NewIterator(nil, nil)
+		for iter.Next() {
+			var ds DataStream
+			err = json.Unmarshal(iter.Value(), &ds)
+			if err != nil {
+				return nil, nil, fmt.Errorf("Error parsing registry data: %v", err)
+			}
+
 		}
-		s.resources[ds.Resource] = ds.ID
-	}
-	iter.Release()
-	s.wg.Done()
-	err = iter.Error()
-	if err != nil {
-		return nil, nil, fmt.Errorf("Error loading registry: %v", err)
-	}
+		iter.Release()
+		s.wg.Done()
+		err = iter.Error()
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error loading registry: %v", err)
+		}*/
 
 	return s, s.close, nil
 }
@@ -76,106 +73,83 @@ func (s *LevelDBStorage) close() error {
 	return s.db.Close()
 }
 
-func (s *LevelDBStorage) Add(ds DataSource) (DataSource, error) {
+func (s *LevelDBStorage) Add(ds DataStream) (DataStream, error) {
 	err := validateCreation(ds, s.conf)
 	if err != nil {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
-	}
-
-	// Get a new UUID and convert it to string (UUID type can't be used as map-key)
-	newUUID := fmt.Sprint(uuid.NewRandom())
-
-	// Initialize read-only fields
-	ds.ID = newUUID
-	ds.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, ds.ID)
-	ds.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, ds.ID)
-
-	for i := range ds.Aggregation {
-		ds.Aggregation[i].Make(ds.ID)
-	}
-
-	// Send a create event
-	err = s.event.created(ds)
-	if err != nil {
-		return DataSource{}, err
+		return DataStream{}, fmt.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	// Convert to json bytes
 	dsBytes, err := ds.MarshalSensitiveJSON()
 	if err != nil {
-		return DataSource{}, err
+		return DataStream{}, err
 	}
 
-	if _, exists := s.resources[ds.Resource]; exists {
-		return DataSource{}, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Resource)
+	if has, _ := s.db.Has([]byte(ds.Name), nil); has {
+		return DataStream{}, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Name)
 	}
 
 	// Add the new DataSource to database
-	err = s.db.Put([]byte(ds.ID), dsBytes, nil)
+	err = s.db.Put([]byte(ds.Name), dsBytes, nil)
 	if err != nil {
-		return DataSource{}, err
+		return DataStream{}, err
 	}
-	// Add secondary index
-	s.resources[ds.Resource] = ds.ID
+
+	// Send a create event
+	err = s.event.created(ds)
+	if err != nil {
+		return DataStream{}, err
+	}
 
 	s.lastModified = time.Now()
 	return ds, nil
 }
 
-func (s *LevelDBStorage) Update(id string, ds DataSource) (DataSource, error) {
+func (s *LevelDBStorage) Update(name string, ds DataStream) (DataStream, error) {
 
-	oldDS, err := s.Get(id) // for comparison
+	oldDS, err := s.Get(name) // for comparison
 	if err == leveldb.ErrNotFound {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrNotFound, err)
+		return DataStream{}, fmt.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
-		return DataSource{}, err
+		return DataStream{}, err
 	}
 
 	err = validateUpdate(ds, oldDS, s.conf)
 	if err != nil {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
+		return DataStream{}, fmt.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	tempDS := oldDS
 
-	// Modify writable elements
-	tempDS.Meta = ds.Meta
-	tempDS.Connector = ds.Connector
+	tempDS.Function = ds.Function
 	tempDS.Retention = ds.Retention
-	tempDS.Aggregation = ds.Aggregation
-	//tempDS.Resource
-	//tempDS.Type
-
-	// Re-generate read-only fields
-	for i := range tempDS.Aggregation {
-		tempDS.Aggregation[i].Make(ds.ID)
-	}
+	copy(tempDS.Sources, ds.Sources)
 
 	// Send an update event
 	err = s.event.updated(oldDS, tempDS)
 	if err != nil {
-		return DataSource{}, err
+		return DataStream{}, err
 	}
 
 	// Convert to json bytes
 	dsBytes, err := tempDS.MarshalSensitiveJSON()
 	if err != nil {
-		return DataSource{}, err
+		return DataStream{}, err
 	}
 
 	// Store the modified DS
-	err = s.db.Put([]byte(tempDS.ID), dsBytes, nil)
+	err = s.db.Put([]byte(tempDS.Name), dsBytes, nil)
 	if err != nil {
-		return DataSource{}, err
+		return DataStream{}, err
 	}
 
 	s.lastModified = time.Now()
 	return tempDS, nil
 }
 
-func (s *LevelDBStorage) Delete(id string) error {
+func (s *LevelDBStorage) Delete(name string) error {
 
-	ds, err := s.Get(id) // for notification
+	ds, err := s.Get(name) // for notification
 	if err != nil {
 		return err
 	}
@@ -186,28 +160,27 @@ func (s *LevelDBStorage) Delete(id string) error {
 		return err
 	}
 
-	err = s.db.Delete([]byte(id), nil)
+	err = s.db.Delete([]byte(name), nil)
 	if err == leveldb.ErrNotFound {
 		return fmt.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
 		return err
 	}
-	delete(s.resources, ds.Resource)
 
 	s.lastModified = time.Now()
 	return nil
 }
 
-func (s *LevelDBStorage) Get(id string) (DataSource, error) {
+func (s *LevelDBStorage) Get(id string) (DataStream, error) {
 	// Query from database
 	dsBytes, err := s.db.Get([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrNotFound, err)
+		return DataStream{}, fmt.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
-		return DataSource{}, err
+		return DataStream{}, err
 	}
 
-	var ds DataSource
+	var ds DataStream
 	err = json.Unmarshal(dsBytes, &ds)
 	if err != nil {
 		return ds, err
@@ -216,7 +189,7 @@ func (s *LevelDBStorage) Get(id string) (DataSource, error) {
 	return ds, nil
 }
 
-func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
+func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataStream, int, error) {
 
 	total, err := s.getTotal()
 	if err != nil {
@@ -246,10 +219,10 @@ func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 
 	// page/registry is empty
 	if limit == 0 {
-		return []DataSource{}, 0, nil
+		return []DataStream{}, 0, nil
 	}
 
-	datasources := make([]DataSource, 0, limit)
+	datastreams := make([]DataStream, 0, limit)
 
 	// a nil Range.Limit is treated as a key after all keys in the DB.
 	var end []byte = nil
@@ -264,12 +237,12 @@ func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 		nil)
 	for iter.Next() {
 		dsBytes := iter.Value()
-		var ds DataSource
+		var ds DataStream
 		err = json.Unmarshal(dsBytes, &ds)
 		if err != nil {
 			return nil, 0, err
 		}
-		datasources = append(datasources, ds)
+		datastreams = append(datastreams, ds)
 	}
 	iter.Release()
 	s.wg.Done()
@@ -278,7 +251,7 @@ func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 		return nil, 0, err
 	}
 
-	return datasources, total, nil
+	return datastreams, total, nil
 }
 
 func (s *LevelDBStorage) getTotal() (int, error) {
@@ -305,14 +278,14 @@ func (s *LevelDBStorage) getLastModifiedTime() (time.Time, error) {
 
 // Path filtering
 // Filter one registration
-func (s *LevelDBStorage) FilterOne(path, op, value string) (*DataSource, error) {
+func (s *LevelDBStorage) FilterOne(path, op, value string) (*DataStream, error) {
 	pathTknz := strings.Split(path, ".")
 
 	// return the first one found
 	s.wg.Add(1)
 	iter := s.db.NewIterator(nil, nil)
 	for iter.Next() {
-		var ds DataSource
+		var ds DataStream
 		err := json.Unmarshal(iter.Value(), &ds)
 		if err != nil {
 			iter.Release()
@@ -344,30 +317,30 @@ func (s *LevelDBStorage) FilterOne(path, op, value string) (*DataSource, error) 
 }
 
 // Filter multiple registrations
-func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
-
+func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]DataStream, int, error) {
+	//TODO: Filter based on path (i.e. path in name)
 	matchedIDs := []string{}
 	pathTknz := strings.Split(path, ".")
 
 	s.wg.Add(1)
 	iter := s.db.NewIterator(nil, nil)
 	for iter.Next() {
-		var ds DataSource
+		var ds DataStream
 		err := json.Unmarshal(iter.Value(), &ds)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return []DataSource{}, 0, err
+			return []DataStream{}, 0, err
 		}
 
 		matched, err := utils.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return []DataSource{}, 0, err
+			return []DataStream{}, 0, err
 		}
 		if matched {
-			matchedIDs = append(matchedIDs, ds.ID)
+			matchedIDs = append(matchedIDs, ds.Name)
 		}
 	}
 	iter.Release()
@@ -385,10 +358,10 @@ func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]Da
 
 	// page/registry is empty
 	if len(slice) == 0 {
-		return []DataSource{}, len(matchedIDs), nil
+		return []DataStream{}, len(matchedIDs), nil
 	}
 
-	datasources := make([]DataSource, len(slice))
+	datasources := make([]DataStream, len(slice))
 	for i, id := range slice {
 		ds, err := s.Get(id)
 		if err != nil {

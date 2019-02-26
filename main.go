@@ -143,7 +143,7 @@ func main() {
 	<-handler
 	log.Println("Shutting down...")
 
-	// Close the Registry Storage
+	// Close the DataStreamList Storage
 	if closeReg != nil {
 		err := closeReg()
 		if err != nil {

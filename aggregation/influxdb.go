@@ -107,7 +107,7 @@ func (a *InfluxAggr) Query(aggr registry.Aggregation, q data.Query, page, perPag
 }
 
 // CreateHandler handles the creation of a new data source
-func (a *InfluxAggr) CreateHandler(ds registry.DataSource) error {
+func (a *InfluxAggr) CreateHandler(ds registry.DataStream) error {
 
 	for _, aggr := range ds.Aggregation {
 
@@ -121,7 +121,7 @@ func (a *InfluxAggr) CreateHandler(ds registry.DataSource) error {
 }
 
 // UpdateHandler handles updates of a data source
-func (a *InfluxAggr) UpdateHandler(oldDS registry.DataSource, newDS registry.DataSource) error {
+func (a *InfluxAggr) UpdateHandler(oldDS registry.DataStream, newDS registry.DataStream) error {
 
 	oldAggrs := make(map[string]registry.Aggregation)
 	for _, aggr := range oldDS.Aggregation {
@@ -198,7 +198,7 @@ func (a *InfluxAggr) UpdateHandler(oldDS registry.DataSource, newDS registry.Dat
 }
 
 // DeleteHandler handles deletion of a data source
-func (a *InfluxAggr) DeleteHandler(ds registry.DataSource) error {
+func (a *InfluxAggr) DeleteHandler(ds registry.DataStream) error {
 
 	for _, aggr := range ds.Aggregation {
 		// Drop Continuous Query

@@ -34,7 +34,7 @@ func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) (*RemoteCli
 	}, nil
 }
 
-func (c *RemoteClient) GetMany(page int, perPage int) (*Registry, error) {
+func (c *RemoteClient) GetMany(page int, perPage int) (*DataStreamList, error) {
 	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v?%v=%v&%v=%v", c.serverEndpoint, common.ParamPage, page, common.ParamPerPage, perPage),
 		nil,
@@ -52,7 +52,7 @@ func (c *RemoteClient) GetMany(page int, perPage int) (*Registry, error) {
 	}
 
 	if res.StatusCode == http.StatusOK {
-		var reg Registry
+		var reg DataStreamList
 		err = json.Unmarshal(body, &reg)
 		if err != nil {
 			return nil, err
@@ -63,7 +63,7 @@ func (c *RemoteClient) GetMany(page int, perPage int) (*Registry, error) {
 	return nil, fmt.Errorf("%v: %v", res.StatusCode, string(body))
 }
 
-func (c *RemoteClient) Add(d *DataSource) (string, error) {
+func (c *RemoteClient) Add(d *DataStream) (string, error) {
 	b, _ := json.Marshal(d)
 	res, err := utils.HTTPRequest("POST",
 		c.serverEndpoint.String()+"/",
@@ -92,7 +92,7 @@ func (c *RemoteClient) Add(d *DataSource) (string, error) {
 	return "", fmt.Errorf("%v: %v", res.StatusCode, string(body))
 }
 
-func (c *RemoteClient) Get(id string) (*DataSource, error) {
+func (c *RemoteClient) Get(id string) (*DataStream, error) {
 	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v/%v", c.serverEndpoint, id),
 		nil,
@@ -115,7 +115,7 @@ func (c *RemoteClient) Get(id string) (*DataSource, error) {
 		return nil, err
 	}
 
-	var ds DataSource
+	var ds DataStream
 	err = json.Unmarshal(body, &ds)
 	if err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func (c *RemoteClient) Get(id string) (*DataSource, error) {
 	return &ds, nil
 }
 
-func (c *RemoteClient) Update(id string, d *DataSource) error {
+func (c *RemoteClient) Update(id string, d *DataStream) error {
 	b, _ := json.Marshal(d)
 	res, err := utils.HTTPRequest("PUT",
 		fmt.Sprintf("%v/%v", c.serverEndpoint, id),
@@ -176,7 +176,7 @@ func (c *RemoteClient) Delete(id string) error {
 	return nil
 }
 
-func (c *RemoteClient) FilterOne(path, op, value string) (*DataSource, error) {
+func (c *RemoteClient) FilterOne(path, op, value string) (*DataStream, error) {
 	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v/%v/%v/%v/%v", c.serverEndpoint, FTypeOne, path, op, value),
 		nil,
@@ -199,7 +199,7 @@ func (c *RemoteClient) FilterOne(path, op, value string) (*DataSource, error) {
 		return nil, fmt.Errorf("%v: %v", res.StatusCode, string(body))
 	}
 
-	var ds DataSource
+	var ds DataStream
 	err = json.Unmarshal(body, &ds)
 	if err != nil {
 		return nil, err
@@ -208,7 +208,7 @@ func (c *RemoteClient) FilterOne(path, op, value string) (*DataSource, error) {
 	return &ds, nil
 }
 
-func (c *RemoteClient) Filter(path, op, value string) ([]DataSource, error) {
+func (c *RemoteClient) Filter(path, op, value string) ([]DataStream, error) {
 	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v/%v/%v/%v/%v", c.serverEndpoint, FTypeMany, path, op, value),
 		nil,
@@ -231,11 +231,11 @@ func (c *RemoteClient) Filter(path, op, value string) ([]DataSource, error) {
 		return nil, fmt.Errorf("%v: %v", res.StatusCode, string(body))
 	}
 
-	var reg Registry
+	var reg DataStreamList
 	err = json.Unmarshal(body, &reg)
 	if err != nil {
 		return nil, err
 	}
 
-	return reg.Entries, nil
+	return reg.Streams, nil
 }

@@ -24,7 +24,7 @@ type RecordSet struct {
 	// URL is the URL of the returned recordset in the Data API
 	URL string `json:"url"`
 	// Data is a SenML object with data records, where
-	// Name (bn and n) constitute the resource URL of the corresponding Data Source(s)
+	// Name (bn and n) constitute the resource URL of the corresponding Data Sources(s)
 	Data DataSet `json:"data"`
 	// Time is the time of query in milliseconds
 	Time float64 `json:"time"`

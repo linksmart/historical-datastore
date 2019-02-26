@@ -76,7 +76,7 @@ func TestHttpIndex(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	var reg Registry
+	var reg DataStreamList
 	err = json.Unmarshal(body, &reg)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -106,7 +106,7 @@ func TestHttpIndex(t *testing.T) {
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
-		var reg Registry
+		var reg DataStreamList
 		err = json.Unmarshal(body, &reg)
 		if err != nil {
 			t.Fatalf(err.Error())
@@ -428,7 +428,7 @@ func TestHttpFilter(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	// Check if it was queried correctly
-	var reg Registry
+	var reg DataStreamList
 	err = json.Unmarshal(b, &reg)
 	if err != nil {
 		t.Fatalf(err.Error())

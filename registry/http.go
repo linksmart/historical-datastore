@@ -36,7 +36,7 @@ type API struct {
 	storage Storage
 }
 
-// Returns the configured Registry API
+// Returns the configured DataStreamList API
 func NewAPI(storage Storage) *API {
 	return &API{
 		storage,
@@ -81,9 +81,9 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create a registry catalog
-	registry := Registry{
+	registry := DataStreamList{
 		URL:     common.RegistryAPILoc,
-		Entries: datasources,
+		Streams: datasources,
 		Page:    page,
 		PerPage: perPage,
 		Total:   total,
@@ -106,7 +106,7 @@ func (api *API) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var ds DataSource
+	var ds DataStream
 	err = json.Unmarshal(body, &ds)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, "Error processing input: "+err.Error(), w)
@@ -124,7 +124,7 @@ func (api *API) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//b, _ := json.Marshal(&addedDS)
-	w.Header().Set("Location", addedDS.URL)
+	w.Header().Set("Location", addedDS.Name)
 	//w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusCreated)
 	//w.Write(b)
@@ -169,7 +169,7 @@ func (api *API) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var ds DataSource
+	var ds DataStream
 	err = json.Unmarshal(body, &ds)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, "Error processing input: "+err.Error(), w)
@@ -230,37 +230,37 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 	var body []byte
 	switch ftype {
 	case FTypeOne:
-		datasource, err := api.storage.FilterOne(fpath, fop, fvalue)
+		dataStream, err := api.storage.FilterOne(fpath, fop, fvalue)
 		if err != nil {
 			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
 			return
 		}
 
 		// Respond with a catalog
-		registry := Registry{
+		registry := DataStreamList{
 			URL:     common.RegistryAPILoc,
-			Entries: []DataSource{},
+			Streams: []DataStream{},
 			Page:    page,
 			PerPage: perPage,
-			Total: 0,
+			Total:   0,
 		}
-		if datasource != nil {
-			registry.Entries = append(registry.Entries, *datasource)
+		if dataStream != nil {
+			registry.Streams = append(registry.Streams, *dataStream)
 			registry.Total++
 		}
 		body, _ = json.Marshal(&registry)
 
 	case FTypeMany:
-		datasources, total, err := api.storage.Filter(fpath, fop, fvalue, page, perPage)
+		dataStreams, total, err := api.storage.Filter(fpath, fop, fvalue, page, perPage)
 		if err != nil {
 			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
 			return
 		}
 
 		// Respond with a catalog
-		registry := Registry{
+		registry := DataStreamList{
 			URL:     common.RegistryAPILoc,
-			Entries: datasources,
+			Streams: dataStreams,
 			Page:    page,
 			PerPage: perPage,
 			Total:   total,

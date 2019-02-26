@@ -28,9 +28,9 @@ type MQTTConnector struct {
 	storage  Storage
 	managers map[string]*Manager
 	// cache of resource->ds
-	cache map[string]*registry.DataSource
+	cache map[string]*registry.DataStream
 	// failed mqtt registrations
-	failedRegistrations map[string]*registry.MQTTConf
+	failedRegistrations map[string]*registry.MQTTSource
 }
 
 type Manager struct {
@@ -53,8 +53,8 @@ func NewMQTTConnector(storage Storage) (*MQTTConnector, error) {
 	c := &MQTTConnector{
 		storage:             storage,
 		managers:            make(map[string]*Manager),
-		cache:               make(map[string]*registry.DataSource),
-		failedRegistrations: make(map[string]*registry.MQTTConf),
+		cache:               make(map[string]*registry.DataStream),
+		failedRegistrations: make(map[string]*registry.MQTTSource),
 	}
 	return c, nil
 }
@@ -64,17 +64,19 @@ func (c *MQTTConnector) Start(registry registry.Storage) error {
 
 	perPage := 100
 	for page := 1; ; page++ {
-		datasources, total, err := c.registry.GetMany(page, perPage)
+		dataStreams, total, err := c.registry.GetMany(page, perPage)
 		if err != nil {
 			return fmt.Errorf("MQTT: Error getting data sources: %v", err)
 		}
 
-		for _, ds := range datasources {
-			if ds.Connector.MQTT != nil {
-				err := c.register(ds.Connector.MQTT)
-				if err != nil {
-					log.Printf("MQTT: Error registering subscription: %v. Retrying in %ds", err, mqttRetryInterval)
-					c.failedRegistrations[ds.ID] = ds.Connector.MQTT
+		for _, ds := range dataStreams {
+			for _, source := range ds.Sources {
+				if source.SrcType != nil {
+					err := c.register(ds.Connector.MQTT)
+					if err != nil {
+						log.Printf("MQTT: Error registering subscription: %v. Retrying in %ds", err, mqttRetryInterval)
+						c.failedRegistrations[ds.ID] = ds.Connector.MQTT
+					}
 				}
 			}
 		}
@@ -307,7 +309,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 // NOTIFICATION HANDLERS
 
 // CreateHandler handles the creation of a new data source
-func (c *MQTTConnector) CreateHandler(ds registry.DataSource) error {
+func (c *MQTTConnector) CreateHandler(ds registry.DataStream) error {
 	c.Lock()
 	defer c.Unlock()
 
@@ -322,7 +324,7 @@ func (c *MQTTConnector) CreateHandler(ds registry.DataSource) error {
 }
 
 // UpdateHandler handles updates of a data source
-func (c *MQTTConnector) UpdateHandler(oldDS registry.DataSource, newDS registry.DataSource) error {
+func (c *MQTTConnector) UpdateHandler(oldDS registry.DataStream, newDS registry.DataStream) error {
 	c.Lock()
 	defer c.Unlock()
 
@@ -351,7 +353,7 @@ func (c *MQTTConnector) UpdateHandler(oldDS registry.DataSource, newDS registry.
 }
 
 // DeleteHandler handles deletion of a data source
-func (c *MQTTConnector) DeleteHandler(oldDS registry.DataSource) error {
+func (c *MQTTConnector) DeleteHandler(oldDS registry.DataStream) error {
 	c.Lock()
 	defer c.Unlock()
 

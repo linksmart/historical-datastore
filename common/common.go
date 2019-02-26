@@ -14,8 +14,6 @@ const (
 	// Location of APIs
 	RegistryAPILoc = "/registry"
 	DataAPILoc     = "/data"
-	AggrAPILoc     = "/aggr"
-
 	// Query parameters
 	ParamPage    = "page"
 	ParamPerPage = "per_page"
@@ -33,6 +31,7 @@ const (
 	STRING = "string"
 	FLOAT  = "float"
 	BOOL   = "bool"
+	DATA   = "data"
 )
 
 var (
@@ -42,7 +41,7 @@ var (
 	DefaultMIMEType = "application/json;version=" + APIVersion
 
 	// supported type values
-	supportedTypes = []string{STRING, BOOL, FLOAT}
+	supportedTypes = []string{STRING, BOOL, FLOAT, DATA}
 	// supported aggregates
 	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}
 	// supported period suffixes

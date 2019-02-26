@@ -112,7 +112,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	ids := strings.Split(params["uuid"], common.IDSeparator)
 	if len(ids) == 0 {
 		common.ErrorResponse(http.StatusBadRequest,
-			"Source IDs not specified.", w)
+			"Sources IDs not specified.", w)
 		return
 	}
 

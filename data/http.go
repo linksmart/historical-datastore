@@ -40,7 +40,7 @@ func NewAPI(registry registry.Storage, storage Storage, autoRegistration bool) *
 func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	data := make(map[string]senml.Pack)
-	sources := make(map[string]*registry.DataSource)
+	sources := make(map[string]*registry.DataStream)
 
 	// Parse id(s)
 	ids := strings.Split(params["id"], common.IDSeparator)
@@ -60,8 +60,8 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if DataSources are registered in the Registry
-	dsResources := make(map[string]*registry.DataSource)
+	// Check if DataSources are registered in the DataStreamList
+	dsResources := make(map[string]*registry.DataStream)
 	for _, id := range ids {
 		ds, err := api.registry.Get(id)
 		if err != nil {
@@ -70,7 +70,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 				w)
 			return
 		}
-		dsResources[ds.Resource] = &ds
+		dsResources[ds.Name] = &ds
 	}
 
 	// Fill the data map with provided data points
@@ -109,12 +109,12 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		_, ok = data[ds.ID]
+		_, ok = data[ds.Name]
 		if !ok {
-			data[ds.ID] = senml.Pack{}
-			sources[ds.ID] = ds
+			data[ds.Name] = senml.Pack{}
+			sources[ds.Name] = ds
 		}
-		data[ds.ID] = append(data[ds.ID], r)
+		data[ds.Name] = append(data[ds.Name], r)
 	}
 
 	// Add data to the storage
@@ -148,11 +148,11 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// map of resource name -> data source
-	nameDSs := make(map[string]*registry.DataSource)
+	nameDSs := make(map[string]*registry.DataStream)
 
 	// Fill the data map with provided data points
 	data := make(map[string]senml.Pack)
-	sources := make(map[string]*registry.DataSource)
+	sources := make(map[string]*registry.DataStream)
 	records := senmlPack.Normalize()
 	for _, r := range records {
 
@@ -171,18 +171,17 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 				// Register a data source with this name
 				log.Printf("Registering data source for %s", r.Name)
-				newDS := registry.DataSource{
-					Resource: r.Name,
-					Meta: map[string]interface{}{
-						"registrar": "Data API",
-					},
+				newDS := registry.DataStream{
+					Name: r.Name,
 				}
-				if r.Value != nil {
+				if r.Value != nil || r.Sum != nil {
 					newDS.Type = common.FLOAT
 				} else if r.StringValue != "" {
 					newDS.Type = common.STRING
-				} else {
+				} else if r.BoolValue != nil {
 					newDS.Type = common.BOOL
+				} else if r.DataValue != "" {
+					newDS.Type = common.DATA
 				}
 				addedDS, err := api.registry.Add(newDS)
 				if err != nil {
@@ -217,12 +216,12 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Prepare for storage
-		_, found = data[ds.ID]
+		_, found = data[ds.Name]
 		if !found {
-			data[ds.ID] = senml.Pack{}
-			sources[ds.ID] = ds
+			data[ds.Name] = senml.Pack{}
+			sources[ds.Name] = ds
 		}
-		data[ds.ID] = append(data[ds.ID], r)
+		data[ds.Name] = append(data[ds.Name], r)
 	}
 
 	// Add data to the storage
@@ -255,7 +254,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 
 	// Parse id(s) and get sources from registry
 	ids := strings.Split(params["id"], common.IDSeparator)
-	sources := []*registry.DataSource{}
+	sources := []*registry.DataStream{}
 	for _, id := range ids {
 		ds, err := api.registry.Get(id)
 		if err != nil {

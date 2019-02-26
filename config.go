@@ -44,7 +44,7 @@ func loadConfig(confPath *string) (*common.Config, error) {
 	// VALIDATE REGISTRY API CONFIG
 	// Check if backend is supported
 	if !registry.SupportedBackends(conf.Reg.Backend.Type) {
-		return nil, fmt.Errorf("Registry backend type is not supported: %s", conf.Reg.Backend.Type)
+		return nil, fmt.Errorf("DataStreamList backend type is not supported: %s", conf.Reg.Backend.Type)
 	}
 	// Check DSN
 	_, err = url.Parse(conf.Reg.Backend.DSN)
@@ -54,7 +54,7 @@ func loadConfig(confPath *string) (*common.Config, error) {
 	// Check retention periods
 	for _, rp := range conf.Reg.RetentionPeriods {
 		if !common.SupportedPeriod(rp) {
-			return nil, fmt.Errorf("Registry retentionPeriod is not valid: %s. Supported period suffixes are: %s",
+			return nil, fmt.Errorf("DataStreamList retentionPeriod is not valid: %s. Supported period suffixes are: %s",
 				rp, strings.Join(common.SupportedPeriods(), ", "))
 		}
 	}

@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"github.com/farshidtz/senml"
@@ -145,18 +146,18 @@ func TestHttpQuery(t *testing.T) {
 
 type dummyDataStorage struct{}
 
-func (s *dummyDataStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataSource) error {
+func (s *dummyDataStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error {
 	return nil
 }
-func (s *dummyDataStorage) Query(q Query, page, perPage int, ds ...*registry.DataSource) (senml.Pack, int, error) {
-	return senml.Pack{}, 0, nil
+func (s *dummyDataStorage) Query(q Query, ds ...*registry.DataStream) (senml.Pack, int, *time.Time, error) {
+	return senml.Pack{}, 0, nil, nil
 }
-func (s *dummyDataStorage) CreateHandler(ds registry.DataSource) error {
+func (s *dummyDataStorage) CreateHandler(ds registry.DataStream) error {
 	return nil
 }
-func (s *dummyDataStorage) UpdateHandler(old registry.DataSource, new registry.DataSource) error {
+func (s *dummyDataStorage) UpdateHandler(old registry.DataStream, new registry.DataStream) error {
 	return nil
 }
-func (s *dummyDataStorage) DeleteHandler(ds registry.DataSource) error {
+func (s *dummyDataStorage) DeleteHandler(ds registry.DataStream) error {
 	return nil
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"net/url"
 	"strings"
 	"sync"
@@ -19,7 +18,6 @@ import (
 	influx "github.com/influxdata/influxdb/client/v2"
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxql"
-	uuid "github.com/satori/go.uuid"
 )
 
 const influxPingTimeout = 30 * time.Second
@@ -34,221 +32,38 @@ type InfluxStorage struct {
 
 // NewInfluxStorage returns a new InfluxStorage
 func NewInfluxStorage(conf common.DataConf, retentionPeriods []string) (*InfluxStorage, error) {
-	cfg, err := initInfluxConf(conf.Backend.DSN)
-	if err != nil {
-		return nil, fmt.Errorf("Influx config error: %s", err)
-	}
-	cfg.replication = 1
-
-	c, err := influx.NewHTTPClient(influx.HTTPConfig{
-		Addr:     cfg.dsn,
-		Username: cfg.username,
-		Password: cfg.password,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("Error initializing influxdb client: %s", err)
-	}
-
-	s := &InfluxStorage{
-		client:           c,
-		config:           *cfg,
-		retentionPeriods: retentionPeriods,
-	}
-
-	s.prepare.Add(1)
-	go s.prepareStorage()
-
-	return s, nil
+	return nil, fmt.Errorf("Not implemented!!")
 }
 
 // Submit adds multiple data points for multiple data sources
 // data is a map where keys are data source ids
-func (s *InfluxStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataSource) error {
-	for id, dps := range data {
-		bpConf := influx.BatchPointsConfig{
-			Database:        s.config.database,
-			Precision:       "us", // float64 can keep unix seconds at most with 7 significant digits: not enough for ns
-			RetentionPolicy: s.RetentionPolicyName(sources[id].Retention),
-		}
-		//log.Printf("Influx: %+v", bpConf)
+func (s *InfluxStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error {
 
-		bp, err := influx.NewBatchPoints(bpConf)
-		if err != nil {
-			return fmt.Errorf("Error creating batch points: %s", err)
-		}
-		for _, dp := range dps {
-			var (
-				tags   map[string]string
-				fields map[string]interface{}
-			)
-			// tags
-			tags = make(map[string]string)
-			tags["name"] = dp.Name // must be the same as sources[id].Resource
-			//tags["id"] = sources[id].ID
-			if dp.Unit != "" {
-				tags["units"] = dp.Unit
-			}
-
-			// fields
-			fields = make(map[string]interface{})
-			// The "value", "stringValue", and "booleanValue" fields MUST NOT appear together.
-			if dp.Value != nil {
-				fields["value"] = *dp.Value
-			} else if dp.StringValue != "" {
-				fields["stringValue"] = dp.StringValue
-			} else if dp.BoolValue != nil {
-				fields["booleanValue"] = *dp.BoolValue
-			}
-
-			// timestamp
-			sec, frac := math.Modf(dp.Time)
-
-			pt, err := influx.NewPoint(
-				s.MeasurementName(id),
-				tags,
-				fields,
-				time.Unix(int64(sec), int64(frac*(1e9))),
-			)
-			if err != nil {
-				return fmt.Errorf("Error creating data point for source %v: %s", sources[id].ID, err)
-			}
-			bp.AddPoint(pt)
-		}
-		err = s.client.Write(bp)
-		if err != nil {
-			var influxResponse influx.Response
-			marshalErr := json.Unmarshal([]byte(err.Error()), &influxResponse)
-			if marshalErr != nil {
-				return fmt.Errorf("Error writing: %s: %s", marshalErr, err)
-			}
-			if strings.Contains(influxResponse.Err, "partial write: points beyond retention policy dropped") {
-				// TODO: send this to the client?
-				log.Println(influxResponse.Err)
-				return nil
-			}
-			return fmt.Errorf("Error writing: %s", influxResponse.Err)
-		}
-	}
-	return nil
+	return fmt.Errorf("Not implemented!!")
 }
 
-func (s *InfluxStorage) Query(q Query, sources ...*registry.DataSource) (senml.Pack, int, *time.Time, error) {
+func (s *InfluxStorage) Query(q Query, sources ...*registry.DataStream) (senml.Pack, int, *time.Time, error) {
 	return nil, 0, nil, fmt.Errorf("Not implemented!!")
 }
 
-// Query retrieves data for specified data sources
-/*func (s *InfluxStorage) Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.Pack, int, error) {
-	total := 0
-
-	// Set minimum time to 1970-01-01T00:00:00Z
-	if q.Start.Before(time.Unix(0, 0)) {
-		q.Start = time.Unix(0, 0)
-		if q.End.Before(time.Unix(0, 1)) {
-			return senml.Pack{}, 0, fmt.Errorf("%s argument must be greater than 1970-01-01T00:00:00Z", common.ParamEnd)
-		}
-	}
-
-	// If q.End is not set, make the query open-ended
-	var timeCond string
-	if q.Start.Before(q.End) {
-		timeCond = fmt.Sprintf("time > '%s' AND time < '%s'", q.Start.Format(time.RFC3339), q.End.Format(time.RFC3339))
-	} else {
-		timeCond = fmt.Sprintf("time > '%s'", q.Start.Format(time.RFC3339))
-	}
-
-	perItems, offsets := common.PerItemPagination(q.Limit, page, perPage, len(sources))
-
-	// Initialize sort order
-	sort := "DESC"
-	if q.Sort == common.ASC {
-		sort = "ASC"
-	}
-
-	pack := senml.Pack{}
-	pack = make([]senml.Record, 0)
-
-	for i, ds := range sources {
-		// Count total
-		count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s WHERE %s",
-			s.FieldForType(ds.Type), s.MeasurementNameFQ(ds.Retention, s.MeasurementName(ds.ID)), timeCond)
-		if err != nil {
-			return senml.Pack{}, 0, fmt.Errorf("Error counting records for source %v: %s", ds.Resource, err)
-		}
-		if count < 1 {
-			//log.Printf("There is no data for source %v", ds.Resource)
-			continue
-		}
-		total += int(count)
-
-		res, err := s.QuerySprintf("SELECT * FROM %s WHERE %s ORDER BY time %s LIMIT %d OFFSET %d",
-			s.MeasurementNameFQ(ds.Retention, s.MeasurementName(ds.ID)), timeCond, sort, perItems[i], offsets[i])
-		if err != nil {
-			return senml.Pack{}, 0, fmt.Errorf("Error retrieving a data point for source %v: %s", ds.Resource, err)
-		}
-
-		if len(res[0].Series) > 1 {
-			return senml.Pack{}, 0, fmt.Errorf("Unrecognized/Corrupted database schema.")
-		}
-
-		if len(res[0].Series) == 0 {
-			// page out of range
-			continue
-		}
-
-		serieRecords, err := serieToRecords(res[0].Series[0])
-		if err != nil {
-			return senml.Pack{}, 0, fmt.Errorf("Error parsing points for source %v: %s", ds.Resource, err)
-		}
-
-		if perItems[i] != 0 { // influx ignores `limit 0`
-			pack = append(pack, serieRecords...)
-		}
-	}
-
-	// q.Limit overrides total
-	if q.Limit > 0 && q.Limit < total {
-		total = q.Limit
-	}
-
-	return pack, total, nil
-}*/
-
 // CreateHandler handles the creation of a new data source
-func (s *InfluxStorage) CreateHandler(ds registry.DataSource) error {
+func (s *InfluxStorage) CreateHandler(ds registry.DataStream) error {
 	s.prepare.Wait()
 	return nil
 }
 
 // UpdateHandler handles updates of a data source
-func (s *InfluxStorage) UpdateHandler(oldDS registry.DataSource, newDS registry.DataSource) error {
+func (s *InfluxStorage) UpdateHandler(oldDS registry.DataStream, newDS registry.DataStream) error {
 	s.prepare.Wait()
 
-	if oldDS.Retention != newDS.Retention {
-		err := s.ChangeRetentionPolicy(s.MeasurementName(oldDS.ID), s.FieldForType(oldDS.Type), oldDS.Retention, newDS.Retention)
-		if err != nil {
-			return fmt.Errorf("Error changing retention policy: %s", err)
-		}
-		log.Println("InfluxAggr: changed retenton policy for", newDS.ID)
-	}
-
-	return nil
+	return fmt.Errorf("not implemented!!")
 }
 
 // DeleteHandler handles deletion of a data source
-func (s *InfluxStorage) DeleteHandler(ds registry.DataSource) error {
+func (s *InfluxStorage) DeleteHandler(ds registry.DataStream) error {
 	s.prepare.Wait()
 
-	_, err := s.QuerySprintf("DROP MEASUREMENT \"%s\"", s.MeasurementName(ds.ID))
-	if err != nil {
-		if strings.Contains(err.Error(), "measurement not found") {
-			// Not an error, No data to delete.
-			return nil
-		}
-		return fmt.Errorf("Error removing the historical data: %s", err)
-	}
-	log.Println("InfluxStorage: dropped measurements for", ds.ID)
-
-	return nil
+	return fmt.Errorf("not implemented!!")
 }
 
 // UTILITY FUNCTIONS
@@ -298,7 +113,7 @@ func (s *InfluxStorage) CountSprintf(format string, a ...interface{}) (int64, er
 
 //
 func (s *InfluxStorage) ChangeRetentionPolicy(measurement, countField, oldRP, newRP string) error {
-	count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s GROUP BY *",
+	/*count, err := s.CountSprintf("SELECT COUNT(%s) FROM %s GROUP BY *",
 		countField, s.MeasurementNameFQ(oldRP, measurement))
 	if err != nil {
 		return fmt.Errorf("Error counting historical data: %s", err)
@@ -350,8 +165,8 @@ func (s *InfluxStorage) ChangeRetentionPolicy(measurement, countField, oldRP, ne
 			return nil
 		}
 		return fmt.Errorf("Error removing the historical data: %s", err)
-	}
-	return nil
+	}*/
+	return fmt.Errorf("Not implemented!!")
 }
 
 func (s *InfluxStorage) ParseDuration(durationStr string) (time.Duration, error) {

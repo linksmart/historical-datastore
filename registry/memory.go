@@ -17,7 +17,7 @@ import (
 // In-memory storage
 type MemoryStorage struct {
 	conf         common.RegConf
-	data         map[string]DataSource
+	data         map[string]DataStream
 	mutex        sync.RWMutex
 	event        eventHandler
 	lastModified time.Time
@@ -27,7 +27,7 @@ type MemoryStorage struct {
 func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 	ms := &MemoryStorage{
 		conf:         conf,
-		data:         make(map[string]DataSource),
+		data:         make(map[string]DataStream),
 		lastModified: time.Now(),
 		resources:    make(map[string]string),
 		event:        listeners,
@@ -36,10 +36,10 @@ func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 	return ms
 }
 
-func (ms *MemoryStorage) Add(ds DataSource) (DataSource, error) {
+func (ms *MemoryStorage) Add(ds DataStream) (DataStream, error) {
 	err := validateCreation(ds, ms.conf)
 	if err != nil {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
+		return DataStream{}, fmt.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	// Get a new UUID and convert it to string (UUID type can't be used as map-key)
@@ -174,7 +174,7 @@ func (ms *MemoryStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 		return []DataSource{}, 0, err
 	}
 
-	// Registry is empty
+	// DataStreamList is empty
 	if len(pagedKeys) == 0 {
 		return []DataSource{}, total, nil
 	}
