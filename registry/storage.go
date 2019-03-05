@@ -25,9 +25,9 @@ func SupportedBackends(name string) bool {
 type Storage interface {
 	// CRUD
 	Add(ds DataStream) (DataStream, error)
-	Update(id string, ds DataStream) (DataStream, error)
-	Get(id string) (DataStream, error)
-	Delete(id string) error
+	Update(name string, ds DataStream) (DataStream, error)
+	Get(name string) (DataStream, error)
+	Delete(name string) error
 	// Utility functions
 	GetMany(page, perPage int) ([]DataStream, int, error)
 	FilterOne(path, op, value string) (*DataStream, error)

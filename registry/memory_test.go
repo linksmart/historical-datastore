@@ -22,10 +22,8 @@ func generateDummyData(quantity int, storage Storage) ([]string, error) {
 
 	var IDs []string
 	for i := 1; i <= quantity; i++ {
-		var ds DataSource
-		ds.Resource = fmt.Sprintf("http://example.com/sensor%d", i)
-		ds.Meta = make(map[string]interface{})
-		ds.Meta["SerialNumber"] = randInt(10000, 99999)
+		var ds DataStream
+		ds.Name = fmt.Sprintf("http://example.com/sensor%d", i)
 		//ds.Retention = fmt.Sprintf("%d%s", randInt(1, 20), []string{"m", "h", "d", "w"}[randInt(0, 3)])
 		//ds.Aggregation TODO
 		ds.Type = []string{"float", "bool", "string"}[randInt(0, 2)]
@@ -34,7 +32,7 @@ func generateDummyData(quantity int, storage Storage) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Error adding dummy: %s", err)
 		}
-		IDs = append(IDs, newDS.ID) // add the generated id
+		IDs = append(IDs, newDS.Name) // add the generated id
 	}
 
 	return IDs, nil
@@ -45,11 +43,8 @@ func setupMemStorage() Storage {
 }
 
 func TestMemstorageAdd(t *testing.T) {
-	var ds DataSource
-	ds.Resource = "any_url"
-	ds.Meta = make(map[string]interface{})
-	ds.Meta["SerialNumber"] = 12345
-	ds.Retention = ""
+	var ds DataStream
+	ds.Name = "any_url"
 	//ds.Aggregation TODO
 	ds.Type = "string"
 
@@ -59,7 +54,7 @@ func TestMemstorageAdd(t *testing.T) {
 		t.Errorf("Received unexpected error on add: %v", err.Error())
 	}
 
-	getDS, err := storage.Get(addedDS.ID)
+	getDS, err := storage.Get(addedDS.Name)
 	if err != nil {
 		t.Errorf("Received unexpected error on get: %v", err.Error())
 	}
@@ -87,10 +82,7 @@ func TestMemstorageUpdate(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err.Error())
 	}
 
-	// Update the following
-	ds.Meta = make(map[string]interface{})
-	ds.Meta["SerialNumber"] = 12345
-	ds.Retention = "20w"
+	ds.Retention.Max = "20w"
 	//ds.Aggregation TODO
 
 	updatedDS, err := storage.Update(ID, ds)
@@ -202,8 +194,8 @@ func TestMemstoragePathFilter(t *testing.T) {
 	}
 	for i := 0; i < expected; i++ {
 		ds, _ := storage.Get(IDs[i])
-		ds.Meta["newkey"] = "a/b"
-		storage.Update(ds.ID, ds)
+		//ds.Meta["newkey"] = "a/b"
+		storage.Update(ds.Name, ds)
 	}
 
 	// Query for format with prefix "newtype"

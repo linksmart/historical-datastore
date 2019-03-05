@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"code.linksmart.eu/com/go-sec/auth/obtainer"
 	"code.linksmart.eu/hds/historical-datastore/common"
@@ -79,8 +78,8 @@ func (c *RemoteClient) Add(d *DataStream) (string, error) {
 	if res.StatusCode == http.StatusCreated {
 		// retrieve ID from the header
 		loc := res.Header.Get("Location")
-		tkz := strings.Split(loc, "/")
-		return tkz[len(tkz)-1], nil
+
+		return loc, nil
 	}
 
 	// Get body of error

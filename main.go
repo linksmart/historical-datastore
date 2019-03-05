@@ -190,15 +190,15 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
 	// registry api
 	router.get("/registry", commonHandlers.ThenFunc(reg.Index))
 	router.post("/registry", commonHandlers.ThenFunc(reg.Create))
-	router.get("/registry/{id}", commonHandlers.ThenFunc(reg.Retrieve))
-	router.put("/registry/{id}", commonHandlers.ThenFunc(reg.Update))
-	router.delete("/registry/{id}", commonHandlers.ThenFunc(reg.Delete))
+	router.get("/registry/{id:.+}", commonHandlers.ThenFunc(reg.Retrieve))
+	router.put("/registry/{id:.+}", commonHandlers.ThenFunc(reg.Update))
+	router.delete("/registry/{id:.+}", commonHandlers.ThenFunc(reg.Delete))
 	router.get("/registry/{type}/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(reg.Filter))
 
 	// data api
 	router.post("/data", commonHandlers.ThenFunc(data.SubmitWithoutID))
-	router.post("/data/{id}", commonHandlers.ThenFunc(data.Submit))
-	router.get("/data/{id}", commonHandlers.ThenFunc(data.Query))
+	router.post("/data/{id:.+}", commonHandlers.ThenFunc(data.Submit))
+	router.get("/data/{id:.+}", commonHandlers.ThenFunc(data.Query))
 
 	// start http server
 	log.Printf("Listening on %s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)

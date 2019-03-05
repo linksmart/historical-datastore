@@ -30,7 +30,7 @@ func registerInServiceCatalog(conf *common.Config) (func() error, error) {
 		Meta: map[string]interface{}{
 			"codename":     "HDS",
 			"apiVersion":   common.APIVersion,
-			"apiEndpoints": []string{common.RegistryAPILoc, common.DataAPILoc, common.AggrAPILoc},
+			"apiEndpoints": []string{common.RegistryAPILoc, common.DataAPILoc},
 		},
 		TTL: cat.TTL,
 	}

@@ -19,7 +19,7 @@ type DataStream struct {
 	// URL is the URL of the DataStreamList API
 	Name string `json:"name"`
 	// Entries is an array of Data Sources
-	Sources []Source `json:"source"`
+	Source Source `json:"source"`
 	// function to be performed on the data sources
 	Function string `json:"function,omitempty"`
 	//Type of the data (eg: string, float, bool, data)
@@ -68,38 +68,38 @@ type SeriesSource struct {
 
 func (ds DataStream) copy() DataStream {
 	newDS := ds
-	newDS.Sources = make([]Source, 0, len(ds.Sources))
-	copy(newDS.Sources, ds.Sources)
+	newDS.Source = ds.Source
+	//copy(newDS.Sources, ds.Sources)
 	return newDS
 }
 
 // MarshalJSON masks sensitive information when using the default marshaller
 func (dataStream DataStream) MarshalJSON() ([]byte, error) {
 	//TODO test this for : 1. Original DS doesnt change, 2. the json has everything
-	newDataSteam := dataStream.copy()
+	newDataSteam := dataStream
 	if newDataSteam.keepSensitiveInfo == true {
-		for _, source := range newDataSteam.Sources {
-			if source.Type == MqttType {
-				mqttSource := &source
-				// mask MQTT credentials and key paths
-				if mqttSource.Username != "" {
-					mqttSource.Username = "*****"
-				}
-				if mqttSource.Password != "" {
-					mqttSource.Password = "*****"
-				}
-				if mqttSource.CaFile != "" {
-					mqttSource.CaFile = "*****"
-				}
-				if mqttSource.CertFile != "" {
-					mqttSource.CertFile = "*****"
-				}
-				if mqttSource.KeyFile != "" {
-					mqttSource.KeyFile = "*****"
-				}
-
+		source := newDataSteam.Source
+		if source.SrcType == MqttType {
+			mqttSource := &source
+			// mask MQTT credentials and key paths
+			if mqttSource.Username != "" {
+				mqttSource.Username = "*****"
 			}
+			if mqttSource.Password != "" {
+				mqttSource.Password = "*****"
+			}
+			if mqttSource.CaFile != "" {
+				mqttSource.CaFile = "*****"
+			}
+			if mqttSource.CertFile != "" {
+				mqttSource.CertFile = "*****"
+			}
+			if mqttSource.KeyFile != "" {
+				mqttSource.KeyFile = "*****"
+			}
+
 		}
+
 	}
 	type Alias DataStream
 	return json.Marshal((*Alias)(&newDataSteam))

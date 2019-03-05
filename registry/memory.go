@@ -11,7 +11,6 @@ import (
 
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/sc/service-catalog/utils"
-	"github.com/pborman/uuid"
 )
 
 // In-memory storage
@@ -38,21 +37,6 @@ func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 
 func (ms *MemoryStorage) Add(ds DataStream) (DataStream, error) {
 	err := validateCreation(ds, ms.conf)
-	if err != nil {
-		return DataStream{}, fmt.Errorf("%s: %s", ErrConflict, err)
-	}
-
-	// Get a new UUID and convert it to string (UUID type can't be used as map-key)
-	newUUID := fmt.Sprint(uuid.NewRandom())
-
-	// Initialize read-only fields
-	ds.ID = newUUID
-	ds.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, ds.ID)
-	ds.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, ds.ID)
-
-	for i := range ds.Aggregation {
-		ds.Aggregation[i].Make(ds.ID)
-	}
 
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
@@ -60,57 +44,50 @@ func (ms *MemoryStorage) Add(ds DataStream) (DataStream, error) {
 	// Send a create event
 	err = ms.event.created(ds)
 	if err != nil {
-		return DataSource{}, err
+		return DataStream{}, err
 	}
 
-	if _, exists := ms.resources[ds.Resource]; exists {
-		return DataSource{}, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Resource)
+	if _, exists := ms.resources[ds.Name]; exists {
+		return DataStream{}, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Name)
 	}
 
 	// Add the new DataSource to the map
-	ms.data[newUUID] = ds
+	ms.data[ds.Name] = ds
 	// Add secondary index
-	ms.resources[ds.Resource] = ds.ID
+	ms.resources[ds.Name] = ds.Name
 
 	ms.lastModified = time.Now()
-	return ms.data[newUUID], nil
+	return ms.data[ds.Name], nil
 }
 
-func (ms *MemoryStorage) Update(id string, ds DataSource) (DataSource, error) {
+func (ms *MemoryStorage) Update(id string, ds DataStream) (DataStream, error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
 	_, ok := ms.data[id]
 	if !ok {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
+		return DataStream{}, fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
 	}
 
 	oldDS := ms.data[id] // for comparison
 
 	err := validateUpdate(ds, oldDS, ms.conf)
 	if err != nil {
-		return DataSource{}, fmt.Errorf("%s: %s", ErrConflict, err)
+		return DataStream{}, fmt.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	tempDS := oldDS
 
 	// Modify writable elements
-	tempDS.Meta = ds.Meta
-	tempDS.Connector = ds.Connector
+	tempDS.Source = ds.Source
 	tempDS.Retention = ds.Retention
-	tempDS.Aggregation = ds.Aggregation
-	//tempDS.Resource
-	//tempDS.Type
-
-	// Re-generate read-only fields
-	for i := range tempDS.Aggregation {
-		tempDS.Aggregation[i].Make(ds.ID)
-	}
+	tempDS.Function = ds.Function
+	tempDS.Type = ds.Type
 
 	// Send an update event
 	err = ms.event.updated(oldDS, tempDS)
 	if err != nil {
-		return DataSource{}, err
+		return DataStream{}, err
 	}
 
 	// Store the modified DS
@@ -120,29 +97,29 @@ func (ms *MemoryStorage) Update(id string, ds DataSource) (DataSource, error) {
 	return ms.data[id], nil
 }
 
-func (ms *MemoryStorage) Delete(id string) error {
+func (ms *MemoryStorage) Delete(name string) error {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
-	_, ok := ms.data[id]
+	_, ok := ms.data[name]
 	if !ok {
 		return fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
 	}
 
 	// Send a delete event
-	err := ms.event.deleted(ms.data[id])
+	err := ms.event.deleted(ms.data[name])
 	if err != nil {
 		return err
 	}
 
-	delete(ms.resources, ms.data[id].ID)
-	delete(ms.data, id)
+	delete(ms.resources, ms.data[name].Name)
+	delete(ms.data, name)
 
 	ms.lastModified = time.Now()
 	return nil
 }
 
-func (ms *MemoryStorage) Get(id string) (DataSource, error) {
+func (ms *MemoryStorage) Get(id string) (DataStream, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
@@ -154,7 +131,7 @@ func (ms *MemoryStorage) Get(id string) (DataSource, error) {
 	return ds, nil
 }
 
-func (ms *MemoryStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
+func (ms *MemoryStorage) GetMany(page, perPage int) ([]DataStream, int, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
@@ -171,15 +148,15 @@ func (ms *MemoryStorage) GetMany(page, perPage int) ([]DataSource, int, error) {
 	// Get the queried page
 	pagedKeys, err := utils.GetPageOfSlice(allKeys, page, perPage, MaxPerPage)
 	if err != nil {
-		return []DataSource{}, 0, err
+		return []DataStream{}, 0, err
 	}
 
 	// DataStreamList is empty
 	if len(pagedKeys) == 0 {
-		return []DataSource{}, total, nil
+		return []DataStream{}, total, nil
 	}
 
-	datasources := make([]DataSource, 0, len(pagedKeys))
+	datasources := make([]DataStream, 0, len(pagedKeys))
 	for _, k := range pagedKeys {
 		datasources = append(datasources, ms.data[k])
 	}
@@ -197,7 +174,7 @@ func (ms *MemoryStorage) getLastModifiedTime() (time.Time, error) {
 
 // Path filtering
 // Filter one registration
-func (ms *MemoryStorage) FilterOne(path, op, value string) (*DataSource, error) {
+func (ms *MemoryStorage) FilterOne(path, op, value string) (*DataStream, error) {
 	pathTknz := strings.Split(path, ".")
 
 	ms.mutex.RLock()
@@ -218,7 +195,7 @@ func (ms *MemoryStorage) FilterOne(path, op, value string) (*DataSource, error) 
 }
 
 // Filter multiple registrations
-func (ms *MemoryStorage) Filter(path, op, value string, page, perPage int) ([]DataSource, int, error) {
+func (ms *MemoryStorage) Filter(path, op, value string, page, perPage int) ([]DataStream, int, error) {
 	matchedIDs := []string{}
 	pathTknz := strings.Split(path, ".")
 
@@ -228,22 +205,22 @@ func (ms *MemoryStorage) Filter(path, op, value string, page, perPage int) ([]Da
 	for _, ds := range ms.data {
 		matched, err := utils.MatchObject(ds, pathTknz, op, value)
 		if err != nil {
-			return []DataSource{}, 0, err
+			return []DataStream{}, 0, err
 		}
 		if matched {
-			matchedIDs = append(matchedIDs, ds.ID)
+			matchedIDs = append(matchedIDs, ds.Name)
 		}
 	}
 
 	keys, err := utils.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
 	if err != nil {
-		return []DataSource{}, 0, err
+		return []DataStream{}, 0, err
 	}
 	if len(keys) == 0 {
-		return []DataSource{}, len(matchedIDs), nil
+		return []DataStream{}, len(matchedIDs), nil
 	}
 
-	dss := make([]DataSource, 0, len(keys))
+	dss := make([]DataStream, 0, len(keys))
 	//var dss []DataSource
 	for _, k := range keys {
 		dss = append(dss, ms.data[k])

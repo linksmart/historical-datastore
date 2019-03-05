@@ -50,11 +50,9 @@ func TestLevelDBAdd(t *testing.T) {
 	defer clean(dbName)
 	defer closeDB()
 
-	var ds DataSource
-	ds.Resource = "any_url"
-	ds.Meta = make(map[string]interface{})
-	ds.Meta["SerialNumber"] = 12345
-	ds.Retention = ""
+	var ds DataStream
+	ds.Name = "any_url"
+	//ds.Retention = ""
 	//ds.Aggregation TODO
 	ds.Type = "string"
 
@@ -98,12 +96,6 @@ func TestLevelDBUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err.Error())
 	}
-
-	// Update the following
-	ds.Meta = make(map[string]interface{})
-	ds.Meta["SerialNumber"] = 12345
-	//ds.Retention = "20w"
-	//ds.Aggregation TODO
 
 	updatedDS, err := storage.Update(ID, ds)
 	if err != nil {
@@ -256,8 +248,7 @@ func TestLevelDBPathFilter(t *testing.T) {
 	}
 	for i := 0; i < expected; i++ {
 		ds, _ := storage.Get(IDs[i])
-		ds.Meta["newkey"] = "a/b"
-		storage.Update(ds.ID, ds)
+		storage.Update(ds.Name, ds)
 	}
 
 	// Query for format with prefix "newtype"
