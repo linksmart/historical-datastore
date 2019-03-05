@@ -4,65 +4,84 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+	"runtime/debug"
+	"time"
 
+	"code.linksmart.eu/hds/historical-datastore/common"
+	"github.com/codegangsta/negroni"
+	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
+	"github.com/justinas/alice"
+	"github.com/rs/cors"
 )
 
 type router struct {
 	*mux.Router
+	alice.Chain
 }
 
 func newRouter() *router {
-	return &router{mux.NewRouter().StrictSlash(false)}
+	r := router{Router: mux.NewRouter().StrictSlash(false)}
+
+	// default handler(s)
+	r.handle(http.MethodGet, "/health", healthHandler)
+
+	// middleware chain for handler, used when calling chained()
+	r.Chain = alice.New(
+		context.ClearHandler,
+		loggingHandler,
+		recoverHandler,
+		cors.AllowAll().Handler,
+	)
+
+	return &r
 }
 
-func (r *router) get(path string, handler http.Handler) {
-	r.Methods("GET").Path(path).Handler(handler)
-	r.Methods("GET").Path(fmt.Sprintf("%s/", path)).Handler(handler)
+func (r *router) appendChain(handler alice.Constructor) {
+	r.Chain = r.Chain.Append(handler)
 }
 
-func (r *router) post(path string, handler http.Handler) {
-	r.Methods("POST").Path(path).Handler(handler)
-	r.Methods("POST").Path(fmt.Sprintf("%s/", path)).Handler(handler)
+// chained chains the middleware and returns the final handler
+func (r *router) chained() http.Handler {
+	return r.Then(r)
 }
 
-func (r *router) put(path string, handler http.Handler) {
-	r.Methods("PUT").Path(path).Handler(handler)
-	r.Methods("PUT").Path(fmt.Sprintf("%s/", path)).Handler(handler)
+func (r *router) handle(m, p string, f http.HandlerFunc) {
+	// handle with and without slash (no redirects)
+	r.Methods(m).Path(p).HandlerFunc(f)
+	r.Methods(m).Path(fmt.Sprintf("%s/", p)).HandlerFunc(f)
 }
 
-func (r *router) delete(path string, handler http.Handler) {
-	r.Methods("DELETE").Path(path).Handler(handler)
-	r.Methods("DELETE").Path(fmt.Sprintf("%s/", path)).Handler(handler)
-}
-
-func (r *router) patch(path string, handler http.Handler) {
-	r.Methods("PATCH").Path(path).Handler(handler)
-	r.Methods("PATCH").Path(fmt.Sprintf("%s/", path)).Handler(handler)
-}
-
-func (r *router) head(path string, handler http.Handler) {
-	r.Methods("HEAD").Path(path).Handler(handler)
-	r.Methods("HEAD").Path(fmt.Sprintf("%s/", path)).Handler(handler)
-}
-
-func (r *router) options(path string, handler http.Handler) {
-	r.Methods("OPTIONS").Path(path).Handler(handler)
-	r.Methods("OPTIONS").Path(fmt.Sprintf("%s/", path)).Handler(handler)
-}
-
-// Add headers to handler's chain
-func commonHeaders(next http.Handler) http.Handler {
+func loggingHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
+		t1 := time.Now()
+		nw := negroni.NewResponseWriter(w)
+		// log.Printf("\"%s %s\"\n", r.Method, r.URL.String())
+		next.ServeHTTP(nw, r)
+		log.Printf("\"%s %s %s\" %d %d %v\n", r.Method, r.URL.String(), r.Proto, nw.Status(), nw.Size(), time.Now().Sub(t1))
+	}
+	return http.HandlerFunc(fn)
+}
 
-		// Headers for HTTP access control (CORS)
-		w.Header().Add("Access-Control-Allow-Origin", "*")
-		w.Header().Add("Access-Control-Allow-Headers", "X-Auth-Token")
-		w.Header().Add("Access-Control-Allow-Headers", "Authorization")
-		w.Header().Add("Access-Control-Allow-Headers", "If-Modified-Since")
-
+func recoverHandler(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("PANIC: %v\n%v", r, string(debug.Stack()))
+				http.Error(w, http.StatusText(500), 500)
+			}
+		}()
 		next.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "OK")
+}
+
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Historical Datastore v%s - Welcome!\n", common.APIVersion)
 }

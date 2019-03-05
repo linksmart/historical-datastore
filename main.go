@@ -20,8 +20,6 @@ import (
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/data"
 	"code.linksmart.eu/hds/historical-datastore/registry"
-	"github.com/gorilla/context"
-	"github.com/justinas/alice"
 )
 
 const LINKSMART = `
@@ -155,54 +153,35 @@ func main() {
 }
 
 func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
-	commonHandlers := alice.New(
-		context.ClearHandler,
-		loggingHandler,
-		recoverHandler,
-		commonHeaders,
-	)
-
-	// http api
 	router := newRouter()
-	// generic handlers
-	router.get("/health", commonHandlers.ThenFunc(healthHandler))
-	router.options("/{path:.*}", commonHandlers.ThenFunc(optionsHandler))
+	// api root
+	router.handle(http.MethodGet, "/", indexHandler)
+	// registry api
+	router.handle(http.MethodGet, "/registry", reg.Index)
+	router.handle(http.MethodPost, "/registry", reg.Create)
+	router.handle(http.MethodGet, "/registry/{id:.+}", reg.Retrieve)
+	router.handle(http.MethodPut, "/registry/{id:.+}", reg.Update)
+	router.handle(http.MethodDelete, "/registry/{id:.+}", reg.Delete)
+	router.handle(http.MethodGet, "/registry/{type}/{path}/{op}/{value:.*}", reg.Filter)
+	// data api
+	router.handle(http.MethodPost, "/data", data.SubmitWithoutID)
+	router.handle(http.MethodPost, "/data/{id:.+}", data.Submit)
+	router.handle(http.MethodGet, "/data/{id:.+}", data.Query)
 
 	// Append auth handler if enabled
 	if conf.Auth.Enabled {
 		// Setup ticket validator
-		v, err := validator.Setup(
-			conf.Auth.Provider,
-			conf.Auth.ProviderURL,
-			conf.Auth.ServiceID,
-			conf.Auth.BasicEnabled,
-			conf.Auth.Authz)
+		v, err := validator.Setup(conf.Auth.Provider, conf.Auth.ProviderURL, conf.Auth.ServiceID, conf.Auth.BasicEnabled, conf.Auth.Authz)
 		if err != nil {
 			log.Fatalf(err.Error())
 		}
 
-		commonHandlers = commonHandlers.Append(v.Handler)
+		router.appendChain(v.Handler)
 	}
-
-	// api root
-	router.get("/", commonHandlers.ThenFunc(indexHandler))
-
-	// registry api
-	router.get("/registry", commonHandlers.ThenFunc(reg.Index))
-	router.post("/registry", commonHandlers.ThenFunc(reg.Create))
-	router.get("/registry/{id:.+}", commonHandlers.ThenFunc(reg.Retrieve))
-	router.put("/registry/{id:.+}", commonHandlers.ThenFunc(reg.Update))
-	router.delete("/registry/{id:.+}", commonHandlers.ThenFunc(reg.Delete))
-	router.get("/registry/{type}/{path}/{op}/{value:.*}", commonHandlers.ThenFunc(reg.Filter))
-
-	// data api
-	router.post("/data", commonHandlers.ThenFunc(data.SubmitWithoutID))
-	router.post("/data/{id:.+}", commonHandlers.ThenFunc(data.Submit))
-	router.get("/data/{id:.+}", commonHandlers.ThenFunc(data.Query))
 
 	// start http server
 	log.Printf("Listening on %s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
-	err := http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort), router)
+	err := http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort), router.chained())
 	if err != nil {
 		log.Fatalln(err)
 	}
