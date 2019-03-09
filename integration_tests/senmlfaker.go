@@ -18,14 +18,14 @@ func Same_name_same_types(count int, name string, decremental bool) senml.Pack {
 	}
 
 	var s = []senml.Record{
-		{BaseName: "urn:dev:ow:10e2073a0108006:" + name,
+		{BaseName: name,
 			BaseUnit:    "A",
 			BaseVersion: 5,
-			Value:       &value, Name: "current", Time: timeinit},
+			Value:       &value, Time: timeinit},
 	}
 
 	for i := 1.0; i < float64(count); i++ {
-		s = append(s, senml.Record{Value: &value, Name: "current", Time: (timeinit + i*mult)})
+		s = append(s, senml.Record{Value: &value, Time: (timeinit + i*mult)})
 	}
 	return s
 }
