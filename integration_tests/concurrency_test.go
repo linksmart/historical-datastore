@@ -30,33 +30,26 @@ func TestConcurrentCreates(t *testing.T) {
 		entries = append(entries, ds)
 	}
 
-	idCollector := make(chan string, TOTAL)
 	var wg sync.WaitGroup
 	for i := 0; i < TOTAL; i++ {
 		wg.Add(1)
 		go func(thisDS *registry.DataStream) {
 			defer wg.Done()
-			id, err := registryClient.Add(thisDS)
+			_, err := registryClient.Add(thisDS)
 			if err != nil {
 				t.Fatal(err)
 			}
-			idCollector <- id
 		}(entries[i])
 	}
 	wg.Wait()
-	close(idCollector)
 
-	c := 0
-	for id := range idCollector {
-		_, err := registryClient.Get(id)
+	for i := 0; i < TOTAL; i++ {
+		_, err := registryClient.Get(entries[i].Name)
 		if err != nil {
 			t.Fatal(err)
 		}
-		c++
 	}
-	if c != TOTAL {
-		t.Fatalf("Total created %d instead of %d", c, TOTAL)
-	}
+
 }
 
 func TestConcurrentUpdates(t *testing.T) {
@@ -174,6 +167,17 @@ func TestConcurrentDeletes(t *testing.T) {
 			}
 		}(entries[i].Name)
 	}
-
 	wg.Wait()
+
+	for i := 0; i < TOTAL; i++ {
+		{
+			_, err := registryClient.Get(entries[i].Name)
+			if err.Error() != "Datasource Not Found" {
+				t.Fatal(err)
+			}
+		}
+	}
 }
+
+//TODO: test the following
+// 1. Creation of duplicate names (Should not be allowed)
