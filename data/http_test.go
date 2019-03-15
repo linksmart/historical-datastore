@@ -25,18 +25,18 @@ func setupHTTPAPI() (*mux.Router, []string) {
 
 	// Create three dummy datasources with different types
 	var testIDs []string
-	dss := []registry.DataSource{
+	dss := []registry.DataStream{
 		{
-			Resource: "http://example.com/sensor1",
-			Type:     "float",
+			Name: "example.com/sensor1",
+			Type: "float",
 		},
 		{
-			Resource: "http://example.com/sensor2",
-			Type:     "bool",
+			Name: "example.com/sensor2",
+			Type: "bool",
 		},
 		{
-			Resource: "http://example.com/sensor3",
-			Type:     "string",
+			Name: "example.com/sensor3",
+			Type: "string",
 		},
 	}
 	for _, ds := range dss {

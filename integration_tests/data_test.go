@@ -8,11 +8,12 @@ import (
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/data"
 	"code.linksmart.eu/hds/historical-datastore/registry"
+	"code.linksmart.eu/hds/historical-datastore/senmltest"
 	"github.com/farshidtz/senml"
 	uuid "github.com/satori/go.uuid"
 )
 
-func TestCreation_SameTimestamp(t *testing.T) {
+func TestCreationSameTimestamp(t *testing.T) {
 	//funcName := "TestCreation_SameTimestamp"
 	registryClient, err := registry.NewRemoteClient(registryEndpoint, nil)
 	if err != nil {
@@ -69,7 +70,7 @@ func TestCreation_SameTimestamp(t *testing.T) {
 
 }
 
-func TestCreation_diffTimestamp(t *testing.T) {
+func TestCreationDiffTimestamp(t *testing.T) {
 	//funcName := "TestCreation_diffTimestamp"
 	registryClient, err := registry.NewRemoteClient(registryEndpoint, nil)
 	if err != nil {
@@ -102,7 +103,7 @@ func TestCreation_diffTimestamp(t *testing.T) {
 	// send some data
 	var records senml.Pack
 	totRec := 1000
-	records = Same_name_same_types(totRec, datastream.Name, true)
+	records = senmltest.Same_name_same_types(totRec, datastream.Name, true)
 
 	b, _ := json.Marshal(records)
 	err = dataClient.Submit(b, "application/senml+json", datastream.Name)
@@ -123,7 +124,7 @@ func TestCreation_diffTimestamp(t *testing.T) {
 		t.Errorf("Received total should be %d, got %d (len) instead", totRec, len(gotrecords.Data))
 	}
 
-	if CompareSenml(gotrecords.Data, records.Normalize()) == false {
+	if senmltest.CompareSenml(gotrecords.Data, records.Normalize()) == false {
 		t.Error("Sent records and received record did not match!!")
 	}
 }

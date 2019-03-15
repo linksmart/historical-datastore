@@ -1,8 +1,8 @@
-package integration_tests
+//Package senmltest implements senml testing utilities
+package senmltest
 
 import (
 	"math"
-	"strings"
 
 	"github.com/farshidtz/senml"
 )
@@ -17,30 +17,29 @@ func Same_name_same_types(count int, name string, decremental bool) senml.Pack {
 		mult = -1.0
 	}
 
-	var s = []senml.Record{
-		{BaseName: name,
-			BaseUnit:    "A",
-			BaseVersion: 5,
-			Value:       &value, Time: timeinit},
-	}
+	var s = make([]senml.Record, count)
+	s[0] = senml.Record{BaseName: name,
+		BaseUnit:    "A",
+		BaseVersion: 5,
+		Value:       &value, Time: timeinit}
 
-	for i := 1.0; i < float64(count); i++ {
-		s = append(s, senml.Record{Value: &value, Time: (timeinit + i*mult)})
+	for i := 1; i < count; i++ {
+		s[i] = senml.Record{Value: &value, Time: (timeinit + float64(i)*mult)}
 	}
 	return s
 }
 
-func CompareRecords(r1 senml.Record, r2 senml.Record) bool {
+func CompareRecords(r1 senml.Record, r2 senml.Record) (same bool) {
 	return (math.Abs(r1.Time-r2.Time) < 1e-6 &&
-		strings.Compare(r1.Name, r2.Name) == 0 &&
-		strings.Compare(r1.DataValue, r2.DataValue) == 0 &&
-		strings.Compare(r1.StringValue, r2.StringValue) == 0 &&
+		r1.Name == r2.Name &&
+		r1.DataValue == r2.DataValue &&
+		r1.StringValue == r2.StringValue &&
 		((r1.Sum == nil && r2.Sum == nil) || *r1.Sum == *r2.Sum) &&
 		((r1.BoolValue == nil && r2.BoolValue == nil) || *r1.BoolValue == *r2.BoolValue) &&
 		((r1.Value == nil && r2.Value == nil) || *r1.Value == *r2.Value))
 }
 
-func CompareSenml(s1 senml.Pack, s2 senml.Pack) bool {
+func CompareSenml(s1 senml.Pack, s2 senml.Pack) (same bool) {
 	recordLen := len(s1)
 	for i := 0; i < recordLen; i++ {
 		r1 := s1[i]

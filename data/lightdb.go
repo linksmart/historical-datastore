@@ -86,7 +86,7 @@ func (s *LightdbStorage) UpdateHandler(oldDS registry.DataStream, newDS registry
 // DeleteHandler handles deletion of a data source
 func (s *LightdbStorage) DeleteHandler(ds registry.DataStream) error {
 	err := s.storage.Delete(ds.Name)
-	if err != nil {
+	if err != nil && err != datastore.ErrSeriesNotFound {
 		return err
 	}
 	log.Println("LightdbStorage: dropped measurements for", ds.Name)

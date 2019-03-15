@@ -6,8 +6,3 @@ Session contains the following:
 	1. The variables of the function
 	2. The time series over time
 */
-
-//type Session struct {
-//	InStream  registry.Source
-//	OutStream registry.DataStream
-//}

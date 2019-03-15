@@ -61,7 +61,7 @@ func TestLevelDBAdd(t *testing.T) {
 		t.Fatalf("Received unexpected error on add: %v", err.Error())
 	}
 
-	getDS, err := storage.Get(addedDS.ID)
+	getDS, err := storage.Get(addedDS.Name)
 	if err != nil {
 		t.Fatalf("Received unexpected error on get: %v", err.Error())
 	}
