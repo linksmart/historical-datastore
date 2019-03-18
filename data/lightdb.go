@@ -15,15 +15,15 @@ type LightdbStorage struct {
 	storage *datastore.SenmlDataStore
 }
 
-func NewSenmlStorage(conf common.DataConf) (*LightdbStorage, error) {
+func NewSenmlStorage(conf common.DataConf) (storage *LightdbStorage, disconnect_func func() error, err error) {
 	datastore := new(datastore.SenmlDataStore)
-	err := datastore.Connect(conf.Backend.DSN)
+	err = datastore.Connect(conf.Backend.DSN)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	storage := new(LightdbStorage)
+	storage = new(LightdbStorage)
 	storage.storage = datastore
-	return storage, nil
+	return storage, storage.Disconnect, nil
 }
 
 func (s *LightdbStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error {
@@ -69,6 +69,10 @@ func (s *LightdbStorage) Query(q Query, sources ...*registry.DataStream) (senml.
 	}
 
 	return retPack, len(retPack), nextLinkTime, nil
+}
+
+func (s *LightdbStorage) Disconnect() error {
+	return s.storage.Disconnect()
 }
 
 // CreateHandler handles the creation of a new data source

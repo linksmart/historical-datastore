@@ -70,19 +70,21 @@ func main() {
 	)
 	switch conf.Data.Backend.Type {
 	case data.INFLUXDB:
-		dataStorage, err = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
-		if err != nil {
-			log.Fatalf("Error creating influx storage: %v", err)
-		}
+		//dataStorage, err = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
+		//if err != nil {
+		//	log.Fatalf("Error creating influx storage: %v", err)
+		//}
 		//aggrStorage, err = aggregation.NewInfluxAggr(dataStorage.(*data.InfluxStorage))
 		//if err != nil {
 		//log.Fatalf("Error creating influx aggr: %v", err)
 		//}
 	case data.SENMLSTORE:
-		dataStorage, err = data.NewSenmlStorage(conf.Data)
+		var disconnect_func func() error
+		dataStorage, disconnect_func, err = data.NewSenmlStorage(conf.Data)
 		if err != nil {
 			log.Fatal("Error creating senml storage")
 		}
+		defer disconnect_func()
 	}
 	if conf.Data.AutoRegistration {
 		log.Println("Auto Registration is enabled: Data HTTP API will automatically create new data sources.")

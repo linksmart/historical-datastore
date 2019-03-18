@@ -45,7 +45,7 @@ func setupHTTPAPI() (*mux.Router, []string) {
 			fmt.Println("Error creating dummy DS:", err)
 			break
 		}
-		testIDs = append(testIDs, created.ID)
+		testIDs = append(testIDs, created.Name)
 	}
 
 	api := NewAPI(regStorage, &dummyDataStorage{}, false)
@@ -151,6 +151,9 @@ func (s *dummyDataStorage) Submit(data map[string]senml.Pack, sources map[string
 }
 func (s *dummyDataStorage) Query(q Query, ds ...*registry.DataStream) (senml.Pack, int, *time.Time, error) {
 	return senml.Pack{}, 0, nil, nil
+}
+func (s *dummyDataStorage) Disconnect() error {
+	return nil
 }
 func (s *dummyDataStorage) CreateHandler(ds registry.DataStream) error {
 	return nil
