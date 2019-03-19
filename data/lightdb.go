@@ -2,7 +2,6 @@ package data
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"code.linksmart.eu/hds/historical-datastore/common"
@@ -93,6 +92,6 @@ func (s *LightdbStorage) DeleteHandler(ds registry.DataStream) error {
 	if err != nil && err != datastore.ErrSeriesNotFound {
 		return err
 	}
-	log.Println("LightdbStorage: dropped measurements for", ds.Name)
+	//log.Println("LightdbStorage: dropped measurements for", ds.Name)
 	return nil
 }
