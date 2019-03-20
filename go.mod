@@ -12,12 +12,9 @@ require (
 	github.com/eclipse/paho.mqtt.golang v0.0.0-20180110145810-750c97f29374
 	github.com/farshidtz/elog v0.0.0-20171218102240-122e062de95f // indirect
 	github.com/farshidtz/senml v0.0.0-20190211110403-cebbd2dc91e1
-	github.com/gogo/protobuf v1.0.0 // indirect
 	github.com/golang/snappy v0.0.0-20170215233205-553a64147049 // indirect
 	github.com/gorilla/context v0.0.0-20160226214623-1ea25387ff6f
 	github.com/gorilla/mux v1.4.0
-	github.com/influxdata/influxdb v1.3.4
-	github.com/influxdata/influxql v0.0.0-20180621211124-5e999e6a8182
 	github.com/justinas/alice v0.0.0-20160512134231-052b8b6c18ed
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
