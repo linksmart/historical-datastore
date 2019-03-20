@@ -278,7 +278,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, total, _, err := api.storage.Query(q, sources...)
+	data, total, nextLinkts, err := api.storage.Query(q, sources...)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
 		return
@@ -296,12 +296,23 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	}
 	v.Add(common.ParamPage, fmt.Sprintf("%d", page))
 	v.Add(common.ParamPerPage, fmt.Sprintf("%d", perPage))
+	nextlink := ""
+	if nextLinkts != nil {
+		nextQuery := q
+		if q.Sort == common.DESC {
+			nextQuery.End = *nextLinkts
+		} else {
+			nextQuery.Start = *nextLinkts
+		}
+		nextlink = GetUrlFromQuery(nextQuery, page, perPage, ids...)
+	}
 	recordSet = RecordSet{
 		URL:  fmt.Sprintf("%s?%s", r.URL.Path, v.Encode()),
 		Time: time.Since(timeStart).Seconds(),
 		Data: data,
 		//TODO: add next link
-		Total: total,
+		NextLink: nextlink,
+		Total:    total,
 	}
 
 	b, err := json.Marshal(recordSet)

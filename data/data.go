@@ -11,7 +11,7 @@ import (
 
 // RecordSet describes the recordset returned on querying the Data API
 type RecordSet struct {
-	// BrokerURL is the BrokerURL of the returned recordset in the Data API
+	// URL is the URL of the returned recordset in the Data API
 	URL string `json:"url"`
 	// Data is a SenML object with data records, where
 	// Name (bn and n) constitute the resource BrokerURL of the corresponding Data Sources(s)
@@ -19,7 +19,7 @@ type RecordSet struct {
 	// Time is the time of query in milliseconds
 	Time float64 `json:"time"`
 	//Next link for the same query, in case there more entries to follow for the same query
-	NextLink string `json:"url"`
+	NextLink string `json:"nextlink"`
 	// Total is the total records in Data pagination
 	Total int `json:"total"`
 }

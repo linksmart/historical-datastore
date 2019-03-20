@@ -64,7 +64,7 @@ func (c *RemoteClient) Submit(data []byte, contentType string, id ...string) err
 	return nil
 }
 
-func (c *RemoteClient) Query(q Query, page, perPage int, id ...string) (*RecordSet, error) {
+func GetUrlFromQuery(q Query, page, perPage int, id ...string) (url string) {
 	var query string
 	if q.Sort != "" {
 		query += fmt.Sprintf("&%v=%v", common.ParamSort, q.Sort)
@@ -79,13 +79,19 @@ func (c *RemoteClient) Query(q Query, page, perPage int, id ...string) (*RecordS
 		query += fmt.Sprintf("&%v=%v", common.ParamEnd, q.End.Format("2006-01-02T15:04:05Z"))
 	}
 
+	return fmt.Sprintf("/data/%v?%v=%v&%v=%v%v",
+		strings.Join(id, common.IDSeparator),
+		common.ParamPage, page,
+		common.ParamPerPage, perPage,
+		query,
+	)
+}
+func (c *RemoteClient) Query(q Query, page, perPage int, id ...string) (*RecordSet, error) {
+
 	res, err := utils.HTTPRequest("GET",
-		fmt.Sprintf("%v/%v?%v=%v&%v=%v%v",
+		fmt.Sprintf("%v/%v",
 			c.serverEndpoint,
-			strings.Join(id, common.IDSeparator),
-			common.ParamPage, page,
-			common.ParamPerPage, perPage,
-			query,
+			GetUrlFromQuery(q, page, perPage, id...),
 		),
 		nil,
 		nil,
