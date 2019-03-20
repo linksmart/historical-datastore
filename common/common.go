@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// IDSeparator is used for separation of IDs in the URL
+	// IDSeparator is used for separation of IDs in the BrokerURL
 	IDSeparator = ","
 
 	// Location of APIs

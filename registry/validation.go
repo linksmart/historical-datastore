@@ -128,7 +128,7 @@ func validateUpdate(ds DataStream, oldDS DataStream, conf common.RegConf) error 
 	/*
 
 		// url
-		if ds.URL != oldDS.URL {
+		if ds.BrokerURL != oldDS.BrokerURL {
 			e.readOnly = append(e.readOnly, "url")
 		}
 

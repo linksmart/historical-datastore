@@ -92,7 +92,7 @@ type ValidatorConf struct {
 	Enabled bool `json:"enabled"`
 	// Authentication provider name
 	Provider string `json:"provider"`
-	// Authentication provider URL
+	// Authentication provider BrokerURL
 	ProviderURL string `json:"providerURL"`
 	// Service ID
 	ServiceID string `json:"serviceID"`
@@ -111,11 +111,11 @@ func (c ValidatorConf) Validate() error {
 
 	// Validate ProviderURL
 	if c.ProviderURL == "" {
-		return errors.New("Ticket Validator: Auth provider URL (providerURL) is not specified.")
+		return errors.New("Ticket Validator: Auth provider BrokerURL (providerURL) is not specified.")
 	}
 	_, err := url.Parse(c.ProviderURL)
 	if err != nil {
-		return errors.New("Ticket Validator: Auth provider URL (providerURL) is invalid: " + err.Error())
+		return errors.New("Ticket Validator: Auth provider BrokerURL (providerURL) is invalid: " + err.Error())
 	}
 
 	// Validate ServiceID
@@ -137,7 +137,7 @@ func (c ValidatorConf) Validate() error {
 type ObtainerConf struct {
 	// Authentication provider name
 	Provider string `json:"provider"`
-	// Authentication provider URL
+	// Authentication provider BrokerURL
 	ProviderURL string `json:"providerURL"`
 	// Service ID
 	ServiceID string `json:"serviceID"`
@@ -155,11 +155,11 @@ func (c ObtainerConf) Validate() error {
 
 	// Validate ProviderURL
 	if c.ProviderURL == "" {
-		return errors.New("Ticket Obtainer: Auth provider URL (ProviderURL) is not specified.")
+		return errors.New("Ticket Obtainer: Auth provider BrokerURL (ProviderURL) is not specified.")
 	}
 	_, err := url.Parse(c.ProviderURL)
 	if err != nil {
-		return errors.New("Ticket Obtainer: Auth provider URL (ProviderURL) is invalid: " + err.Error())
+		return errors.New("Ticket Obtainer: Auth provider BrokerURL (ProviderURL) is invalid: " + err.Error())
 	}
 
 	// Validate Username

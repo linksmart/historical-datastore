@@ -16,7 +16,7 @@ import (
 // In-memory storage
 type MemoryStorage struct {
 	conf         common.RegConf
-	data         map[string]DataStream
+	data         map[string]*DataStream
 	mutex        sync.RWMutex
 	event        eventHandler
 	lastModified time.Time
@@ -26,7 +26,7 @@ type MemoryStorage struct {
 func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 	ms := &MemoryStorage{
 		conf:         conf,
-		data:         make(map[string]DataStream),
+		data:         make(map[string]*DataStream),
 		lastModified: time.Now(),
 		resources:    make(map[string]string),
 		event:        listeners,
@@ -35,24 +35,24 @@ func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 	return ms
 }
 
-func (ms *MemoryStorage) Add(ds DataStream) (DataStream, error) {
+func (ms *MemoryStorage) Add(ds DataStream) (*DataStream, error) {
 	err := validateCreation(ds, ms.conf)
 
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
 	// Send a create event
-	err = ms.event.created(ds)
+	err = ms.event.created(&ds)
 	if err != nil {
-		return DataStream{}, err
+		return nil, err
 	}
 
 	if _, exists := ms.resources[ds.Name]; exists {
-		return DataStream{}, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Name)
+		return nil, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Name)
 	}
 
 	// Add the new DataSource to the map
-	ms.data[ds.Name] = ds
+	ms.data[ds.Name] = &ds
 	// Add secondary index
 	ms.resources[ds.Name] = ds.Name
 
@@ -60,23 +60,23 @@ func (ms *MemoryStorage) Add(ds DataStream) (DataStream, error) {
 	return ms.data[ds.Name], nil
 }
 
-func (ms *MemoryStorage) Update(id string, ds DataStream) (DataStream, error) {
+func (ms *MemoryStorage) Update(id string, ds DataStream) (*DataStream, error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
 	_, ok := ms.data[id]
 	if !ok {
-		return DataStream{}, fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
+		return nil, fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
 	}
 
 	oldDS := ms.data[id] // for comparison
 
-	err := validateUpdate(ds, oldDS, ms.conf)
+	err := validateUpdate(ds, *oldDS, ms.conf)
 	if err != nil {
-		return DataStream{}, fmt.Errorf("%s: %s", ErrConflict, err)
+		return nil, fmt.Errorf("%s: %s", ErrConflict, err)
 	}
 
-	tempDS := oldDS
+	tempDS := *oldDS
 
 	// Modify writable elements
 	tempDS.Source = ds.Source
@@ -85,13 +85,13 @@ func (ms *MemoryStorage) Update(id string, ds DataStream) (DataStream, error) {
 	tempDS.Type = ds.Type
 
 	// Send an update event
-	err = ms.event.updated(oldDS, tempDS)
+	err = ms.event.updated(oldDS, &tempDS)
 	if err != nil {
-		return DataStream{}, err
+		return nil, err
 	}
 
 	// Store the modified DS
-	ms.data[id] = tempDS
+	ms.data[id] = &tempDS
 
 	ms.lastModified = time.Now()
 	return ms.data[id], nil
@@ -119,13 +119,13 @@ func (ms *MemoryStorage) Delete(name string) error {
 	return nil
 }
 
-func (ms *MemoryStorage) Get(id string) (DataStream, error) {
+func (ms *MemoryStorage) Get(id string) (*DataStream, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
 	ds, ok := ms.data[id]
 	if !ok {
-		return ds, fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
+		return nil, fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
 	}
 
 	return ds, nil
@@ -158,7 +158,7 @@ func (ms *MemoryStorage) GetMany(page, perPage int) ([]DataStream, int, error) {
 
 	datasources := make([]DataStream, 0, len(pagedKeys))
 	for _, k := range pagedKeys {
-		datasources = append(datasources, ms.data[k])
+		datasources = append(datasources, *ms.data[k])
 	}
 
 	return datasources, total, nil
@@ -187,7 +187,7 @@ func (ms *MemoryStorage) FilterOne(path, op, value string) (*DataStream, error) 
 			return nil, err
 		}
 		if matched {
-			return &ds, nil
+			return ds, nil
 		}
 	}
 
@@ -223,7 +223,7 @@ func (ms *MemoryStorage) Filter(path, op, value string, page, perPage int) ([]Da
 	dss := make([]DataStream, 0, len(keys))
 	//var dss []DataSource
 	for _, k := range keys {
-		dss = append(dss, ms.data[k])
+		dss = append(dss, *ms.data[k])
 	}
 
 	return dss, len(matchedIDs), nil

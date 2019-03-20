@@ -73,50 +73,50 @@ func (s *LevelDBStorage) close() error {
 	return s.db.Close()
 }
 
-func (s *LevelDBStorage) Add(ds DataStream) (DataStream, error) {
+func (s *LevelDBStorage) Add(ds DataStream) (*DataStream, error) {
 	err := validateCreation(ds, s.conf)
 	if err != nil {
-		return DataStream{}, fmt.Errorf("%s: %s", ErrConflict, err)
+		return nil, fmt.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	// Convert to json bytes
 	dsBytes, err := ds.MarshalSensitiveJSON()
 	if err != nil {
-		return DataStream{}, err
+		return nil, err
 	}
 
 	if has, _ := s.db.Has([]byte(ds.Name), nil); has {
-		return DataStream{}, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Name)
+		return nil, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Name)
 	}
 
 	// Add the new DataSource to database
 	err = s.db.Put([]byte(ds.Name), dsBytes, nil)
 	if err != nil {
-		return DataStream{}, err
+		return nil, err
 	}
 
 	// Send a create event
-	err = s.event.created(ds)
+	err = s.event.created(&ds)
 	if err != nil {
-		return DataStream{}, err
+		return nil, err
 	}
 
 	s.lastModified = time.Now()
-	return ds, nil
+	return &ds, nil
 }
 
-func (s *LevelDBStorage) Update(name string, ds DataStream) (DataStream, error) {
+func (s *LevelDBStorage) Update(name string, ds DataStream) (*DataStream, error) {
 
 	oldDS, err := s.Get(name) // for comparison
 	if err == leveldb.ErrNotFound {
-		return DataStream{}, fmt.Errorf("%s: %s", ErrNotFound, err)
+		return nil, fmt.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
-		return DataStream{}, err
+		return nil, err
 	}
 
-	err = validateUpdate(ds, oldDS, s.conf)
+	err = validateUpdate(ds, *oldDS, s.conf)
 	if err != nil {
-		return DataStream{}, fmt.Errorf("%s: %s", ErrConflict, err)
+		return nil, fmt.Errorf("%s: %s", ErrConflict, err)
 	}
 
 	tempDS := oldDS
@@ -128,19 +128,19 @@ func (s *LevelDBStorage) Update(name string, ds DataStream) (DataStream, error) 
 	// Send an update event
 	err = s.event.updated(oldDS, tempDS)
 	if err != nil {
-		return DataStream{}, err
+		return nil, err
 	}
 
 	// Convert to json bytes
 	dsBytes, err := tempDS.MarshalSensitiveJSON()
 	if err != nil {
-		return DataStream{}, err
+		return nil, err
 	}
 
 	// Store the modified DS
 	err = s.db.Put([]byte(tempDS.Name), dsBytes, nil)
 	if err != nil {
-		return DataStream{}, err
+		return nil, err
 	}
 
 	s.lastModified = time.Now()
@@ -171,22 +171,22 @@ func (s *LevelDBStorage) Delete(name string) error {
 	return nil
 }
 
-func (s *LevelDBStorage) Get(id string) (DataStream, error) {
+func (s *LevelDBStorage) Get(id string) (*DataStream, error) {
 	// Query from database
 	dsBytes, err := s.db.Get([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
-		return DataStream{}, fmt.Errorf("%s: %s", ErrNotFound, err)
+		return nil, fmt.Errorf("%s: %s", ErrNotFound, err)
 	} else if err != nil {
-		return DataStream{}, err
+		return nil, err
 	}
 
 	var ds DataStream
 	err = json.Unmarshal(dsBytes, &ds)
 	if err != nil {
-		return ds, err
+		return nil, err
 	}
 
-	return ds, nil
+	return &ds, nil
 }
 
 func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataStream, int, error) {
@@ -367,7 +367,7 @@ func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]Da
 		if err != nil {
 			return nil, len(matchedIDs), err
 		}
-		datasources[i] = ds
+		datasources[i] = *ds
 	}
 
 	return datasources, len(matchedIDs), nil

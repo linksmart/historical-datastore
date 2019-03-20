@@ -16,15 +16,15 @@ const (
 
 // A Datastream describes a stored stream of data
 type DataStream struct {
-	// URL is the URL of the DataStreamList API
+	// Name is the BrokerURL of the DataStreamList API
 	Name string `json:"name"`
-	// Entries is an array of Data Sources
+	//Source is an Data Sources
 	Source Source `json:"source"`
-	// function to be performed on the data sources
+	//Function to be performed on the data sources
 	Function string `json:"function,omitempty"`
 	//Type of the data (eg: string, float, bool, data)
 	Type string `json:"datatype"`
-	// Retain
+	// Retention
 	Retention struct {
 		//minimum requirement for the retention
 		Min string `json:"min"`
@@ -45,8 +45,7 @@ type Source struct {
 }
 
 type MQTTSource struct {
-	Source
-	//complete URL including protocols
+	//complete BrokerURL including protocols
 	BrokerURL string `json:"url"`
 	//Topic to subscribe for the datasource
 	Topic string `json:"topic"`
@@ -74,35 +73,31 @@ func (ds DataStream) copy() DataStream {
 }
 
 // MarshalJSON masks sensitive information when using the default marshaller
-func (dataStream DataStream) MarshalJSON() ([]byte, error) {
-	//TODO test this for : 1. Original DS doesnt change, 2. the json has everything
-	newDataSteam := dataStream
-	if newDataSteam.keepSensitiveInfo == true {
-		source := newDataSteam.Source
-		if source.SrcType == MqttType {
-			mqttSource := &source
+func (ds DataStream) MarshalJSON() ([]byte, error) {
+	if !ds.keepSensitiveInfo {
+		if ds.Source.SrcType == MqttType {
 			// mask MQTT credentials and key paths
-			if mqttSource.Username != "" {
-				mqttSource.Username = "*****"
+			if ds.Source.Username != "" {
+				ds.Source.Username = "*****"
 			}
-			if mqttSource.Password != "" {
-				mqttSource.Password = "*****"
+			if ds.Source.Password != "" {
+				ds.Source.Password = "*****"
 			}
-			if mqttSource.CaFile != "" {
-				mqttSource.CaFile = "*****"
+			if ds.Source.CaFile != "" {
+				ds.Source.CaFile = "*****"
 			}
-			if mqttSource.CertFile != "" {
-				mqttSource.CertFile = "*****"
+			if ds.Source.CertFile != "" {
+				ds.Source.CertFile = "*****"
 			}
-			if mqttSource.KeyFile != "" {
-				mqttSource.KeyFile = "*****"
+			if ds.Source.KeyFile != "" {
+				ds.Source.KeyFile = "*****"
 			}
 
 		}
 
 	}
 	type Alias DataStream
-	return json.Marshal((*Alias)(&newDataSteam))
+	return json.Marshal((*Alias)(&ds))
 }
 
 // MarshalSensitiveJSON serializes the datasource including the sensitive information

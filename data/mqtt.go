@@ -111,22 +111,22 @@ func (c *MQTTConnector) retryRegistrations() {
 
 func (c *MQTTConnector) register(source registry.MQTTSource) error {
 
-	if _, exists := c.managers[source.URL]; !exists { // NO CLIENT FOR THIS BROKER
+	if _, exists := c.managers[source.BrokerURL]; !exists { // NO CLIENT FOR THIS BROKER
 		manager := &Manager{
-			url:           source.URL,
+			url:           source.BrokerURL,
 			subscriptions: make(map[string]*Subscription),
 		}
 
 		manager.subscriptions[source.Topic] = &Subscription{
 			connector: c,
-			url:       source.URL,
+			url:       source.BrokerURL,
 			topic:     source.Topic,
 			qos:       source.QoS,
 			receivers: 1,
 		}
 
 		opts := paho.NewClientOptions() // uses defaults: https://godoc.org/github.com/eclipse/paho.mqtt.golang#NewClientOptions
-		opts.AddBroker(source.URL)
+		opts.AddBroker(source.BrokerURL)
 		opts.SetClientID(fmt.Sprintf("HDS-%v", uuid.NewRandom())) // TODO: make this configurable
 		opts.SetOnConnectHandler(manager.onConnectHandler)
 		opts.SetConnectionLostHandler(manager.onConnectionLostHandler)
@@ -139,18 +139,18 @@ func (c *MQTTConnector) register(source registry.MQTTSource) error {
 		manager.client = paho.NewClient(opts)
 
 		if token := manager.client.Connect(); token.Wait() && token.Error() != nil {
-			return fmt.Errorf("MQTT: Error connecting to broker %v: %v", source.URL, token.Error())
+			return fmt.Errorf("MQTT: Error connecting to broker %v: %v", source.BrokerURL, token.Error())
 		}
-		c.managers[source.URL] = manager
+		c.managers[source.BrokerURL] = manager
 
 	} else { // THERE IS A CLIENT FOR THIS BROKER
-		manager := c.managers[source.URL]
+		manager := c.managers[source.BrokerURL]
 
 		// TODO: check if another wildcard subscription matches the topic.
 		if _, exists := manager.subscriptions[source.Topic]; !exists { // NO SUBSCRIPTION FOR THIS TOPIC
 			subscription := &Subscription{
 				connector: c,
-				url:       source.URL,
+				url:       source.BrokerURL,
 				topic:     source.Topic,
 				qos:       source.QoS,
 				receivers: 1,
@@ -160,10 +160,10 @@ func (c *MQTTConnector) register(source registry.MQTTSource) error {
 				return fmt.Errorf("MQTT: Error subscribing: %v", token.Error())
 			}
 			manager.subscriptions[source.Topic] = subscription
-			log.Printf("MQTT: %s: Subscribed to %s", source.URL, source.Topic)
+			log.Printf("MQTT: %s: Subscribed to %s", source.BrokerURL, source.Topic)
 
 		} else { // There is a subscription for this topic
-			//log.Printf("MQTT: %s: Already subscribed to %s", mqttConf.URL, mqttConf.Topic)
+			//log.Printf("MQTT: %s: Already subscribed to %s", mqttConf.BrokerURL, mqttConf.Topic)
 			manager.subscriptions[source.Topic].receivers++
 		}
 	}
@@ -172,7 +172,7 @@ func (c *MQTTConnector) register(source registry.MQTTSource) error {
 }
 
 func (c *MQTTConnector) unregister(mqttSource *registry.MQTTSource) error {
-	manager := c.managers[mqttSource.URL]
+	manager := c.managers[mqttSource.BrokerURL]
 	// There may be no subscriptions due to a failed registration when HDS is restarted
 	if manager == nil {
 		return nil
@@ -185,13 +185,13 @@ func (c *MQTTConnector) unregister(mqttSource *registry.MQTTSource) error {
 			return fmt.Errorf("MQTT: Error unsubscribing: %v", token.Error())
 		}
 		delete(manager.subscriptions, mqttSource.Topic)
-		log.Printf("MQTT: %s: Unsubscribed from %s", mqttSource.URL, mqttSource.Topic)
+		log.Printf("MQTT: %s: Unsubscribed from %s", mqttSource.BrokerURL, mqttSource.Topic)
 	}
 	if len(manager.subscriptions) == 0 {
 		// Disconnect
 		manager.client.Disconnect(250)
-		delete(c.managers, mqttSource.URL)
-		log.Printf("MQTT: %s: Disconnected!", mqttSource.URL)
+		delete(c.managers, mqttSource.BrokerURL)
+		log.Printf("MQTT: %s: Disconnected!", mqttSource.BrokerURL)
 	}
 
 	return nil
@@ -236,15 +236,16 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		// Find the data source for this entry
 		ds, exists := s.connector.cache[r.Name]
 		if !exists {
-			*ds, err = s.connector.registry.Get(r.Name)
+			ds, err = s.connector.registry.Get(r.Name)
 			if err != nil {
+				if registry.ErrType(err, registry.ErrNotFound) {
+					logMQTTError(http.StatusNotFound, "Warning: Resource not found: %v", r.Name)
+					continue
+				}
 				logMQTTError(http.StatusInternalServerError, "Error finding resource: %v", r.Name)
 				continue
 			}
-			if ds == nil {
-				logMQTTError(http.StatusNotFound, "Resource not found: %v", r.Name)
-				continue
-			}
+
 			s.connector.cache[r.Name] = ds
 		}
 
@@ -253,7 +254,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 			logMQTTError(http.StatusNotAcceptable, "Ignoring unwanted message for resource: %v", r.Name)
 			continue
 		}
-		if ds.Source.MQTTSource.URL != s.url {
+		if ds.Source.MQTTSource.BrokerURL != s.url {
 			logMQTTError(http.StatusNotAcceptable, "Ignoring message from unwanted broker %v for data source: %v", s.url, r.Name)
 			continue
 		}

@@ -70,7 +70,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 				w)
 			return
 		}
-		dsResources[ds.Name] = &ds
+		dsResources[ds.Name] = ds
 	}
 
 	// Fill the data map with provided data points
@@ -188,7 +188,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 					common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error registering %v in the registry: %v", r.Name, err.Error()), w)
 					return
 				}
-				ds = &addedDS
+				ds = addedDS
 			}
 			nameDSs[r.Name] = ds
 		}
@@ -263,7 +263,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 				w)
 			return
 		}
-		sources = append(sources, &ds)
+		sources = append(sources, ds)
 	}
 	if len(sources) == 0 {
 		common.ErrorResponse(http.StatusNotFound,

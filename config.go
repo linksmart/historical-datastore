@@ -33,7 +33,7 @@ func loadConfig(confPath *string) (*common.Config, error) {
 	}
 	_, err = url.Parse(conf.HTTP.PublicEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("HTTP PublicEndpoint should be a valid URL")
+		return nil, fmt.Errorf("HTTP PublicEndpoint should be a valid BrokerURL")
 	}
 
 	// VALIDATE Web Config

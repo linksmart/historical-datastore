@@ -21,7 +21,7 @@ type RemoteClient struct {
 }
 
 func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) (*RemoteClient, error) {
-	// Check if serverEndpoint is a correct URL
+	// Check if serverEndpoint is a correct BrokerURL
 	endpointUrl, err := url.Parse(serverEndpoint)
 	if err != nil {
 		return nil, err

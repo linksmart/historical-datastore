@@ -2,7 +2,7 @@ package registry
 
 // DataStreamList describes a registry of registered Data Sources
 type DataStreamList struct {
-	// URL is the URL of the DataStreamList API
+	// BrokerURL is the BrokerURL of the DataStreamList API
 	URL string `json:"url"`
 	// Entries is an array of Data Sources
 	Streams []DataStream `json:"streams"`

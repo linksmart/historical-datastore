@@ -24,9 +24,9 @@ func SupportedBackends(name string) bool {
 // Storage is an interface of a DataStreamList storage backend
 type Storage interface {
 	// CRUD
-	Add(ds DataStream) (DataStream, error)
-	Update(name string, ds DataStream) (DataStream, error)
-	Get(name string) (DataStream, error)
+	Add(ds DataStream) (*DataStream, error)
+	Update(name string, ds DataStream) (*DataStream, error)
+	Get(name string) (*DataStream, error)
 	Delete(name string) error
 	// Utility functions
 	GetMany(page, perPage int) ([]DataStream, int, error)

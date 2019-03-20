@@ -10,9 +10,9 @@ type EventListener interface {
 // eventHandler implements sequential fav-out/fan-in of events from registry
 type eventHandler []EventListener
 
-func (h eventHandler) created(new DataStream) error {
+func (h eventHandler) created(new *DataStream) error {
 	for i := range h {
-		err := h[i].CreateHandler(new)
+		err := h[i].CreateHandler(*new)
 		if err != nil {
 			return err
 		}
@@ -20,9 +20,9 @@ func (h eventHandler) created(new DataStream) error {
 	return nil
 }
 
-func (h eventHandler) updated(old DataStream, new DataStream) error {
+func (h eventHandler) updated(old *DataStream, new *DataStream) error {
 	for i := range h {
-		err := h[i].UpdateHandler(old, new)
+		err := h[i].UpdateHandler(*old, *new)
 		if err != nil {
 			return err
 		}
@@ -30,9 +30,9 @@ func (h eventHandler) updated(old DataStream, new DataStream) error {
 	return nil
 }
 
-func (h eventHandler) deleted(old DataStream) error {
+func (h eventHandler) deleted(old *DataStream) error {
 	for i := range h {
-		err := h[i].DeleteHandler(old)
+		err := h[i].DeleteHandler(*old)
 		if err != nil {
 			return err
 		}
