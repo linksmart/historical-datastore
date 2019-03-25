@@ -13,13 +13,12 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/pborman/uuid"
-
 	_ "code.linksmart.eu/com/go-sec/auth/keycloak/validator"
 	"code.linksmart.eu/com/go-sec/auth/validator"
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/data"
 	"code.linksmart.eu/hds/historical-datastore/registry"
+	uuid "github.com/satori/go.uuid"
 )
 
 const LINKSMART = `
@@ -59,7 +58,7 @@ func main() {
 		log.Fatalf("Config File: %s\n", err)
 	}
 	if conf.ServiceID == "" {
-		conf.ServiceID = uuid.New()
+		conf.ServiceID = uuid.NewV4().String()
 		log.Printf("Service ID not set. Generated new UUID: %s", conf.ServiceID)
 	}
 
@@ -69,15 +68,6 @@ func main() {
 		//aggrStorage aggregation.Storage
 	)
 	switch conf.Data.Backend.Type {
-	case data.INFLUXDB:
-		//dataStorage, err = data.NewInfluxStorage(conf.Data, conf.Reg.RetentionPeriods)
-		//if err != nil {
-		//	log.Fatalf("Error creating influx storage: %v", err)
-		//}
-		//aggrStorage, err = aggregation.NewInfluxAggr(dataStorage.(*data.InfluxStorage))
-		//if err != nil {
-		//log.Fatalf("Error creating influx aggr: %v", err)
-		//}
 	case data.SENMLSTORE:
 		var disconnect_func func() error
 		dataStorage, disconnect_func, err = data.NewSenmlStorage(conf.Data)
@@ -90,7 +80,7 @@ func main() {
 		log.Println("Auto Registration is enabled: Data HTTP API will automatically create new data sources.")
 	}
 	// MQTT connector
-	mqttConn, err := data.NewMQTTConnector(dataStorage)
+	mqttConn, err := data.NewMQTTConnector(dataStorage, conf.ServiceID)
 	if err != nil {
 		log.Fatalf("Error creating MQTT Connector: %v", err)
 	}

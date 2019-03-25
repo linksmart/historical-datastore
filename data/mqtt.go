@@ -15,7 +15,6 @@ import (
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
 	paho "github.com/eclipse/paho.mqtt.golang"
-	"github.com/pborman/uuid"
 )
 
 const (
@@ -26,6 +25,7 @@ type MQTTConnector struct {
 	sync.Mutex
 	registry registry.Storage
 	storage  Storage
+	clientID string
 	managers map[string]*Manager
 	// cache of resource->ds
 	cache map[string]*registry.DataStream
@@ -49,9 +49,10 @@ type Subscription struct {
 	receivers int
 }
 
-func NewMQTTConnector(storage Storage) (*MQTTConnector, error) {
+func NewMQTTConnector(storage Storage, clientID string) (*MQTTConnector, error) {
 	c := &MQTTConnector{
 		storage:             storage,
+		clientID:            clientID,
 		managers:            make(map[string]*Manager),
 		cache:               make(map[string]*registry.DataStream),
 		failedRegistrations: make(map[string]*registry.MQTTSource),
@@ -59,8 +60,8 @@ func NewMQTTConnector(storage Storage) (*MQTTConnector, error) {
 	return c, nil
 }
 
-func (c *MQTTConnector) Start(storage registry.Storage) error {
-	c.registry = storage
+func (c *MQTTConnector) Start(reg registry.Storage) error {
+	c.registry = reg
 
 	perPage := 100
 	for page := 1; ; page++ {
@@ -127,7 +128,7 @@ func (c *MQTTConnector) register(source registry.MQTTSource) error {
 
 		opts := paho.NewClientOptions() // uses defaults: https://godoc.org/github.com/eclipse/paho.mqtt.golang#NewClientOptions
 		opts.AddBroker(source.BrokerURL)
-		opts.SetClientID(fmt.Sprintf("HDS-%v", uuid.NewRandom())) // TODO: make this configurable
+		opts.SetClientID(fmt.Sprintf("HDS-%s", c.clientID))
 		opts.SetOnConnectHandler(manager.onConnectHandler)
 		opts.SetConnectionLostHandler(manager.onConnectionLostHandler)
 		if source.Username != "" {
