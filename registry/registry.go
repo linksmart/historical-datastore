@@ -8,7 +8,7 @@ type DataStreamList struct {
 	Streams []DataStream `json:"streams"`
 	// Page is the current page in Entries pagination
 	Page int `json:"page"`
-	// PerPage is the results per page in Entries pagination
+	// MaxEntries is the results per page in Entries pagination
 	PerPage int `json:"per_page"`
 	// Total is the total #of pages in Entries pagination
 	Total int `json:"total"`

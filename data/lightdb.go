@@ -47,13 +47,18 @@ func (s *LightdbStorage) Query(q Query, sources ...*registry.DataStream) (senml.
 		2. - overhead on server to combine the results and deduce the nextlink
 
 	*/
+	//TODO: Is this a right place to decide the maxentries? Should be at API level
+	maxEntries := q.perPage
+	if q.perPage > q.Limit {
+		maxEntries = q.Limit
+	}
 
 	senmlQuery := datastore.Query{
-		Start:  datastore.ToSenmlTime(q.Start),
-		End:    datastore.ToSenmlTime(q.End),
-		Limit:  q.Limit,
-		Series: sources[0].Name,
-		Sort:   q.Sort,
+		Start:      datastore.ToSenmlTime(q.Start),
+		End:        datastore.ToSenmlTime(q.End),
+		MaxEntries: maxEntries,
+		Series:     sources[0].Name,
+		Sort:       q.Sort,
 	}
 	retPack, nextlink, err := s.storage.Query(senmlQuery)
 	if err != nil {

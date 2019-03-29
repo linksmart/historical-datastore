@@ -11,8 +11,8 @@ import (
 
 // RecordSet describes the recordset returned on querying the Data API
 type RecordSet struct {
-	// URL is the URL of the returned recordset in the Data API
-	URL string `json:"url"`
+	// SelfLink is the SelfLink of the returned recordset in the Data API
+	SelfLink string `json:"selflink"`
 	// Data is a SenML object with data records, where
 	// Name (bn and n) constitute the resource BrokerURL of the corresponding Data Sources(s)
 	Data senml.Pack `json:"data"`
@@ -25,8 +25,9 @@ type RecordSet struct {
 }
 
 type Query struct {
-	Start time.Time
-	End   time.Time
-	Sort  string
-	Limit int
+	Start   time.Time
+	End     time.Time
+	Sort    string
+	Limit   int
+	perPage int
 }

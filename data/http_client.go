@@ -10,10 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"code.linksmart.eu/com/go-sec/auth/obtainer"
-	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
 	"code.linksmart.eu/sc/service-catalog/utils"
 )
@@ -65,12 +63,12 @@ func (c *RemoteClient) Submit(data []byte, contentType string, id ...string) err
 	return nil
 }
 
-func (c *RemoteClient) Query(q Query, page, perPage int, id ...string) (*RecordSet, error) {
+func (c *RemoteClient) Query(q Query, id ...string) (*RecordSet, error) {
 
 	res, err := utils.HTTPRequest("GET",
 		fmt.Sprintf("%v/%v",
 			c.serverEndpoint,
-			GetUrlFromQuery(q, perPage, id...),
+			GetUrlFromQuery(q, id...),
 		),
 		nil,
 		nil,

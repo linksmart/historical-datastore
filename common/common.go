@@ -16,7 +16,7 @@ const (
 	DataAPILoc     = "/data"
 	// Query parameters
 	ParamPage    = "page"
-	ParamPerPage = "per_page"
+	ParamPerPage = "perPage"
 	ParamLimit   = "limit"
 	ParamStart   = "start"
 	ParamEnd     = "end"

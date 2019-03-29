@@ -142,6 +142,8 @@ func TestHttpQuery(t *testing.T) {
 	//t.Error("TODO: check response body")
 }
 
+//TODO TEST limits
+
 // DUMMY DATA STORAGE
 
 type dummyDataStorage struct{}

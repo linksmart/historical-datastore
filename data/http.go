@@ -235,7 +235,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func GetUrlFromQuery(q Query, perPage int, id ...string) (url string) {
+func GetUrlFromQuery(q Query, id ...string) (url string) {
 	var sort, limit, start, end string
 	if q.Sort != "" {
 		sort = fmt.Sprintf("&%v=%v", common.ParamSort, q.Sort)
@@ -252,7 +252,7 @@ func GetUrlFromQuery(q Query, perPage int, id ...string) (url string) {
 
 	return fmt.Sprintf("/data/%v?%v=%v%s%s%s%s",
 		strings.Join(id, common.IDSeparator),
-		common.ParamPerPage, perPage,
+		common.ParamPerPage, q.perPage,
 		sort, limit, start, end,
 	)
 }
@@ -263,16 +263,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	timeStart := time.Now()
 	params := mux.Vars(r)
-	var (
-		perPage   int
-		recordSet RecordSet
-	)
-
-	_, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage), MaxPerPage)
-	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
-		return
-	}
+	var recordSet RecordSet
 
 	// Parse id(s) and get sources from registry
 	ids := strings.Split(params["id"], common.IDSeparator)
@@ -306,21 +297,23 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	curlink := GetUrlFromQuery(q, perPage, ids...)
+	curlink := GetUrlFromQuery(q, ids...)
 
 	nextlink := ""
-	if nextLinkts != nil {
+	newLimit := q.Limit - total
+	if nextLinkts != nil && newLimit > 0 {
 		nextQuery := q
+		nextQuery.Limit = newLimit
 		if q.Sort == common.DESC {
 			nextQuery.End = *nextLinkts
 		} else {
 			nextQuery.Start = *nextLinkts
 		}
-		nextlink = GetUrlFromQuery(nextQuery, perPage, ids...)
+		nextlink = GetUrlFromQuery(nextQuery, ids...)
 	}
 
 	recordSet = RecordSet{
-		URL:      curlink,
+		SelfLink: curlink,
 		Time:     time.Since(timeStart).Seconds(),
 		Data:     data,
 		NextLink: nextlink,
@@ -387,6 +380,15 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 		q.Sort = common.DESC
 	} else if q.Sort != common.ASC && q.Sort != common.DESC {
 		return Query{}, fmt.Errorf("Invalid sort argument: %v", q.Sort)
+	}
+
+	if form.Get(common.ParamPerPage) == "" {
+		q.perPage = MaxPerPage
+	} else {
+		q.perPage, err = strconv.Atoi(form.Get(common.ParamPerPage))
+		if err != nil {
+			return Query{}, fmt.Errorf("Error parsing limit argument: %s", err)
+		}
 	}
 
 	return q, nil

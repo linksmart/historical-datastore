@@ -48,7 +48,7 @@ func NewAPI(storage Storage) *API {
 // Index is a handler for the registry index
 func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-
+	//TODO: add nextLink
 	lastModified, err := api.storage.getLastModifiedTime()
 	if err != nil {
 		log.Printf("Error retrieving last modified date: %s", err)
