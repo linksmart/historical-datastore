@@ -4,7 +4,6 @@ require (
 	code.linksmart.eu/com/go-sec v1.0.0
 	code.linksmart.eu/sc/service-catalog v2.3.4+incompatible
 	github.com/ancientlore/go-avltree v1.0.1 // indirect
-	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/codegangsta/negroni v0.2.0
 	github.com/dgrijalva/jwt-go v3.1.0+incompatible // indirect
 	github.com/dschowta/lite.tsdb v0.0.0-20190315103504-66f54648e8e2 // indirect
@@ -20,8 +19,8 @@ require (
 	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/rs/cors v1.6.0
 	github.com/satori/go.uuid v1.1.0
-	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/ugorji/go v1.1.1 // indirect
 	golang.org/x/sys v0.0.0-20190322080309-f49334f85ddc // indirect
 )
+
+replace github.com/dschowta/senml.datastore => ../senml.datastore
