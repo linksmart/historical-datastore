@@ -235,6 +235,28 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func GetUrlFromQuery(q Query, perPage int, id ...string) (url string) {
+	var sort, limit, start, end string
+	if q.Sort != "" {
+		sort = fmt.Sprintf("&%v=%v", common.ParamSort, q.Sort)
+	}
+	if q.Limit != 0 {
+		limit = fmt.Sprintf("&%v=%v", common.ParamLimit, q.Limit)
+	}
+	if !q.Start.IsZero() {
+		start = fmt.Sprintf("&%v=%v", common.ParamStart, q.Start.UTC().Format(time.RFC3339))
+	}
+	if !q.End.IsZero() {
+		end = fmt.Sprintf("&%v=%v", common.ParamEnd, q.End.UTC().Format(time.RFC3339))
+	}
+
+	return fmt.Sprintf("/data/%v?%v=%v%s%s%s%s",
+		strings.Join(id, common.IDSeparator),
+		common.ParamPerPage, perPage,
+		sort, limit, start, end,
+	)
+}
+
 // Query is a handler for querying data
 // Expected parameters: id(s), optional: pagination, query string
 func (api *API) Query(w http.ResponseWriter, r *http.Request) {
@@ -242,11 +264,11 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	timeStart := time.Now()
 	params := mux.Vars(r)
 	var (
-		page, perPage int
-		recordSet     RecordSet
+		perPage   int
+		recordSet RecordSet
 	)
 
-	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage), MaxPerPage)
+	_, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage), MaxPerPage)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
 		return
@@ -284,18 +306,8 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v := url.Values{}
-	v.Add(common.ParamStart, q.Start.Format(time.RFC3339))
-	// Omit end in open-ended queries
-	if q.End.After(q.Start) {
-		v.Add(common.ParamEnd, q.End.Format(time.RFC3339))
-	}
-	v.Add(common.ParamSort, q.Sort)
-	if q.Limit > 0 { // non-positive limit is ignored
-		v.Add(common.ParamLimit, fmt.Sprintf("%d", q.Limit))
-	}
-	v.Add(common.ParamPage, fmt.Sprintf("%d", page))
-	v.Add(common.ParamPerPage, fmt.Sprintf("%d", perPage))
+	curlink := GetUrlFromQuery(q, perPage, ids...)
+
 	nextlink := ""
 	if nextLinkts != nil {
 		nextQuery := q
@@ -304,13 +316,13 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		} else {
 			nextQuery.Start = *nextLinkts
 		}
-		nextlink = GetUrlFromQuery(nextQuery, page, perPage, ids...)
+		nextlink = GetUrlFromQuery(nextQuery, perPage, ids...)
 	}
+
 	recordSet = RecordSet{
-		URL:  fmt.Sprintf("%s?%s", r.URL.Path, v.Encode()),
-		Time: time.Since(timeStart).Seconds(),
-		Data: data,
-		//TODO: add next link
+		URL:      curlink,
+		Time:     time.Since(timeStart).Seconds(),
+		Data:     data,
 		NextLink: nextlink,
 		Total:    total,
 	}
