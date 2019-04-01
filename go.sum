@@ -13,6 +13,7 @@ github.com/dgrijalva/jwt-go v3.1.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZm
 github.com/dschowta/lite.tsdb v0.0.0-20190117083202-b0a5ea1c6099/go.mod h1:6hhRB80DerEgGD8qQsbx++DwOb0NpamXBk1zRykhVC4=
 github.com/dschowta/lite.tsdb v0.0.0-20190315103504-66f54648e8e2 h1:kLeyTGw9hzl3Hhn8sf+qDBQnm538e0SCjx/T9F3oAKY=
 github.com/dschowta/lite.tsdb v0.0.0-20190315103504-66f54648e8e2/go.mod h1:6hhRB80DerEgGD8qQsbx++DwOb0NpamXBk1zRykhVC4=
+github.com/dschowta/senml.datastore v0.0.0-20190315112405-1580e769cb84/go.mod h1:9Zi+ZFUzbCs8G01lq1PEe/sdqveqjqLB3B2wRrKxHy0=
 github.com/eclipse/paho.mqtt.golang v1.1.1 h1:iPJYXJLaViCshRTW/PSqImSS6HJ2Rf671WR0bXZ2GIU=
 github.com/eclipse/paho.mqtt.golang v1.1.1/go.mod h1:H9keYFcgq3Qr5OUJm/JZI/i6U7joQ8SYLhZwfeOo6Ts=
 github.com/farshidtz/elog v0.9.0 h1:pfNMCBpqAT/Uky6aNwqcTzZBHRfsYMp9vd1LmuBOQ6o=

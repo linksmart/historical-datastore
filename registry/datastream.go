@@ -24,6 +24,10 @@ type DataStream struct {
 	Function string `json:"function,omitempty"`
 	//Type of the data (eg: string, float, bool, data)
 	Type string `json:"datatype"`
+
+	// Meta is a hash-map with optional meta-information
+	Meta map[string]interface{} `json:"meta"`
+
 	// Retention
 	Retention struct {
 		//minimum requirement for the retention

@@ -25,7 +25,7 @@ type RecordSet struct {
 }
 
 type Query struct {
-	Start   time.Time
+	Start   time.Time //TODO: Change to from and to
 	End     time.Time
 	Sort    string
 	Limit   int

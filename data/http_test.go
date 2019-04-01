@@ -27,15 +27,15 @@ func setupHTTPAPI() (*mux.Router, []string) {
 	var testIDs []string
 	dss := []registry.DataStream{
 		{
-			Name: "example.com/sensor1",
+			Name: "http://example.com/sensor1",
 			Type: "float",
 		},
 		{
-			Name: "example.com/sensor2",
+			Name: "http://example.com/sensor2",
 			Type: "bool",
 		},
 		{
-			Name: "example.com/sensor3",
+			Name: "http://example.com/sensor3",
 			Type: "string",
 		},
 	}
@@ -51,8 +51,9 @@ func setupHTTPAPI() (*mux.Router, []string) {
 	api := NewAPI(regStorage, &dummyDataStorage{}, false)
 
 	r := mux.NewRouter().StrictSlash(true)
-	r.Methods("POST").Path("/data/{id}").HandlerFunc(api.Submit)
-	r.Methods("GET").Path("/data/{id}").HandlerFunc(api.Query)
+	r.Methods("POST").Path("/data/{id:.+}").HandlerFunc(api.Submit)
+	r.Methods("GET").Path("/data/{id:.+}").HandlerFunc(api.Query)
+	r.SkipClean(true)
 	return r, testIDs
 }
 
@@ -63,29 +64,31 @@ func TestHttpSubmit(t *testing.T) {
 
 	v1 := 42.0
 	r1 := senml.Record{
-		Name:  "sensor1",
+		Name:  "example.com/sensor1",
 		Unit:  "degC",
 		Value: &v1,
 	}
 	v2 := true
 	r2 := senml.Record{
-		Name:      "sensor2",
+		Name:      "example.com/sensor2",
 		Unit:      "flag",
 		BoolValue: &v2,
 	}
 	v3 := "test string"
 	r3 := senml.Record{
-		Name:        "sensor3",
+		Name:        "example.com/sensor3",
 		Unit:        "char",
 		StringValue: v3,
 	}
 
-	r1.BaseName = "http://example.com/"
+	r1.BaseName = "http://"
 	records := []senml.Record{r1, r2, r3}
 
 	b, _ := json.Marshal(records)
 
 	all := strings.Join(testIDs, ",")
+	//all = strings.Replace(all,":","",-1)
+	//all = strings.Replace(all, "/", "", -1)
 	// try html - should be not supported
 	res, err := http.Post(ts.URL+"/data/"+all, "application/text+html", bytes.NewReader(b))
 	if err != nil {

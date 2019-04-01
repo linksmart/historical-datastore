@@ -125,7 +125,7 @@ func TestHttpIndex(t *testing.T) {
 		// Check for each data source in this page
 		for i := 0; i < inThisPage; i++ {
 			dummyDS := dummyDSs[i]
-			returnedDS := reg.Entries[i]
+			returnedDS := reg.Streams[i]
 
 			// compare them
 			dummyDS_b, _ := json.Marshal(dummyDS)
@@ -135,7 +135,7 @@ func TestHttpIndex(t *testing.T) {
 			}
 		}
 
-		totalReturnedDS += len(reg.Entries)
+		totalReturnedDS += len(reg.Streams)
 	}
 
 	// Compare the total number of created and retrieved(in all pages of registry) data sources
@@ -180,12 +180,8 @@ func TestHttpCreate(t *testing.T) {
 	// try a good one
 	b := []byte(`
 		{
-			"resource": "any_url",
-			"meta": {},
-			"retention": "",
-			"aggregation": [],
-			"type": "string",
-			"format": "any_format"
+			"name": "any_url",
+			"datatype": "string"
 		}
 		`)
 	res, err = http.Post(ts.URL+common.RegistryAPILoc, MIMEType, bytes.NewReader(b))
@@ -210,12 +206,12 @@ func TestHttpCreate(t *testing.T) {
 	id := splitURL[2]
 
 	// Manually construct the expected POSTed data source
-	var postedDS DataSource
+	var postedDS DataStream
 	err = json.Unmarshal(b, &postedDS)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	postedDS.ID = id
+	postedDS.Name = Name
 	postedDS.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, postedDS.ID)
 	postedDS.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, postedDS.ID)
 
