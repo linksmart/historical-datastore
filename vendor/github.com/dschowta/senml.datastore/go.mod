@@ -10,5 +10,3 @@ require (
 	github.com/ugorji/go/codec v0.0.0-20190320090025-2dc34c0b8780 // indirect
 	golang.org/x/sys v0.0.0-20190204203706-41f3e6584952
 )
-
-replace github.com/dschowta/lite.tsdb => ../lite.tsdb

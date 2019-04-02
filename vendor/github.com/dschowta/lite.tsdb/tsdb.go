@@ -24,8 +24,8 @@ type TimeEntry struct {
 type Query struct {
 	Series string
 
-	Start int64
-	End   int64
+	From int64
+	To   int64
 	//Sorting order:
 	//Possible values are ASC and DESC
 	//ASC : The time Series will have the oldest data first
@@ -34,7 +34,7 @@ type Query struct {
 
 	//Number of entries to be returned per page. This is used for pagination.
 	// The next sequence is found out using NextEntry variable of a query response.
-	Limit int
+	MaxEntries int
 }
 
 type TimeSeries []TimeEntry

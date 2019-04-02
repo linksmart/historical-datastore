@@ -6,8 +6,8 @@ require (
 	github.com/ancientlore/go-avltree v1.0.1 // indirect
 	github.com/codegangsta/negroni v0.2.0
 	github.com/dgrijalva/jwt-go v3.1.0+incompatible // indirect
-	github.com/dschowta/lite.tsdb v0.0.0-20190315103504-66f54648e8e2 // indirect
-	github.com/dschowta/senml.datastore v0.0.0-20190315112405-1580e769cb84
+	github.com/dschowta/lite.tsdb v0.0.0-20190402134120-cd997efa39b6 // indirect
+	github.com/dschowta/senml.datastore v0.0.0-20190402134034-c6e697d815a4
 	github.com/eclipse/paho.mqtt.golang v1.1.1
 	github.com/farshidtz/elog v0.9.0 // indirect
 	github.com/farshidtz/mqtt-match v1.0.1 // indirect
