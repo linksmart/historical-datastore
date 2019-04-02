@@ -203,7 +203,7 @@ func TestHttpCreate(t *testing.T) {
 	if len(splitURL) != 3 {
 		t.Fatal("Invalid url in Location header-entry")
 	}
-	id := splitURL[2]
+	name := splitURL[2]
 
 	// Manually construct the expected POSTed data source
 	var postedDS DataStream
@@ -211,12 +211,11 @@ func TestHttpCreate(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	postedDS.Name = Name
-	postedDS.URL = fmt.Sprintf("%s/%s", common.RegistryAPILoc, postedDS.ID)
-	postedDS.Data = fmt.Sprintf("%s/%s", common.DataAPILoc, postedDS.ID)
+	postedDS.Name = name
+	postedDS.Name = fmt.Sprintf("%s/%s", common.DataAPILoc, postedDS.Name)
 
 	// Retrieve the added data source
-	addedDS, _ := registryClient.Get(id)
+	addedDS, _ := registryClient.Get(name)
 
 	// marshal the stored data source for comparison
 	postedDS_b, _ := json.Marshal(&postedDS)
@@ -269,16 +268,16 @@ func TestHttpUpdate(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
 	// Create a dummy data source
-	IDs, err := generateDummyData(1, registryClient)
+	names, err := generateDummyData(1, registryClient)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	ID := IDs[0]
+	name := names[0]
 
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
 
-	url := fmt.Sprintf("%s%s/%s", ts.URL, common.RegistryAPILoc, ID)
+	url := fmt.Sprintf("%s%s/%s", ts.URL, common.RegistryAPILoc, name)
 
 	// try bad payload
 	res, err := httpRequestClient("PUT", url, bytes.NewReader([]byte{0xde, 0xad}))
@@ -306,7 +305,7 @@ func TestHttpUpdate(t *testing.T) {
 	}
 
 	// Retrieve the stored ds
-	ds, err := registryClient.Get(ID)
+	ds, err := registryClient.Get(name)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
