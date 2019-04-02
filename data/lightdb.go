@@ -49,7 +49,7 @@ func (s *LightdbStorage) Query(q Query, sources ...*registry.DataStream) (senml.
 	*/
 	//TODO: Is this a right place to decide the maxentries? Should be at API level
 	maxEntries := q.perPage
-	if q.perPage > q.Limit {
+	if q.Limit > 0 && q.perPage > q.Limit { //if limit is provided by the user and it is less than perPage, then use the limit
 		maxEntries = q.Limit
 	}
 

@@ -12,14 +12,14 @@ import (
 // RecordSet describes the recordset returned on querying the Data API
 type RecordSet struct {
 	// SelfLink is the SelfLink of the returned recordset in the Data API
-	SelfLink string `json:"selflink"`
+	SelfLink string `json:"selfLink"`
 	// Data is a SenML object with data records, where
 	// Name (bn and n) constitute the resource BrokerURL of the corresponding Data Sources(s)
 	Data senml.Pack `json:"data"`
-	// Time is the time of query in milliseconds
-	Time float64 `json:"time"`
+	// Time is the time of query in seconds
+	TimeTaken float64 `json:"timeTaken"`
 	//Next link for the same query, in case there more entries to follow for the same query
-	NextLink string `json:"nextlink"`
+	NextLink string `json:"nextLink"`
 	// Total is the total records in Data pagination
 	Total int `json:"total"`
 }

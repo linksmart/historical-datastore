@@ -291,7 +291,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, total, nextLinkts, err := api.storage.Query(q, sources...)
+	data, total, nextLinkTS, err := api.storage.Query(q, sources...)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
 		return
@@ -300,24 +300,35 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	curlink := GetUrlFromQuery(q, ids...)
 
 	nextlink := ""
-	newLimit := q.Limit - total
-	if nextLinkts != nil && newLimit > 0 {
+
+	if nextLinkTS != nil {
 		nextQuery := q
-		nextQuery.Limit = newLimit
-		if q.Sort == common.DESC {
-			nextQuery.End = *nextLinkts
-		} else {
-			nextQuery.Start = *nextLinkts
+		lastPage := false
+		if q.Limit > 0 { //if Limit is given by user reduce the limit by total
+			newLimit := q.Limit - total
+			if newLimit > 0 {
+				nextQuery.Limit = newLimit
+			} else {
+				lastPage = true
+			}
 		}
-		nextlink = GetUrlFromQuery(nextQuery, ids...)
+
+		if !lastPage {
+			if q.Sort == common.DESC {
+				nextQuery.End = *nextLinkTS
+			} else {
+				nextQuery.Start = *nextLinkTS
+			}
+			nextlink = GetUrlFromQuery(nextQuery, ids...)
+		}
 	}
 
 	recordSet = RecordSet{
-		SelfLink: curlink,
-		Time:     time.Since(timeStart).Seconds(),
-		Data:     data,
-		NextLink: nextlink,
-		Total:    total,
+		SelfLink:  curlink,
+		TimeTaken: time.Since(timeStart).Seconds(),
+		Data:      data,
+		NextLink:  nextlink,
+		Total:     total,
 	}
 
 	b, err := json.Marshal(recordSet)
