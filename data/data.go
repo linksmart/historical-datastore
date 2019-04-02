@@ -17,7 +17,7 @@ type RecordSet struct {
 	// Name (bn and n) constitute the resource BrokerURL of the corresponding Data Sources(s)
 	Data senml.Pack `json:"data"`
 	// Time is the time of query in seconds
-	TimeTaken float64 `json:"timeTaken"`
+	TimeTook float64 `json:"took"`
 	//Next link for the same query, in case there more entries to follow for the same query
 	NextLink string `json:"nextLink"`
 }

@@ -324,10 +324,10 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	}
 
 	recordSet = RecordSet{
-		SelfLink:  curlink,
-		TimeTaken: time.Since(timeStart).Seconds(),
-		Data:      data,
-		NextLink:  nextlink,
+		SelfLink: curlink,
+		TimeTook: time.Since(timeStart).Seconds(),
+		Data:     data,
+		NextLink: nextlink,
 	}
 
 	b, err := json.Marshal(recordSet)
