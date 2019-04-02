@@ -1,13 +1,13 @@
-FROM golang:1.10-alpine as builder
+FROM golang:1.12-alpine as builder
 
-ENV PACKAGE code.linksmart.eu/hds/historical-datastore
+RUN apk add --no-cache build-base git
 
 # copy code
-COPY . /home/src/${PACKAGE}
+COPY . /home
 
 # build
-ENV GOPATH /home
-RUN go install ${PACKAGE}
+WORKDIR /home
+RUN go build -mod=vendor -o historical-datastore
 
 ###########
 FROM alpine
@@ -15,7 +15,7 @@ FROM alpine
 RUN apk --no-cache add ca-certificates
 
 WORKDIR /home
-COPY --from=builder /home/bin/* .
+COPY --from=builder /home/historical-datastore .
 COPY sample_conf/* /conf/
 
 VOLUME /conf /data

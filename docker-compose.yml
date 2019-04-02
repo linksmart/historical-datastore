@@ -1,22 +1,12 @@
-version: '2'
+version: '2.4'
+
 services:
-  influxdb:
-    image: influxdb:1.5.2-alpine
-    volumes:
-      - ./volumes/influxdb:/var/lib/influxdb
-    environment:
-       - INFLUXDB_DB=hds
-#    ports: ["8086:8086"]
-    restart: unless-stopped
   hds:
     image: docker.linksmart.eu/hds
 #    build:
 #      context: .
     ports:
-#      - "4000:4000"
       - "8085:8085"
-    depends_on:
-      - influxdb
     volumes:
       - ./volumes/hds/data:/data
       # - ./volumes/hds/conf:/conf
