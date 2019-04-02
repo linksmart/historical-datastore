@@ -20,13 +20,11 @@ type RecordSet struct {
 	TimeTaken float64 `json:"timeTaken"`
 	//Next link for the same query, in case there more entries to follow for the same query
 	NextLink string `json:"nextLink"`
-	// Total is the total records in Data pagination
-	Total int `json:"total"`
 }
 
 type Query struct {
-	Start   time.Time //TODO: Change to from and to
-	End     time.Time
+	From    time.Time
+	To      time.Time
 	Sort    string
 	Limit   int
 	perPage int

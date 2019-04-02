@@ -23,7 +23,10 @@ type router struct {
 }
 
 func newRouter() *router {
-	r := router{Router: mux.NewRouter().StrictSlash(false)}
+	r := router{Router: mux.NewRouter().
+		StrictSlash(false).
+		SkipClean(true), //Enable complex urls in senml name. like "/data/http://example.com/temperatureSensor"
+	}
 
 	// default handler(s)
 	r.handle(http.MethodGet, "/health", healthHandler)

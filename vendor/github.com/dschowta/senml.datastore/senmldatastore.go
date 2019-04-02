@@ -159,8 +159,8 @@ func (bdb SenmlDataStore) Query(query Query) (senml.Pack, *float64, error) {
 		Limit:  query.Limit,
 		Series: query.Series,
 		Sort:   query.Sort,
-		End:    floatTimeToInt64(query.End),
-		Start:  floatTimeToInt64(query.Start),
+		To:     floatTimeToInt64(query.End),
+		From:   floatTimeToInt64(query.Start),
 	}
 	timeSeriesCh, nextEntryCh, errCh := bdb.tsdb.QueryOnChannel(tsQuery)
 
@@ -191,8 +191,8 @@ func (bdb SenmlDataStore) GetPages(query Query) ([]float64, int, error) {
 		Limit:  query.Limit,
 		Series: query.Series,
 		Sort:   query.Sort,
-		End:    floatTimeToInt64(query.End),
-		Start:  floatTimeToInt64(query.Start),
+		To:     floatTimeToInt64(query.End),
+		From:   floatTimeToInt64(query.Start),
 	}
 	pages, count, err := bdb.tsdb.GetPages(tsQuery)
 

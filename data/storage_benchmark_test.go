@@ -171,7 +171,7 @@ func benchmarkQueryRandom(b *testing.B, storage Storage, timeStart float64, time
 	}
 	for i := 0; i < b.N; i++ {
 		start := between(timeStart, timeEnd)
-		_, _, _, err := storage.Query(Query{Start: time.Unix(0, int64(start*(1e9))), End: time.Unix(0, int64((start+2.0)*(1e9)))}, &registry.DataStream{Name: seriesName})
+		_, _, _, err := storage.Query(Query{From: time.Unix(0, int64(start*(1e9))), To: time.Unix(0, int64((start+2.0)*(1e9)))}, &registry.DataStream{Name: seriesName})
 		if err != nil {
 			b.Error("query failed", err)
 		}

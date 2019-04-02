@@ -18,8 +18,8 @@ const (
 	ParamPage    = "page"
 	ParamPerPage = "perPage"
 	ParamLimit   = "limit"
-	ParamStart   = "start"
-	ParamEnd     = "end"
+	ParamFrom    = "from"
+	ParamTo      = "to"
 	ParamSort    = "sort"
 	// Values for ParamSort
 	ASC  = "asc"  // ascending

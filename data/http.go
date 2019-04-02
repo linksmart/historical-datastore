@@ -243,11 +243,11 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 	if q.Limit != 0 {
 		limit = fmt.Sprintf("&%v=%v", common.ParamLimit, q.Limit)
 	}
-	if !q.Start.IsZero() {
-		start = fmt.Sprintf("&%v=%v", common.ParamStart, q.Start.UTC().Format(time.RFC3339))
+	if !q.From.IsZero() {
+		start = fmt.Sprintf("&%v=%v", common.ParamFrom, q.From.UTC().Format(time.RFC3339))
 	}
-	if !q.End.IsZero() {
-		end = fmt.Sprintf("&%v=%v", common.ParamEnd, q.End.UTC().Format(time.RFC3339))
+	if !q.To.IsZero() {
+		end = fmt.Sprintf("&%v=%v", common.ParamTo, q.To.UTC().Format(time.RFC3339))
 	}
 
 	return fmt.Sprintf("/data/%v?%v=%v%s%s%s%s",
@@ -315,9 +315,9 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 
 		if !lastPage {
 			if q.Sort == common.DESC {
-				nextQuery.End = *nextLinkTS
+				nextQuery.To = *nextLinkTS
 			} else {
-				nextQuery.Start = *nextLinkTS
+				nextQuery.From = *nextLinkTS
 			}
 			nextlink = GetUrlFromQuery(nextQuery, ids...)
 		}
@@ -328,7 +328,6 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		TimeTaken: time.Since(timeStart).Seconds(),
 		Data:      data,
 		NextLink:  nextlink,
-		Total:     total,
 	}
 
 	b, err := json.Marshal(recordSet)
@@ -349,28 +348,28 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	var err error
 
 	// start time
-	if form.Get(common.ParamStart) == "" {
+	if form.Get(common.ParamFrom) == "" {
 		// Start from zero time
-		q.Start = time.Time{}
+		q.From = time.Time{}
 	} else {
-		q.Start, err = time.Parse(time.RFC3339, form.Get(common.ParamStart))
+		q.From, err = time.Parse(time.RFC3339, form.Get(common.ParamFrom))
 		if err != nil {
 			return Query{}, fmt.Errorf("Error parsing start argument: %s", err)
 		}
 	}
 
 	// end time
-	if form.Get(common.ParamEnd) == "" {
+	if form.Get(common.ParamTo) == "" {
 		// Open-ended query
-		q.End = time.Now().UTC()
+		q.To = time.Now().UTC()
 	} else {
-		q.End, err = time.Parse(time.RFC3339, form.Get(common.ParamEnd))
+		q.To, err = time.Parse(time.RFC3339, form.Get(common.ParamTo))
 		if err != nil {
 			return Query{}, fmt.Errorf("Error parsing end argument: %s", err)
 		}
 	}
 
-	if !q.End.After(q.Start) {
+	if !q.To.After(q.From) {
 		return Query{}, fmt.Errorf("end argument is before or equal to start")
 	}
 
