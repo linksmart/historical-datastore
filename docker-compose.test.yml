@@ -11,7 +11,9 @@ services:
       target: builder
     depends_on:
       - hds
-    command: go test -mod=vendor ./...
+    environment:
+      - HDS_ENDPOINT=http://hds:8085
+    command: go test -mod=vendor -v ./...
 
 # RUN
 # docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
