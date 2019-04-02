@@ -19,7 +19,7 @@ func registerInServiceCatalog(conf *common.Config) (func() error, error) {
 	service := catalog.Service{
 		ID:          conf.ServiceID,
 		Name:        "_linksmart-hds._tcp",
-		Description: "LinkSmart® Historical Datastore",
+		Description: "LinkSmart Historical Datastore",
 		APIs:        map[string]string{"REST API": conf.HTTP.PublicEndpoint},
 		Docs: []catalog.Doc{{
 			Description: "Documentation",

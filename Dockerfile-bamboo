@@ -3,7 +3,7 @@ FROM alpine
 
 ARG VERSION
 ARG BUILD
-LABEL NAME="LinkSmart® Historical Datastore"
+LABEL NAME="LinkSmart Historical Datastore"
 LABEL CODENAME="HDS"
 LABEL VERSION=${VERSION}
 LABEL BUILD=${BUILD}
