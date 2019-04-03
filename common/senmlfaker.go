@@ -1,5 +1,5 @@
 //Package senmltest implements senml testing utilities
-package senmltest
+package common
 
 import (
 	"math"

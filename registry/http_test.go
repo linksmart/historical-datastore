@@ -19,12 +19,12 @@ import (
 )
 
 func setupRouter(regAPI *API) *mux.Router {
-	r := mux.NewRouter().StrictSlash(true)
+	r := mux.NewRouter().StrictSlash(true).SkipClean(true)
 	r.Methods("GET").Path("/registry").HandlerFunc(regAPI.Index)
 	r.Methods("POST").Path("/registry").HandlerFunc(regAPI.Create)
-	r.Methods("GET").Path("/registry/{id}").HandlerFunc(regAPI.Retrieve)
-	r.Methods("PUT").Path("/registry/{id}").HandlerFunc(regAPI.Update)
-	r.Methods("DELETE").Path("/registry/{id}").HandlerFunc(regAPI.Delete)
+	r.Methods("GET").Path("/registry/{id:.+}").HandlerFunc(regAPI.Retrieve)
+	r.Methods("PUT").Path("/registry/{id:.+}").HandlerFunc(regAPI.Update)
+	r.Methods("DELETE").Path("/registry/{id:.+}").HandlerFunc(regAPI.Delete)
 	r.Methods("GET").Path("/registry/{type}/{path}/{op}/{value:.*}").HandlerFunc(regAPI.Filter)
 	return r
 }
@@ -95,7 +95,7 @@ func TestHttpIndex(t *testing.T) {
 	pages := int(math.Ceil(float64(totalDummy) / float64(perPage)))
 	for page := 1; page <= pages; page++ {
 		// Get the specific page
-		res, err := http.Get(fmt.Sprintf("%s%s?page=%d&per_page=%d", ts.URL, common.RegistryAPILoc, page, perPage))
+		res, err := http.Get(fmt.Sprintf("%s%s?page=%d&perPage=%d", ts.URL, common.RegistryAPILoc, page, perPage))
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
@@ -169,10 +169,10 @@ func TestHttpCreate(t *testing.T) {
 
 		res, err := http.Post(ts.URL+common.RegistryAPILoc, MIMEType, bytes.NewReader(invalidBody))
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Errorf(err.Error())
 		}
 		if res.StatusCode != http.StatusConflict {
-			t.Fatalf("Server response is not %v but %v :\n%v", http.StatusConflict, res.StatusCode, invalidBodyStr)
+			t.Errorf("Server response is not %v but %v :\n%v", http.StatusConflict, res.StatusCode, invalidBodyStr)
 		}
 		res.Body.Close()
 	}
@@ -212,7 +212,7 @@ func TestHttpCreate(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	postedDS.Name = name
-	postedDS.Name = fmt.Sprintf("%s/%s", common.DataAPILoc, postedDS.Name)
+	//postedDS.Name = fmt.Sprintf("%s/%s", common.DataAPILoc, postedDS.Name)
 
 	// Retrieve the added data source
 	addedDS, _ := registryClient.Get(name)
@@ -309,7 +309,7 @@ func TestHttpUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	ds.Retention = "3h"
+	ds.Retention.Min = "3h"
 	b, err := json.Marshal(&ds)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -325,7 +325,7 @@ func TestHttpUpdate(t *testing.T) {
 	res.Body.Close()
 
 	// Retrieve the updated data source
-	updatedDS, _ := registryClient.Get(ID)
+	updatedDS, _ := registryClient.Get(name)
 	updated_b, _ := json.Marshal(&updatedDS)
 
 	// compare updated(PUT) data source with the one in memory
@@ -338,17 +338,17 @@ func TestHttpDelete(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
 	// Create a dummy data source
-	IDs, err := generateDummyData(1, registryClient)
+	names, err := generateDummyData(1, registryClient)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	ID := IDs[0]
+	name := names[0]
 
 	ts := httptest.NewServer(setupRouter(regAPI))
 	defer ts.Close()
 
 	// Try deleting an existing item
-	url := fmt.Sprintf("%s%s/%s", ts.URL, common.RegistryAPILoc, ID)
+	url := fmt.Sprintf("%s%s/%s", ts.URL, common.RegistryAPILoc, name)
 	res, err := httpRequestClient("DELETE", url, nil)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -357,7 +357,7 @@ func TestHttpDelete(t *testing.T) {
 		t.Fatalf("Server response is %v instead of %v", res.StatusCode, http.StatusOK)
 	}
 	// check whether it is deleted
-	_, err = registryClient.Get(ID)
+	_, err = registryClient.Get(name)
 	if err == nil {
 		t.Fatalf("Server responded %v but data source is not deleted!", res.StatusCode)
 	}
@@ -382,18 +382,18 @@ func TestHttpFilter(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
 	// Create some dummy data
-	dummyDSs := []DataSource{
-		DataSource{
-			Resource: "dimmer.eu/sensor1",
-			Type:     "string",
+	dummyDSs := []DataStream{
+		DataStream{
+			Name: "dimmer.eu/sensor1",
+			Type: "string",
 		},
-		DataSource{
-			Resource: "dimmer.eu/sensor2",
-			Type:     "bool",
+		DataStream{
+			Name: "dimmer.eu/sensor2",
+			Type: "bool",
 		},
-		DataSource{
-			Resource: "dimmer.eu/actuator1",
-			Type:     "string",
+		DataStream{
+			Name: "dimmer.eu/actuator1",
+			Type: "string",
 		},
 	}
 	for _, ds := range dummyDSs {
@@ -428,11 +428,11 @@ func TestHttpFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if len(reg.Entries) != 1 {
-		t.Errorf("Instead of one, it returned %d datasources.", len(reg.Entries))
+	if len(reg.Streams) != 1 {
+		t.Errorf("Instead of one, it returned %d datasources.", len(reg.Streams))
 	}
-	if reg.Entries[0].Type != "bool" {
-		t.Errorf("Instead of the expected datasource (Type:bool), it returned:\n%+v", reg.Entries[0])
+	if reg.Streams[0].Type != "bool" {
+		t.Errorf("Instead of the expected datasource (Type:bool), it returned:\n%+v", reg.Streams[0])
 	}
 
 	// Search for data sources that contains "sensor" in Resource
@@ -450,13 +450,13 @@ func TestHttpFilter(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	// Check if the total is correct
-	if reg.Total != 2 || len(reg.Entries) != 2 {
-		t.Errorf("Catalog contains total %d(%d entries) instead of 2 data sources:\n %+v", reg.Total, len(reg.Entries), reg)
+	if reg.Total != 2 || len(reg.Streams) != 2 {
+		t.Errorf("Catalog contains total %d(%d entries) instead of 2 data sources:\n %+v", reg.Total, len(reg.Streams), reg)
 	}
 	// Check if correct entries are queried
-	for _, ds := range reg.Entries {
-		if !strings.Contains(ds.Resource, "sensor") {
-			t.Errorf("Catalog entry resource contains something other than 'sensor': %+v", ds.Resource)
+	for _, ds := range reg.Streams {
+		if !strings.Contains(ds.Name, "sensor") {
+			t.Errorf("Catalog entry resource contains something other than 'sensor': %+v", ds.Name)
 		}
 	}
 }
@@ -464,92 +464,49 @@ func TestHttpFilter(t *testing.T) {
 // A pool of bad data sources
 var (
 	invalidBodies = []string{
-		// Provided id //////////
+		// Empty name //////////
 		`{
-			"id": "12345",
-			"resource": "any_url",
-			"retention": "3d",
-			"type": "string",
-			"format": "any_format"
+			"name": "",
+			"dataType": "string"
 		}`,
-		// Provided url //////////
+		// Invalid name //////////
 		`{
-			"url": "any_regurl",
-			"resource": "any_url",
-			"retention": "3d",
-			"type": "string",
-			"format": "any_format"
+			"name": "#3",
+			"dataType": "string"
 		}`,
-		// Provided data url //////////
+		// Invalid type //////////
 		`{
-			"data" : "any_dataurl",
-			"resource": "any_url",
-			"retention": "3d",
-			"type": "string",
-			"format": "any_format"
+			"name": "any_url",
+			"dataType": "some_unsupportedType"
 		}`,
-		// Invalid retention duration //////////
-		`{
-			"resource": "any_url",
-			"retention": "3s",
-			"type": "string",
-			"format": "any_format"
-		}`,
-		// Missing format //////////
-		`{
-			"resource": "any_url",
-			"retention": "3w",
-			"type": "string",
-			"format": ""
-		}`,
-		//		// Float type and missing aggregation //////////
-		//		`{
-		//			"resource": "any_url",
-		//			"meta": {},
-		//			"retention": "3w",
-		//			"aggregation": [],
-		//			"type": "float",
-		//			"format": "any_format"
-		//		}`,
-
 	}
 
 	invalidPostBodies = []string{
 		// Missing resource url //////////
 		`{
-			"resource": "",
-			"retention": "3d",
-			"type": "string",
-			"format": "any_format"
+			"name": "",
+			"dataType": "string"
 		}`,
 		// Missing type //////////
 		`{
-			"resource": "any_url",
-			"retention": "3d",
-			"type": "",
-			"format": "any_format"
+			"name": "any_url",
+			"dataType": ""
 		}`,
 		// Invalid type //////////
 		`{
-			"resource": "any_url",
-			"retention": "3w",
-			"type": "some_unsupported_type",
-			"format": "any_format"
+			"name": "any_url",
+			"dataType": "some_unsupported_type"
 		}`,
 	}
 
 	invalidPutBodies = []string{
 		// Provided read-only resource url //////////
 		`{
-			"resource": "any_url",
-			"retention": "3d",
-			"format": "any_format"
+			"name": "any_url"
 		}`,
 		// Provided read-only type //////////
 		`{
-			"retention": "3d",
-			"type": "string",
-			"format": "any_format"
+			"dataType": "string"
 		}`,
 	}
 )

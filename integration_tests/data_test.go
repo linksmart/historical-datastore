@@ -9,7 +9,6 @@ import (
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/data"
 	"code.linksmart.eu/hds/historical-datastore/registry"
-	"code.linksmart.eu/hds/historical-datastore/senmltest"
 	"github.com/farshidtz/senml"
 	uuid "github.com/satori/go.uuid"
 )
@@ -57,14 +56,10 @@ func TestCreationSameTimestamp(t *testing.T) {
 	}
 
 	//get these data
-	gotrecords, err := dataClient.Query(data.Query{}, 1, totRec, datastream.Name)
+	gotrecords, err := dataClient.Query(data.Query{}, datastream.Name)
 	if err != nil {
 		t.Error(err)
 	}
-	if gotrecords.Total != 1 {
-		t.Error("Received total should be 1")
-	}
-
 	if len(gotrecords.Data) != 1 {
 		t.Error("Received total should be 1")
 	}
@@ -104,7 +99,7 @@ func TestCreationDiffTimestamp(t *testing.T) {
 	// send some data
 	var records senml.Pack
 	totRec := 10
-	records = senmltest.Same_name_same_types(totRec, datastream.Name, true)
+	records = common.Same_name_same_types(totRec, datastream.Name, true)
 
 	b, _ := json.Marshal(records)
 	err = dataClient.Submit(b, "application/senml+json", datastream.Name)
@@ -117,15 +112,12 @@ func TestCreationDiffTimestamp(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if gotrecords.Total != totRec {
-		t.Errorf("Received total should be %d, got %d (len) instead", totRec, gotrecords.Total)
-	}
 
 	if len(gotrecords.Data) != totRec {
 		t.Errorf("Received total should be %d, got %d (len) instead", totRec, len(gotrecords.Data))
 	}
 
-	if senmltest.CompareSenml(gotrecords.Data, records.Normalize()) == false {
+	if common.CompareSenml(gotrecords.Data, records.Normalize()) == false {
 		t.Error("Sent records and received record did not match!!")
 	}
 }
@@ -163,7 +155,7 @@ func TestInsertRandom(t *testing.T) {
 	// send some data
 	var records senml.Pack
 	totRec := 10
-	records = senmltest.Same_name_same_types(totRec, datastream.Name, true)
+	records = common.Same_name_same_types(totRec, datastream.Name, true)
 
 	b, _ := json.Marshal(records)
 	err = dataClient.Submit(b, "application/senml+json", datastream.Name)
@@ -172,7 +164,7 @@ func TestInsertRandom(t *testing.T) {
 	}
 
 	//create a randomly insertable record and insert to the datastore
-	insrecords := senmltest.Same_name_same_types(1, datastream.Name, true)
+	insrecords := common.Same_name_same_types(1, datastream.Name, true)
 	insrecords[0].Time = insrecords[0].Time + float64(rand.Intn(totRec-1)) + 0.5
 	fmt.Println(insrecords[0].Time)
 	b, _ = json.Marshal(insrecords)
@@ -203,7 +195,7 @@ func TestInsertRandom(t *testing.T) {
 		t.Error(err)
 	}
 
-	if gotrecords.Total != totRec {
+	if len(gotrecords.Data) != totRec {
 		t.Errorf("Received total should be %d, got %d (len) instead", totRec, gotrecords.Total)
 	}
 
@@ -221,7 +213,7 @@ func TestInsertRandom(t *testing.T) {
 	printstr, _ = records.Encode(senml.JSON, senml.OutputOptions{})
 	fmt.Println(string(printstr))
 
-	if senmltest.CompareSenml(gotrecords.Data, effREcords.Normalize()) == false {
+	if common.CompareSenml(gotrecords.Data, effREcords.Normalize()) == false {
 		t.Error("Sent records and received record did not match!!")
 	}
 }

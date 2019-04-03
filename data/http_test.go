@@ -50,10 +50,10 @@ func setupHTTPAPI() (*mux.Router, []string) {
 
 	api := NewAPI(regStorage, &dummyDataStorage{}, false)
 
-	r := mux.NewRouter().StrictSlash(true)
+	r := mux.NewRouter().StrictSlash(true).SkipClean(true)
 	r.Methods("POST").Path("/data/{id:.+}").HandlerFunc(api.Submit)
 	r.Methods("GET").Path("/data/{id:.+}").HandlerFunc(api.Query)
-	r.SkipClean(true)
+
 	return r, testIDs
 }
 

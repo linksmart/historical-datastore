@@ -97,7 +97,7 @@ func TestLevelDBUpdate(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err.Error())
 	}
 
-	updatedDS, err := storage.Update(ID, ds)
+	updatedDS, err := storage.Update(ID, *ds)
 	if err != nil {
 		t.Fatalf("Unexpected error on update: %v", err.Error())
 	}
@@ -215,7 +215,7 @@ func TestLevelDBPathFilterOne(t *testing.T) {
 	ID := IDs[0]
 
 	targetDS, _ := storage.Get(ID)
-	matchedDS, err := storage.FilterOne("id", "equals", targetDS.ID)
+	matchedDS, err := storage.FilterOne("id", "equals", targetDS.Name)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -248,7 +248,7 @@ func TestLevelDBPathFilter(t *testing.T) {
 	}
 	for i := 0; i < expected; i++ {
 		ds, _ := storage.Get(IDs[i])
-		storage.Update(ds.Name, ds)
+		storage.Update(ds.Name, *ds)
 	}
 
 	// Query for format with prefix "newtype"

@@ -3,6 +3,8 @@
 package registry
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	"code.linksmart.eu/hds/historical-datastore/common"
@@ -23,6 +25,20 @@ func validateCreation(ds DataStream, conf common.RegConf) error {
 	var e validationError
 	if ds.Name == "" {
 		e.mandatory = append(e.mandatory, "name")
+	}
+	validSenmlName, err := regexp.Compile(`^[a-zA-Z0-9]+[a-zA-Z0-9-:./_]*$`)
+	if err != nil {
+		fmt.Println(err)
+	}
+	if !validSenmlName.MatchString(ds.Name) {
+		e.invalid = append(e.invalid, "name")
+	}
+
+	if ds.Type == "" {
+		e.mandatory = append(e.mandatory, "dataType")
+	}
+	if !common.SupportedType(ds.Type) {
+		e.invalid = append(e.invalid, "type")
 	}
 	/*
 		var e validationError

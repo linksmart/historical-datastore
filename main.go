@@ -72,7 +72,7 @@ func main() {
 		var disconnect_func func() error
 		dataStorage, disconnect_func, err = data.NewSenmlStorage(conf.Data)
 		if err != nil {
-			log.Fatal("Error creating senml storage")
+			log.Fatalf("Error creating senml storage: %s", err)
 		}
 		defer disconnect_func()
 	}
@@ -82,7 +82,7 @@ func main() {
 	// MQTT connector
 	mqttConn, err := data.NewMQTTConnector(dataStorage, conf.ServiceID)
 	if err != nil {
-		log.Fatalf("Error creating MQTT Connector: %v", err)
+		log.Fatalf("Error creating MQTT Connector: %s", err)
 	}
 
 	// Setup registry
