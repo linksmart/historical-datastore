@@ -22,10 +22,11 @@ func setupRouter(regAPI *API) *mux.Router {
 	r := mux.NewRouter().StrictSlash(true).SkipClean(true)
 	r.Methods("GET").Path("/registry").HandlerFunc(regAPI.Index)
 	r.Methods("POST").Path("/registry").HandlerFunc(regAPI.Create)
+	r.Methods("GET").Path("/registry/{type}/{path}/{op}/{value:.*}").HandlerFunc(regAPI.Filter)
 	r.Methods("GET").Path("/registry/{id:.+}").HandlerFunc(regAPI.Retrieve)
 	r.Methods("PUT").Path("/registry/{id:.+}").HandlerFunc(regAPI.Update)
 	r.Methods("DELETE").Path("/registry/{id:.+}").HandlerFunc(regAPI.Delete)
-	r.Methods("GET").Path("/registry/{type}/{path}/{op}/{value:.*}").HandlerFunc(regAPI.Filter)
+
 	return r
 }
 
@@ -410,7 +411,7 @@ func TestHttpFilter(t *testing.T) {
 	}
 
 	// Search for the data source with Type: bool
-	res, err := http.Get(filterURL(FTypeOne + "/type/equals/bool"))
+	res, err := http.Get(filterURL(FTypeOne + "/dataType/equals/bool"))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -436,7 +437,7 @@ func TestHttpFilter(t *testing.T) {
 	}
 
 	// Search for data sources that contains "sensor" in Resource
-	res, err = http.Get(filterURL(FTypeMany + "/resource/contains/dimmer.eu/sensor"))
+	res, err = http.Get(filterURL(FTypeMany + "/name/contains/dimmer.eu/sensor"))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

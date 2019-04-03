@@ -151,10 +151,12 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
 	// registry api
 	router.handle(http.MethodGet, "/registry", reg.Index)
 	router.handle(http.MethodPost, "/registry", reg.Create)
+	router.handle(http.MethodGet, "/registry/{type}/{path}/{op}/{value:.*}", reg.Filter) //TODO: Re-ordered this to match filtering.
+	//Filter should go for separate endpoint?
 	router.handle(http.MethodGet, "/registry/{id:.+}", reg.Retrieve)
 	router.handle(http.MethodPut, "/registry/{id:.+}", reg.Update)
 	router.handle(http.MethodDelete, "/registry/{id:.+}", reg.Delete)
-	router.handle(http.MethodGet, "/registry/{type}/{path}/{op}/{value:.*}", reg.Filter)
+
 	// data api
 	router.handle(http.MethodPost, "/data", data.SubmitWithoutID)
 	router.handle(http.MethodPost, "/data/{id:.+}", data.Submit)
