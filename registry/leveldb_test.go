@@ -215,7 +215,7 @@ func TestLevelDBPathFilterOne(t *testing.T) {
 	ID := IDs[0]
 
 	targetDS, _ := storage.Get(ID)
-	matchedDS, err := storage.FilterOne("id", "equals", targetDS.Name)
+	matchedDS, err := storage.FilterOne("name", "equals", targetDS.Name)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -229,6 +229,7 @@ func TestLevelDBPathFilterOne(t *testing.T) {
 }
 
 func TestLevelDBPathFilter(t *testing.T) {
+	//t.Skip("Skip until there are more meta to add")
 	storage, dbName, closeDB, err := setupLevelDB()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -248,6 +249,7 @@ func TestLevelDBPathFilter(t *testing.T) {
 	}
 	for i := 0; i < expected; i++ {
 		ds, _ := storage.Get(IDs[i])
+		ds.Meta["newkey"] = "a/b"
 		storage.Update(ds.Name, *ds)
 	}
 

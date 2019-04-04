@@ -24,6 +24,8 @@ func generateDummyData(quantity int, storage Storage) ([]string, error) {
 	for i := 1; i <= quantity; i++ {
 		var ds DataStream
 		ds.Name = fmt.Sprintf("http://example.com/sensor%d", i)
+		ds.Meta = make(map[string]interface{})
+		ds.Meta["SerialNumber"] = randInt(10000, 99999)
 		//ds.Retention = fmt.Sprintf("%d%s", randInt(1, 20), []string{"m", "h", "d", "w"}[randInt(0, 3)])
 		//ds.Aggregation TODO
 		ds.Type = []string{"float", "bool", "string"}[randInt(0, 2)]
@@ -168,18 +170,19 @@ func TestMemstoragePathFilterOne(t *testing.T) {
 	ID := IDs[0]
 
 	targetDS, _ := storage.Get(ID)
-	matchedDS, err := storage.FilterOne("id", "equals", targetDS.Name)
+	matchedDS, err := storage.FilterOne("name", "equals", targetDS.Name)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	// check if target is returned
-	if !reflect.DeepEqual(&targetDS, matchedDS) {
+	if !reflect.DeepEqual(targetDS, matchedDS) {
 		t.Fatalf("Looking for:\n%v\n but matched:\n%v\n", &targetDS, matchedDS)
 	}
 }
 
 func TestMemstoragePathFilter(t *testing.T) {
+	//t.Skip("Skip until there are more meta to add")
 	storage := setupMemStorage()
 
 	IDs, err := generateDummyData(10, storage)
@@ -194,7 +197,7 @@ func TestMemstoragePathFilter(t *testing.T) {
 	}
 	for i := 0; i < expected; i++ {
 		ds, _ := storage.Get(IDs[i])
-		//ds.Meta["newkey"] = "a/b"
+		ds.Meta["newkey"] = "a/b"
 		storage.Update(ds.Name, *ds)
 	}
 

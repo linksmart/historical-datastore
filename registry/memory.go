@@ -81,10 +81,10 @@ func (ms *MemoryStorage) Update(id string, ds DataStream) (*DataStream, error) {
 	tempDS := *oldDS
 
 	// Modify writable elements
-	tempDS.Source = ds.Source
-	tempDS.Retention = ds.Retention
 	tempDS.Function = ds.Function
-	tempDS.Type = ds.Type
+	tempDS.Retention = ds.Retention
+	tempDS.Source = ds.Source
+	tempDS.Meta = ds.Meta
 
 	// Send an update event
 	err = ms.event.updated(oldDS, &tempDS)
