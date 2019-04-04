@@ -45,9 +45,10 @@ func TestCreationSameTimestamp(t *testing.T) {
 	// send some data
 	var records []senml.Record
 	totRec := 10
+	time := 1543059346.0
 	for i := 0; i < totRec; i++ {
 		v := float64(i)
-		records = append(records, senml.Record{Name: datastream.Name, Value: &v})
+		records = append(records, senml.Record{Name: datastream.Name, Value: &v, Time: time})
 	}
 	b, _ := json.Marshal(records)
 	err = dataClient.Submit(b, "application/senml+json", datastream.Name)
