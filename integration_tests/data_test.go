@@ -58,10 +58,10 @@ func TestCreationSameTimestamp(t *testing.T) {
 	//get these data
 	gotrecords, err := dataClient.Query(data.Query{}, datastream.Name)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if len(gotrecords.Data) != 1 {
-		t.Error("Received total should be 1")
+		t.Error("Received total should be 1 instead of ", len(gotrecords.Data))
 	}
 
 }

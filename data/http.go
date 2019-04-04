@@ -236,7 +236,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetUrlFromQuery(q Query, id ...string) (url string) {
-	var sort, limit, start, end string
+	var sort, limit, start, end, perPage string
 	if q.Sort != "" {
 		sort = fmt.Sprintf("&%v=%v", common.ParamSort, q.Sort)
 	}
@@ -250,9 +250,13 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 		end = fmt.Sprintf("&%v=%v", common.ParamTo, q.To.UTC().Format(time.RFC3339))
 	}
 
-	return fmt.Sprintf("/data/%v?%v=%v%s%s%s%s",
+	if q.perPage != 0 {
+		perPage = fmt.Sprintf("&%v=%v", common.ParamPerPage, q.perPage)
+	}
+
+	return fmt.Sprintf("%v?%s%s%s%s%s",
 		strings.Join(id, common.IDSeparator),
-		common.ParamPerPage, q.perPage,
+		perPage,
 		sort, limit, start, end,
 	)
 }
@@ -297,7 +301,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	curlink := GetUrlFromQuery(q, ids...)
+	curlink := common.DataAPILoc + "/" + GetUrlFromQuery(q, ids...)
 
 	nextlink := ""
 
@@ -319,7 +323,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 			} else {
 				nextQuery.From = *nextLinkTS
 			}
-			nextlink = GetUrlFromQuery(nextQuery, ids...)
+			nextlink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
 		}
 	}
 

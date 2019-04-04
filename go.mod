@@ -22,3 +22,8 @@ require (
 	github.com/syndtr/goleveldb v1.0.0
 	golang.org/x/sys v0.0.0-20190322080309-f49334f85ddc // indirect
 )
+
+replace (
+	github.com/dschowta/lite.tsdb => ../lite.tsdb
+	github.com/dschowta/senml.datastore => ../senml.datastore
+)

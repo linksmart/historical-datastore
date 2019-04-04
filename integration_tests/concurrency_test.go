@@ -72,13 +72,13 @@ func TestConcurrentUpdates(t *testing.T) {
 			Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
 			Type: "float",
 		}
-		ds.Name, err = registryClient.Add(&ds)
+		_, err = registryClient.Add(&ds)
 		if err != nil {
 			t.Fatal(err)
 		}
 		addedDS, err := registryClient.Get(ds.Name)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err, ds.Name)
 		}
 		entries = append(entries, addedDS)
 	}
