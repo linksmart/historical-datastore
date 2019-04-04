@@ -108,7 +108,7 @@ func TestCreationDiffTimestamp(t *testing.T) {
 	}
 
 	//get these data
-	gotrecords, err := dataClient.Query(data.Query{Sort: common.DESC}, 1, totRec, datastream.Name)
+	gotrecords, err := dataClient.Query(data.Query{Sort: common.DESC}, datastream.Name)
 	if err != nil {
 		t.Error(err)
 	}
@@ -190,13 +190,9 @@ func TestInsertRandom(t *testing.T) {
 	effREcords[inspos] = insrecord
 
 	//get these data
-	gotrecords, err := dataClient.Query(data.Query{Sort: common.DESC}, 1, totRec, datastream.Name)
+	gotrecords, err := dataClient.Query(data.Query{Sort: common.DESC}, datastream.Name)
 	if err != nil {
 		t.Error(err)
-	}
-
-	if len(gotrecords.Data) != totRec {
-		t.Errorf("Received total should be %d, got %d (len) instead", totRec, gotrecords.Total)
 	}
 
 	if len(gotrecords.Data) != totRec {

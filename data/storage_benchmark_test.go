@@ -10,7 +10,6 @@ import (
 
 	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/hds/historical-datastore/registry"
-	"code.linksmart.eu/hds/historical-datastore/senmltest"
 	"github.com/farshidtz/senml"
 )
 
@@ -55,7 +54,7 @@ func BenchmarkCreation_OneSeries(b *testing.B) {
 	var records senml.Pack
 	totRec := b.N
 	fmt.Printf("%s:Count = %d\n", fileName, b.N)
-	records = senmltest.Same_name_same_types(totRec, datastream.Name, true)
+	records = common.Same_name_same_types(totRec, datastream.Name, true)
 
 	registrymap := make(map[string]*registry.DataStream)
 	registrymap[datastream.Name] = &datastream
@@ -94,7 +93,7 @@ func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 	// send some data
 	var records senml.Pack
 	totRec := TOTALENTRIES
-	records = senmltest.Same_name_same_types(totRec, datastream.Name, true)
+	records = common.Same_name_same_types(totRec, datastream.Name, true)
 
 	registrymap := make(map[string]*registry.DataStream)
 	registrymap[datastream.Name] = &datastream
@@ -131,7 +130,7 @@ func benchmarkInsertEnd(b *testing.B, storage Storage, timeStart float64, timeEn
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		endTime := endTime + 1
-		insrecords := senmltest.Same_name_same_types(1, seriesName, true)
+		insrecords := common.Same_name_same_types(1, seriesName, true)
 		insrecords[0].Time = endTime
 		registrymap := make(map[string]*registry.DataStream)
 		registrymap[seriesName] = &registry.DataStream{Name: seriesName}
@@ -151,7 +150,7 @@ func benchmarkInsertRandom(b *testing.B, storage Storage, timeStart float64, tim
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		randTime := between(timeStart, timeEnd)
-		insrecords := senmltest.Same_name_same_types(1, seriesName, true)
+		insrecords := common.Same_name_same_types(1, seriesName, true)
 		insrecords[0].Time = randTime
 		registrymap := make(map[string]*registry.DataStream)
 		registrymap[seriesName] = &registry.DataStream{Name: seriesName}
@@ -196,7 +195,7 @@ func BenchmarkCreation_MultiSeries(b *testing.B) {
 	// send some data
 	var records senml.Pack
 	totRec := 3
-	records = senmltest.Same_name_same_types(totRec, datastream.Name, true)
+	records = common.Same_name_same_types(totRec, datastream.Name, true)
 
 	registrymap := make(map[string]*registry.DataStream)
 	recordmap := make(map[string]senml.Pack)
@@ -231,7 +230,7 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 	// send some data
 	var records senml.Pack
 	totRec := 1
-	records = senmltest.Same_name_same_types(totRec, "dummy", true)
+	records = common.Same_name_same_types(totRec, "dummy", true)
 
 	registrymap := make(map[string]*registry.DataStream)
 	recordmap := make(map[string]senml.Pack)
@@ -273,7 +272,7 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 }
 
 func benchmarkCreateNewSeries(b *testing.B, storage Storage) {
-	records := senmltest.Same_name_same_types(1, "benchmarkCreateNewSeries", true)
+	records := common.Same_name_same_types(1, "benchmarkCreateNewSeries", true)
 
 	registrymap := make(map[string]*registry.DataStream)
 	recordmap := make(map[string]senml.Pack)
@@ -298,7 +297,7 @@ func benchmarkCreateNewSeries(b *testing.B, storage Storage) {
 func benchmarkDeleteSeries(b *testing.B, storage Storage) {
 	b.StopTimer()
 	totRec := 1
-	records := senmltest.Same_name_same_types(totRec, "benchmarkDeleteSeries", true)
+	records := common.Same_name_same_types(totRec, "benchmarkDeleteSeries", true)
 
 	registrymap := make(map[string]*registry.DataStream)
 	recordmap := make(map[string]senml.Pack)
