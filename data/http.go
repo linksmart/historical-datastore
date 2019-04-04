@@ -240,7 +240,7 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 	if q.Sort != "" {
 		sort = fmt.Sprintf("&%v=%v", common.ParamSort, q.Sort)
 	}
-	if q.Limit != 0 {
+	if q.Limit > 0 {
 		limit = fmt.Sprintf("&%v=%v", common.ParamLimit, q.Limit)
 	}
 	if !q.From.IsZero() {
@@ -250,7 +250,7 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 		end = fmt.Sprintf("&%v=%v", common.ParamTo, q.To.UTC().Format(time.RFC3339))
 	}
 
-	if q.perPage != 0 {
+	if q.perPage > 0 {
 		perPage = fmt.Sprintf("&%v=%v", common.ParamPerPage, q.perPage)
 	}
 
