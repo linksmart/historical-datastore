@@ -334,7 +334,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		NextLink: nextlink,
 	}
 
-	b, err := json.Marshal(recordSet)
+	csvStr, err := json.Marshal(recordSet)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error marshalling recordset: "+err.Error(), w)
 		return
@@ -342,7 +342,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusOK)
-	w.Write(b)
+	w.Write([]byte(csvStr))
 }
 
 // Utility functions

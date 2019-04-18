@@ -81,7 +81,7 @@ func (s *LightdbStorage) Disconnect() error {
 
 // CreateHandler handles the creation of a new data source
 func (s *LightdbStorage) CreateHandler(ds registry.DataStream) error {
-	return nil
+	return s.storage.Create(ds.Name)
 }
 
 // UpdateHandler handles updates of a data source
