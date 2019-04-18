@@ -102,6 +102,12 @@ func floatTimeToInt64(senmlTime float64) int64 {
 func int64ToFloatTime(timeVal int64) float64 {
 	return float64(timeVal) / 1e9
 }
+
+//Create a new bucket
+func (bdb SenmlDataStore) Create(name string) error {
+	return bdb.tsdb.Create(name)
+}
+
 func (bdb SenmlDataStore) Add(senmlPack senml.Pack) error {
 
 	// Fill the data map with provided data points

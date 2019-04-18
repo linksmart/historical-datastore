@@ -43,6 +43,19 @@ func byteArrToTime(byteArr []byte) int64 {
 	timeVal := int64(binary.BigEndian.Uint64(byteArr))
 	return timeVal
 }
+
+func (bdb Boltdb) Create(name string) error {
+	if name == "" {
+		return fmt.Errorf("time Series record with Empty name")
+	}
+	return bdb.db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucket([]byte(name))
+		if err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+		return nil
+	})
+}
 func (bdb Boltdb) Add(name string, timeseries TimeSeries) error {
 	if name == "" {
 		return fmt.Errorf("Time Series record with Empty name")

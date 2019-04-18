@@ -41,6 +41,9 @@ type TimeSeries []TimeEntry
 
 type TSDB interface {
 
+	//Create a new bucket
+	Create(name string) error
+
 	//This function adds the senml records
 	Add(name string, timeseries TimeSeries) error
 
