@@ -38,12 +38,9 @@ func NewAPI(registry registry.Storage, storage Storage, autoRegistration bool) *
 // Submit is a handler for submitting a new data point
 // Expected parameters: id(s)
 func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
+	//params := mux.Vars(r)
 	data := make(map[string]senml.Pack)
 	sources := make(map[string]*registry.DataStream)
-
-	// Parse id(s)
-	ids := strings.Split(params["id"], common.IDSeparator)
 
 	// Read body
 	body, err := ioutil.ReadAll(r.Body)
@@ -62,17 +59,6 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 
 	// Check if DataSources are registered in the DataStreamList
 	dsResources := make(map[string]*registry.DataStream)
-	for _, id := range ids {
-		ds, err := api.registry.Get(id)
-		if err != nil {
-			common.ErrorResponse(http.StatusNotFound,
-				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()),
-				w)
-			return
-		}
-		dsResources[ds.Name] = ds
-	}
-
 	// Fill the data map with provided data points
 	records := senmlPack.Normalize()
 	for _, r := range records {
@@ -83,8 +69,12 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 		// Check if there is a data source for this entry
 		ds, ok := dsResources[r.Name]
 		if !ok {
-			common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data point for unknown data source %v.", r.Name), w)
-			return
+			ds, err = api.registry.Get(r.Name)
+			if err != nil {
+				common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data point for unknown data source %v.", r.Name), w)
+				return
+			}
+			dsResources[ds.Name] = ds
 		}
 
 		// Check if type of value matches the data source type in registry
