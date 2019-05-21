@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"code.linksmart.eu/hds/historical-datastore/common"
+	"github.com/linksmart/historical-datastore/common"
 )
 
 // Generate dummy data sources

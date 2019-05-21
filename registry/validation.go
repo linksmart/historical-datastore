@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"code.linksmart.eu/hds/historical-datastore/common"
+	"github.com/linksmart/historical-datastore/common"
 )
 
 // DataSource writability:

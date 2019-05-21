@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"code.linksmart.eu/com/go-sec/auth/obtainer"
-	"code.linksmart.eu/hds/historical-datastore/registry"
 	"code.linksmart.eu/sc/service-catalog/utils"
+	"github.com/linksmart/historical-datastore/registry"
 )
 
 type RemoteClient struct {

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"code.linksmart.eu/hds/historical-datastore/common"
 	"github.com/gorilla/mux"
+	"github.com/linksmart/historical-datastore/common"
 )
 
 const (

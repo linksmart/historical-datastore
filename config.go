@@ -3,12 +3,12 @@
 package main
 
 import (
-	"code.linksmart.eu/hds/historical-datastore/common"
-	"code.linksmart.eu/hds/historical-datastore/data"
-	"code.linksmart.eu/hds/historical-datastore/registry"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/linksmart/historical-datastore/common"
+	"github.com/linksmart/historical-datastore/data"
+	"github.com/linksmart/historical-datastore/registry"
 	"io/ioutil"
 	"net/url"
 	"strings"

@@ -15,9 +15,9 @@ import (
 
 	_ "code.linksmart.eu/com/go-sec/auth/keycloak/validator"
 	"code.linksmart.eu/com/go-sec/auth/validator"
-	"code.linksmart.eu/hds/historical-datastore/common"
-	"code.linksmart.eu/hds/historical-datastore/data"
-	"code.linksmart.eu/hds/historical-datastore/registry"
+	"github.com/linksmart/historical-datastore/common"
+	"github.com/linksmart/historical-datastore/data"
+	"github.com/linksmart/historical-datastore/registry"
 	uuid "github.com/satori/go.uuid"
 )
 

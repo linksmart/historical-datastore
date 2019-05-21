@@ -9,11 +9,11 @@ import (
 	"runtime/debug"
 	"time"
 
-	"code.linksmart.eu/hds/historical-datastore/common"
 	"github.com/codegangsta/negroni"
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
+	"github.com/linksmart/historical-datastore/common"
 	"github.com/rs/cors"
 )
 

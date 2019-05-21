@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
-	"code.linksmart.eu/hds/historical-datastore/data"
-	"code.linksmart.eu/hds/historical-datastore/registry"
 	"github.com/farshidtz/senml"
+	"github.com/linksmart/historical-datastore/data"
+	"github.com/linksmart/historical-datastore/registry"
 	uuid "github.com/satori/go.uuid"
 )
 

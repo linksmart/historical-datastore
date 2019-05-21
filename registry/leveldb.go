@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/sc/service-catalog/utils"
+	"github.com/linksmart/historical-datastore/common"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"

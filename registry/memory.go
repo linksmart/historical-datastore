@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/sc/service-catalog/utils"
+	"github.com/linksmart/historical-datastore/common"
 )
 
 // In-memory storage

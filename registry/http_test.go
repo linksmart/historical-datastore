@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	"code.linksmart.eu/hds/historical-datastore/common"
 	"github.com/gorilla/mux"
+	"github.com/linksmart/historical-datastore/common"
 )
 
 func setupRouter(regAPI *API) *mux.Router {

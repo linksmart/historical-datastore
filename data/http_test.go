@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"code.linksmart.eu/hds/historical-datastore/common"
 	"github.com/farshidtz/senml"
+	"github.com/linksmart/historical-datastore/common"
 
-	"code.linksmart.eu/hds/historical-datastore/registry"
 	"github.com/gorilla/mux"
+	"github.com/linksmart/historical-datastore/registry"
 )
 
 func setupHTTPAPI() (*mux.Router, []string) {

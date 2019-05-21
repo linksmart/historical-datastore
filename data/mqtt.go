@@ -12,9 +12,9 @@ import (
 
 	"net/http"
 
-	"code.linksmart.eu/hds/historical-datastore/common"
-	"code.linksmart.eu/hds/historical-datastore/registry"
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/linksmart/historical-datastore/common"
+	"github.com/linksmart/historical-datastore/registry"
 )
 
 const (

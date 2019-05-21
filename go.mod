@@ -1,4 +1,4 @@
-module code.linksmart.eu/hds/historical-datastore
+module github.com/linksmart/historical-datastore
 
 require (
 	code.linksmart.eu/com/go-sec v1.0.0

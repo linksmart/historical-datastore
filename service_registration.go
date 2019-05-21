@@ -7,9 +7,9 @@ import (
 
 	_ "code.linksmart.eu/com/go-sec/auth/keycloak/obtainer"
 	"code.linksmart.eu/com/go-sec/auth/obtainer"
-	"code.linksmart.eu/hds/historical-datastore/common"
 	"code.linksmart.eu/sc/service-catalog/catalog"
 	"code.linksmart.eu/sc/service-catalog/client"
+	"github.com/linksmart/historical-datastore/common"
 )
 
 func registerInServiceCatalog(conf *common.Config) (func() error, error) {

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"code.linksmart.eu/hds/historical-datastore/common"
-	"code.linksmart.eu/hds/historical-datastore/registry"
 	"github.com/farshidtz/senml"
+	"github.com/linksmart/historical-datastore/common"
+	"github.com/linksmart/historical-datastore/registry"
 )
 
 const (

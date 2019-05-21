@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"code.linksmart.eu/hds/historical-datastore/registry"
 	"github.com/farshidtz/senml"
+	"github.com/linksmart/historical-datastore/registry"
 )
 
 const (

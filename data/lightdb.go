@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"code.linksmart.eu/hds/historical-datastore/common"
-	"code.linksmart.eu/hds/historical-datastore/registry"
 	datastore "github.com/dschowta/senml.datastore"
 	"github.com/farshidtz/senml"
+	"github.com/linksmart/historical-datastore/common"
+	"github.com/linksmart/historical-datastore/registry"
 )
 
 type LightdbStorage struct {
