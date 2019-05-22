@@ -1,4 +1,16 @@
 language: go
 
+services:
+  - docker
+  
 go:
-  - 1.x
+  - 1.12.x
+
+script:
+  - docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit 
+      && docker run docker.linksmart.eu/ci/go-builder 
+            -e OSARCH="linux/amd64" 
+            -e PACKAGE="code.linksmart.eu/hds/historical-datastore" 
+            -e LDFLAGS="-X main.Version=1.0.0-beta.1 -X main.BuildNumber=${TRAVIS_BUILD_NUMBER}" 
+            -w /data
+            -${TRAVIS_BUILD_DIR}:/data
