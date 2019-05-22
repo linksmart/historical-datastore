@@ -1,3 +1,5 @@
+
+
 FROM golang:1.12-alpine as builder
 
 RUN apk add --no-cache build-base git
@@ -7,7 +9,12 @@ COPY . /home
 
 # build
 WORKDIR /home
-RUN go build -mod=vendor -o historical-datastore
+
+ARG version
+ARG buildnum
+
+RUN go build -mod=vendor -o historical-datastore \
+		-ldflags "-X main.Version=$version -X main.BuildNumber=$buildnum"
 
 ###########
 FROM alpine

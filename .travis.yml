@@ -1,16 +1,15 @@
 language: go
 
 services:
-  - docker
+    - docker
   
 go:
-  - 1.12.x
-
+    - 1.12.x
+before_script:
+    - sed  -i -e  's/<VERSION>/1.0.0-beta.1/g' -e  's/<BUILDNUM>/${TRAVIS_BUILD_NUMBER}/g' docker-compose.test.yml 
 script:
-  - docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit 
-      && docker run docker.linksmart.eu/ci/go-builder 
-            -e OSARCH="linux/amd64" 
-            -e PACKAGE="code.linksmart.eu/hds/historical-datastore" 
-            -e LDFLAGS="-X main.Version=1.0.0-beta.1 -X main.BuildNumber=${TRAVIS_BUILD_NUMBER}" 
-            -w /data
-            -${TRAVIS_BUILD_DIR}/linksmart/historical-datastore:/data
+    - docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit 
+after_script:
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    - docker push linksmart/historical-datastore
+     

@@ -4,7 +4,9 @@ services:
   hds:
     build:
       context: .
-
+      args:
+        version: <VERSION>
+        buildnum: <BUILDNUM>
   tester:
     build:
       context: .
