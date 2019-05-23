@@ -14,8 +14,8 @@ deploy:
       on:
         branch: master
     - provider: script   
-      script: docker tag linksmart/historical-datastore linksmart/historical-datastore:${TRAVIS_TAG} && \
-                docker push linksmart/historical-datastore:${TRAVIS_TAG}
+      script: docker tag linksmart/historical-datastore linksmart/historical-datastore:${TRAVIS_TAG} &&
+                 docker push linksmart/historical-datastore:${TRAVIS_TAG}
       on:
         tags: true
       
