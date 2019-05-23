@@ -1,15 +1,21 @@
-language: go
-
 services:
     - docker
-  
-go:
-    - 1.12.x
+ 
 before_script:
-    - sed  -i -e  's/<VERSION>/1.0.0-beta.1/g' -e  's/<BUILDNUM>/${TRAVIS_BUILD_NUMBER}/g' docker-compose.test.yml 
+    - sed  -i -e  's/<VERSION>/${TRAVIS_BRANCH}/g' -e  's/<BUILDNUM>/${TRAVIS_BUILD_NUMBER}/g' docker-compose.test.yml 
 script:
     - docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit 
-after_script:
+
+before_deploy:
     - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-    - docker push linksmart/historical-datastore
-     
+deploy:
+    - provider: script
+      script: docker push linksmart/historical-datastore:latest
+      on:
+        branch: master
+    - provider: script   
+      script: docker tag linksmart/historical-datastore linksmart/historical-datastore:${TRAVIS_TAG} && \
+                docker push linksmart/historical-datastore:${TRAVIS_TAG}
+      on:
+        tags: true
+      
