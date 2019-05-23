@@ -5,8 +5,8 @@ services:
     build:
       context: .
       args:
-        version: <VERSION>
-        buildnum: <BUILDNUM>
+        version: $VERSION
+        buildnum: $BUILDNUM
     image: linksmart/historical-datastore
   tester:
     build:

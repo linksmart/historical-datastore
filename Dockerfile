@@ -1,8 +1,10 @@
 
+ARG version
+ARG buildnum
 
-FROM golang:1.12-alpine as builder
+FROM golang:1.12-alpine AS builder
 
-RUN apk add --no-cache build-base git
+RUN apk add --no-cache build-base 
 
 # copy code
 COPY . /home
@@ -22,6 +24,15 @@ FROM alpine
 RUN apk --no-cache add ca-certificates
 
 WORKDIR /home
+
+ARG version
+ARG buildnum
+
+LABEL NAME="LinkSmart Historical Datastore"
+LABEL VERSION=${version}
+LABEL BUILD=${buildnum}
+ENV DISABLE_LOG_TIME=1
+
 COPY --from=builder /home/historical-datastore .
 COPY sample_conf/* /conf/
 
