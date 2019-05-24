@@ -1,7 +1,7 @@
 Historical Datastore
 ===================
 [![GoDoc](https://godoc.org/github.com/linksmart/historical-datastore?status.svg)](https://godoc.org/github.com/linksmart/historical-datastore)
-[![Docker Pulls](https://img.shields.io/docker/pulls/linksmart/historical-datastore.svg)](https://hub.docker.com/r/linksmart/historical-datastore/tags)
+[![Docker Pulls](https://img.shields.io/docker/pulls/linksmart/hds.svg)](https://hub.docker.com/r/linksmart/hds/tags)
 [![GitHub tag (latest pre-release)](https://img.shields.io/github/tag-pre/linksmart/historical-datastore.svg?label=pre-release)](https://github.com/linksmart/historical-datastore/tags)
 [![Build Status](https://travis-ci.com/linksmart/historical-datastore.svg?branch=master)](https://travis-ci.com/linksmart/historical-datastore)
 

@@ -2,7 +2,7 @@ version: '2.3'
 
 services:
   hds:
-    image: linksmart/historical-datastore
+    image: linksmart/hds
 #    build:
 #      context: .
     ports:
