@@ -44,10 +44,10 @@ func main() {
 	fmt.Print(LINKSMART)
 	log.Printf("Starting Historical Datastore")
 	if Version != "" {
-		logger.Printf("Version: %s", Version)
+		log.Printf("Version: %s", Version)
 	}
 	if BuildNumber != "" {
-		logger.Printf("Build Number: %s", BuildNumber)
+		log.Printf("Build Number: %s", BuildNumber)
 	}
 	common.APIVersion = Version
 
