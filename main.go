@@ -31,8 +31,8 @@ var (
 	confPath    = flag.String("conf", "conf/historical-datastore.json", "Historical Datastore configuration file path")
 	profile     = flag.Bool("profile", false, "Enable the HTTP server for runtime profiling")
 	version     = flag.Bool("version", false, "Show the Historical Datastore API version")
-	Version     = "N/A" // set with build flags
-	BuildNumber = "N/A" // set with build flags
+	Version     string // set with build flags
+	BuildNumber string // set with build flags
 )
 
 func main() {
@@ -43,8 +43,12 @@ func main() {
 	}
 	fmt.Print(LINKSMART)
 	log.Printf("Starting Historical Datastore")
-	log.Printf("Version: %s", Version)
-	log.Printf("Build Number: %s", BuildNumber)
+	if Version != "" {
+		logger.Printf("Version: %s", Version)
+	}
+	if BuildNumber != "" {
+		logger.Printf("Build Number: %s", BuildNumber)
+	}
 	common.APIVersion = Version
 
 	if *profile {
