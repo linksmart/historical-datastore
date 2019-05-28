@@ -13,8 +13,6 @@ type Config struct {
 	ServiceID string `json:"serviceID"`
 	// HDS API addr
 	HTTP HTTPConf `json:"http"`
-	// Web GUI
-	Web WebConfig `json:"web"`
 	// Registry API Config
 	Reg RegConf `json:"registry"`
 	// Data API Config
