@@ -36,11 +36,6 @@ func loadConfig(confPath *string) (*common.Config, error) {
 		return nil, fmt.Errorf("HTTP PublicEndpoint should be a valid BrokerURL")
 	}
 
-	// VALIDATE Web Config
-	if conf.Web.BindAddr == "" || conf.Web.BindPort == 0 {
-		return nil, fmt.Errorf("Web bindAddr and bindPort have to be defined")
-	}
-
 	// VALIDATE REGISTRY API CONFIG
 	// Check if backend is supported
 	if !registry.SupportedBackends(conf.Reg.Backend.Type) {

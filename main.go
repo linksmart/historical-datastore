@@ -3,10 +3,8 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -129,7 +127,6 @@ func main() {
 
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI)
-	go startWebServer(conf)
 
 	// Ctrl+C / Kill handling
 	handler := make(chan os.Signal, 1)
@@ -180,43 +177,6 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
 	// start http server
 	log.Printf("Listening on %s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
 	err := http.ListenAndServe(fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort), router.chained())
-	if err != nil {
-		log.Fatalln(err)
-	}
-}
-
-func startWebServer(conf *common.Config) {
-	staticConf := map[string]interface{}{
-		"apiPort": conf.HTTP.BindPort,
-	}
-
-	if conf.Auth.Enabled {
-		staticConf["authEnabled"] = conf.Auth.Enabled
-		staticConf["authProvider"] = conf.Auth.Provider
-		staticConf["authProviderURL"] = conf.Auth.ProviderURL
-		staticConf["authServiceID"] = conf.Auth.ServiceID
-	}
-
-	b, err := json.Marshal(staticConf)
-	if err != nil {
-		log.Fatalln("Error marshalling web config file:", err)
-	}
-
-	err = os.MkdirAll(conf.Web.StaticDir+"/conf", 0755)
-	if err != nil {
-		log.Fatalln("Error writing web config file:", err)
-	}
-
-	err = ioutil.WriteFile(conf.Web.StaticDir+"/conf/autogen_config.json", b, 0644)
-	if err != nil {
-		log.Fatalln("Error writing web config file:", err)
-	}
-
-	mux := http.NewServeMux()
-	fs := http.FileServer(http.Dir(conf.Web.StaticDir))
-	mux.Handle("/", fs)
-
-	err = http.ListenAndServe(fmt.Sprintf("%s:%d", conf.Web.BindAddr, conf.Web.BindPort), mux)
 	if err != nil {
 		log.Fatalln(err)
 	}
