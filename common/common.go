@@ -36,9 +36,10 @@ const (
 
 var (
 	// APIVersion defines the API version
-	APIVersion = "N/A"
+	APIVersion string
+
 	// Default MIME type for all responses
-	DefaultMIMEType = "application/json;version=" + APIVersion
+	DefaultMIMEType string
 
 	// supported type values
 	supportedTypes = []string{STRING, BOOL, FLOAT, DATA}
@@ -47,6 +48,14 @@ var (
 	// supported period suffixes
 	supportedPeriods = []string{"m", "h", "d", "w"}
 )
+
+func SetVersion(version string) {
+	APIVersion = version
+	DefaultMIMEType = "application/json"
+	if version != "" {
+		DefaultMIMEType += ";version=" + version
+	}
+}
 
 // SupportedPeriod validates a period
 func SupportedPeriod(p string) bool {

@@ -82,9 +82,10 @@ func recoverHandler(next http.Handler) http.Handler {
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "OK")
+	w.Header().Set("Content-Type", common.DefaultMIMEType)
+	fmt.Fprintf(w, "{\"status\":\"OK\"}")
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Historical Datastore v%s - Welcome!\n", common.APIVersion)
+	fmt.Fprintf(w, "Historical Datastore %s - Welcome!\n", common.APIVersion)
 }

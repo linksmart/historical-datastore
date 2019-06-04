@@ -49,7 +49,8 @@ func main() {
 	if BuildNumber != "" {
 		log.Printf("Build Number: %s", BuildNumber)
 	}
-	common.APIVersion = Version
+
+	common.SetVersion(Version)
 
 	if *profile {
 		log.Println("Starting runtime profiling server")
