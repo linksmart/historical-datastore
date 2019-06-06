@@ -19,7 +19,7 @@ The code consists of four packages locate at:
 ## Compile from source
 
 ```
-git https://github.com/linksmart/historical-datastore.git
+git clone https://github.com/linksmart/historical-datastore.git
 cd historical-datastore
 go build -mod=vendor -o historical-datastore
 ```
