@@ -1,15 +1,8 @@
-
-ARG version
-ARG buildnum
-
 FROM golang:1.12-alpine AS builder
 
 RUN apk add --no-cache build-base 
 
-# copy code
 COPY . /home
-
-# build
 WORKDIR /home
 
 ARG version
