@@ -8,7 +8,7 @@ WORKDIR /home
 ARG version
 ARG buildnum
 
-RUN go build -mod=vendor -o historical-datastore \
+RUN go build -v -mod=vendor -o historical-datastore \
 		-ldflags "-X main.Version=$version -X main.BuildNumber=$buildnum"
 
 ###########
