@@ -12,9 +12,11 @@ deploy:
       script: docker push linksmart/hds:latest
       on:
         branch: master
+        repo: linksmart/historical-datastore
     - provider: script   
       script: docker tag linksmart/hds linksmart/hds:${TRAVIS_TAG} &&
                  docker push linksmart/hds:${TRAVIS_TAG}
       on:
         tags: true
+        repo: linksmart/historical-datastore
       
