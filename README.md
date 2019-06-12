@@ -5,30 +5,15 @@ Historical Datastore
 [![GitHub tag (latest pre-release)](https://img.shields.io/github/tag-pre/linksmart/historical-datastore.svg?label=pre-release)](https://github.com/linksmart/historical-datastore/tags)
 [![Build Status](https://travis-ci.com/linksmart/historical-datastore.svg?branch=master)](https://travis-ci.com/linksmart/historical-datastore)
 
-Implementation of the [Historical Datastore Service](https://docs.linksmart.eu/display/HDS).
+LinkSmart Historical Datastore is a modular service for time-series data storage. It is designed to store timeseries data on low powered devices and single board computers. It uses [Sensor Measurement Lists (SenML)](https://tools.ietf.org/html/rfc8428) as the data format for storage and retrieval. Metadata related to the series is stored in Historical Datastore's registry.
 
-## Code structure
-
-The code consists of four packages locate at:
-
-* `/` - implementation of a standalone service providing full API.
-* `/registry` - implementation of Registry API
-* `/data` - implementation of Data API
-
-
-## Compile from source
-
-```
-git clone https://github.com/linksmart/historical-datastore.git
-cd historical-datastore
-go build -mod=vendor -o historical-datastore
-```
+* [Documentation](https://docs.linksmart.eu/display/HDS)
 
 
 ## Run
 Use -conf flag to set the config file path. If not set, `./conf/historical-datastore.json` will be used.
 ```
-historical-datastore -conf historical-datastore.json
+./historical-datastore -conf historical-datastore.json
 ```
 
 ### Docker
@@ -42,4 +27,19 @@ docker build -t linksmart/hds .
 ```
 
 ## Development
-The dependencies of this package are managed by [mod](https://github.com/golang/go/wiki/Modules).
+The dependencies of this package are managed by [Go Modules](https://github.com/golang/go/wiki/Modules).
+
+### Code structure
+
+The code consists of four packages locate at:
+
+* `/` - implementation of a standalone service providing full API.
+* `/registry` - implementation of Registry API
+* `/data` - implementation of Data API
+
+### Compile from source
+```
+git clone https://github.com/linksmart/historical-datastore.git
+cd historical-datastore
+go build -mod=vendor -o historical-datastore
+```
