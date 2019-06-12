@@ -31,5 +31,15 @@ Use -conf flag to set the config file path. If not set, `./conf/historical-datas
 historical-datastore -conf historical-datastore.json
 ```
 
+### Docker
+`amd64` images are built and available on [Dockerhub](https://hub.docker.com/r/linksmart/hds/tags). To run the latest:
+```
+docker run -p 8085:8085 linksmart/hds
+```
+Images for other architectures (e.g. `arm`, `arm64`) can be build locally by running:
+```
+docker build -t linksmart/hds .
+```
+
 ## Development
 The dependencies of this package are managed by [mod](https://github.com/golang/go/wiki/Modules).
