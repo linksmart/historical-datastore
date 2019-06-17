@@ -26,14 +26,14 @@ type DataStream struct {
 	Type string `json:"dataType"`
 
 	// Meta is a hash-map with optional meta-information
-	Meta map[string]interface{} `json:"meta,omitempty"`
+	Meta map[string]interface{} `json:"meta"`
 
 	// Retention
 	Retention struct {
 		//minimum requirement for the retention
 		Min string `json:"min,omitempty"`
 		//maximum requirement for the retention. This is useful for enforcing the data privacy
-		Max string `json:"max",omitempty`
+		Max string `json:"max,omitempty"`
 	} `json:"retain,omitempty"`
 	// DynamicChild TODO
 	keepSensitiveInfo bool
@@ -43,7 +43,7 @@ type DataStream struct {
 type Source struct {
 	//type of the source
 	//This can be either MQTT or a series element itself
-	SrcType SourceType `json:"type"`
+	SrcType SourceType `json:"type,omitempty"`
 	*MQTTSource
 	*SeriesSource
 }
