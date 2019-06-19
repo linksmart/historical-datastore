@@ -108,7 +108,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add data to the storage
-	err = api.storage.Submit(data, sources)
+	err = api.storage.Submit(data)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
 		return
@@ -142,7 +142,6 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 	// Fill the data map with provided data points
 	data := make(map[string]senml.Pack)
-	sources := make(map[string]*registry.DataStream)
 	records := senmlPack.Normalize()
 	for _, r := range records {
 
@@ -209,13 +208,12 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 		_, found = data[ds.Name]
 		if !found {
 			data[ds.Name] = senml.Pack{}
-			sources[ds.Name] = ds
 		}
 		data[ds.Name] = append(data[ds.Name], r)
 	}
 
 	// Add data to the storage
-	err = api.storage.Submit(data, sources)
+	err = api.storage.Submit(data)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
 		return

@@ -26,6 +26,11 @@ Images for other architectures (e.g. `arm`, `arm64`) can be build locally by run
 docker build -t linksmart/hds .
 ```
 
+### Demo mode
+To run Historical Datastore in demo mode (with continuously growing dummy senml data)
+```
+docker run -p 8085:8085  linksmart/hds -demo -conf /conf/docker.json
+```
 ## Development
 The dependencies of this package are managed by [Go Modules](https://github.com/golang/go/wiki/Modules).
 

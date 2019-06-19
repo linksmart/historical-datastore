@@ -31,7 +31,7 @@ type Storage interface {
 	// Adds data points for multiple data sources
 	// data is a map where keys are data source ids
 	// sources is a map where keys are data source ids
-	Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error
+	Submit(data map[string]senml.Pack) error
 
 	// Queries data for specified data sources
 	//Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.Pack, int, error)

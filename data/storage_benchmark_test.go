@@ -55,13 +55,10 @@ func BenchmarkCreation_OneSeries(b *testing.B) {
 	totRec := b.N
 	fmt.Printf("%s:Count = %d\n", fileName, b.N)
 	records = common.Same_name_same_types(totRec, datastream.Name, true)
-
-	registrymap := make(map[string]*registry.DataStream)
-	registrymap[datastream.Name] = &datastream
 	recordmap := make(map[string]senml.Pack)
 	recordmap[datastream.Name] = records
 	b.StartTimer()
-	err = dataStorage.Submit(recordmap, registrymap)
+	err = dataStorage.Submit(recordmap)
 	//err = dataClient.Submit(barr, , datastream.Name)
 	if err != nil {
 		b.Error("Insetion failed")
@@ -95,11 +92,9 @@ func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 	totRec := TOTALENTRIES
 	records = common.Same_name_same_types(totRec, datastream.Name, true)
 
-	registrymap := make(map[string]*registry.DataStream)
-	registrymap[datastream.Name] = &datastream
 	recordmap := make(map[string]senml.Pack)
 	recordmap[datastream.Name] = records
-	err = dataStorage.Submit(recordmap, registrymap)
+	err = dataStorage.Submit(recordmap)
 	//err = dataClient.Submit(barr, , datastream.Name)
 	if err != nil {
 		b.Error("Insetion failed", err)
@@ -132,12 +127,10 @@ func benchmarkInsertEnd(b *testing.B, storage Storage, timeStart float64, timeEn
 		endTime := endTime + 1
 		insrecords := common.Same_name_same_types(1, seriesName, true)
 		insrecords[0].Time = endTime
-		registrymap := make(map[string]*registry.DataStream)
-		registrymap[seriesName] = &registry.DataStream{Name: seriesName}
 		recordmap := make(map[string]senml.Pack)
 		recordmap[seriesName] = insrecords
 		b.StartTimer()
-		err := storage.Submit(recordmap, registrymap)
+		err := storage.Submit(recordmap)
 		if err != nil {
 			b.Error("insetion failed", err)
 		}
@@ -152,12 +145,10 @@ func benchmarkInsertRandom(b *testing.B, storage Storage, timeStart float64, tim
 		randTime := between(timeStart, timeEnd)
 		insrecords := common.Same_name_same_types(1, seriesName, true)
 		insrecords[0].Time = randTime
-		registrymap := make(map[string]*registry.DataStream)
-		registrymap[seriesName] = &registry.DataStream{Name: seriesName}
 		recordmap := make(map[string]senml.Pack)
 		recordmap[seriesName] = insrecords
 		b.StartTimer()
-		err := storage.Submit(recordmap, registrymap)
+		err := storage.Submit(recordmap)
 		if err != nil {
 			b.Error("insetion failed", err)
 		}
@@ -197,17 +188,15 @@ func BenchmarkCreation_MultiSeries(b *testing.B) {
 	totRec := 3
 	records = common.Same_name_same_types(totRec, datastream.Name, true)
 
-	registrymap := make(map[string]*registry.DataStream)
 	recordmap := make(map[string]senml.Pack)
 	fmt.Printf("%s:Count = %d\n", fileName, b.N)
 	for i := 0; i < b.N; i++ {
 		datastream.Name = strconv.Itoa(i)
 		records[0].BaseName = datastream.Name
-		registrymap[datastream.Name] = &datastream
 		recordmap[datastream.Name] = records
 	}
 	b.StartTimer()
-	err = dataStorage.Submit(recordmap, registrymap)
+	err = dataStorage.Submit(recordmap)
 	//err = dataClient.Submit(barr, , datastream.Name)
 	if err != nil {
 		b.Error("Insetion failed")
@@ -232,7 +221,6 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 	totRec := 1
 	records = common.Same_name_same_types(totRec, "dummy", true)
 
-	registrymap := make(map[string]*registry.DataStream)
 	recordmap := make(map[string]senml.Pack)
 	//fmt.Printf("%s:Count = %d\n", fileName, b.N)
 	for i := 0; i < TOTALSERIES; i++ {
@@ -240,10 +228,9 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 		newrecords := make(senml.Pack, totRec)
 		copy(newrecords, records)
 		newrecords[0].BaseName = datastream.Name
-		registrymap[datastream.Name] = &datastream
 		recordmap[datastream.Name] = newrecords
 	}
-	err = dataStorage.Submit(recordmap, registrymap)
+	err = dataStorage.Submit(recordmap)
 	//err = dataClient.Submit(barr, , datastream.Name)
 	if err != nil {
 		b.Fatal("Insetion failed", err)
@@ -274,7 +261,6 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 func benchmarkCreateNewSeries(b *testing.B, storage Storage) {
 	records := common.Same_name_same_types(1, "benchmarkCreateNewSeries", true)
 
-	registrymap := make(map[string]*registry.DataStream)
 	recordmap := make(map[string]senml.Pack)
 	b.StopTimer()
 	for i := 0; i < b.N; i++ {
@@ -282,12 +268,10 @@ func benchmarkCreateNewSeries(b *testing.B, storage Storage) {
 		newRecords := make(senml.Pack, 1)
 		copy(newRecords, records)
 		newRecords[0].BaseName = datastream.Name
-		registrymap[datastream.Name] = &datastream
 		recordmap[datastream.Name] = newRecords
-
 	}
 	b.StartTimer()
-	err := storage.Submit(recordmap, registrymap)
+	err := storage.Submit(recordmap)
 	if err != nil {
 		b.Fatal("Error creating:", err)
 	}
@@ -299,17 +283,15 @@ func benchmarkDeleteSeries(b *testing.B, storage Storage) {
 	totRec := 1
 	records := common.Same_name_same_types(totRec, "benchmarkDeleteSeries", true)
 
-	registrymap := make(map[string]*registry.DataStream)
 	recordmap := make(map[string]senml.Pack)
 	for i := 0; i < b.N; i++ {
 		datastream := registry.DataStream{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: common.FLOAT}
 		newrecords := make(senml.Pack, totRec)
 		copy(newrecords, records)
 		newrecords[0].BaseName = datastream.Name
-		registrymap[datastream.Name] = &datastream
 		recordmap[datastream.Name] = newrecords
 	}
-	err := storage.Submit(recordmap, registrymap)
+	err := storage.Submit(recordmap)
 	if err != nil {
 		b.Fatal("Error creating:", err)
 	}

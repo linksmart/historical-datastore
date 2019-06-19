@@ -10,6 +10,8 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strconv"
+	"time"
 
 	_ "code.linksmart.eu/com/go-sec/auth/keycloak/validator"
 	"code.linksmart.eu/com/go-sec/auth/validator"
@@ -30,7 +32,7 @@ var (
 	confPath    = flag.String("conf", "conf/historical-datastore.json", "Historical Datastore configuration file path")
 	profile     = flag.Bool("profile", false, "Enable the HTTP server for runtime profiling")
 	version     = flag.Bool("version", false, "Show the Historical Datastore API version")
-	demomode    = flag.Bool("demo", false, "Run HDS in demo mode. This creates a normal HDS with a growing data")
+	demomode    = flag.Bool("demo", false, "Run Historical Datasource in demo mode. This creates the service with a growing dummy data")
 	Version     string // set with build flags
 	BuildNumber string // set with build flags
 )
@@ -43,6 +45,7 @@ func main() {
 	}
 	fmt.Print(LINKSMART)
 	log.Printf("Starting Historical Datastore")
+
 	if Version != "" {
 		log.Printf("Version: %s", Version)
 	}
@@ -62,6 +65,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("Config File: %s\n", err)
 	}
+
+	if *demomode {
+		conf.Data.Backend.DSN = os.TempDir() + string(os.PathSeparator) + "hds_demo_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		log.Println("===========================")
+		log.Printf("RUNNING IN DEMO MODE")
+		log.Println("===========================")
+		log.Printf("Storing demo data in %s", conf.Data.Backend.DSN)
+		defer os.Remove(conf.Data.Backend.DSN) //remove the temporary file if created on exit
+		//use memory in demo mode for registry
+		conf.Reg.Backend.Type = registry.MEMORY
+	}
 	if conf.ServiceID == "" {
 		conf.ServiceID = uuid.NewV4().String()
 		log.Printf("Service ID not set. Generated new UUID: %s", conf.ServiceID)
@@ -72,6 +86,7 @@ func main() {
 		dataStorage data.Storage
 		//aggrStorage aggregation.Storage
 	)
+
 	switch conf.Data.Backend.Type {
 	case data.SENMLSTORE:
 		var disconnect_func func() error
@@ -84,17 +99,20 @@ func main() {
 	if conf.Data.AutoRegistration {
 		log.Println("Auto Registration is enabled: Data HTTP API will automatically create new data sources.")
 	}
-	// MQTT connector
-	mqttConn, err := data.NewMQTTConnector(dataStorage, conf.ServiceID)
-	if err != nil {
-		log.Fatalf("Error creating MQTT Connector: %s", err)
-	}
 
 	// Setup registry
 	var (
 		regStorage registry.Storage
 		closeReg   func() error
+		mqttConn   *data.MQTTConnector
 	)
+
+	// MQTT connector
+	mqttConn, err = data.NewMQTTConnector(dataStorage, conf.ServiceID)
+	if err != nil {
+		log.Fatalf("Error creating MQTT Connector: %s", err)
+	}
+
 	switch conf.Reg.Backend.Type {
 	case registry.MEMORY:
 		regStorage = registry.NewMemoryStorage(conf.Reg, dataStorage, mqttConn)
@@ -110,6 +128,9 @@ func main() {
 	dataAPI := data.NewAPI(regStorage, dataStorage, conf.Data.AutoRegistration)
 	//aggrAPI := aggregation.NewAPI(regStorage, aggrStorage)
 
+	if *demomode {
+		go demo.DummyStreamer(regStorage, dataStorage)
+	}
 	// Start MQTT connector
 	// TODO: disconnect on shutdown
 	err = mqttConn.Start(regStorage)
@@ -130,14 +151,6 @@ func main() {
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI)
 
-	if *demomode {
-		if conf.Auth.Enabled {
-			fmt.Printf("Demo mode is not supported with auth enabled")
-		} else {
-			serverUrl := fmt.Sprintf("http://%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
-			go demo.DummyStreamer(serverUrl)
-		}
-	}
 	// Ctrl+C / Kill handling
 	handler := make(chan os.Signal, 1)
 	signal.Notify(handler, os.Interrupt, os.Kill)
