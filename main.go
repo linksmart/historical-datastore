@@ -76,6 +76,7 @@ func main() {
 	)
 	if *demomode {
 		conf.Data.Backend.DSN = os.TempDir() + "/hds_demo_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		defer os.Remove(conf.Data.Backend.DSN) //remove the temporary file if created on exit
 		//use memory in demo mode for registry
 		conf.Reg.Backend.Type = registry.MEMORY
 	}
@@ -122,25 +123,24 @@ func main() {
 
 	if *demomode {
 		go demo.DummyStreamer(regStorage, dataStorage)
-	} else {
-		// Start MQTT connector
-		// TODO: disconnect on shutdown
-		err = mqttConn.Start(regStorage)
-		if err != nil {
-			log.Fatalf("Error starting MQTT Connector: %s", err)
-		}
-
-		// Register in the LinkSmart Service Catalog
-		if conf.ServiceCatalog != nil {
-			unregisterService, err := registerInServiceCatalog(conf)
-			if err != nil {
-				log.Fatalf("Error registering service: %s", err)
-			}
-			// Unregister from the Service Catalog
-			defer unregisterService()
-		}
-
 	}
+	// Start MQTT connector
+	// TODO: disconnect on shutdown
+	err = mqttConn.Start(regStorage)
+	if err != nil {
+		log.Fatalf("Error starting MQTT Connector: %s", err)
+	}
+
+	// Register in the LinkSmart Service Catalog
+	if conf.ServiceCatalog != nil {
+		unregisterService, err := registerInServiceCatalog(conf)
+		if err != nil {
+			log.Fatalf("Error registering service: %s", err)
+		}
+		// Unregister from the Service Catalog
+		defer unregisterService()
+	}
+
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI)
 
