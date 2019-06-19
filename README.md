@@ -27,7 +27,7 @@ docker build -t linksmart/hds .
 ```
 
 ### Demo mode
-To run Historical Datastore in demo mode
+To run Historical Datastore in demo mode (with continuously growing dummy senml data)
 ```
 docker run -p 8085:8085  linksmart/hds -demo -conf /conf/docker.json
 ```
