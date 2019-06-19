@@ -45,6 +45,7 @@ func main() {
 	}
 	fmt.Print(LINKSMART)
 	log.Printf("Starting Historical Datastore")
+
 	if Version != "" {
 		log.Printf("Version: %s", Version)
 	}
@@ -64,6 +65,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("Config File: %s\n", err)
 	}
+
+	if *demomode {
+		conf.Data.Backend.DSN = os.TempDir() + "/hds_demo_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		log.Println("===========================")
+		log.Printf("RUNNING IN DEMO MODE")
+		log.Println("===========================")
+		log.Printf("Data is will be stored at %s", conf.Data.Backend.DSN)
+		defer os.Remove(conf.Data.Backend.DSN) //remove the temporary file if created on exit
+		//use memory in demo mode for registry
+		conf.Reg.Backend.Type = registry.MEMORY
+	}
 	if conf.ServiceID == "" {
 		conf.ServiceID = uuid.NewV4().String()
 		log.Printf("Service ID not set. Generated new UUID: %s", conf.ServiceID)
@@ -74,12 +86,7 @@ func main() {
 		dataStorage data.Storage
 		//aggrStorage aggregation.Storage
 	)
-	if *demomode {
-		conf.Data.Backend.DSN = os.TempDir() + "/hds_demo_" + strconv.FormatInt(time.Now().UnixNano(), 10)
-		defer os.Remove(conf.Data.Backend.DSN) //remove the temporary file if created on exit
-		//use memory in demo mode for registry
-		conf.Reg.Backend.Type = registry.MEMORY
-	}
+
 	switch conf.Data.Backend.Type {
 	case data.SENMLSTORE:
 		var disconnect_func func() error

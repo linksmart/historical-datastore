@@ -11,8 +11,6 @@ import (
 )
 
 func DummyStreamer(regStorage registry.Storage, dataStorage data.Storage) {
-	log.Println("Started the Dummy Generator")
-
 	dsBool := createDS(regStorage, "kitchen/lamp", "bool")
 	dsString := createDS(regStorage, "hall/cat", "string")
 	dsFloat := createDS(regStorage, "terrace/temperature", "float")
@@ -54,7 +52,7 @@ func addFloat(datastorage data.Storage, ds registry.DataStream) {
 		Value: &curVal,
 	}
 
-	log.Printf("Creating %s: value %f\n", ds.Name, curVal)
+	log.Printf("Submitting %s: value %f\n", ds.Name, curVal)
 	submitData(datastorage, ds.Name, senmlRecord)
 
 }
@@ -67,7 +65,7 @@ func addBool(datastorage data.Storage, ds registry.DataStream) {
 		BoolValue: &curVal,
 	}
 
-	log.Printf("Creating %s: value %t\n", ds.Name, curVal)
+	log.Printf("Submitting %s: value %t\n", ds.Name, curVal)
 	submitData(datastorage, ds.Name, senmlRecord)
 
 }
@@ -90,7 +88,7 @@ func addString(datastorage data.Storage, ds registry.DataStream) {
 		Name:        ds.Name,
 		StringValue: status[index],
 	}
-	log.Printf("Creating %s: status %s", ds.Name, status[index])
+	log.Printf("Submitting %s: status %s", ds.Name, status[index])
 	submitData(datastorage, ds.Name, senmlRecord)
 
 }
