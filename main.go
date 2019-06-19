@@ -30,7 +30,7 @@ var (
 	confPath    = flag.String("conf", "conf/historical-datastore.json", "Historical Datastore configuration file path")
 	profile     = flag.Bool("profile", false, "Enable the HTTP server for runtime profiling")
 	version     = flag.Bool("version", false, "Show the Historical Datastore API version")
-	demomode    = flag.Bool("demo", false, "Run HDS in demo mode. This creates a normal HDS with a growing data")
+	demomode    = flag.Bool("demo", false, "Run Historical Datasource in demo mode. This creates the service with a growing dummy data")
 	Version     string // set with build flags
 	BuildNumber string // set with build flags
 )
@@ -134,8 +134,7 @@ func main() {
 		if conf.Auth.Enabled {
 			fmt.Printf("Demo mode is not supported with auth enabled")
 		} else {
-			serverUrl := fmt.Sprintf("http://%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
-			go demo.DummyStreamer(serverUrl)
+			go demo.DummyStreamer()
 		}
 	}
 	// Ctrl+C / Kill handling
