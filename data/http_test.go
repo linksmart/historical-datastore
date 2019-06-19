@@ -151,7 +151,7 @@ func TestHttpQuery(t *testing.T) {
 
 type dummyDataStorage struct{}
 
-func (s *dummyDataStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error {
+func (s *dummyDataStorage) Submit(data map[string]senml.Pack) error {
 	return nil
 }
 func (s *dummyDataStorage) Query(q Query, ds ...*registry.DataStream) (senml.Pack, int, *time.Time, error) {
