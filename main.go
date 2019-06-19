@@ -10,6 +10,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
 	_ "code.linksmart.eu/com/go-sec/auth/keycloak/validator"
@@ -74,27 +75,21 @@ func main() {
 		//aggrStorage aggregation.Storage
 	)
 	if *demomode {
-		tempdsn := os.TempDir() + "/hds_demo_" + string(time.Now().UnixNano())
-		backend := common.DataBackendConf{Type: "senmlstore", DSN: tempdsn}
+		conf.Data.Backend.DSN = os.TempDir() + "/hds_demo_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		//use memory in demo mode for registry
+		conf.Reg.Backend.Type = registry.MEMORY
+	}
+	switch conf.Data.Backend.Type {
+	case data.SENMLSTORE:
 		var disconnect_func func() error
-		dataStorage, disconnect_func, err = data.NewSenmlStorage(common.DataConf{Backend: backend})
+		dataStorage, disconnect_func, err = data.NewSenmlStorage(conf.Data)
 		if err != nil {
 			log.Fatalf("Error creating senml storage: %s", err)
 		}
 		defer disconnect_func()
-	} else {
-		switch conf.Data.Backend.Type {
-		case data.SENMLSTORE:
-			var disconnect_func func() error
-			dataStorage, disconnect_func, err = data.NewSenmlStorage(conf.Data)
-			if err != nil {
-				log.Fatalf("Error creating senml storage: %s", err)
-			}
-			defer disconnect_func()
-		}
-		if conf.Data.AutoRegistration {
-			log.Println("Auto Registration is enabled: Data HTTP API will automatically create new data sources.")
-		}
+	}
+	if conf.Data.AutoRegistration {
+		log.Println("Auto Registration is enabled: Data HTTP API will automatically create new data sources.")
 	}
 
 	// Setup registry
@@ -104,15 +99,10 @@ func main() {
 		mqttConn   *data.MQTTConnector
 	)
 
-	if *demomode {
-		//use memory in demo mode for registry
-		conf.Reg.Backend.Type = registry.MEMORY
-	} else {
-		// MQTT connector
-		mqttConn, err = data.NewMQTTConnector(dataStorage, conf.ServiceID)
-		if err != nil {
-			log.Fatalf("Error creating MQTT Connector: %s", err)
-		}
+	// MQTT connector
+	mqttConn, err = data.NewMQTTConnector(dataStorage, conf.ServiceID)
+	if err != nil {
+		log.Fatalf("Error creating MQTT Connector: %s", err)
 	}
 
 	switch conf.Reg.Backend.Type {

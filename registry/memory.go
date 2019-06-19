@@ -43,12 +43,6 @@ func (ms *MemoryStorage) Add(ds DataStream) (*DataStream, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
-	// Send a create event
-	err = ms.event.created(&ds)
-	if err != nil {
-		return nil, err
-	}
-
 	if _, exists := ms.resources[ds.Name]; exists {
 		return nil, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Name)
 	}
@@ -58,6 +52,11 @@ func (ms *MemoryStorage) Add(ds DataStream) (*DataStream, error) {
 	// Add secondary index
 	ms.resources[ds.Name] = ds.Name
 
+	// Send a create event
+	err = ms.event.created(&ds)
+	if err != nil {
+		return nil, err
+	}
 	ms.lastModified = time.Now()
 	return ms.data[ds.Name], nil
 }
