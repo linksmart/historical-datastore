@@ -3,27 +3,14 @@ package demo
 import (
 	"log"
 	"math/rand"
-	"os"
 	"time"
 
 	"github.com/farshidtz/senml"
-	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/registry"
 )
 
-func DummyStreamer() {
-	tempdsn := os.TempDir() + "/hds_demo_" + string(time.Now().UnixNano())
-	backend := common.DataBackendConf{Type: "senmlstore", DSN: tempdsn}
-	dataStorage, disconnect_func, err := data.NewSenmlStorage(common.DataConf{Backend: backend})
-	if err != nil {
-		log.Fatalf("Error creating senml storage: %s", err)
-	}
-	defer disconnect_func()
-
-	regBackend := common.RegBackendConf{DSN: registry.MEMORY}
-	regStorage := registry.NewMemoryStorage(common.RegConf{Backend: regBackend})
-
+func DummyStreamer(regStorage registry.Storage, dataStorage data.Storage) {
 	log.Println("Started the Dummy Generator")
 
 	dsBool := createDS(regStorage, "kitchen/lamp", "bool")
@@ -46,7 +33,7 @@ func createDS(regStorage registry.Storage, name string, datatype string) registr
 	}
 	_, err := regStorage.Add(ds)
 	if err != nil {
-		log.Printf("Error creating the datastream for %s", name)
+		log.Printf("Error creating datastream %s: %s", name, err)
 	}
 	log.Printf("Creating stream %s\n", ds.Name)
 	return ds
@@ -67,7 +54,7 @@ func addFloat(datastorage data.Storage, ds registry.DataStream) {
 		Value: &curVal,
 	}
 
-	log.Printf("Creating %s with value %f\n", ds.Name, curVal)
+	log.Printf("Creating %s: value %f\n", ds.Name, curVal)
 	submitData(datastorage, ds.Name, senmlRecord)
 
 }
@@ -80,7 +67,7 @@ func addBool(datastorage data.Storage, ds registry.DataStream) {
 		BoolValue: &curVal,
 	}
 
-	log.Printf("Creating %s with value %t\n", ds.Name, curVal)
+	log.Printf("Creating %s: value %t\n", ds.Name, curVal)
 	submitData(datastorage, ds.Name, senmlRecord)
 
 }
@@ -103,7 +90,7 @@ func addString(datastorage data.Storage, ds registry.DataStream) {
 		Name:        ds.Name,
 		StringValue: status[index],
 	}
-	log.Printf("Creating %s with status %s", ds.Name, status[index])
+	log.Printf("Creating %s: status %s", ds.Name, status[index])
 	submitData(datastorage, ds.Name, senmlRecord)
 
 }
@@ -115,6 +102,6 @@ func submitData(datastorage data.Storage, name string, record senml.Record) {
 
 	err := datastorage.Submit(recordmap)
 	if err != nil {
-		log.Printf("insetion failed", err)
+		log.Printf("insetion failed: %s", err)
 	}
 }

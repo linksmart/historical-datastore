@@ -10,6 +10,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"time"
 
 	_ "code.linksmart.eu/com/go-sec/auth/keycloak/validator"
 	"code.linksmart.eu/com/go-sec/auth/validator"
@@ -72,29 +73,48 @@ func main() {
 		dataStorage data.Storage
 		//aggrStorage aggregation.Storage
 	)
-	switch conf.Data.Backend.Type {
-	case data.SENMLSTORE:
+	if *demomode {
+		tempdsn := os.TempDir() + "/hds_demo_" + string(time.Now().UnixNano())
+		backend := common.DataBackendConf{Type: "senmlstore", DSN: tempdsn}
 		var disconnect_func func() error
-		dataStorage, disconnect_func, err = data.NewSenmlStorage(conf.Data)
+		dataStorage, disconnect_func, err = data.NewSenmlStorage(common.DataConf{Backend: backend})
 		if err != nil {
 			log.Fatalf("Error creating senml storage: %s", err)
 		}
 		defer disconnect_func()
-	}
-	if conf.Data.AutoRegistration {
-		log.Println("Auto Registration is enabled: Data HTTP API will automatically create new data sources.")
-	}
-	// MQTT connector
-	mqttConn, err := data.NewMQTTConnector(dataStorage, conf.ServiceID)
-	if err != nil {
-		log.Fatalf("Error creating MQTT Connector: %s", err)
+	} else {
+		switch conf.Data.Backend.Type {
+		case data.SENMLSTORE:
+			var disconnect_func func() error
+			dataStorage, disconnect_func, err = data.NewSenmlStorage(conf.Data)
+			if err != nil {
+				log.Fatalf("Error creating senml storage: %s", err)
+			}
+			defer disconnect_func()
+		}
+		if conf.Data.AutoRegistration {
+			log.Println("Auto Registration is enabled: Data HTTP API will automatically create new data sources.")
+		}
 	}
 
 	// Setup registry
 	var (
 		regStorage registry.Storage
 		closeReg   func() error
+		mqttConn   *data.MQTTConnector
 	)
+
+	if *demomode {
+		//use memory in demo mode for registry
+		conf.Reg.Backend.Type = registry.MEMORY
+	} else {
+		// MQTT connector
+		mqttConn, err = data.NewMQTTConnector(dataStorage, conf.ServiceID)
+		if err != nil {
+			log.Fatalf("Error creating MQTT Connector: %s", err)
+		}
+	}
+
 	switch conf.Reg.Backend.Type {
 	case registry.MEMORY:
 		regStorage = registry.NewMemoryStorage(conf.Reg, dataStorage, mqttConn)
@@ -110,33 +130,30 @@ func main() {
 	dataAPI := data.NewAPI(regStorage, dataStorage, conf.Data.AutoRegistration)
 	//aggrAPI := aggregation.NewAPI(regStorage, aggrStorage)
 
-	// Start MQTT connector
-	// TODO: disconnect on shutdown
-	err = mqttConn.Start(regStorage)
-	if err != nil {
-		log.Fatalf("Error starting MQTT Connector: %s", err)
-	}
-
-	// Register in the LinkSmart Service Catalog
-	if conf.ServiceCatalog != nil {
-		unregisterService, err := registerInServiceCatalog(conf)
+	if *demomode {
+		go demo.DummyStreamer(regStorage, dataStorage)
+	} else {
+		// Start MQTT connector
+		// TODO: disconnect on shutdown
+		err = mqttConn.Start(regStorage)
 		if err != nil {
-			log.Fatalf("Error registering service: %s", err)
+			log.Fatalf("Error starting MQTT Connector: %s", err)
 		}
-		// Unregister from the Service Catalog
-		defer unregisterService()
-	}
 
+		// Register in the LinkSmart Service Catalog
+		if conf.ServiceCatalog != nil {
+			unregisterService, err := registerInServiceCatalog(conf)
+			if err != nil {
+				log.Fatalf("Error registering service: %s", err)
+			}
+			// Unregister from the Service Catalog
+			defer unregisterService()
+		}
+
+	}
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI)
 
-	if *demomode {
-		if conf.Auth.Enabled {
-			fmt.Printf("Demo mode is not supported with auth enabled")
-		} else {
-			go demo.DummyStreamer()
-		}
-	}
 	// Ctrl+C / Kill handling
 	handler := make(chan os.Signal, 1)
 	signal.Notify(handler, os.Interrupt, os.Kill)
