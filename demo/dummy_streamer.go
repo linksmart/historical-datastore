@@ -67,7 +67,7 @@ func addFloat(datastorage data.Storage, ds registry.DataStream) {
 		Value: &curVal,
 	}
 
-	log.Printf("Creating %s with value %s\n", ds.Name, curVal)
+	log.Printf("Creating %s with value %f\n", ds.Name, curVal)
 	submitData(datastorage, ds.Name, senmlRecord)
 
 }
@@ -80,7 +80,7 @@ func addBool(datastorage data.Storage, ds registry.DataStream) {
 		BoolValue: &curVal,
 	}
 
-	log.Printf("Creating %s with value %s\n", ds.Name, curVal)
+	log.Printf("Creating %s with value %t\n", ds.Name, curVal)
 	submitData(datastorage, ds.Name, senmlRecord)
 
 }
