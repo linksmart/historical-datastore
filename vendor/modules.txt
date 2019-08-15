@@ -1,13 +1,3 @@
-# code.linksmart.eu/com/go-sec v1.0.0
-code.linksmart.eu/com/go-sec/auth/keycloak/obtainer
-code.linksmart.eu/com/go-sec/auth/keycloak/validator
-code.linksmart.eu/com/go-sec/auth/obtainer
-code.linksmart.eu/com/go-sec/auth/validator
-code.linksmart.eu/com/go-sec/authz
-# code.linksmart.eu/sc/service-catalog v2.3.4+incompatible
-code.linksmart.eu/sc/service-catalog/catalog
-code.linksmart.eu/sc/service-catalog/client
-code.linksmart.eu/sc/service-catalog/utils
 # github.com/ancientlore/go-avltree v1.0.1
 github.com/ancientlore/go-avltree
 # github.com/boltdb/bolt v1.3.1
@@ -16,18 +6,18 @@ github.com/boltdb/bolt
 github.com/codegangsta/negroni
 # github.com/dgrijalva/jwt-go v3.1.0+incompatible
 github.com/dgrijalva/jwt-go
-# github.com/dschowta/lite.tsdb v0.0.0-20190402134120-cd997efa39b6 => ../lite.tsdb
+# github.com/dschowta/lite.tsdb v0.0.0-20190418134252-2f8c6a007825
 github.com/dschowta/lite.tsdb
-# github.com/dschowta/senml.datastore v0.0.0-20190402134034-c6e697d815a4 => ../senml.datastore
+# github.com/dschowta/senml.datastore v0.0.0-20190815101936-727ff523e638
 github.com/dschowta/senml.datastore
 # github.com/eclipse/paho.mqtt.golang v1.1.1
 github.com/eclipse/paho.mqtt.golang
 github.com/eclipse/paho.mqtt.golang/packets
-# github.com/farshidtz/elog v0.9.0
+# github.com/farshidtz/elog v1.0.1
 github.com/farshidtz/elog
 # github.com/farshidtz/mqtt-match v1.0.1
 github.com/farshidtz/mqtt-match
-# github.com/farshidtz/senml v1.0.2
+# github.com/farshidtz/senml v2.0.0-alpha.2+incompatible
 github.com/farshidtz/senml
 # github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db
 github.com/golang/snappy
@@ -37,6 +27,16 @@ github.com/gorilla/context
 github.com/gorilla/mux
 # github.com/justinas/alice v0.0.0-20171023064455-03f45bd4b7da
 github.com/justinas/alice
+# github.com/linksmart/go-sec v1.0.1
+github.com/linksmart/go-sec/auth/keycloak/obtainer
+github.com/linksmart/go-sec/auth/keycloak/validator
+github.com/linksmart/go-sec/auth/obtainer
+github.com/linksmart/go-sec/auth/validator
+github.com/linksmart/go-sec/authz
+# github.com/linksmart/service-catalog/v2 v2.4.0
+github.com/linksmart/service-catalog/v2/catalog
+github.com/linksmart/service-catalog/v2/client
+github.com/linksmart/service-catalog/v2/utils
 # github.com/rs/cors v1.6.0
 github.com/rs/cors
 # github.com/satori/go.uuid v1.1.0
@@ -54,11 +54,11 @@ github.com/syndtr/goleveldb/leveldb/journal
 github.com/syndtr/goleveldb/leveldb/memdb
 github.com/syndtr/goleveldb/leveldb/storage
 github.com/syndtr/goleveldb/leveldb/table
-# github.com/ugorji/go/codec v0.0.0-20190320090025-2dc34c0b8780
+# github.com/ugorji/go/codec v1.1.7
 github.com/ugorji/go/codec
 # golang.org/x/net v0.0.0-20180906233101-161cd47e91fd
 golang.org/x/net/proxy
 golang.org/x/net/websocket
 golang.org/x/net/internal/socks
-# golang.org/x/sys v0.0.0-20190322080309-f49334f85ddc
+# golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a
 golang.org/x/sys/unix

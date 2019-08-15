@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"time"
 
-	_ "code.linksmart.eu/com/go-sec/auth/keycloak/validator"
-	"code.linksmart.eu/com/go-sec/auth/validator"
+	_ "github.com/linksmart/go-sec/auth/keycloak/validator"
+	"github.com/linksmart/go-sec/auth/validator"
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/demo"

@@ -3,8 +3,8 @@
 package common
 
 import (
-	"code.linksmart.eu/com/go-sec/authz"
 	"errors"
+	"github.com/linksmart/go-sec/authz"
 	"net/url"
 )
 

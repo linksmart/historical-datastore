@@ -5,11 +5,11 @@ package main
 import (
 	"fmt"
 
-	_ "code.linksmart.eu/com/go-sec/auth/keycloak/obtainer"
-	"code.linksmart.eu/com/go-sec/auth/obtainer"
-	"code.linksmart.eu/sc/service-catalog/catalog"
-	"code.linksmart.eu/sc/service-catalog/client"
+	_ "github.com/linksmart/go-sec/auth/keycloak/obtainer"
+	"github.com/linksmart/go-sec/auth/obtainer"
 	"github.com/linksmart/historical-datastore/common"
+	"github.com/linksmart/service-catalog/v2/catalog"
+	"github.com/linksmart/service-catalog/v2/client"
 )
 
 func registerInServiceCatalog(conf *common.Config) (func() error, error) {

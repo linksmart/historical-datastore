@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"code.linksmart.eu/com/go-sec/auth/obtainer"
-	"code.linksmart.eu/sc/service-catalog/utils"
+	"github.com/linksmart/go-sec/auth/obtainer"
 	"github.com/linksmart/historical-datastore/common"
+	"github.com/linksmart/service-catalog/v2/utils"
 )
 
 type RemoteClient struct {
