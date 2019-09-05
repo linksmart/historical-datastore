@@ -48,3 +48,8 @@ git clone https://github.com/linksmart/historical-datastore.git
 cd historical-datastore
 go build -mod=vendor -o historical-datastore
 ```
+
+## Contributing
+Contributions are welcome. 
+
+Please fork, make your changes, and submit a pull request. For major changes, please open an issue first and discuss it with the other authors.
