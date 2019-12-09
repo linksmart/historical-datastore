@@ -297,7 +297,6 @@ components:
         source:
           type: object
           items:
-            oneOf:
               - $ref: "#/components/schemas/MQTTSource"
         dataType:
           type: string
