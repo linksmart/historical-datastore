@@ -295,9 +295,7 @@ components:
           type: string
           example: "IZB/C5/125/avgtemp"
         source:
-          type: object
-          items:
-              - $ref: "#/components/schemas/MQTTSource"
+          $ref: "#/components/schemas/MQTTSource"
         dataType:
           type: string
           pattern: 'string|float|bool|data'
