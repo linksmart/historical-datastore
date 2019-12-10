@@ -97,7 +97,9 @@ func (ds DataStream) MarshalJSON() ([]byte, error) {
 			if ds.Source.KeyFile != "" {
 				ds.Source.KeyFile = "*****"
 			}
-
+			if ds.Source.Insecure {
+				ds.Source.Insecure = false
+			}
 		}
 
 	}
