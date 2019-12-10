@@ -60,6 +60,7 @@ type MQTTSource struct {
 	CaFile   string `json:"caFile,omitempty"`
 	CertFile string `json:"certFile,omitempty"`
 	KeyFile  string `json:"keyFile,omitempty"`
+	Insecure bool   `json:"insecure,omitempty"`
 	//Avoid marshalling sensitive informations
 
 }

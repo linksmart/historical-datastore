@@ -3,16 +3,17 @@
 package data
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"sync"
 	"time"
 
-	"github.com/farshidtz/senml"
-
-	"net/http"
-
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/farshidtz/senml"
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/registry"
 )
@@ -133,10 +134,16 @@ func (c *MQTTConnector) register(source registry.MQTTSource) error {
 		opts.SetConnectionLostHandler(manager.onConnectionLostHandler)
 		if source.Username != "" {
 			opts.SetUsername(source.Username)
+		}
+		if source.Password != "" {
 			opts.SetPassword(source.Password)
 		}
-		// TODO: add support for certificate auth
-		//
+		tlsConfig, err := pahoTLSConfig(source.CaFile, source.CertFile, source.KeyFile, source.Insecure)
+		if err != nil {
+			return fmt.Errorf("MQTT: Error configuring TLS options for broker %v: %v", source.BrokerURL, err)
+		}
+		opts.SetTLSConfig(tlsConfig)
+
 		manager.client = paho.NewClient(opts)
 
 		if token := manager.client.Connect(); token.Wait() && token.Error() != nil {
@@ -367,4 +374,36 @@ func (c *MQTTConnector) DeleteHandler(oldDS registry.DataStream) error {
 		delete(c.failedRegistrations, oldDS.Name)
 	}
 	return nil
+}
+
+func pahoTLSConfig(caFile, certFile, keyFile string, insecure bool) (*tls.Config, error) {
+
+	tlsConfig := &tls.Config{}
+	if caFile != "" {
+		// Import trusted certificates from CAfile.pem.
+		// Alternatively, manually add CA certificates to
+		// default openssl CA bundle.
+		tlsConfig.RootCAs = x509.NewCertPool()
+		pemCerts, err := ioutil.ReadFile(caFile)
+		if err == nil {
+			tlsConfig.RootCAs.AppendCertsFromPEM(pemCerts)
+		}
+	}
+	if certFile != "" && keyFile != "" {
+		// Import client certificate/key pair
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return nil, fmt.Errorf("error loading client keypair: %s", err)
+		}
+		// Just to print out the client certificate..
+		cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
+		if err != nil {
+			return nil, fmt.Errorf("error parsing client certificate: %s", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	tlsConfig.InsecureSkipVerify = insecure
+
+	return tlsConfig, nil
 }
