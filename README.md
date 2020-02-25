@@ -19,8 +19,17 @@ Use -conf flag to set the config file path. If not set, `./conf/historical-datas
 ### Docker
 `amd64` images are built and available on [Dockerhub](https://hub.docker.com/r/linksmart/hds/tags). To run the latest:
 ```
-docker run -p 8085:8085 linksmart/hds
+docker run -p 8085:8085  linksmart/hds
 ```
+
+Measurements and the registry data is stored by default in `/data` directory of the container. 
+To make it persistent across multiple docker runs, the container directory `/data`  must be mounted to a 
+host directory (e.g. `/data/hds` in the host) as shown below:
+```
+docker run -p 8085:8085 -v /data/hds:/data linksmart/hds
+```
+
+
 Images for other architectures (e.g. `arm`, `arm64`) can be build locally by running:
 ```
 docker build -t linksmart/hds .
