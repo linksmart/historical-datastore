@@ -19,7 +19,7 @@ type RecordSet struct {
 	// Time is the time of query in seconds
 	TimeTook float64 `json:"took"`
 	//Next link for the same query, in case there more entries to follow for the same query
-	NextLink string `json:"nextLink"`
+	NextLink string `json:"nextLink,omitempty"`
 }
 
 type Query struct {
