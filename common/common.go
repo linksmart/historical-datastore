@@ -21,6 +21,7 @@ const (
 	ParamFrom    = "from"
 	ParamTo      = "to"
 	ParamSort    = "sort"
+	ParamOffset  = "offset"
 	// Values for ParamSort
 	ASC  = "asc"  // ascending
 	DESC = "desc" // descending

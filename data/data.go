@@ -26,6 +26,7 @@ type Query struct {
 	From    time.Time
 	To      time.Time
 	Sort    string
+	Offset  time.Time
 	Limit   int
 	perPage int
 }

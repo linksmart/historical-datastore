@@ -224,7 +224,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetUrlFromQuery(q Query, id ...string) (url string) {
-	var sort, limit, start, end, perPage string
+	var sort, limit, start, end, perPage, offset string
 	if q.Sort != "" {
 		sort = fmt.Sprintf("&%v=%v", common.ParamSort, q.Sort)
 	}
@@ -237,15 +237,17 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 	if !q.To.IsZero() {
 		end = fmt.Sprintf("&%v=%v", common.ParamTo, q.To.UTC().Format(time.RFC3339))
 	}
-
+	if !q.Offset.IsZero() {
+		offset = fmt.Sprintf("&%v=%v", common.ParamOffset, q.Offset.UTC().Format(time.RFC3339))
+	}
 	if q.perPage > 0 {
 		perPage = fmt.Sprintf("&%v=%v", common.ParamPerPage, q.perPage)
 	}
 
-	return fmt.Sprintf("%v?%s%s%s%s%s",
+	return fmt.Sprintf("%v?%s%s%s%s%s%s",
 		strings.Join(id, common.IDSeparator),
 		perPage,
-		sort, limit, start, end,
+		sort, limit, start, end, offset,
 	)
 }
 
@@ -306,11 +308,9 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !lastPage {
-			if q.Sort == common.DESC {
-				nextQuery.To = *nextLinkTS
-			} else {
-				nextQuery.From = *nextLinkTS
-			}
+
+			nextQuery.Offset = *nextLinkTS
+
 			nextlink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
 		}
 	}
@@ -361,7 +361,22 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 		}
 	}
 
-	if !q.To.After(q.From) {
+	// end time
+	if form.Get(common.ParamOffset) == "" {
+		// Open-ended query
+		q.Offset = time.Now().UTC()
+	} else {
+		q.Offset, err = time.Parse(time.RFC3339, form.Get(common.ParamOffset))
+		if err != nil {
+			return Query{}, fmt.Errorf("Error parsing offset argument: %s", err)
+		}
+	}
+
+	if q.To.Before(q.From) {
+		return Query{}, fmt.Errorf("end argument is before or equal to start")
+	}
+
+	if q.To.Before(q.Offset) || q.Offset.Before(q.From) {
 		return Query{}, fmt.Errorf("end argument is before or equal to start")
 	}
 

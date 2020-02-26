@@ -53,6 +53,12 @@ func (s *LightdbStorage) Query(q Query, sources ...*registry.DataStream) (senml.
 		maxEntries = q.Limit
 	}
 
+	if q.Sort == common.DESC {
+		q.To = q.Offset
+	} else {
+		q.From = q.Offset
+	}
+
 	senmlQuery := datastore.Query{
 		From:       datastore.ToSenmlTime(q.From),
 		To:         datastore.ToSenmlTime(q.To),
