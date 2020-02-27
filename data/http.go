@@ -373,11 +373,15 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	}
 
 	if q.To.Before(q.From) {
-		return Query{}, fmt.Errorf("end argument is before or equal to start")
+		return Query{}, fmt.Errorf("unexpected: to before from")
 	}
 
-	if q.To.Before(q.Offset) || q.Offset.Before(q.From) {
-		return Query{}, fmt.Errorf("end argument is before or equal to start")
+	if q.To.Before(q.Offset) {
+		return Query{}, fmt.Errorf("unexpected: to before offset")
+	}
+
+	if q.Offset.Before(q.From) {
+		return Query{}, fmt.Errorf("unexpected: offset before from")
 	}
 
 	// limit
