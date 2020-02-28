@@ -362,10 +362,7 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	}
 
 	// end time
-	if form.Get(common.ParamOffset) == "" {
-		// Open-ended query
-		q.Offset = time.Now().UTC()
-	} else {
+	if form.Get(common.ParamOffset) != "" {
 		q.Offset, err = time.Parse(time.RFC3339, form.Get(common.ParamOffset))
 		if err != nil {
 			return Query{}, fmt.Errorf("Error parsing offset argument: %s", err)
