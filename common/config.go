@@ -4,8 +4,9 @@ package common
 
 import (
 	"errors"
-	"github.com/linksmart/go-sec/authz"
 	"net/url"
+
+	"github.com/linksmart/go-sec/authz"
 )
 
 type Config struct {

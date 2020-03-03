@@ -15,16 +15,30 @@ const (
 	RegistryAPILoc = "/registry"
 	DataAPILoc     = "/data"
 	// Query parameters
-	ParamPage    = "page"
-	ParamPerPage = "perPage"
-	ParamLimit   = "limit"
-	ParamFrom    = "from"
-	ParamTo      = "to"
-	ParamSort    = "sort"
-	ParamOffset  = "offset"
+	ParamPage        = "page"
+	ParamPerPage     = "perPage"
+	ParamLimit       = "limit"
+	ParamFrom        = "from"
+	ParamTo          = "to"
+	ParamSort        = "sort"
+	ParamOffset      = "offset"
+	ParamDenormalize = "denormalize"
+
 	// Values for ParamSort
 	ASC  = "asc"  // ascending
 	DESC = "desc" // descending
+
+	//value for ParamDenormalize
+	TIME_FIELD        = "time"
+	TIME_FIELD_SHORT  = "t"
+	NAME_FIELD        = "name"
+	NAME_FIELD_SHORT  = "n"
+	UNIT_FIELD        = "unit"
+	UNIT_FIELD_SHORT  = "u"
+	VALUE_FIELD       = "value"
+	VALUE_FIELD_SHORT = "v"
+	SUM_FIELD         = "sum"
+	SUM_FIELD_SHORT   = "s"
 )
 
 // Data source types

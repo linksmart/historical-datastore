@@ -63,11 +63,12 @@ func (s *LightdbStorage) Query(q Query, sources ...*registry.DataStream) (senml.
 
 	}
 	senmlQuery := datastore.Query{
-		From:       datastore.ToSenmlTime(q.From),
-		To:         datastore.ToSenmlTime(q.To),
-		MaxEntries: maxEntries,
-		Series:     sources[0].Name,
-		Sort:       q.Sort,
+		From:        datastore.ToSenmlTime(q.From),
+		To:          datastore.ToSenmlTime(q.To),
+		MaxEntries:  maxEntries,
+		Series:      sources[0].Name,
+		Sort:        q.Sort,
+		Denormalize: q.Denormalize,
 	}
 	retPack, nextlink, err := s.storage.Query(senmlQuery)
 	if err != nil {

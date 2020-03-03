@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	datastore "github.com/dschowta/senml.datastore"
 	"github.com/farshidtz/senml"
 	"github.com/gorilla/mux"
 	"github.com/linksmart/historical-datastore/common"
@@ -224,7 +225,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetUrlFromQuery(q Query, id ...string) (url string) {
-	var sort, limit, start, end, perPage, offset string
+	var sort, limit, start, end, perPage, offset, denorm string
 	if q.Sort != "" {
 		sort = fmt.Sprintf("&%v=%v", common.ParamSort, q.Sort)
 	}
@@ -244,10 +245,29 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 		perPage = fmt.Sprintf("&%v=%v", common.ParamPerPage, q.perPage)
 	}
 
-	return fmt.Sprintf("%v?%s%s%s%s%s%s",
+	if q.Denormalize != 0 {
+		denorm = fmt.Sprintf("&%v=", common.ParamDenormalize)
+		if q.Denormalize&datastore.FTime != 0 {
+			denorm += common.TIME_FIELD_SHORT + ","
+		}
+		if q.Denormalize&datastore.FName != 0 {
+			denorm += common.NAME_FIELD_SHORT + ","
+		}
+		if q.Denormalize&datastore.FUnit != 0 {
+			denorm += common.UNIT_FIELD_SHORT + ","
+		}
+		if q.Denormalize&datastore.FSum != 0 {
+			denorm += common.SUM_FIELD_SHORT + ","
+		}
+		if q.Denormalize&datastore.FValue != 0 {
+			denorm += common.VALUE_FIELD_SHORT + ","
+		}
+		denorm = strings.TrimSuffix(denorm, ",")
+	}
+	return fmt.Sprintf("%v?%s%s%s%s%s%s%s",
 		strings.Join(id, common.IDSeparator),
 		perPage,
-		sort, limit, start, end, offset,
+		sort, limit, start, end, offset, denorm,
 	)
 }
 
@@ -409,5 +429,28 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 		}
 	}
 
+	//denormalization fields
+	denormString := form.Get(common.ParamDenormalize)
+
+	if denormString != "" {
+		denormStrings := strings.Split(denormString, ",")
+		for _, field := range denormStrings {
+			switch strings.ToLower(strings.TrimSpace(field)) {
+			case common.TIME_FIELD, common.TIME_FIELD_SHORT:
+				q.Denormalize = q.Denormalize | datastore.FTime
+			case common.NAME_FIELD, common.NAME_FIELD_SHORT:
+				q.Denormalize = q.Denormalize | datastore.FName
+			case common.UNIT_FIELD, common.UNIT_FIELD_SHORT:
+				q.Denormalize = q.Denormalize | datastore.FName
+			case common.VALUE_FIELD, common.VALUE_FIELD_SHORT:
+				q.Denormalize = q.Denormalize | datastore.FName
+			case common.SUM_FIELD, common.SUM_FIELD_SHORT:
+				q.Denormalize = q.Denormalize | datastore.FName
+			default:
+				return Query{}, fmt.Errorf("Error parsing param %s=%s: unsupported field %s", common.ParamDenormalize, denormString, field)
+
+			}
+		}
+	}
 	return q, nil
 }

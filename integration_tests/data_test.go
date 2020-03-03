@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"testing"
 
+	datastore "github.com/dschowta/senml.datastore"
 	"github.com/farshidtz/senml"
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/data"
@@ -119,6 +120,62 @@ func TestCreationDiffTimestamp(t *testing.T) {
 	}
 
 	if common.CompareSenml(gotrecords.Data, records.Normalize()) == false {
+		t.Error("Sent records and received record did not match!!")
+	}
+}
+
+func TestCreationDiffTimestamp_Denormalized(t *testing.T) {
+	//funcName := "TestCreation_diffTimestamp"
+	registryClient, err := registry.NewRemoteClient(registryEndpoint, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dataClient, err := data.NewRemoteClient(dataEndpoint, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	datastream := &registry.DataStream{
+		Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
+		Type: "float",
+	}
+
+	defer func() {
+		fmt.Printf("Deleting the datastream %s\n", datastream.Name)
+		err = registryClient.Delete(datastream.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	fmt.Printf("Creating the datastream with ID %s\n", datastream.Name)
+	_, err = registryClient.Add(datastream)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// send some data
+	var records senml.Pack
+	totRec := 10
+	records = common.Same_name_same_types(totRec, datastream.Name, true)
+
+	b, _ := json.Marshal(records)
+	err = dataClient.Submit(b, "application/senml+json", datastream.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//get these data
+	gotrecords, err := dataClient.Query(data.Query{Sort: common.DESC, Denormalize: datastore.FName | datastore.FTime}, datastream.Name)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(gotrecords.Data) != totRec {
+		t.Errorf("Received total should be %d, got %d (len) instead", totRec, len(gotrecords.Data))
+	}
+
+	if common.CompareSenml(gotrecords.Data.Normalize(), records.Normalize()) == false {
 		t.Error("Sent records and received record did not match!!")
 	}
 }

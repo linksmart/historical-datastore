@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/linksmart/historical-datastore/common"
-	"github.com/linksmart/historical-datastore/data"
-	"github.com/linksmart/historical-datastore/registry"
 	"io/ioutil"
 	"net/url"
 	"strings"
+
+	"github.com/linksmart/historical-datastore/common"
+	"github.com/linksmart/historical-datastore/data"
+	"github.com/linksmart/historical-datastore/registry"
 )
 
 // loads service configuration from a file at the given path

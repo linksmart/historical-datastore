@@ -6,6 +6,7 @@ package data
 import (
 	"time"
 
+	datastore "github.com/dschowta/senml.datastore"
 	"github.com/farshidtz/senml"
 )
 
@@ -23,10 +24,11 @@ type RecordSet struct {
 }
 
 type Query struct {
-	From    time.Time
-	To      time.Time
-	Sort    string
-	Offset  time.Time
-	Limit   int
-	perPage int
+	From        time.Time
+	To          time.Time
+	Sort        string
+	Offset      time.Time
+	Limit       int
+	perPage     int
+	Denormalize datastore.DenormMask
 }
