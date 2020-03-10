@@ -1,6 +1,6 @@
 module github.com/linksmart/historical-datastore
 
-go 1.13
+go 1.14
 
 require (
 	github.com/ancientlore/go-avltree v1.0.1 // indirect
@@ -15,6 +15,7 @@ require (
 	github.com/justinas/alice v1.2.0
 	github.com/linksmart/go-sec v1.0.1
 	github.com/linksmart/service-catalog/v2 v2.4.1
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/rs/cors v1.7.0

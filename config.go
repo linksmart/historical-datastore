@@ -40,7 +40,7 @@ func loadConfig(confPath *string) (*common.Config, error) {
 	// VALIDATE REGISTRY API CONFIG
 	// Check if backend is supported
 	if !registry.SupportedBackends(conf.Reg.Backend.Type) {
-		return nil, fmt.Errorf("DataStreamList backend type is not supported: %s", conf.Reg.Backend.Type)
+		return nil, fmt.Errorf("backend type is not supported: %s", conf.Reg.Backend.Type)
 	}
 	// Check DSN
 	_, err = url.Parse(conf.Reg.Backend.DSN)

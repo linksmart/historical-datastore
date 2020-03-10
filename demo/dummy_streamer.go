@@ -53,7 +53,7 @@ func addFloat(datastorage data.Storage, ds registry.DataStream) {
 	}
 
 	log.Printf("Submitting %s: value %f\n", ds.Name, curVal)
-	submitData(datastorage, ds.Name, senmlRecord)
+	submitData(datastorage, ds, senmlRecord)
 
 }
 
@@ -66,7 +66,7 @@ func addBool(datastorage data.Storage, ds registry.DataStream) {
 	}
 
 	log.Printf("Submitting %s: value %t\n", ds.Name, curVal)
-	submitData(datastorage, ds.Name, senmlRecord)
+	submitData(datastorage, ds, senmlRecord)
 
 }
 
@@ -89,16 +89,18 @@ func addString(datastorage data.Storage, ds registry.DataStream) {
 		StringValue: status[index],
 	}
 	log.Printf("Submitting %s: status %s", ds.Name, status[index])
-	submitData(datastorage, ds.Name, senmlRecord)
+	submitData(datastorage, ds, senmlRecord)
 
 }
 
-func submitData(datastorage data.Storage, name string, record senml.Record) {
+func submitData(datastorage data.Storage, ds registry.DataStream, record senml.Record) {
 	var senmlPack senml.Pack = []senml.Record{record}
-	recordmap := make(map[string]senml.Pack)
-	recordmap[name] = senmlPack
-
-	err := datastorage.Submit(recordmap)
+	recordMap := make(map[string]senml.Pack)
+	senmlPack = senmlPack.Normalize()
+	recordMap[ds.Name] = senmlPack
+	streamMap := make(map[string]*registry.DataStream)
+	streamMap[ds.Name] = &ds
+	err := datastorage.Submit(recordMap, streamMap)
 	if err != nil {
 		log.Printf("insetion failed: %s", err)
 	}

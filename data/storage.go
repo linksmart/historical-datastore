@@ -14,6 +14,8 @@ const (
 	INFLUXDB   = "influxdb"
 	MONGODB    = "mongodb"
 	SENMLSTORE = "senmlstore"
+	SQLITE     = "sqlite"
+	DRIVER_SQLITE3 = "sqlite3"
 )
 
 // SupportedBackends returns true if the backend is listed as true
@@ -22,6 +24,7 @@ func SupportedBackends(name string) bool {
 		INFLUXDB:   false, // Influxdb is not supported from HDS v1.0.0
 		MONGODB:    false, // Mongodb is not supported after HDS v0.5.3
 		SENMLSTORE: true,
+		SQLITE:     true,
 	}
 	return supportedBackends[strings.ToLower(name)]
 }
@@ -31,7 +34,7 @@ type Storage interface {
 	// Adds data points for multiple data sources
 	// data is a map where keys are data source ids
 	// sources is a map where keys are data source ids
-	Submit(data map[string]senml.Pack) error
+	Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error
 
 	// Queries data for specified data sources
 	//Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.Pack, int, error)

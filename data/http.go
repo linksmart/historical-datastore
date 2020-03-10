@@ -109,7 +109,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add data to the storage
-	err = api.storage.Submit(data)
+	err = api.storage.Submit(data, dsResources)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
 		return
@@ -214,7 +214,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add data to the storage
-	err = api.storage.Submit(data)
+	err = api.storage.Submit(data,nameDSs)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
 		return

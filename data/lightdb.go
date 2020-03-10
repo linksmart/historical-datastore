@@ -25,7 +25,7 @@ func NewSenmlStorage(conf common.DataConf) (storage *LightdbStorage, disconnect_
 	return storage, storage.Disconnect, nil
 }
 
-func (s *LightdbStorage) Submit(data map[string]senml.Pack) error {
+func (s *LightdbStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error {
 	for _, dps := range data {
 		err := s.storage.Add(dps)
 		if err != nil {

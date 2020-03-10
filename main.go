@@ -10,8 +10,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"strconv"
-	"time"
 
 	_ "github.com/linksmart/go-sec/auth/keycloak/validator"
 	"github.com/linksmart/go-sec/auth/validator"
@@ -67,12 +65,12 @@ func main() {
 	}
 
 	if *demomode {
-		conf.Data.Backend.DSN = os.TempDir() + string(os.PathSeparator) + "hds_demo_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		//conf.Data.Backend.DSN = os.TempDir() + string(os.PathSeparator) + "hds_demo_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 		log.Println("===========================")
 		log.Printf("RUNNING IN DEMO MODE")
 		log.Println("===========================")
 		log.Printf("Storing demo data in %s", conf.Data.Backend.DSN)
-		defer os.Remove(conf.Data.Backend.DSN) //remove the temporary file if created on exit
+		//defer os.Remove(conf.Data.Backend.DSN) //remove the temporary file if created on exit
 		//use memory in demo mode for registry
 		conf.Reg.Backend.Type = registry.MEMORY
 	}
@@ -93,6 +91,13 @@ func main() {
 		dataStorage, disconnect_func, err = data.NewSenmlStorage(conf.Data)
 		if err != nil {
 			log.Fatalf("Error creating senml storage: %s", err)
+		}
+		defer disconnect_func()
+	case data.SQLITE:
+		var disconnect_func func() error
+		dataStorage, disconnect_func, err = data.NewSqlStorage(conf.Data)
+		if err != nil {
+			log.Fatalf("Error creating SQLite storage: %s", err)
 		}
 		defer disconnect_func()
 	}

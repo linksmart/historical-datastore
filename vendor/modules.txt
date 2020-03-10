@@ -9,8 +9,6 @@ github.com/codegangsta/negroni
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 ## explicit
 github.com/dgrijalva/jwt-go
-# github.com/dschowta/historical-datastore v0.6.1
-## explicit
 # github.com/dschowta/lite.tsdb v0.0.0-20190418134252-2f8c6a007825
 github.com/dschowta/lite.tsdb
 # github.com/dschowta/senml.datastore v0.0.0-20200303111403-17956ee096c9
@@ -51,11 +49,12 @@ github.com/linksmart/go-sec/authz
 github.com/linksmart/service-catalog/v2/catalog
 github.com/linksmart/service-catalog/v2/client
 github.com/linksmart/service-catalog/v2/utils
+# github.com/mattn/go-sqlite3 v2.0.3+incompatible
+## explicit
+github.com/mattn/go-sqlite3
 # github.com/onsi/ginkgo v1.8.0
 ## explicit
 # github.com/onsi/gomega v1.5.0
-## explicit
-# github.com/pborman/uuid v1.2.0
 ## explicit
 # github.com/rs/cors v1.7.0
 ## explicit

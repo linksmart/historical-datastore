@@ -239,6 +239,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 	// Fill the data map with provided data points
 	records := senmlPack.Normalize()
 	data := make(map[string]senml.Pack)
+	streams := make(map[string]*registry.DataStream)
 	for _, r := range records {
 		// Find the data source for this entry
 		ds, exists := s.connector.cache[r.Name]
@@ -295,13 +296,14 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		_, ok := data[ds.Name]
 		if !ok {
 			data[ds.Name] = []senml.Record{}
+			streams[ds.Name] = ds
 		}
 		data[ds.Name] = append(data[ds.Name], r)
 	}
 
 	if len(data) > 0 {
 		// Add data to the storage
-		err = s.connector.storage.Submit(data)
+		err = s.connector.storage.Submit(data, streams)
 		if err != nil {
 			logMQTTError(http.StatusInternalServerError, "Error writing data to the database: %v", err)
 			return
