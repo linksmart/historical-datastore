@@ -2,7 +2,6 @@ package data
 
 import (
 	"fmt"
-	"time"
 
 	datastore "github.com/dschowta/senml.datastore"
 	"github.com/farshidtz/senml"
@@ -35,8 +34,8 @@ func (s *LightdbStorage) Submit(data map[string]senml.Pack, sources map[string]*
 	return nil
 }
 
-func (s *LightdbStorage) Query(q Query, sources ...*registry.DataStream) (senml.Pack, int, *time.Time, error) {
-	//TODO: Support multidimensional queries
+func (s *LightdbStorage) Query(q Query, sources ...*registry.DataStream) (pack senml.Pack, total int, nextOffset *int, err error) {
+	return nil, 0, nil, fmt.Errorf("Not implemented")
 	/*Multi dimensional queries have problems with pagination:
 
 	1. Multinextlinks (each dimension in a multidimensional time series gives a next link)
@@ -46,19 +45,19 @@ func (s *LightdbStorage) Query(q Query, sources ...*registry.DataStream) (senml.
 		1. +handles all the multidimensional scnarios
 		2. - overhead on server to combine the results and deduce the nextlink
 
-	*/
-	//TODO: Is this a right place to decide the maxentries? Should be at API level
-	maxEntries := q.perPage
-	if q.Limit > 0 && q.perPage > q.Limit { //if limit is provided by the user and it is less than perPage, then use the limit
+
+
+	maxEntries := q.PerPage
+	if q.Limit > 0 && q.PerPage > q.Limit { //if limit is provided by the user and it is less than PerPage, then use the limit
 		maxEntries = q.Limit
 	}
 
-	if !q.Offset.IsZero() { //modify the query if offset is set.
+	if !q.Page.IsZero() { //modify the query if offset is set.
 
 		if q.Sort == common.DESC {
-			q.To = q.Offset
+			q.To = q.Page
 		} else {
-			q.From = q.Offset
+			q.From = q.Page
 		}
 
 	}
@@ -83,6 +82,8 @@ func (s *LightdbStorage) Query(q Query, sources ...*registry.DataStream) (senml.
 	}
 
 	return retPack, len(retPack), nextLinkTime, nil
+
+	*/
 }
 
 func (s *LightdbStorage) Disconnect() error {

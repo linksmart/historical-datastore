@@ -4,17 +4,16 @@ package data
 
 import (
 	"strings"
-	"time"
 
 	"github.com/farshidtz/senml"
 	"github.com/linksmart/historical-datastore/registry"
 )
 
 const (
-	INFLUXDB   = "influxdb"
-	MONGODB    = "mongodb"
-	SENMLSTORE = "senmlstore"
-	SQLITE     = "sqlite"
+	INFLUXDB       = "influxdb"
+	MONGODB        = "mongodb"
+	SENMLSTORE     = "senmlstore"
+	SQLITE         = "sqlite"
 	DRIVER_SQLITE3 = "sqlite3"
 )
 
@@ -37,8 +36,8 @@ type Storage interface {
 	Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error
 
 	// Queries data for specified data sources
-	//Query(q Query, page, perPage int, sources ...*registry.DataSource) (senml.Pack, int, error)
-	Query(q Query, sources ...*registry.DataStream) (senml.Pack, int, *time.Time, error)
+	//Query(q Query, page, PerPage int, sources ...*registry.DataSource) (senml.Pack, int, error)
+	Query(q Query, sources ...*registry.DataStream) (pack senml.Pack, total int, nextOffset *int, err error)
 
 	// EventListener includes methods for event handling
 	registry.EventListener

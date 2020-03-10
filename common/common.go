@@ -21,7 +21,6 @@ const (
 	ParamFrom        = "from"
 	ParamTo          = "to"
 	ParamSort        = "sort"
-	ParamOffset      = "offset"
 	ParamDenormalize = "denormalize"
 
 	// Values for ParamSort

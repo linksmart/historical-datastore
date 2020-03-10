@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/farshidtz/senml"
 	"github.com/linksmart/historical-datastore/common"
@@ -64,8 +63,29 @@ func (s *SqlStorage) Submit(data map[string]senml.Pack, sources map[string]*regi
 	return nil
 }
 
-func (s *SqlStorage) Query(q Query, sources ...*registry.DataStream) (senml.Pack, int, *time.Time, error) {
-	return nil, 0, nil, fmt.Errorf("not implemented")
+func (s *SqlStorage) Query(q Query, sources ...*registry.DataStream) (pack senml.Pack, total int, nextOffset *int, err error) {
+
+	//perItems, offsets := common.PerItemPagination(q.Limit, q.Page, q.PerPage, len(sources))
+
+	//for index, source := range sources {
+		partStmt := fmt.Sprintf("FROM [%s] WHERE time ORDER BY time %s LIMIT %d OFFSET %d", source.Name, q.Sort, perItems[index], offsets[index])
+		//return nil, 0, nil, fmt.Errorf("not implemented")
+		if q.count {
+			stmt := "SELECT COUNT(*) " + partStmt
+			row := s.pool.QueryRow(stmt)
+			err := row.Scan(&total)
+			if err != nil {
+				return nil, 0, nil, fmt.Errorf("error while querying count:%s", err)
+			}
+		}
+
+
+		stmt := fmt.Sprintf("SELECT (time, value) FROM [%s] WHERE time ORDER BY time %s LIMIT %d OFFSET %d ",
+			ds, strings.Join(valueStrings, ","))
+		_, err := s.pool.Exec(stmt, valueArgs...)
+	}
+
+	return err
 }
 
 func (s *SqlStorage) Disconnect() error {

@@ -14,21 +14,28 @@ import (
 type RecordSet struct {
 	// SelfLink is the SelfLink of the returned recordset in the Data API
 	SelfLink string `json:"selfLink"`
+
 	// Data is a SenML object with data records, where
 	// Name (bn and n) constitute the resource BrokerURL of the corresponding Data Sources(s)
 	Data senml.Pack `json:"data"`
+
 	// Time is the time of query in seconds
 	TimeTook float64 `json:"took"`
+
 	//Next link for the same query, in case there more entries to follow for the same query
 	NextLink string `json:"nextLink,omitempty"`
+
+	//Total number of entries
+	Count *int `json:"count,omitempty"`
 }
 
 type Query struct {
 	From        time.Time
 	To          time.Time
 	Sort        string
-	Offset      time.Time
+	Page        int
 	Limit       int
-	perPage     int
+	PerPage     int
 	Denormalize datastore.DenormMask
+	count       bool
 }

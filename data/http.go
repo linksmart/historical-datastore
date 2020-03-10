@@ -148,7 +148,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 		ds, found := nameDSs[r.Name]
 		if !found {
-			ds, err = api.registry.FilterOne("resource", "equals", r.Name)
+			ds, err = api.registry.FilterOne("name", "equals", r.Name)
 			if err != nil {
 				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error retrieving data source with name %v from the registry: %v", r.Name, err.Error()), w)
 				return
@@ -214,7 +214,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add data to the storage
-	err = api.storage.Submit(data,nameDSs)
+	err = api.storage.Submit(data, nameDSs)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
 		return
@@ -238,11 +238,11 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 	if !q.To.IsZero() {
 		end = fmt.Sprintf("&%v=%v", common.ParamTo, q.To.UTC().Format(time.RFC3339))
 	}
-	if !q.Offset.IsZero() {
-		offset = fmt.Sprintf("&%v=%v", common.ParamOffset, q.Offset.UTC().Format(time.RFC3339))
+	if q.Page > 0 {
+		offset = fmt.Sprintf("&%v=%v", common.ParamPage, q.Page)
 	}
-	if q.perPage > 0 {
-		perPage = fmt.Sprintf("&%v=%v", common.ParamPerPage, q.perPage)
+	if q.PerPage > 0 {
+		perPage = fmt.Sprintf("&%v=%v", common.ParamPerPage, q.PerPage)
 	}
 
 	if q.Denormalize != 0 {
@@ -329,7 +329,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 
 		if !lastPage {
 
-			nextQuery.Offset = *nextLinkTS
+			nextQuery.Page = q.Page + 1
 
 			nextlink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
 		}
@@ -381,34 +381,10 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 		}
 	}
 
-	// end time
-	if form.Get(common.ParamOffset) != "" {
-		q.Offset, err = time.Parse(time.RFC3339, form.Get(common.ParamOffset))
-		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing offset argument: %s", err)
-		}
+	q.Page, q.PerPage, err = common.ParsePagingParams(form.Get(common.ParamPage), form.Get(common.ParamPerPage), MaxPerPage)
 
-		if q.To.Before(q.Offset) {
-			return Query{}, fmt.Errorf("unexpected: to before offset")
-		}
-
-		if q.Offset.Before(q.From) {
-			return Query{}, fmt.Errorf("unexpected: offset before from")
-		}
-	}
-
-	if q.To.Before(q.From) {
-		return Query{}, fmt.Errorf("unexpected: to before from")
-	}
-
-	// limit
-	if form.Get(common.ParamLimit) == "" {
-		q.Limit = -1
-	} else {
-		q.Limit, err = strconv.Atoi(form.Get(common.ParamLimit))
-		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing limit argument: %s", err)
-		}
+	if err != nil {
+		return Query{}, fmt.Errorf("Error parsing limit argument: %s", err)
 	}
 
 	// sort
@@ -421,9 +397,9 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	}
 
 	if form.Get(common.ParamPerPage) == "" {
-		q.perPage = MaxPerPage
+		q.PerPage = MaxPerPage
 	} else {
-		q.perPage, err = strconv.Atoi(form.Get(common.ParamPerPage))
+		q.PerPage, err = strconv.Atoi(form.Get(common.ParamPerPage))
 		if err != nil {
 			return Query{}, fmt.Errorf("Error parsing limit argument: %s", err)
 		}

@@ -70,7 +70,7 @@ func ValidatePerItemLimit(_qLimit, _perPage, _numOfSrcs int) error {
 }
 
 // Calculate perItem and offset given the page, perPage, limit, and number of sources
-func PerItemPagination(_qLimit, _page, _perPage, _numOfSrcs int) ([]int, []int) {
+func PerItemPagination(_qLimit, _page, _perPage, _numOfSrcs int) (perItems []int, offsets []int) {
 	qLimit, page, perPage, numOfSrcs := float64(_qLimit), float64(_page), float64(_perPage), float64(_numOfSrcs)
 	limitIsSet := qLimit > 0
 	page-- // make page number 0-indexed
@@ -93,7 +93,7 @@ func PerItemPagination(_qLimit, _page, _perPage, _numOfSrcs int) ([]int, []int) 
 		}
 	}
 	perItem := math.Ceil(limit / numOfSrcs)
-	perItems := make([]int, _numOfSrcs)
+	perItems = make([]int, _numOfSrcs)
 	for i := range perItems {
 		perItems[i] = int(perItem)
 	}
@@ -106,7 +106,7 @@ func PerItemPagination(_qLimit, _page, _perPage, _numOfSrcs int) ([]int, []int) 
 		Limit = qLimit
 	}
 	offset := page * math.Ceil(Limit/numOfSrcs)
-	offsets := make([]int, _numOfSrcs)
+	offsets = make([]int, _numOfSrcs)
 	for i := range offsets {
 		offsets[i] = int(offset)
 	}
