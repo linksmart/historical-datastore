@@ -1,6 +1,6 @@
 module github.com/linksmart/historical-datastore
 
-go 1.13
+go 1.14
 
 require (
 	github.com/ancientlore/go-avltree v1.0.1 // indirect
