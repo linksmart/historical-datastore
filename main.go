@@ -29,18 +29,20 @@ const LINKSMART = `
 `
 
 var (
-	confPath = flag.String("conf", "conf/historical-datastore.json", "Historical Datastore configuration file path")
-	profile  = flag.Bool("profile", false, "Enable the HTTP server for runtime profiling")
-	version  = flag.Bool("version", false, "Show the Historical Datastore API version")
-	demomode = flag.Bool("demo", false, "Run Historical Datastore in demo mode. This creates the service with a growing dummy data.\n"+
-		"By default the data will not be persistent. Inorder to run hds in persistent mode use \"-persistent\" flag")
-	PersistentDemo = flag.Bool("persistent", false, "While running Historical Datastore in demo mode, use persistent storage location specified"+
-		" in the config file")
 	Version     string // set with build flags
 	BuildNumber string // set with build flags
 )
 
 func main() {
+	var (
+		confPath = flag.String("conf", "conf/historical-datastore.json", "Historical Datastore configuration file path")
+		profile  = flag.Bool("profile", false, "Enable the HTTP server for runtime profiling")
+		version  = flag.Bool("version", false, "Show the Historical Datastore API version")
+		demomode = flag.Bool("demo", false, "Run Historical Datastore in demo mode. This creates the service with a growing dummy data.\n"+
+			"By default the data will not be persistent. Inorder to run hds in persistent mode use \"-persistent\" flag")
+		persistentDemo = flag.Bool("persistent", false, "While running Historical Datastore in demo mode, use persistent storage location specified"+
+			" in the config file")
+	)
 	flag.Parse()
 	if *version {
 		fmt.Println(Version)
@@ -75,7 +77,7 @@ func main() {
 		log.Printf("RUNNING IN DEMO MODE")
 		log.Println("===========================")
 
-		if !*PersistentDemo {
+		if !*persistentDemo {
 			conf.Data.Backend.DSN = os.TempDir() + string(os.PathSeparator) + "hds_demo_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 			//use memory in demo mode for registry
 			conf.Reg.Backend.Type = registry.MEMORY
@@ -139,7 +141,10 @@ func main() {
 	//aggrAPI := aggregation.NewAPI(regStorage, aggrStorage)
 
 	if *demomode {
-		go demo.DummyStreamer(regStorage, dataStorage)
+		err = demo.StartDummyStreamer(regStorage, dataStorage)
+		if err != nil {
+			log.Panic("Failed to start the dummy streamer", err)
+		}
 	}
 	// Start MQTT connector
 	// TODO: disconnect on shutdown

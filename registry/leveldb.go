@@ -76,7 +76,7 @@ func (s *LevelDBStorage) close() error {
 func (s *LevelDBStorage) Add(ds DataStream) (*DataStream, error) {
 	err := validateCreation(ds, s.conf)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %s", ErrConflict, err)
+		return nil, fmt.Errorf("%w: %s", ErrConflict, err)
 	}
 
 	// Convert to json bytes
@@ -86,7 +86,7 @@ func (s *LevelDBStorage) Add(ds DataStream) (*DataStream, error) {
 	}
 
 	if has, _ := s.db.Has([]byte(ds.Name), nil); has {
-		return nil, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Name)
+		return nil, fmt.Errorf("%w: Resource name not unique: %s", ErrConflict, ds.Name)
 	}
 
 	// Add the new DataSource to database
