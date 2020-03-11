@@ -100,13 +100,6 @@ func main() {
 	)
 
 	switch conf.Data.Backend.Type {
-	case data.SENMLSTORE:
-		var disconnect_func func() error
-		dataStorage, disconnect_func, err = data.NewSenmlStorage(conf.Data)
-		if err != nil {
-			log.Panicf("Error creating senml storage: %s", err)
-		}
-		defer disconnect_func()
 	case data.SQLITE:
 		var disconnect_func func() error
 		dataStorage, disconnect_func, err = data.NewSqlStorage(conf.Data)

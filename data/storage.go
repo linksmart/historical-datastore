@@ -37,7 +37,7 @@ type Storage interface {
 
 	// Queries data for specified data sources
 	//Query(q Query, page, PerPage int, sources ...*registry.DataSource) (senml.Pack, int, error)
-	Query(q Query, sources ...*registry.DataStream) (pack senml.Pack, total int, nextOffset *int, err error)
+	Query(q Query, sources ...*registry.DataStream) (pack senml.Pack, total *int, err error)
 
 	// EventListener includes methods for event handling
 	registry.EventListener

@@ -85,41 +85,106 @@ func FromSenmlTime(t float64) time.Time {
 	return time.Unix(0, floatTimeToInt64(t))
 }
 
-func (s *SqlStorage) Query(q Query, sources ...*registry.DataStream) (pack senml.Pack, total int, nextOffset *int, err error) {
-
-	//perItems, offsets := common.PerItemPagination(q.Limit, q.Page, q.PerPage, len(sources))
+func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pack senml.Pack, total *int, err error) {
+	//make a partial statement
 	var unionStmt strings.Builder
-	if len(sources) == 1 {
-		unionStmt.WriteString(fmt.Sprintf("[%s] where time BETWEEN %d and %d LIMIT %d OFFSET %d",
-			sources[0].Name, ToSenmlTime(q.From), ToSenmlTime(q.To), q.PerPage, (q.Page-1)*q.PerPage, q.Sort))
-	} else {
-		unionStmt.WriteByte('(')
-		unionStr := ""
-		for _, source := range sources {
-			unionStmt.WriteString(fmt.Sprintf("%sSELECT ([%s] as table_name , %s as type, time, value) FROM [%s] WHERE time BETWEEN %d and %d", unionStr, source.Name, source.Type, source.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
-			unionStr = " UNION ALL "
-		}
-		unionStmt.WriteByte(')')
-	}
+	unionStmt.WriteString(fmt.Sprintf("[%s] where time BETWEEN %f and %f ",
+		stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
+
 	var stmt string
 	if q.count {
+		total = new(int)
+		stmt = "SELECT COUNT(*) FROM " + unionStmt.String()
+		row := s.pool.QueryRow(stmt)
+		err := row.Scan(total)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error while querying count:%s", err)
+		}
+	}
+
+	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), q.Sort, q.PerPage, (q.Page-1)*q.PerPage)
+	rows, err := s.pool.Query(stmt)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
+	}
+	defer rows.Close()
+
+	var records []senml.Record
+
+	var timeVal float64
+	senmlName := stream.Name
+
+	switch stream.Type {
+	case common.FLOAT:
+		for rows.Next() {
+			var val float64
+			err = rows.Scan(&timeVal, &val)
+			if err != nil {
+				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
+			}
+			records = append(records, senml.Record{Name: senmlName, Value: &val, Time: timeVal})
+		}
+	case common.STRING:
+		for rows.Next() {
+			var strVal string
+			err = rows.Scan(&timeVal, &strVal)
+			if err != nil {
+				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
+			}
+			records = append(records, senml.Record{Name: senmlName, StringValue: strVal, Time: timeVal})
+		}
+	case common.BOOL:
+		for rows.Next() {
+			var boolVal bool
+			err = rows.Scan(&timeVal, &boolVal)
+			if err != nil {
+				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
+			}
+			records = append(records, senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal})
+		}
+	}
+	return records, total, nil
+}
+
+func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+	var unionStmt strings.Builder
+	unionStmt.WriteByte('(')
+	unionStr := ""
+	for _, source := range streams {
+		unionStmt.WriteString(fmt.Sprintf("%sSELECT ([%s] as table_name , %s as type, time, value) FROM [%s] WHERE time BETWEEN %f and %f", unionStr, source.Name, source.Type, source.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
+		unionStr = " UNION ALL "
+	}
+	unionStmt.WriteByte(')')
+
+	var stmt string
+	if q.count {
+		total = new(int)
 		stmt = "SELECT COUNT(*) FROM " + unionStmt.String()
 		row := s.pool.QueryRow(stmt)
 		err := row.Scan(&total)
 		if err != nil {
-			return nil, 0, nil, fmt.Errorf("error while querying count:%s", err)
+			return nil, nil, fmt.Errorf("error while querying count:%s", err)
 		}
 	}
 	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), q.Sort, q.PerPage, (q.Page-1)*q.PerPage)
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
-		return nil, 0, nil, fmt.Errorf("error while querying rows:%s", err)
+		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
 	}
 	defer rows.Close()
-	records := make([]senml.Record, q.PerPage)
-	if len(sources) == 1 {
-		var timeVal float64
-		switch sources[0].Type {
+	var records []senml.Record
+
+	var tableName string
+	var timeVal float64
+	var val interface{}
+	var typestr string
+	for rows.Next() {
+
+		err = rows.Scan(&tableName, &typestr, &timeVal, &val)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
+		}
+		switch typestr {
 		case common.FLOAT:
 			floatVal := val.(float64)
 			records = append(records, senml.Record{Name: tableName, Value: &floatVal, Time: timeVal})
@@ -128,37 +193,16 @@ func (s *SqlStorage) Query(q Query, sources ...*registry.DataStream) (pack senml
 			records = append(records, senml.Record{Name: tableName, StringValue: stringVal, Time: timeVal})
 		case common.BOOL:
 			boolVal := val.(bool)
-			records = append(records, senml.Record{Name: tableName, BoolValue: boolVal, Time: timeVal})
+			records = append(records, senml.Record{Name: tableName, BoolValue: &boolVal, Time: timeVal})
 		}
-		for rows.Next() {
-			err = rows.Scan(&timeVal, &val)
-			if err != nil {
-				return nil, 0, nil, fmt.Errorf("error while scanning query results:%s", err)
-			}
-		}
+	}
+	return records, total, nil
+}
+func (s *SqlStorage) Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+	if len(streams) == 1 {
+		return s.querySingleStream(q, *streams[0])
 	} else {
-		var tableName string
-		var timeVal float64
-		var val interface{}
-		var typestr string
-		for rows.Next() {
-
-			err = rows.Scan(&tableName, &typestr, &timeVal, &val)
-			if err != nil {
-				return nil, 0, nil, fmt.Errorf("error while scanning query results:%s", err)
-			}
-			switch typestr {
-			case common.FLOAT:
-				floatVal := val.(float64)
-				records = append(records, senml.Record{Name: tableName, Value: &floatVal, Time: timeVal})
-			case common.STRING:
-				stringVal := val.(string)
-				records = append(records, senml.Record{Name: tableName, StringValue: stringVal, Time: timeVal})
-			case common.BOOL:
-				boolVal := val.(bool)
-				records = append(records, senml.Record{Name: tableName, BoolValue: boolVal, Time: timeVal})
-			}
-		}
+		return s.queryMultipleStreams(q, streams...)
 	}
 }
 

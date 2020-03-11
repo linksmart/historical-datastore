@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -305,7 +304,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, total, nextLinkTS, err := api.storage.Query(q, sources...)
+	data, total, err := api.storage.Query(q, sources...)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
 		return
@@ -315,24 +314,14 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 
 	nextlink := ""
 
-	if nextLinkTS != nil {
+	responseLength := len(data)
+
+	//If the response is already less than the number of elements supposed to be in a page,
+	//then it already means that we are in last page
+	if responseLength >= q.PerPage {
 		nextQuery := q
-		lastPage := false
-		if q.Limit > 0 { //if Limit is given by user reduce the limit by total
-			newLimit := q.Limit - total
-			if newLimit > 0 {
-				nextQuery.Limit = newLimit
-			} else {
-				lastPage = true
-			}
-		}
-
-		if !lastPage {
-
-			nextQuery.Page = q.Page + 1
-
-			nextlink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
-		}
+		nextQuery.Page = q.Page + 1
+		nextlink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
 	}
 
 	recordSet = RecordSet{
@@ -340,6 +329,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		TimeTook: time.Since(timeStart).Seconds(),
 		Data:     data,
 		NextLink: nextlink,
+		Count:    total,
 	}
 
 	csvStr, err := json.Marshal(recordSet)
@@ -396,15 +386,11 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 		return Query{}, fmt.Errorf("Invalid sort argument: %v", q.Sort)
 	}
 
-	if form.Get(common.ParamPerPage) == "" {
-		q.PerPage = MaxPerPage
-	} else {
-		q.PerPage, err = strconv.Atoi(form.Get(common.ParamPerPage))
-		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing limit argument: %s", err)
-		}
-	}
+	q.Page, q.PerPage, err = common.ParsePagingParams(form.Get(common.ParamPage), form.Get(common.ParamPerPage), MaxPerPage)
 
+	if err != nil {
+		return Query{}, fmt.Errorf("Error parsing paging parameters: %s", err)
+	}
 	//denormalization fields
 	denormString := form.Get(common.ParamDenormalize)
 
