@@ -38,13 +38,13 @@ func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 func (ms *MemoryStorage) Add(ds DataStream) (*DataStream, error) {
 	err := validateCreation(ds, ms.conf)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %s", ErrConflict, err)
+		return nil, fmt.Errorf("%w: %s", ErrConflict, err)
 	}
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
 	if _, exists := ms.resources[ds.Name]; exists {
-		return nil, fmt.Errorf("%s: Resource name not unique: %s", ErrConflict, ds.Name)
+		return nil, fmt.Errorf("%w: Resource name not unique: %s", ErrConflict, ds.Name)
 	}
 
 	// Add the new DataSource to the map

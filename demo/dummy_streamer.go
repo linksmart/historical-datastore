@@ -1,6 +1,8 @@
 package demo
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"time"
@@ -10,31 +12,52 @@ import (
 	"github.com/linksmart/historical-datastore/registry"
 )
 
-func DummyStreamer(regStorage registry.Storage, dataStorage data.Storage) {
-	dsBool := createDS(regStorage, "kitchen/lamp", "bool")
-	dsString := createDS(regStorage, "hall/cat", "string")
-	dsFloat := createDS(regStorage, "terrace/temperature", "float")
-
-	ticker := time.NewTicker(time.Second * 5)
-	for range ticker.C {
-		addFloat(dataStorage, dsFloat)
-		addBool(dataStorage, dsBool)
-		addString(dataStorage, dsString)
+func StartDummyStreamer(regStorage registry.Storage, dataStorage data.Storage) error {
+	dsBool, err := createDS(regStorage, "kitchen/lamp", "bool")
+	if err != nil {
+		return fmt.Errorf("error creating stream: %s", err)
+	}
+	dsString, err := createDS(regStorage, "hall/cat", "string")
+	if err != nil {
+		return fmt.Errorf("error creating stream: %s", err)
 	}
 
+	dsFloat, err := createDS(regStorage, "terrace/temperature", "float")
+	if err != nil {
+		return fmt.Errorf("error creating stream: %s", err)
+	}
+
+	streamDummyData := func() {
+		ticker := time.NewTicker(time.Second * 5)
+		for range ticker.C {
+			addFloat(dataStorage, dsFloat)
+			addBool(dataStorage, dsBool)
+			addString(dataStorage, dsString)
+		}
+	}
+
+	go streamDummyData()
+
+	return nil
 }
 
-func createDS(regStorage registry.Storage, name string, datatype string) registry.DataStream {
-	ds := registry.DataStream{
+func createDS(regStorage registry.Storage, name string, datatype string) (ds registry.DataStream, err error) {
+	ds = registry.DataStream{
 		Name: name,
 		Type: datatype,
 	}
-	_, err := regStorage.Add(ds)
+	_, err = regStorage.Add(ds)
 	if err != nil {
-		log.Printf("Error creating datastream %s: %s", name, err)
+		if errors.Is(err, registry.ErrConflict) { // strings.HasPrefix(err.Error(), registry.ErrConflict.Error()) {
+			log.Printf("Reusing existing stream %s", name)
+		} else {
+			log.Printf("Error creating datastream %s: %s", name, err)
+			return ds, err
+		}
+	} else {
+		log.Printf("Creating stream %s\n", ds.Name)
 	}
-	log.Printf("Creating stream %s\n", ds.Name)
-	return ds
+	return ds, nil
 }
 func addFloat(datastorage data.Storage, ds registry.DataStream) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
