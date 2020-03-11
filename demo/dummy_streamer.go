@@ -3,6 +3,7 @@ package demo
 import (
 	"log"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/farshidtz/senml"
@@ -11,10 +12,22 @@ import (
 )
 
 func DummyStreamer(regStorage registry.Storage, dataStorage data.Storage) {
-	dsBool := createDS(regStorage, "kitchen/lamp", "bool")
-	dsString := createDS(regStorage, "hall/cat", "string")
-	dsFloat := createDS(regStorage, "terrace/temperature", "float")
+	dsBool, err := createDS(regStorage, "kitchen/lamp", "bool")
+	if err != nil {
+		log.Print("Stopping demo mode due to unexpected error")
+		return
+	}
+	dsString, err := createDS(regStorage, "hall/cat", "string")
+	if err != nil {
+		log.Print("Stopping demo mode due to unexpected error")
+		return
+	}
 
+	dsFloat, err := createDS(regStorage, "terrace/temperature", "float")
+	if err != nil {
+		log.Print("Stopping demo mode due to unexpected error")
+		return
+	}
 	ticker := time.NewTicker(time.Second * 5)
 	for range ticker.C {
 		addFloat(dataStorage, dsFloat)
@@ -24,17 +37,23 @@ func DummyStreamer(regStorage registry.Storage, dataStorage data.Storage) {
 
 }
 
-func createDS(regStorage registry.Storage, name string, datatype string) registry.DataStream {
-	ds := registry.DataStream{
+func createDS(regStorage registry.Storage, name string, datatype string) (ds registry.DataStream, err error) {
+	ds = registry.DataStream{
 		Name: name,
 		Type: datatype,
 	}
-	_, err := regStorage.Add(ds)
+	_, err = regStorage.Add(ds)
 	if err != nil {
-		log.Printf("Error creating datastream %s: %s", name, err)
+		if strings.HasPrefix(err.Error(), registry.ErrConflict.Error()) {
+			log.Printf("Reusing existing stream %s", name)
+			err = nil
+		} else {
+			log.Printf("Error creating datastream %s: %s", name, err)
+		}
+	} else {
+		log.Printf("Creating stream %s\n", ds.Name)
 	}
-	log.Printf("Creating stream %s\n", ds.Name)
-	return ds
+	return ds, err
 }
 func addFloat(datastorage data.Storage, ds registry.DataStream) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
