@@ -11,9 +11,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/farshidtz/senml"
+	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/common"
 
 	"github.com/gorilla/mux"
@@ -28,15 +27,15 @@ func setupHTTPAPI() (*mux.Router, []string) {
 	dss := []registry.DataStream{
 		{
 			Name: "http://example.com/sensor1",
-			Type: "float",
+			Type: registry.Float,
 		},
 		{
 			Name: "http://example.com/sensor2",
-			Type: "bool",
+			Type: registry.Bool,
 		},
 		{
 			Name: "http://example.com/sensor3",
-			Type: "string",
+			Type: registry.String,
 		},
 	}
 	for _, ds := range dss {
@@ -151,11 +150,11 @@ func TestHttpQuery(t *testing.T) {
 
 type dummyDataStorage struct{}
 
-func (s *dummyDataStorage) Submit(data map[string]senml.Pack) error {
+func (s *dummyDataStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error {
 	return nil
 }
-func (s *dummyDataStorage) Query(q Query, ds ...*registry.DataStream) (senml.Pack, int, *time.Time, error) {
-	return senml.Pack{}, 0, nil, nil
+func (s *dummyDataStorage) Query(q Query, sources ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+	return senml.Pack{}, nil, nil
 }
 func (s *dummyDataStorage) Disconnect() error {
 	return nil

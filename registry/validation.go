@@ -34,12 +34,6 @@ func validateCreation(ds DataStream, conf common.RegConf) error {
 		e.invalid = append(e.invalid, "name")
 	}
 
-	if ds.Type == "" {
-		e.mandatory = append(e.mandatory, "dataType")
-	}
-	if !common.SupportedType(ds.Type) {
-		e.invalid = append(e.invalid, "type")
-	}
 	/*
 		var e validationError
 		//TODO: add validation logics

@@ -28,11 +28,11 @@ func generateDummyData(quantity int, storage Storage) ([]string, error) {
 		ds.Meta["SerialNumber"] = randInt(10000, 99999)
 		//ds.Retention = fmt.Sprintf("%d%s", randInt(1, 20), []string{"m", "h", "d", "w"}[randInt(0, 3)])
 		//ds.Aggregation TODO
-		ds.Type = []string{"float", "bool", "string"}[randInt(0, 2)]
+		ds.Type = []StreamType{Float, Bool, String}[randInt(0, 2)]
 
 		newDS, err := storage.Add(ds)
 		if err != nil {
-			return nil, fmt.Errorf("Error adding dummy: %s", err)
+			return nil, fmt.Errorf("error adding dummy: %s", err)
 		}
 		IDs = append(IDs, newDS.Name) // add the generated id
 	}
@@ -48,12 +48,12 @@ func TestMemstorageAdd(t *testing.T) {
 	var ds DataStream
 	ds.Name = "any_url"
 	//ds.Aggregation TODO
-	ds.Type = "string"
+	ds.Type = String
 
 	storage := setupMemStorage()
 	addedDS, err := storage.Add(ds)
 	if err != nil {
-		t.Errorf("Received unexpected error on add: %v", err.Error())
+		t.Fatalf("Received unexpected error on add: %v", err.Error())
 	}
 
 	getDS, err := storage.Get(addedDS.Name)
@@ -114,7 +114,7 @@ func TestMemstorageDelete(t *testing.T) {
 
 	err = storage.Delete(ID)
 	if err == nil {
-		t.Errorf("The previous call hasn't deleted the data source: %v", err.Error())
+		t.Errorf("The previous call hasn't deleted the data source")
 	}
 }
 
@@ -122,8 +122,10 @@ func TestMemstorageGetMany(t *testing.T) {
 	// Check based on different inputs
 	subTest := func(TOTAL int, perPage int) {
 		storage := setupMemStorage()
-		generateDummyData(TOTAL, storage)
-
+		_, err := generateDummyData(TOTAL, storage)
+		if err != nil {
+			t.Errorf("Unexpected error on generateDummyData: %v", err.Error())
+		}
 		_, total, _ := storage.GetMany(1, perPage)
 		if total != TOTAL {
 			t.Errorf("Returned total is %d instead of %d", total, TOTAL)
@@ -152,8 +154,10 @@ func TestMemstorageGetMany(t *testing.T) {
 func TestMemstorageGetCount(t *testing.T) {
 	storage := setupMemStorage()
 	const total = 5
-	generateDummyData(total, storage)
-
+	_, err := generateDummyData(total, storage)
+	if err != nil {
+		t.Errorf("error generating dummy data")
+	}
 	c, _ := storage.getTotal()
 	if c != total {
 		t.Errorf("Stored %d but counted %d", total, c)
@@ -198,7 +202,10 @@ func TestMemstoragePathFilter(t *testing.T) {
 	for i := 0; i < expected; i++ {
 		ds, _ := storage.Get(IDs[i])
 		ds.Meta["newkey"] = "a/b"
-		storage.Update(ds.Name, *ds)
+		_, err := storage.Update(ds.Name, *ds)
+		if err != nil {
+			t.Errorf("Error updating")
+		}
 	}
 
 	// Query for format with prefix "newtype"

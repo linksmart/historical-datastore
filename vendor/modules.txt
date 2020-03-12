@@ -1,19 +1,12 @@
 # github.com/ancientlore/go-avltree v1.0.1
 ## explicit
 github.com/ancientlore/go-avltree
-# github.com/boltdb/bolt v1.3.1
-github.com/boltdb/bolt
 # github.com/codegangsta/negroni v1.0.0
 ## explicit
 github.com/codegangsta/negroni
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 ## explicit
 github.com/dgrijalva/jwt-go
-# github.com/dschowta/lite.tsdb v0.0.0-20190418134252-2f8c6a007825
-github.com/dschowta/lite.tsdb
-# github.com/dschowta/senml.datastore v0.0.0-20200303111403-17956ee096c9
-## explicit
-github.com/dschowta/senml.datastore
 # github.com/eclipse/paho.mqtt.golang v1.2.0
 ## explicit
 github.com/eclipse/paho.mqtt.golang
@@ -22,9 +15,9 @@ github.com/eclipse/paho.mqtt.golang/packets
 github.com/farshidtz/elog
 # github.com/farshidtz/mqtt-match v1.0.1
 github.com/farshidtz/mqtt-match
-# github.com/farshidtz/senml v2.0.0-alpha.2+incompatible
+# github.com/farshidtz/senml/v2 v2.0.0-alpha.4
 ## explicit
-github.com/farshidtz/senml
+github.com/farshidtz/senml/v2
 # github.com/golang/snappy v0.0.1
 ## explicit
 github.com/golang/snappy
@@ -76,8 +69,6 @@ github.com/syndtr/goleveldb/leveldb/opt
 github.com/syndtr/goleveldb/leveldb/storage
 github.com/syndtr/goleveldb/leveldb/table
 github.com/syndtr/goleveldb/leveldb/util
-# github.com/ugorji/go v1.1.7
-## explicit
 # github.com/ugorji/go/codec v1.1.7
 github.com/ugorji/go/codec
 # golang.org/x/net v0.0.0-20200301022130-244492dfa37a
@@ -87,4 +78,3 @@ golang.org/x/net/proxy
 golang.org/x/net/websocket
 # golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527
 ## explicit
-golang.org/x/sys/unix

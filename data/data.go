@@ -6,8 +6,17 @@ package data
 import (
 	"time"
 
-	datastore "github.com/dschowta/senml.datastore"
-	"github.com/farshidtz/senml"
+	"github.com/farshidtz/senml/v2"
+)
+
+type DenormMask int
+
+const (
+	FName DenormMask = 1 << iota
+	FTime
+	FUnit
+	FValue
+	FSum
 )
 
 // RecordSet describes the recordset returned on querying the Data API
@@ -36,6 +45,6 @@ type Query struct {
 	Page        int
 	Limit       int
 	PerPage     int
-	Denormalize datastore.DenormMask
+	Denormalize DenormMask
 	count       bool
 }

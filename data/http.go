@@ -12,8 +12,7 @@ import (
 	"strings"
 	"time"
 
-	datastore "github.com/dschowta/senml.datastore"
-	"github.com/farshidtz/senml"
+	"github.com/farshidtz/senml/v2"
 	"github.com/gorilla/mux"
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/registry"
@@ -21,6 +20,18 @@ import (
 
 const (
 	MaxPerPage = 1000
+
+	//value for ParamDenormalize
+	TimeField       = "time"
+	TimeFieldShort  = "t"
+	NameField       = "name"
+	NameFieldShort  = "n"
+	UnitField       = "unit"
+	UnitFieldShort  = "u"
+	ValueField      = "value"
+	ValueFieldShort = "v"
+	SumField        = "sum"
+	SumFieldShort   = "s"
 )
 
 // API describes the RESTful HTTP data API
@@ -60,8 +71,8 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	// Check if DataSources are registered in the DataStreamList
 	dsResources := make(map[string]*registry.DataStream)
 	// Fill the data map with provided data points
-	records := senmlPack.Normalize()
-	for _, r := range records {
+	senmlPack.Normalize()
+	for _, r := range senmlPack {
 		if r.Name == "" {
 			common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Data source name not specified."), w)
 			return
@@ -80,16 +91,20 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 		// Check if type of value matches the data source type in registry
 		typeError := false
 		switch ds.Type {
-		case common.FLOAT:
+		case registry.Float:
 			if r.Value == nil {
 				typeError = true
 			}
-		case common.STRING:
+		case registry.String:
 			if r.StringValue == "" {
 				typeError = true
 			}
-		case common.BOOL:
+		case registry.Bool:
 			if r.BoolValue == nil {
+				typeError = true
+			}
+		case registry.Data:
+			if r.DataValue == "" {
 				typeError = true
 			}
 		}
@@ -142,8 +157,8 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 	// Fill the data map with provided data points
 	data := make(map[string]senml.Pack)
-	records := senmlPack.Normalize()
-	for _, r := range records {
+	senmlPack.Normalize()
+	for _, r := range senmlPack {
 
 		ds, found := nameDSs[r.Name]
 		if !found {
@@ -164,13 +179,13 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 					Name: r.Name,
 				}
 				if r.Value != nil || r.Sum != nil {
-					newDS.Type = common.FLOAT
+					newDS.Type = registry.Float
 				} else if r.StringValue != "" {
-					newDS.Type = common.STRING
+					newDS.Type = registry.String
 				} else if r.BoolValue != nil {
-					newDS.Type = common.BOOL
+					newDS.Type = registry.Bool
 				} else if r.DataValue != "" {
-					newDS.Type = common.DATA
+					newDS.Type = registry.Data
 				}
 				addedDS, err := api.registry.Add(newDS)
 				if err != nil {
@@ -185,16 +200,20 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 		// Check if type of value matches the data source type in registry
 		typeError := false
 		switch ds.Type {
-		case common.FLOAT:
+		case registry.Float:
 			if r.Value == nil {
 				typeError = true
 			}
-		case common.STRING:
+		case registry.String:
 			if r.StringValue == "" {
 				typeError = true
 			}
-		case common.BOOL:
+		case registry.Bool:
 			if r.BoolValue == nil {
+				typeError = true
+			}
+		case registry.Data:
+			if r.DataValue == "" {
 				typeError = true
 			}
 		}
@@ -246,20 +265,20 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 
 	if q.Denormalize != 0 {
 		denorm = fmt.Sprintf("&%v=", common.ParamDenormalize)
-		if q.Denormalize&datastore.FTime != 0 {
-			denorm += common.TIME_FIELD_SHORT + ","
+		if q.Denormalize&FTime != 0 {
+			denorm += TimeFieldShort + ","
 		}
-		if q.Denormalize&datastore.FName != 0 {
-			denorm += common.NAME_FIELD_SHORT + ","
+		if q.Denormalize&FName != 0 {
+			denorm += NameFieldShort + ","
 		}
-		if q.Denormalize&datastore.FUnit != 0 {
-			denorm += common.UNIT_FIELD_SHORT + ","
+		if q.Denormalize&FUnit != 0 {
+			denorm += UnitFieldShort + ","
 		}
-		if q.Denormalize&datastore.FSum != 0 {
-			denorm += common.SUM_FIELD_SHORT + ","
+		if q.Denormalize&FSum != 0 {
+			denorm += SumFieldShort + ","
 		}
-		if q.Denormalize&datastore.FValue != 0 {
-			denorm += common.VALUE_FIELD_SHORT + ","
+		if q.Denormalize&FValue != 0 {
+			denorm += ValueFieldShort + ","
 		}
 		denorm = strings.TrimSuffix(denorm, ",")
 	}
@@ -381,8 +400,8 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	q.Sort = form.Get(common.ParamSort)
 	if q.Sort == "" {
 		// default sorting order
-		q.Sort = common.DESC
-	} else if q.Sort != common.ASC && q.Sort != common.DESC {
+		q.Sort = common.Desc
+	} else if q.Sort != common.Asc && q.Sort != common.Desc {
 		return Query{}, fmt.Errorf("Invalid sort argument: %v", q.Sort)
 	}
 
@@ -391,28 +410,37 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	if err != nil {
 		return Query{}, fmt.Errorf("Error parsing paging parameters: %s", err)
 	}
+
 	//denormalization fields
-	denormString := form.Get(common.ParamDenormalize)
+	denormStr := form.Get(common.ParamDenormalize)
+	q.Denormalize, err = parseDenormParams(denormStr)
+	if err != nil {
+		return Query{}, fmt.Errorf("error in param %s=%s:%v", common.ParamDenormalize, denormStr, err)
+	}
+	return q, nil
+}
+
+func parseDenormParams(denormString string) (denormMask DenormMask, err error) {
 
 	if denormString != "" {
 		denormStrings := strings.Split(denormString, ",")
 		for _, field := range denormStrings {
 			switch strings.ToLower(strings.TrimSpace(field)) {
-			case common.TIME_FIELD, common.TIME_FIELD_SHORT:
-				q.Denormalize = q.Denormalize | datastore.FTime
-			case common.NAME_FIELD, common.NAME_FIELD_SHORT:
-				q.Denormalize = q.Denormalize | datastore.FName
-			case common.UNIT_FIELD, common.UNIT_FIELD_SHORT:
-				q.Denormalize = q.Denormalize | datastore.FName
-			case common.VALUE_FIELD, common.VALUE_FIELD_SHORT:
-				q.Denormalize = q.Denormalize | datastore.FName
-			case common.SUM_FIELD, common.SUM_FIELD_SHORT:
-				q.Denormalize = q.Denormalize | datastore.FName
+			case TimeField, TimeFieldShort:
+				denormMask = denormMask | FTime
+			case NameField, NameFieldShort:
+				denormMask = denormMask | FName
+			case UnitField, UnitFieldShort:
+				denormMask = denormMask | FName
+			case ValueField, ValueFieldShort:
+				denormMask = denormMask | FName
+			case SumField, SumFieldShort:
+				denormMask = denormMask | FName
 			default:
-				return Query{}, fmt.Errorf("Error parsing param %s=%s: unsupported field %s", common.ParamDenormalize, denormString, field)
+				return 0, fmt.Errorf("unexpected senml field: %s", field)
 
 			}
 		}
 	}
-	return q, nil
+	return denormMask, nil
 }

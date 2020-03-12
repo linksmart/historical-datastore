@@ -7,22 +7,22 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/farshidtz/senml"
+	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/registry"
 )
 
 func StartDummyStreamer(regStorage registry.Storage, dataStorage data.Storage) error {
-	dsBool, err := createDS(regStorage, "kitchen/lamp", "bool")
+	dsBool, err := createDS(regStorage, "kitchen/lamp", registry.Bool)
 	if err != nil {
 		return fmt.Errorf("error creating stream: %s", err)
 	}
-	dsString, err := createDS(regStorage, "hall/cat", "string")
+	dsString, err := createDS(regStorage, "hall/cat", registry.String)
 	if err != nil {
 		return fmt.Errorf("error creating stream: %s", err)
 	}
 
-	dsFloat, err := createDS(regStorage, "terrace/temperature", "float")
+	dsFloat, err := createDS(regStorage, "terrace/temperature", registry.Float)
 	if err != nil {
 		return fmt.Errorf("error creating stream: %s", err)
 	}
@@ -41,7 +41,7 @@ func StartDummyStreamer(regStorage registry.Storage, dataStorage data.Storage) e
 	return nil
 }
 
-func createDS(regStorage registry.Storage, name string, datatype string) (ds registry.DataStream, err error) {
+func createDS(regStorage registry.Storage, name string, datatype registry.StreamType) (ds registry.DataStream, err error) {
 	ds = registry.DataStream{
 		Name: name,
 		Type: datatype,
@@ -119,7 +119,7 @@ func addString(datastorage data.Storage, ds registry.DataStream) {
 func submitData(datastorage data.Storage, ds registry.DataStream, record senml.Record) {
 	var senmlPack senml.Pack = []senml.Record{record}
 	recordMap := make(map[string]senml.Pack)
-	senmlPack = senmlPack.Normalize()
+	senmlPack.Normalize()
 	recordMap[ds.Name] = senmlPack
 	streamMap := make(map[string]*registry.DataStream)
 	streamMap[ds.Name] = &ds

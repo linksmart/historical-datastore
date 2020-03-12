@@ -5,7 +5,7 @@ package data
 import (
 	"strings"
 
-	"github.com/farshidtz/senml"
+	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/registry"
 )
 

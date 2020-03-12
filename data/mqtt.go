@@ -13,8 +13,7 @@ import (
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
-	"github.com/farshidtz/senml"
-	"github.com/linksmart/historical-datastore/common"
+	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/registry"
 )
 
@@ -237,10 +236,10 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 	}
 
 	// Fill the data map with provided data points
-	records := senmlPack.Normalize()
+	senmlPack.Normalize()
 	data := make(map[string]senml.Pack)
 	streams := make(map[string]*registry.DataStream)
-	for _, r := range records {
+	for _, r := range senmlPack {
 		// Find the data source for this entry
 		ds, exists := s.connector.cache[r.Name]
 		if !exists {
@@ -274,16 +273,20 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		// Check if type of value matches the data source type in registry
 		typeError := false
 		switch ds.Type {
-		case common.FLOAT:
+		case registry.Float:
 			if r.Value == nil {
 				typeError = true
 			}
-		case common.STRING:
+		case registry.String:
 			if r.StringValue == "" {
 				typeError = true
 			}
-		case common.BOOL:
+		case registry.Bool:
 			if r.BoolValue == nil {
+				typeError = true
+			}
+		case registry.Data:
+			if r.DataValue == "" {
 				typeError = true
 			}
 		}

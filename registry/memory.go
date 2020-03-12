@@ -38,7 +38,7 @@ func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 func (ms *MemoryStorage) Add(ds DataStream) (*DataStream, error) {
 	err := validateCreation(ds, ms.conf)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrConflict, err)
+		return nil, fmt.Errorf("%w: %s", ErrInvalid, err)
 	}
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()

@@ -76,7 +76,7 @@ func (s *LevelDBStorage) close() error {
 func (s *LevelDBStorage) Add(ds DataStream) (*DataStream, error) {
 	err := validateCreation(ds, s.conf)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrConflict, err)
+		return nil, fmt.Errorf("%w: %s", ErrInvalid, err)
 	}
 
 	// Convert to json bytes
