@@ -417,6 +417,11 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	if err != nil {
 		return Query{}, fmt.Errorf("error in param %s=%s:%v", common.ParamDenormalize, denormStr, err)
 	}
+
+	//get count
+	if strings.EqualFold(form.Get(common.ParamCount), "true") {
+		q.count = true
+	}
 	return q, nil
 }
 

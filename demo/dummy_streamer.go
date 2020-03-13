@@ -102,8 +102,9 @@ func addString(datastorage data.Storage, ds registry.DataStream) {
 		"Tense",
 		"Anxious",
 		"Fearful",
-		"Confident",
+		"Hungry",
 		"Grooming itself",
+		//"Walking on the keyboard %&!§$%&//,())=?`{}[*':];\"",
 	}
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	index := r.Intn(len(status))

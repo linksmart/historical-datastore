@@ -22,12 +22,12 @@ const (
 	ParamTo          = "to"
 	ParamSort        = "sort"
 	ParamDenormalize = "denormalize"
+	ParamCount       = "count"
 
 	// Values for ParamSort
 	Asc  = "asc"  // ascending
 	Desc = "desc" // descending
 )
-
 
 var (
 	// APIVersion defines the API version
