@@ -71,7 +71,7 @@ func (c *RemoteClient) Add(d *DataStream) (string, error) {
 		c.ticket,
 	)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error in registry add:%s", err)
 	}
 	defer res.Body.Close()
 
@@ -99,7 +99,7 @@ func (c *RemoteClient) Get(id string) (*DataStream, error) {
 		c.ticket,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error in registry get:%s", err)
 	}
 	defer res.Body.Close()
 
@@ -132,7 +132,7 @@ func (c *RemoteClient) Update(id string, d *DataStream) error {
 		c.ticket,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("error in registry update:%s", err)
 	}
 	defer res.Body.Close()
 
@@ -157,7 +157,7 @@ func (c *RemoteClient) Delete(id string) error {
 		c.ticket,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("error in registry delete:%s", err)
 	}
 	defer res.Body.Close()
 
@@ -183,7 +183,7 @@ func (c *RemoteClient) FilterOne(path, op, value string) (*DataStream, error) {
 		c.ticket,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error in registry FilterOne:%s", err)
 	}
 	defer res.Body.Close()
 
@@ -215,7 +215,7 @@ func (c *RemoteClient) Filter(path, op, value string) ([]DataStream, error) {
 		c.ticket,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error in registry Filter:%s", err)
 	}
 	defer res.Body.Close()
 
