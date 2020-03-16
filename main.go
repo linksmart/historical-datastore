@@ -68,7 +68,7 @@ func main() {
 	// Load Config File
 	conf, err := loadConfig(confPath)
 	if err != nil {
-		log.Fatalf("Config File: %s\n", err)
+		log.Panicf("Config File: %s\n", err)
 	}
 
 	if *demomode {
@@ -100,11 +100,11 @@ func main() {
 	)
 
 	switch conf.Data.Backend.Type {
-	case data.SENMLSTORE:
+	case data.SQLITE:
 		var disconnect_func func() error
-		dataStorage, disconnect_func, err = data.NewSenmlStorage(conf.Data)
+		dataStorage, disconnect_func, err = data.NewSqlStorage(conf.Data)
 		if err != nil {
-			log.Fatalf("Error creating senml storage: %s", err)
+			log.Panicf("Error creating SQLite storage: %s", err)
 		}
 		defer disconnect_func()
 	}
@@ -122,7 +122,7 @@ func main() {
 	// MQTT connector
 	mqttConn, err = data.NewMQTTConnector(dataStorage, conf.ServiceID)
 	if err != nil {
-		log.Fatalf("Error creating MQTT Connector: %s", err)
+		log.Panicf("Error creating MQTT Connector: %s", err)
 	}
 
 	switch conf.Reg.Backend.Type {
@@ -131,7 +131,7 @@ func main() {
 	case registry.LEVELDB:
 		regStorage, closeReg, err = registry.NewLevelDBStorage(conf.Reg, nil, dataStorage, mqttConn)
 		if err != nil {
-			log.Fatalf("Failed to start LevelDB: %s\n", err)
+			log.Panicf("Failed to start LevelDB: %s\n", err)
 		}
 	}
 
@@ -150,14 +150,14 @@ func main() {
 	// TODO: disconnect on shutdown
 	err = mqttConn.Start(regStorage)
 	if err != nil {
-		log.Fatalf("Error starting MQTT Connector: %s", err)
+		log.Panicf("Error starting MQTT Connector: %s", err)
 	}
 
 	// Register in the LinkSmart Service Catalog
 	if conf.ServiceCatalog != nil {
 		unregisterService, err := registerInServiceCatalog(conf)
 		if err != nil {
-			log.Fatalf("Error registering service: %s", err)
+			log.Panicf("Error registering service: %s", err)
 		}
 		// Unregister from the Service Catalog
 		defer unregisterService()

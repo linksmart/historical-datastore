@@ -172,8 +172,8 @@ func TestHttpCreate(t *testing.T) {
 		if err != nil {
 			t.Errorf(err.Error())
 		}
-		if res.StatusCode != http.StatusConflict {
-			t.Errorf("Server response is not %v but %v :\n%v", http.StatusConflict, res.StatusCode, invalidBodyStr)
+		if res.StatusCode != http.StatusBadRequest {
+			t.Errorf("Server response is not %v but %v :\n%v", http.StatusBadRequest, res.StatusCode, invalidBodyStr)
 		}
 		res.Body.Close()
 	}
@@ -386,15 +386,15 @@ func TestHttpFilter(t *testing.T) {
 	dummyDSs := []DataStream{
 		DataStream{
 			Name: "dimmer.eu/sensor1",
-			Type: "string",
+			Type: String,
 		},
 		DataStream{
 			Name: "dimmer.eu/sensor2",
-			Type: "bool",
+			Type: Bool,
 		},
 		DataStream{
 			Name: "dimmer.eu/actuator1",
-			Type: "string",
+			Type: String,
 		},
 	}
 	for _, ds := range dummyDSs {
@@ -432,7 +432,7 @@ func TestHttpFilter(t *testing.T) {
 	if len(reg.Streams) != 1 {
 		t.Errorf("Instead of one, it returned %d datasources.", len(reg.Streams))
 	}
-	if reg.Streams[0].Type != "bool" {
+	if reg.Streams[0].Type != Bool {
 		t.Errorf("Instead of the expected datasource (Type:bool), it returned:\n%+v", reg.Streams[0])
 	}
 

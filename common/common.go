@@ -21,32 +21,12 @@ const (
 	ParamFrom        = "from"
 	ParamTo          = "to"
 	ParamSort        = "sort"
-	ParamOffset      = "offset"
 	ParamDenormalize = "denormalize"
+	ParamCount       = "count"
 
 	// Values for ParamSort
-	ASC  = "asc"  // ascending
-	DESC = "desc" // descending
-
-	//value for ParamDenormalize
-	TIME_FIELD        = "time"
-	TIME_FIELD_SHORT  = "t"
-	NAME_FIELD        = "name"
-	NAME_FIELD_SHORT  = "n"
-	UNIT_FIELD        = "unit"
-	UNIT_FIELD_SHORT  = "u"
-	VALUE_FIELD       = "value"
-	VALUE_FIELD_SHORT = "v"
-	SUM_FIELD         = "sum"
-	SUM_FIELD_SHORT   = "s"
-)
-
-// Data source types
-const (
-	STRING = "string"
-	FLOAT  = "float"
-	BOOL   = "bool"
-	DATA   = "data"
+	Asc  = "asc"  // ascending
+	Desc = "desc" // descending
 )
 
 var (
@@ -56,8 +36,6 @@ var (
 	// Default MIME type for all responses
 	DefaultMIMEType string
 
-	// supported type values
-	supportedTypes = []string{STRING, BOOL, FLOAT, DATA}
 	// supported aggregates
 	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}
 	// supported period suffixes
@@ -89,11 +67,6 @@ func SupportedPeriods() []string {
 	var periods []string
 	copy(periods, supportedPeriods)
 	return periods
-}
-
-// SupportedType validates a type
-func SupportedType(t string) bool {
-	return stringInSlice(t, supportedTypes)
 }
 
 // SupportedAggregate validates an aggregate

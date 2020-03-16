@@ -23,8 +23,9 @@ const (
 )
 
 var (
-	ErrNotFound = errors.New("Datasource Not Found")
-	ErrConflict = errors.New("Conflict")
+	ErrNotFound = errors.New("datastream not found")
+	ErrConflict = errors.New("conflict")
+	ErrInvalid  = errors.New("invald datastream")
 )
 
 func ErrType(err, e error) bool {
@@ -74,7 +75,7 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	datasources, total, err := api.storage.GetMany(page, perPage)
+	dataStreams, total, err := api.storage.GetMany(page, perPage)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, err.Error(), w)
 		return
@@ -83,7 +84,7 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 	// Create a registry catalog
 	registry := DataStreamList{
 		URL:     common.RegistryAPILoc,
-		Streams: datasources,
+		Streams: dataStreams,
 		Page:    page,
 		PerPage: perPage,
 		Total:   total,
@@ -115,8 +116,10 @@ func (api *API) Create(w http.ResponseWriter, r *http.Request) {
 
 	addedDS, err := api.storage.Add(ds)
 	if err != nil {
-		if ErrType(err, ErrConflict) {
+		if errors.Is(err, ErrConflict) {
 			common.ErrorResponse(http.StatusConflict, err.Error(), w)
+		} else if errors.Is(err, ErrInvalid) {
+			common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
 		} else {
 			common.ErrorResponse(http.StatusInternalServerError, "Error storing data source: "+err.Error(), w)
 		}

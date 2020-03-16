@@ -7,22 +7,22 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/farshidtz/senml"
+	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/registry"
 )
 
 func StartDummyStreamer(regStorage registry.Storage, dataStorage data.Storage) error {
-	dsBool, err := createDS(regStorage, "kitchen/lamp", "bool")
+	dsBool, err := createDS(regStorage, "kitchen/lamp", registry.Bool, "")
 	if err != nil {
 		return fmt.Errorf("error creating stream: %s", err)
 	}
-	dsString, err := createDS(regStorage, "hall/cat", "string")
+	dsString, err := createDS(regStorage, "hall/cat", registry.String, "")
 	if err != nil {
 		return fmt.Errorf("error creating stream: %s", err)
 	}
 
-	dsFloat, err := createDS(regStorage, "terrace/temperature", "float")
+	dsFloat, err := createDS(regStorage, "terrace/temperature", registry.Float, "Cel")
 	if err != nil {
 		return fmt.Errorf("error creating stream: %s", err)
 	}
@@ -41,10 +41,11 @@ func StartDummyStreamer(regStorage registry.Storage, dataStorage data.Storage) e
 	return nil
 }
 
-func createDS(regStorage registry.Storage, name string, datatype string) (ds registry.DataStream, err error) {
+func createDS(regStorage registry.Storage, name string, datatype registry.StreamType, unit string) (ds registry.DataStream, err error) {
 	ds = registry.DataStream{
 		Name: name,
 		Type: datatype,
+		Unit: unit,
 	}
 	_, err = regStorage.Add(ds)
 	if err != nil {
@@ -72,11 +73,12 @@ func addFloat(datastorage data.Storage, ds registry.DataStream) {
 	}
 	senmlRecord := senml.Record{
 		Name:  ds.Name,
+		Unit:  "Cel",
 		Value: &curVal,
 	}
 
 	log.Printf("Submitting %s: value %f\n", ds.Name, curVal)
-	submitData(datastorage, ds.Name, senmlRecord)
+	submitData(datastorage, ds, senmlRecord)
 
 }
 
@@ -89,7 +91,7 @@ func addBool(datastorage data.Storage, ds registry.DataStream) {
 	}
 
 	log.Printf("Submitting %s: value %t\n", ds.Name, curVal)
-	submitData(datastorage, ds.Name, senmlRecord)
+	submitData(datastorage, ds, senmlRecord)
 
 }
 
@@ -102,8 +104,9 @@ func addString(datastorage data.Storage, ds registry.DataStream) {
 		"Tense",
 		"Anxious",
 		"Fearful",
-		"Confident",
+		"Hungry",
 		"Grooming itself",
+		//"Walking on the keyboard %&!§$%&//,())=?`{}[*':];\"",
 	}
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	index := r.Intn(len(status))
@@ -112,16 +115,18 @@ func addString(datastorage data.Storage, ds registry.DataStream) {
 		StringValue: status[index],
 	}
 	log.Printf("Submitting %s: status %s", ds.Name, status[index])
-	submitData(datastorage, ds.Name, senmlRecord)
+	submitData(datastorage, ds, senmlRecord)
 
 }
 
-func submitData(datastorage data.Storage, name string, record senml.Record) {
+func submitData(datastorage data.Storage, ds registry.DataStream, record senml.Record) {
 	var senmlPack senml.Pack = []senml.Record{record}
-	recordmap := make(map[string]senml.Pack)
-	recordmap[name] = senmlPack
-
-	err := datastorage.Submit(recordmap)
+	recordMap := make(map[string]senml.Pack)
+	senmlPack.Normalize()
+	recordMap[ds.Name] = senmlPack
+	streamMap := make(map[string]*registry.DataStream)
+	streamMap[ds.Name] = &ds
+	err := datastorage.Submit(recordMap, streamMap)
 	if err != nil {
 		log.Printf("insetion failed: %s", err)
 	}

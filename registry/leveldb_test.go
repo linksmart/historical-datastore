@@ -54,7 +54,7 @@ func TestLevelDBAdd(t *testing.T) {
 	ds.Name = "any_url"
 	//ds.Retention = ""
 	//ds.Aggregation TODO
-	ds.Type = "string"
+	ds.Type = String
 
 	addedDS, err := storage.Add(ds)
 	if err != nil {

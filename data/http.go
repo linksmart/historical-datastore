@@ -9,12 +9,10 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
-	datastore "github.com/dschowta/senml.datastore"
-	"github.com/farshidtz/senml"
+	"github.com/farshidtz/senml/v2"
 	"github.com/gorilla/mux"
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/registry"
@@ -22,6 +20,18 @@ import (
 
 const (
 	MaxPerPage = 1000
+
+	//value for ParamDenormalize
+	TimeField       = "time"
+	TimeFieldShort  = "t"
+	NameField       = "name"
+	NameFieldShort  = "n"
+	UnitField       = "unit"
+	UnitFieldShort  = "u"
+	ValueField      = "value"
+	ValueFieldShort = "v"
+	SumField        = "sum"
+	SumFieldShort   = "s"
 )
 
 // API describes the RESTful HTTP data API
@@ -61,8 +71,8 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	// Check if DataSources are registered in the DataStreamList
 	dsResources := make(map[string]*registry.DataStream)
 	// Fill the data map with provided data points
-	records := senmlPack.Normalize()
-	for _, r := range records {
+	senmlPack.Normalize()
+	for _, r := range senmlPack {
 		if r.Name == "" {
 			common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Data source name not specified."), w)
 			return
@@ -78,25 +88,11 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 			dsResources[ds.Name] = ds
 		}
 
-		// Check if type of value matches the data source type in registry
-		typeError := false
-		switch ds.Type {
-		case common.FLOAT:
-			if r.Value == nil {
-				typeError = true
-			}
-		case common.STRING:
-			if r.StringValue == "" {
-				typeError = true
-			}
-		case common.BOOL:
-			if r.BoolValue == nil {
-				typeError = true
-			}
-		}
-		if typeError {
+		err := validateRecordAgainstRegistry(r, ds)
+
+		if err != nil {
 			common.ErrorResponse(http.StatusBadRequest,
-				fmt.Sprintf("Value for %v is empty or has a type other than what is set in registry: %v", r.Name, ds.Type), w)
+				fmt.Sprintf("Error validating the record:%v", err), w)
 			return
 		}
 
@@ -109,7 +105,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add data to the storage
-	err = api.storage.Submit(data)
+	err = api.storage.Submit(data, dsResources)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
 		return
@@ -143,12 +139,12 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 	// Fill the data map with provided data points
 	data := make(map[string]senml.Pack)
-	records := senmlPack.Normalize()
-	for _, r := range records {
+	senmlPack.Normalize()
+	for _, r := range senmlPack {
 
 		ds, found := nameDSs[r.Name]
 		if !found {
-			ds, err = api.registry.FilterOne("resource", "equals", r.Name)
+			ds, err = api.registry.FilterOne("name", "equals", r.Name)
 			if err != nil {
 				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error retrieving data source with name %v from the registry: %v", r.Name, err.Error()), w)
 				return
@@ -163,15 +159,16 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Registering data source for %s", r.Name)
 				newDS := registry.DataStream{
 					Name: r.Name,
+					Unit: r.Unit,
 				}
 				if r.Value != nil || r.Sum != nil {
-					newDS.Type = common.FLOAT
+					newDS.Type = registry.Float
 				} else if r.StringValue != "" {
-					newDS.Type = common.STRING
+					newDS.Type = registry.String
 				} else if r.BoolValue != nil {
-					newDS.Type = common.BOOL
+					newDS.Type = registry.Bool
 				} else if r.DataValue != "" {
-					newDS.Type = common.DATA
+					newDS.Type = registry.Data
 				}
 				addedDS, err := api.registry.Add(newDS)
 				if err != nil {
@@ -183,25 +180,11 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 			nameDSs[r.Name] = ds
 		}
 
-		// Check if type of value matches the data source type in registry
-		typeError := false
-		switch ds.Type {
-		case common.FLOAT:
-			if r.Value == nil {
-				typeError = true
-			}
-		case common.STRING:
-			if r.StringValue == "" {
-				typeError = true
-			}
-		case common.BOOL:
-			if r.BoolValue == nil {
-				typeError = true
-			}
-		}
-		if typeError {
+		err := validateRecordAgainstRegistry(r, ds)
+
+		if err != nil {
 			common.ErrorResponse(http.StatusBadRequest,
-				fmt.Sprintf("Value for %v is empty or has a type other than what is set in registry: %v", r.Name, ds.Type), w)
+				fmt.Sprintf("Error validating the record:%v", err), w)
 			return
 		}
 
@@ -214,7 +197,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add data to the storage
-	err = api.storage.Submit(data)
+	err = api.storage.Submit(data, nameDSs)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
 		return
@@ -223,6 +206,8 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 	return
 }
+
+
 
 func GetUrlFromQuery(q Query, id ...string) (url string) {
 	var sort, limit, start, end, perPage, offset, denorm string
@@ -238,29 +223,29 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 	if !q.To.IsZero() {
 		end = fmt.Sprintf("&%v=%v", common.ParamTo, q.To.UTC().Format(time.RFC3339))
 	}
-	if !q.Offset.IsZero() {
-		offset = fmt.Sprintf("&%v=%v", common.ParamOffset, q.Offset.UTC().Format(time.RFC3339))
+	if q.Page > 0 {
+		offset = fmt.Sprintf("&%v=%v", common.ParamPage, q.Page)
 	}
-	if q.perPage > 0 {
-		perPage = fmt.Sprintf("&%v=%v", common.ParamPerPage, q.perPage)
+	if q.PerPage > 0 {
+		perPage = fmt.Sprintf("&%v=%v", common.ParamPerPage, q.PerPage)
 	}
 
 	if q.Denormalize != 0 {
 		denorm = fmt.Sprintf("&%v=", common.ParamDenormalize)
-		if q.Denormalize&datastore.FTime != 0 {
-			denorm += common.TIME_FIELD_SHORT + ","
+		if q.Denormalize&FTime != 0 {
+			denorm += TimeFieldShort + ","
 		}
-		if q.Denormalize&datastore.FName != 0 {
-			denorm += common.NAME_FIELD_SHORT + ","
+		if q.Denormalize&FName != 0 {
+			denorm += NameFieldShort + ","
 		}
-		if q.Denormalize&datastore.FUnit != 0 {
-			denorm += common.UNIT_FIELD_SHORT + ","
+		if q.Denormalize&FUnit != 0 {
+			denorm += UnitFieldShort + ","
 		}
-		if q.Denormalize&datastore.FSum != 0 {
-			denorm += common.SUM_FIELD_SHORT + ","
+		if q.Denormalize&FSum != 0 {
+			denorm += SumFieldShort + ","
 		}
-		if q.Denormalize&datastore.FValue != 0 {
-			denorm += common.VALUE_FIELD_SHORT + ","
+		if q.Denormalize&FValue != 0 {
+			denorm += ValueFieldShort + ","
 		}
 		denorm = strings.TrimSuffix(denorm, ",")
 	}
@@ -305,7 +290,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, total, nextLinkTS, err := api.storage.Query(q, sources...)
+	data, total, err := api.storage.Query(q, sources...)
 	if err != nil {
 		common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
 		return
@@ -315,24 +300,14 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 
 	nextlink := ""
 
-	if nextLinkTS != nil {
+	responseLength := len(data)
+
+	//If the response is already less than the number of elements supposed to be in a page,
+	//then it already means that we are in last page
+	if responseLength >= q.PerPage {
 		nextQuery := q
-		lastPage := false
-		if q.Limit > 0 { //if Limit is given by user reduce the limit by total
-			newLimit := q.Limit - total
-			if newLimit > 0 {
-				nextQuery.Limit = newLimit
-			} else {
-				lastPage = true
-			}
-		}
-
-		if !lastPage {
-
-			nextQuery.Offset = *nextLinkTS
-
-			nextlink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
-		}
+		nextQuery.Page = q.Page + 1
+		nextlink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
 	}
 
 	recordSet = RecordSet{
@@ -340,6 +315,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		TimeTook: time.Since(timeStart).Seconds(),
 		Data:     data,
 		NextLink: nextlink,
+		Count:    total,
 	}
 
 	csvStr, err := json.Marshal(recordSet)
@@ -381,76 +357,62 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 		}
 	}
 
-	// end time
-	if form.Get(common.ParamOffset) != "" {
-		q.Offset, err = time.Parse(time.RFC3339, form.Get(common.ParamOffset))
-		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing offset argument: %s", err)
-		}
+	q.Page, q.PerPage, err = common.ParsePagingParams(form.Get(common.ParamPage), form.Get(common.ParamPerPage), MaxPerPage)
 
-		if q.To.Before(q.Offset) {
-			return Query{}, fmt.Errorf("unexpected: to before offset")
-		}
-
-		if q.Offset.Before(q.From) {
-			return Query{}, fmt.Errorf("unexpected: offset before from")
-		}
-	}
-
-	if q.To.Before(q.From) {
-		return Query{}, fmt.Errorf("unexpected: to before from")
-	}
-
-	// limit
-	if form.Get(common.ParamLimit) == "" {
-		q.Limit = -1
-	} else {
-		q.Limit, err = strconv.Atoi(form.Get(common.ParamLimit))
-		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing limit argument: %s", err)
-		}
+	if err != nil {
+		return Query{}, fmt.Errorf("Error parsing limit argument: %s", err)
 	}
 
 	// sort
 	q.Sort = form.Get(common.ParamSort)
 	if q.Sort == "" {
 		// default sorting order
-		q.Sort = common.DESC
-	} else if q.Sort != common.ASC && q.Sort != common.DESC {
+		q.Sort = common.Desc
+	} else if q.Sort != common.Asc && q.Sort != common.Desc {
 		return Query{}, fmt.Errorf("Invalid sort argument: %v", q.Sort)
 	}
 
-	if form.Get(common.ParamPerPage) == "" {
-		q.perPage = MaxPerPage
-	} else {
-		q.perPage, err = strconv.Atoi(form.Get(common.ParamPerPage))
-		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing limit argument: %s", err)
-		}
+	q.Page, q.PerPage, err = common.ParsePagingParams(form.Get(common.ParamPage), form.Get(common.ParamPerPage), MaxPerPage)
+
+	if err != nil {
+		return Query{}, fmt.Errorf("Error parsing paging parameters: %s", err)
 	}
 
 	//denormalization fields
-	denormString := form.Get(common.ParamDenormalize)
+	denormStr := form.Get(common.ParamDenormalize)
+	q.Denormalize, err = parseDenormParams(denormStr)
+	if err != nil {
+		return Query{}, fmt.Errorf("error in param %s=%s:%v", common.ParamDenormalize, denormStr, err)
+	}
+
+	//get count
+	if strings.EqualFold(form.Get(common.ParamCount), "true") {
+		q.count = true
+	}
+	return q, nil
+}
+
+func parseDenormParams(denormString string) (denormMask DenormMask, err error) {
 
 	if denormString != "" {
 		denormStrings := strings.Split(denormString, ",")
 		for _, field := range denormStrings {
 			switch strings.ToLower(strings.TrimSpace(field)) {
-			case common.TIME_FIELD, common.TIME_FIELD_SHORT:
-				q.Denormalize = q.Denormalize | datastore.FTime
-			case common.NAME_FIELD, common.NAME_FIELD_SHORT:
-				q.Denormalize = q.Denormalize | datastore.FName
-			case common.UNIT_FIELD, common.UNIT_FIELD_SHORT:
-				q.Denormalize = q.Denormalize | datastore.FName
-			case common.VALUE_FIELD, common.VALUE_FIELD_SHORT:
-				q.Denormalize = q.Denormalize | datastore.FName
-			case common.SUM_FIELD, common.SUM_FIELD_SHORT:
-				q.Denormalize = q.Denormalize | datastore.FName
+			case TimeField, TimeFieldShort:
+				denormMask = denormMask | FTime
+			case NameField, NameFieldShort:
+				denormMask = denormMask | FName
+			case UnitField, UnitFieldShort:
+				denormMask = denormMask | FUnit
+			case ValueField, ValueFieldShort:
+				denormMask = denormMask | FValue
+			case SumField, SumFieldShort:
+				denormMask = denormMask | FSum
 			default:
-				return Query{}, fmt.Errorf("Error parsing param %s=%s: unsupported field %s", common.ParamDenormalize, denormString, field)
+				return 0, fmt.Errorf("unexpected senml field: %s", field)
 
 			}
 		}
 	}
-	return q, nil
+	return denormMask, nil
 }

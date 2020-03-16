@@ -13,8 +13,7 @@ import (
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
-	"github.com/farshidtz/senml"
-	"github.com/linksmart/historical-datastore/common"
+	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/registry"
 )
 
@@ -237,9 +236,10 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 	}
 
 	// Fill the data map with provided data points
-	records := senmlPack.Normalize()
+	senmlPack.Normalize()
 	data := make(map[string]senml.Pack)
-	for _, r := range records {
+	streams := make(map[string]*registry.DataStream)
+	for _, r := range senmlPack {
 		// Find the data source for this entry
 		ds, exists := s.connector.cache[r.Name]
 		if !exists {
@@ -270,38 +270,25 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 			continue
 		}
 
-		// Check if type of value matches the data source type in registry
-		typeError := false
-		switch ds.Type {
-		case common.FLOAT:
-			if r.Value == nil {
-				typeError = true
-			}
-		case common.STRING:
-			if r.StringValue == "" {
-				typeError = true
-			}
-		case common.BOOL:
-			if r.BoolValue == nil {
-				typeError = true
-			}
-		}
-		if typeError {
+		err := validateRecordAgainstRegistry(r, ds)
+
+		if err != nil {
 			logMQTTError(http.StatusBadRequest,
-				"Value for %v is empty or has a type other than what is set in registry: %v", r.Name, ds.Type)
-			continue
+				fmt.Sprintf("Error validating the record:%v", err))
+			return
 		}
 
 		_, ok := data[ds.Name]
 		if !ok {
 			data[ds.Name] = []senml.Record{}
+			streams[ds.Name] = ds
 		}
 		data[ds.Name] = append(data[ds.Name], r)
 	}
 
 	if len(data) > 0 {
 		// Add data to the storage
-		err = s.connector.storage.Submit(data)
+		err = s.connector.storage.Submit(data, streams)
 		if err != nil {
 			logMQTTError(http.StatusInternalServerError, "Error writing data to the database: %v", err)
 			return
@@ -328,7 +315,7 @@ func (c *MQTTConnector) CreateHandler(ds registry.DataStream) error {
 	return nil
 }
 
-// UpdateHandler handles updates of a data source
+// UpdateHandler handles updates of a data stream
 func (c *MQTTConnector) UpdateHandler(oldDS registry.DataStream, newDS registry.DataStream) error {
 	c.Lock()
 	defer c.Unlock()

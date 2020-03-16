@@ -2,11 +2,12 @@ package integration_tests
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
 
-	"github.com/farshidtz/senml"
+	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/registry"
 	uuid "github.com/satori/go.uuid"
@@ -25,7 +26,7 @@ func TestConcurrentCreates(t *testing.T) {
 	for i := 0; i < TOTAL; i++ {
 		ds := &registry.DataStream{
 			Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
-			Type: "float",
+			Type: registry.Float,
 		}
 		entries = append(entries, ds)
 	}
@@ -70,7 +71,7 @@ func TestConcurrentUpdates(t *testing.T) {
 	for i := 0; i < TOTAL; i++ {
 		ds := registry.DataStream{
 			Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
-			Type: "float",
+			Type: registry.Float,
 		}
 		_, err = registryClient.Add(&ds)
 		if err != nil {
@@ -132,7 +133,7 @@ func TestConcurrentDeletes(t *testing.T) {
 	for i := 0; i < TOTAL; i++ {
 		ds := registry.DataStream{
 			Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
-			Type: "float",
+			Type: registry.Float,
 		}
 		_, err = registryClient.Add(&ds)
 		if err != nil {
@@ -172,7 +173,7 @@ func TestConcurrentDeletes(t *testing.T) {
 	for i := 0; i < TOTAL; i++ {
 		{
 			_, err := registryClient.Get(entries[i].Name)
-			if err.Error() != "Datasource Not Found" {
+			if !errors.Is(err, registry.ErrNotFound) {
 				t.Fatal(err)
 			}
 		}

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -8,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/farshidtz/senml"
+	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/registry"
 )
@@ -22,46 +23,60 @@ func deleteFile(path string) {
 	// delete file
 	var err = os.Remove(path)
 	if err != nil {
-		fmt.Println("failed deleting file (Ignore this error if it comes in the beginning):", err)
+		if !errors.Is(err, os.ErrNotExist) {
+			fmt.Println("Failed deleting file:", err)
+		}
 		return
 	}
 
 	fmt.Println("done deleting file")
 }
 
+func setupBenchmark(funcName string) (filename string, disconnectFunc func() error, dataStorage Storage, regStorage registry.Storage, err error) {
+	fileName := os.TempDir() + "/" + funcName
+	deleteFile(fileName)
+	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SQLITE, DSN: fileName}}
+	dataStorage, disconnectFunc, err = NewSqlStorage(dataConf)
+	if err != nil {
+		return "", nil, nil, nil, err
+	}
+	//create a registry storage
+	regStorage = registry.NewMemoryStorage(common.RegConf{}, dataStorage)
+	return
+}
 func BenchmarkCreation_OneSeries(b *testing.B) {
 	b.StopTimer()
 	//Setup for the testing
-	fileName := os.TempDir() + "/BenchmarkCreation_OneSeries"
-	deleteFile(fileName)
-	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SENMLSTORE, DSN: fileName}}
+	funcName := "BenchmarkCreation_OneSeries"
+
+	fileName, disconnectFunc, dataStorage, regStorage, err := setupBenchmark(funcName)
+	if err != nil {
+		b.Fatalf("Error setting up benchmark:%s", err)
+	}
 	defer deleteFile(fileName)
-	var err error
+	defer disconnectFunc()
+
+	datastream := registry.DataStream{Name: funcName, Type: registry.Float}
+
+	_, err = regStorage.Add(datastream)
 	if err != nil {
 		b.Fatal(err)
 	}
-	dataStorage, disconnect_func, err := NewSenmlStorage(dataConf)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer disconnect_func()
 
-	//Actual benchmarking
-	datastream := registry.DataStream{Name: fileName, Type: common.FLOAT}
-
-	// send some data
 	// send some data
 	var records senml.Pack
 	totRec := b.N
 	fmt.Printf("%s:Count = %d\n", fileName, b.N)
 	records = common.Same_name_same_types(totRec, datastream.Name, true)
-	recordmap := make(map[string]senml.Pack)
-	recordmap[datastream.Name] = records
+	recordMap := make(map[string]senml.Pack)
+	recordMap[datastream.Name] = records
+	streamMap := make(map[string]*registry.DataStream)
+	streamMap[datastream.Name] = &datastream
 	b.StartTimer()
-	err = dataStorage.Submit(recordmap)
+	err = dataStorage.Submit(recordMap, streamMap)
 	//err = dataClient.Submit(barr, , datastream.Name)
 	if err != nil {
-		b.Error("Insetion failed")
+		b.Error("Insetion failed", err)
 	}
 
 }
@@ -69,38 +84,37 @@ func BenchmarkCreation_OneSeries(b *testing.B) {
 func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 	b.StopTimer()
 	//Setup for the testing
-	fileName := os.TempDir() + "/BenchmarkCreation_OneSeries"
-	deleteFile(fileName)
-	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SENMLSTORE, DSN: fileName}}
+	funcName := "BenchmarkCreation_OneSeries"
+	fileName, disconnectFunc, dataStorage, regStorage, err := setupBenchmark(funcName)
+	if err != nil {
+		b.Fatalf("Error setting up benchmark:%s", err)
+	}
 	defer deleteFile(fileName)
-	var err error
-	if err != nil {
-		b.Fatal(err)
-	}
-	dataStorage, disconnect_func, err := NewSenmlStorage(dataConf)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer disconnect_func()
+	defer disconnectFunc()
 
 	//Actual benchmarking
-	datastream := registry.DataStream{Name: fileName, Type: common.FLOAT}
+	datastream := registry.DataStream{Name: funcName, Type: registry.Float}
+	_, err = regStorage.Add(datastream)
+	if err != nil {
+		b.Fatal(err)
+	}
 
-	// send some data
 	// send some data
 	var records senml.Pack
 	totRec := TOTALENTRIES
 	records = common.Same_name_same_types(totRec, datastream.Name, true)
 
-	recordmap := make(map[string]senml.Pack)
-	recordmap[datastream.Name] = records
-	err = dataStorage.Submit(recordmap)
+	recordMap := make(map[string]senml.Pack)
+	recordMap[datastream.Name] = records
+	streamMap := make(map[string]*registry.DataStream)
+	streamMap[datastream.Name] = &datastream
+	err = dataStorage.Submit(recordMap, streamMap)
 	//err = dataClient.Submit(barr, , datastream.Name)
 	if err != nil {
-		b.Error("Insetion failed", err)
+		b.Error("Insetion failed:", err)
 	}
 
-	benchmarks := map[string]func(b *testing.B, storage Storage, timeStart float64, timeEnd float64, seriesName string){
+	benchmarks := map[string]func(b *testing.B, storage Storage, timeStart float64, timeEnd float64, stream *registry.DataStream){
 		"InsertEnd":    benchmarkInsertEnd,
 		"InsertRandom": benchmarkInsertRandom,
 		"QueryRandom":  benchmarkQueryRandom,
@@ -114,54 +128,58 @@ func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 	for k, bm := range benchmarks {
 		b.Run(k, func(b *testing.B) {
 			fmt.Printf("\n%s:Count = %d\n", k, b.N)
-			bm(b, dataStorage, startTime, endTime, datastream.Name)
+			bm(b, dataStorage, startTime, endTime, &datastream)
 		})
 	}
 
 }
 
-func benchmarkInsertEnd(b *testing.B, storage Storage, timeStart float64, timeEnd float64, seriesName string) {
+func benchmarkInsertEnd(b *testing.B, storage Storage, timeStart float64, timeEnd float64, stream *registry.DataStream) {
 	endTime := timeEnd
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		endTime := endTime + 1
-		insrecords := common.Same_name_same_types(1, seriesName, true)
-		insrecords[0].Time = endTime
-		recordmap := make(map[string]senml.Pack)
-		recordmap[seriesName] = insrecords
+		insRecords := common.Same_name_same_types(1, stream.Name, true)
+		insRecords[0].Time = endTime
+		recordMap := make(map[string]senml.Pack)
+		recordMap[stream.Name] = insRecords
+		streamMap := make(map[string]*registry.DataStream)
+		streamMap[stream.Name] = stream
 		b.StartTimer()
-		err := storage.Submit(recordmap)
+		err := storage.Submit(recordMap, streamMap)
 		if err != nil {
 			b.Error("insetion failed", err)
 		}
 	}
 }
-func benchmarkInsertRandom(b *testing.B, storage Storage, timeStart float64, timeEnd float64, seriesName string) {
+func benchmarkInsertRandom(b *testing.B, storage Storage, timeStart float64, timeEnd float64, stream *registry.DataStream) {
 	between := func(min float64, max float64) (randNum float64) {
 		return min + rand.Float64()*(max-min)
 	}
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		randTime := between(timeStart, timeEnd)
-		insrecords := common.Same_name_same_types(1, seriesName, true)
-		insrecords[0].Time = randTime
-		recordmap := make(map[string]senml.Pack)
-		recordmap[seriesName] = insrecords
+		insRecords := common.Same_name_same_types(1, stream.Name, true)
+		insRecords[0].Time = randTime
+		recordMap := make(map[string]senml.Pack)
+		recordMap[stream.Name] = insRecords
+		streamMap := make(map[string]*registry.DataStream)
+		streamMap[stream.Name] = stream
 		b.StartTimer()
-		err := storage.Submit(recordmap)
+		err := storage.Submit(recordMap, streamMap)
 		if err != nil {
 			b.Error("insetion failed", err)
 		}
 	}
 }
 
-func benchmarkQueryRandom(b *testing.B, storage Storage, timeStart float64, timeEnd float64, seriesName string) {
+func benchmarkQueryRandom(b *testing.B, storage Storage, timeStart float64, timeEnd float64, stream *registry.DataStream) {
 	between := func(min float64, max float64) (randNum float64) {
 		return min + rand.Float64()*(max-min)
 	}
 	for i := 0; i < b.N; i++ {
 		start := between(timeStart, timeEnd)
-		_, _, _, err := storage.Query(Query{From: time.Unix(0, int64(start*(1e9))), To: time.Unix(0, int64((start+2.0)*(1e9)))}, &registry.DataStream{Name: seriesName})
+		_, _, err := storage.Query(Query{From: time.Unix(0, int64(start*(1e9))), To: time.Unix(0, int64((start+2.0)*(1e9)))}, &registry.DataStream{Name: stream.Name})
 		if err != nil {
 			b.Error("query failed", err)
 		}
@@ -170,33 +188,33 @@ func benchmarkQueryRandom(b *testing.B, storage Storage, timeStart float64, time
 func BenchmarkCreation_MultiSeries(b *testing.B) {
 	//Setup for the testing
 	b.StopTimer()
-	fileName := os.TempDir() + "BenchmarkCreation_MultiSeries"
-	deleteFile(fileName)
-	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SENMLSTORE, DSN: fileName}}
-
-	dataStorage, disconnect_func, err := NewSenmlStorage(dataConf)
+	funcName := "BenchmarkCreation_MultiSeries"
+	fileName, disconnectFunc, dataStorage, regStorage, err := setupBenchmark(funcName)
 	if err != nil {
-		b.Fatal(err)
+		b.Fatalf("Error setting up benchmark:%s", err)
 	}
 	defer deleteFile(fileName)
-	defer disconnect_func()
+	defer disconnectFunc()
 
-	datastream := registry.DataStream{Name: fileName, Type: common.FLOAT}
+	datastream := registry.DataStream{Name: fileName, Type: registry.Float}
 
 	// send some data
 	var records senml.Pack
 	totRec := 3
 	records = common.Same_name_same_types(totRec, datastream.Name, true)
 
-	recordmap := make(map[string]senml.Pack)
+	recordmap := make(map[string]senml.Pack, b.N)
+	streamMap := make(map[string]*registry.DataStream, b.N)
 	fmt.Printf("%s:Count = %d\n", fileName, b.N)
 	for i := 0; i < b.N; i++ {
 		datastream.Name = strconv.Itoa(i)
 		records[0].BaseName = datastream.Name
+		regStorage.Add(datastream)
 		recordmap[datastream.Name] = records
+		streamMap[datastream.Name] = &datastream
 	}
 	b.StartTimer()
-	err = dataStorage.Submit(recordmap)
+	err = dataStorage.Submit(recordmap, streamMap)
 	//err = dataClient.Submit(barr, , datastream.Name)
 	if err != nil {
 		b.Error("Insetion failed")
@@ -208,8 +226,8 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 	//Setup for the testing
 	fileName := os.TempDir() + "BenchmarkCreation_MultiSeries"
 	deleteFile(fileName)
-	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SENMLSTORE, DSN: fileName}}
-	dataStorage, disconnect_func, err := NewSenmlStorage(dataConf)
+	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SQLITE, DSN: fileName}}
+	dataStorage, disconnect_func, err := NewSqlStorage(dataConf)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -221,16 +239,18 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 	totRec := 1
 	records = common.Same_name_same_types(totRec, "dummy", true)
 
-	recordmap := make(map[string]senml.Pack)
+	recordMap := make(map[string]senml.Pack, TOTALSERIES)
+	streamMap := make(map[string]*registry.DataStream, TOTALSERIES)
 	//fmt.Printf("%s:Count = %d\n", fileName, b.N)
 	for i := 0; i < TOTALSERIES; i++ {
-		datastream := registry.DataStream{Name: strconv.Itoa(i), Type: common.FLOAT}
+		datastream := registry.DataStream{Name: strconv.Itoa(i), Type: registry.Float}
 		newrecords := make(senml.Pack, totRec)
 		copy(newrecords, records)
 		newrecords[0].BaseName = datastream.Name
-		recordmap[datastream.Name] = newrecords
+		recordMap[datastream.Name] = newrecords
+		streamMap[datastream.Name] = &datastream
 	}
-	err = dataStorage.Submit(recordmap)
+	err = dataStorage.Submit(recordMap, streamMap)
 	//err = dataClient.Submit(barr, , datastream.Name)
 	if err != nil {
 		b.Fatal("Insetion failed", err)
@@ -261,17 +281,19 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 func benchmarkCreateNewSeries(b *testing.B, storage Storage) {
 	records := common.Same_name_same_types(1, "benchmarkCreateNewSeries", true)
 
-	recordmap := make(map[string]senml.Pack)
+	recordMap := make(map[string]senml.Pack, b.N)
+	streamMap := make(map[string]*registry.DataStream, b.N)
 	b.StopTimer()
 	for i := 0; i < b.N; i++ {
-		datastream := registry.DataStream{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: common.FLOAT}
+		datastream := registry.DataStream{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: registry.Float}
 		newRecords := make(senml.Pack, 1)
 		copy(newRecords, records)
 		newRecords[0].BaseName = datastream.Name
-		recordmap[datastream.Name] = newRecords
+		recordMap[datastream.Name] = newRecords
+		streamMap[datastream.Name] = &datastream
 	}
 	b.StartTimer()
-	err := storage.Submit(recordmap)
+	err := storage.Submit(recordMap, streamMap)
 	if err != nil {
 		b.Fatal("Error creating:", err)
 	}
@@ -283,21 +305,23 @@ func benchmarkDeleteSeries(b *testing.B, storage Storage) {
 	totRec := 1
 	records := common.Same_name_same_types(totRec, "benchmarkDeleteSeries", true)
 
-	recordmap := make(map[string]senml.Pack)
+	recordMap := make(map[string]senml.Pack, b.N)
+	streamMap := make(map[string]*registry.DataStream, b.N)
 	for i := 0; i < b.N; i++ {
-		datastream := registry.DataStream{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: common.FLOAT}
+		datastream := registry.DataStream{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: registry.Float}
 		newrecords := make(senml.Pack, totRec)
 		copy(newrecords, records)
 		newrecords[0].BaseName = datastream.Name
-		recordmap[datastream.Name] = newrecords
+		recordMap[datastream.Name] = newrecords
+		streamMap[datastream.Name] = &datastream
 	}
-	err := storage.Submit(recordmap)
+	err := storage.Submit(recordMap, streamMap)
 	if err != nil {
 		b.Fatal("Error creating:", err)
 	}
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		datastream := registry.DataStream{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: common.FLOAT}
+		datastream := registry.DataStream{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: registry.Float}
 		err := storage.DeleteHandler(datastream)
 		if err != nil {
 			b.Fatal("Error deleting:", err)
@@ -307,7 +331,7 @@ func benchmarkDeleteSeries(b *testing.B, storage Storage) {
 
 func benchmarkQuerySeries(b *testing.B, storage Storage) {
 	for i := 0; i < b.N; i++ {
-		_, _, _, err := storage.Query(Query{}, &registry.DataStream{Name: strconv.Itoa(i % TOTALSERIES)})
+		_, _, err := storage.Query(Query{}, &registry.DataStream{Name: strconv.Itoa(i % TOTALSERIES)})
 		if err != nil {
 			b.Fatal("Error querying:", err)
 		}

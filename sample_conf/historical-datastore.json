@@ -14,8 +14,8 @@
   },
   "data": {
     "backend": {
-      "type": "senmlstore",
-      "dsn": "./hds/data"
+      "type": "sqlite",
+      "dsn": "./hds/data.db"
     },
     "autoRegistration": false
   },
