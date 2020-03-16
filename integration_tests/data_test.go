@@ -81,6 +81,7 @@ func TestCreationDiffTimestamp(t *testing.T) {
 
 	datastream := &registry.DataStream{
 		Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
+		Unit: "A",
 		Type: registry.Float,
 	}
 
@@ -137,6 +138,7 @@ func TestCreationDiffTimestamp_Denormalized(t *testing.T) {
 
 	datastream := &registry.DataStream{
 		Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
+		Unit: "A",
 		Type: registry.Float,
 	}
 
@@ -195,6 +197,7 @@ func TestInsertRandom(t *testing.T) {
 
 	datastream := &registry.DataStream{
 		Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
+		Unit: "A",
 		Type: registry.Float,
 	}
 

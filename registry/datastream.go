@@ -18,12 +18,18 @@ const (
 type DataStream struct {
 	// Name is the BrokerURL of the DataStreamList API
 	Name string `json:"name"`
+
 	//Source is an Data Sources
 	Source Source `json:"source,omitempty"`
+
 	//Function to be performed on the data sources
 	Function string `json:"function,omitempty"`
+
 	//Type of the data (eg: string, float, bool, data)
 	Type StreamType `json:"dataType"`
+
+	//Unit of the data
+	Unit string `json:"unit,omitempty"`
 
 	// Meta is a hash-map with optional meta-information
 	Meta map[string]interface{} `json:"meta"`

@@ -27,14 +27,17 @@ func setupHTTPAPI() (*mux.Router, []string) {
 	dss := []registry.DataStream{
 		{
 			Name: "http://example.com/sensor1",
+			Unit: "degC",
 			Type: registry.Float,
 		},
 		{
 			Name: "http://example.com/sensor2",
+			Unit: "flag",
 			Type: registry.Bool,
 		},
 		{
 			Name: "http://example.com/sensor3",
+			Unit: "char",
 			Type: registry.String,
 		},
 	}

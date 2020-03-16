@@ -34,88 +34,6 @@ func validateCreation(ds DataStream, conf common.RegConf) error {
 		e.invalid = append(e.invalid, "name")
 	}
 
-	/*
-		var e validationError
-		//TODO: add validation logics
-		// id
-		if ds.Name == "" {
-			e.mandatory = append(e.mandatory, "name")
-		}
-
-		// data
-		if ds.Source.SrcType == "" {
-			e.readOnly = append(e.mandatory, "SrcType")
-		}
-
-		// resource
-		if ds.Resource == "" {
-			e.mandatory = append(e.mandatory, "resource")
-		}
-		_, err := url.Parse(ds.Resource)
-		if err != nil {
-			e.invalid = append(e.invalid, "resource")
-		}
-
-		// retention
-		if ds.Retention != "" {
-			if !common.SupportedPeriod(ds.Retention) {
-				e.invalid = append(e.invalid, "retention")
-			}
-			if !conf.ConfiguredRetention(ds.Retention) {
-				e.other = append(e.other, fmt.Sprintf("retention must be empty or one of the configured periods: %s", strings.Join(conf.RetentionPeriods, ", ")))
-			}
-		}
-
-		// type
-		if ds.Type == "" {
-			e.mandatory = append(e.mandatory, "type")
-		}
-		if !common.SupportedType(ds.Type) {
-			e.invalid = append(e.invalid, "type")
-		}
-
-		// aggregation
-		if ds.Type != common.FLOAT && len(ds.Aggregation) != 0 {
-			e.other = append(e.other, "Aggregations are only possible with float type.")
-		} else if ds.Type == common.FLOAT {
-			for _, aggr := range ds.Aggregation {
-				temp := aggr
-				temp.Make(ds.ID)
-
-				// Accept *correct* id and data attributes, even though they are readonly
-				// id
-				if aggr.ID != "" && aggr.ID != temp.ID {
-					e.readOnly = append(e.readOnly, "aggregation.id")
-				}
-				// data
-				if aggr.Data != "" && aggr.Data != temp.Data {
-					e.readOnly = append(e.readOnly, "aggregation.data")
-				}
-				// interval
-				if !common.SupportedPeriod(aggr.Interval) {
-					e.invalid = append(e.invalid, "aggregation.interval")
-				}
-				// retention
-				if aggr.Retention != "" {
-					if !common.SupportedPeriod(aggr.Retention) {
-						e.invalid = append(e.invalid, "aggregation.retention")
-					}
-					if !conf.ConfiguredRetention(ds.Retention) {
-						e.other = append(e.other, fmt.Sprintf("aggregation.retention must be empty or one of the configured periods: %s",
-							strings.Join(conf.RetentionPeriods, ", ")))
-					}
-				}
-				// aggregates
-				for _, aggregate := range aggr.Aggregates {
-					if !common.SupportedAggregate(aggregate) {
-						e.invalid = append(e.invalid, "aggregation.aggregate")
-					}
-				}
-			}
-		}
-
-
-	*/
 	if e.Err() {
 		return e
 	}
@@ -134,6 +52,7 @@ func validateUpdate(ds DataStream, oldDS DataStream, conf common.RegConf) error 
 	if ds.Type != oldDS.Type {
 		e.readOnly = append(e.readOnly, "type")
 	}
+
 	//TODO: add validation logics
 	/*
 

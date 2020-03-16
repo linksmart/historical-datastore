@@ -126,6 +126,7 @@ func (s *LevelDBStorage) Update(name string, ds DataStream) (*DataStream, error)
 	tempDS.Retention = ds.Retention
 	tempDS.Source = ds.Source
 	tempDS.Meta = ds.Meta
+	tempDS.Unit = ds.Unit
 
 	// Send an update event
 	err = s.event.updated(oldDS, tempDS)

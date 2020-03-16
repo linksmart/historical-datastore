@@ -69,12 +69,12 @@ func (s *SqlStorage) Submit(data map[string]senml.Pack, sources map[string]*regi
 	return nil
 }
 
-//This function converts a floating point number (which is supported by senml) to a bytearray
+//This function converts a floating point number (which is supported by senml) to a int64
 func floatTimeToInt64(senmlTime float64) int64 {
 	return int64(senmlTime * (1e9)) //time.Unix(int64(sec), int64(frac*(1e9))).UnixNano()
 }
 
-//This function converts a bytearray floating point number (which is supported by senml)
+//This function converts a int64 floating point number (which is supported by senml)
 func int64ToFloatTime(timeVal int64) float64 {
 	return float64(timeVal) / 1e9
 }
@@ -93,6 +93,8 @@ func FromSenmlTime(t float64) time.Time {
 //caution: this function modifies the record and baseRecord values
 func denormalizeRecord(record *senml.Record, baseRecord **senml.Record, mask DenormMask) {
 	if *baseRecord == nil {
+		//Store the address of the first record so that this can be used for the subsequent records.
+		//Storing just the value does not work unless a deep copy is performed.
 		*baseRecord = record
 		if mask&FName != 0 {
 			record.BaseName = record.Name
@@ -102,12 +104,28 @@ func denormalizeRecord(record *senml.Record, baseRecord **senml.Record, mask Den
 			record.BaseTime = record.Time
 			record.Time = 0
 		}
+		if mask&FUnit != 0 {
+			record.BaseUnit = record.Unit
+			record.Unit = ""
+		}
+		if mask&FValue != 0 {
+			record.BaseValue = record.Value
+			record.Value = nil
+		}
 	} else {
 		if mask&FName != 0 {
 			record.Name = ""
 		}
 		if mask&FTime != 0 {
 			record.Time = record.Time - (*baseRecord).BaseTime
+		}
+		if mask&FUnit != 0 {
+			record.Unit = ""
+		}
+		if mask&FValue != 0 {
+			if record.Value != nil && (*baseRecord).BaseValue != nil {
+				*record.Value = *record.Value - *(*baseRecord).BaseValue
+			}
 		}
 	}
 }
@@ -149,7 +167,7 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, Value: &val, Time: timeVal}
+			record := senml.Record{Name: senmlName, Value: &val, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 
@@ -161,7 +179,7 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, StringValue: strVal, Time: timeVal}
+			record := senml.Record{Name: senmlName, StringValue: strVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 		}
@@ -172,7 +190,7 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal}
+			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 		}
@@ -183,7 +201,7 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal}
+			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 		}
@@ -245,25 +263,26 @@ func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStre
 		if err != nil {
 			return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 		}
-		switch streamMap[senmlName].Type {
+		stream := *streamMap[senmlName]
+		switch stream.Type {
 		case registry.Float:
 			floatVal := val.(float64)
-			record := senml.Record{Name: senmlName, Value: &floatVal, Time: timeVal}
+			record := senml.Record{Name: senmlName, Value: &floatVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
 			packArr[senmlName] = append(packArr[senmlName], record)
 		case registry.String:
 			stringVal := val.(string)
-			record := senml.Record{Name: senmlName, StringValue: stringVal, Time: timeVal}
+			record := senml.Record{Name: senmlName, StringValue: stringVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
 			packArr[senmlName] = append(packArr[senmlName], record)
 		case registry.Bool:
 			boolVal := val.(bool)
-			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal}
+			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
 			packArr[senmlName] = append(packArr[senmlName], record)
 		case registry.Data:
 			dataVal := val.(string)
-			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal}
+			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
 			packArr[senmlName] = append(packArr[senmlName], record)
 		}

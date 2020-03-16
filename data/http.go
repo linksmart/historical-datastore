@@ -88,29 +88,11 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 			dsResources[ds.Name] = ds
 		}
 
-		// Check if type of value matches the data source type in registry
-		typeError := false
-		switch ds.Type {
-		case registry.Float:
-			if r.Value == nil {
-				typeError = true
-			}
-		case registry.String:
-			if r.StringValue == "" {
-				typeError = true
-			}
-		case registry.Bool:
-			if r.BoolValue == nil {
-				typeError = true
-			}
-		case registry.Data:
-			if r.DataValue == "" {
-				typeError = true
-			}
-		}
-		if typeError {
+		err := validateRecordAgainstRegistry(r, ds)
+
+		if err != nil {
 			common.ErrorResponse(http.StatusBadRequest,
-				fmt.Sprintf("Value for %v is empty or has a type other than what is set in registry: %v", r.Name, ds.Type), w)
+				fmt.Sprintf("Error validating the record:%v", err), w)
 			return
 		}
 
@@ -177,6 +159,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Registering data source for %s", r.Name)
 				newDS := registry.DataStream{
 					Name: r.Name,
+					Unit: r.Unit,
 				}
 				if r.Value != nil || r.Sum != nil {
 					newDS.Type = registry.Float
@@ -197,29 +180,11 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 			nameDSs[r.Name] = ds
 		}
 
-		// Check if type of value matches the data source type in registry
-		typeError := false
-		switch ds.Type {
-		case registry.Float:
-			if r.Value == nil {
-				typeError = true
-			}
-		case registry.String:
-			if r.StringValue == "" {
-				typeError = true
-			}
-		case registry.Bool:
-			if r.BoolValue == nil {
-				typeError = true
-			}
-		case registry.Data:
-			if r.DataValue == "" {
-				typeError = true
-			}
-		}
-		if typeError {
+		err := validateRecordAgainstRegistry(r, ds)
+
+		if err != nil {
 			common.ErrorResponse(http.StatusBadRequest,
-				fmt.Sprintf("Value for %v is empty or has a type other than what is set in registry: %v", r.Name, ds.Type), w)
+				fmt.Sprintf("Error validating the record:%v", err), w)
 			return
 		}
 
@@ -240,6 +205,40 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusAccepted)
 	return
+}
+
+func validateRecordAgainstRegistry(r senml.Record, ds *registry.DataStream) error {
+	// Check if type of value matches the data source type in registry
+	typeError := false
+	switch ds.Type {
+	case registry.Float:
+		if r.Value == nil {
+			typeError = true
+		}
+	case registry.String:
+		if r.StringValue == "" {
+			typeError = true
+		}
+	case registry.Bool:
+		if r.BoolValue == nil {
+			typeError = true
+		}
+	case registry.Data:
+		if r.DataValue == "" {
+			typeError = true
+		}
+	}
+	if typeError {
+		return fmt.Errorf("value for %s is empty or has a type other than what is set in registry: %s", r.Name, ds.Type)
+	}
+
+	if ds.Unit != "" && r.Unit != "" && r.Unit != ds.Unit {
+		return fmt.Errorf("unit value %s for %s does not match with registry entry:%s", r.Unit, ds.Name, ds.Unit)
+	} else if ds.Unit == "" && r.Unit != "" {
+		return fmt.Errorf("expected empty unit for %s, but got %s", r.Name, r.Unit)
+	}
+
+	return nil
 }
 
 func GetUrlFromQuery(q Query, id ...string) (url string) {
@@ -436,11 +435,11 @@ func parseDenormParams(denormString string) (denormMask DenormMask, err error) {
 			case NameField, NameFieldShort:
 				denormMask = denormMask | FName
 			case UnitField, UnitFieldShort:
-				denormMask = denormMask | FName
+				denormMask = denormMask | FUnit
 			case ValueField, ValueFieldShort:
-				denormMask = denormMask | FName
+				denormMask = denormMask | FValue
 			case SumField, SumFieldShort:
-				denormMask = denormMask | FName
+				denormMask = denormMask | FSum
 			default:
 				return 0, fmt.Errorf("unexpected senml field: %s", field)
 
