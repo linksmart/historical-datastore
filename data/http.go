@@ -207,39 +207,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func validateRecordAgainstRegistry(r senml.Record, ds *registry.DataStream) error {
-	// Check if type of value matches the data source type in registry
-	typeError := false
-	switch ds.Type {
-	case registry.Float:
-		if r.Value == nil {
-			typeError = true
-		}
-	case registry.String:
-		if r.StringValue == "" {
-			typeError = true
-		}
-	case registry.Bool:
-		if r.BoolValue == nil {
-			typeError = true
-		}
-	case registry.Data:
-		if r.DataValue == "" {
-			typeError = true
-		}
-	}
-	if typeError {
-		return fmt.Errorf("value for %s is empty or has a type other than what is set in registry: %s", r.Name, ds.Type)
-	}
 
-	if ds.Unit != "" && r.Unit != "" && r.Unit != ds.Unit {
-		return fmt.Errorf("unit value %s for %s does not match with registry entry:%s", r.Unit, ds.Name, ds.Unit)
-	} else if ds.Unit == "" && r.Unit != "" {
-		return fmt.Errorf("expected empty unit for %s, but got %s", r.Name, r.Unit)
-	}
-
-	return nil
-}
 
 func GetUrlFromQuery(q Query, id ...string) (url string) {
 	var sort, limit, start, end, perPage, offset, denorm string

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -22,34 +23,46 @@ func deleteFile(path string) {
 	// delete file
 	var err = os.Remove(path)
 	if err != nil {
-		fmt.Println("failed deleting file (Ignore this error if it comes in the beginning):", err)
+		if !errors.Is(err, os.ErrNotExist) {
+			fmt.Println("Failed deleting file:", err)
+		}
 		return
 	}
 
 	fmt.Println("done deleting file")
 }
 
+func setupBenchmark(funcName string) (filename string, disconnectFunc func() error, dataStorage Storage, regStorage registry.Storage, err error) {
+	fileName := os.TempDir() + "/" + funcName
+	deleteFile(fileName)
+	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SQLITE, DSN: fileName}}
+	dataStorage, disconnectFunc, err = NewSqlStorage(dataConf)
+	if err != nil {
+		return "", nil, nil, nil, err
+	}
+	//create a registry storage
+	regStorage = registry.NewMemoryStorage(common.RegConf{}, dataStorage)
+	return
+}
 func BenchmarkCreation_OneSeries(b *testing.B) {
 	b.StopTimer()
 	//Setup for the testing
-	fileName := os.TempDir() + "/BenchmarkCreation_OneSeries"
-	deleteFile(fileName)
-	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SQLITE, DSN: fileName}}
+	funcName := "BenchmarkCreation_OneSeries"
+
+	fileName, disconnectFunc, dataStorage, regStorage, err := setupBenchmark(funcName)
+	if err != nil {
+		b.Fatalf("Error setting up benchmark:%s", err)
+	}
 	defer deleteFile(fileName)
-	var err error
+	defer disconnectFunc()
+
+	datastream := registry.DataStream{Name: funcName, Type: registry.Float}
+
+	_, err = regStorage.Add(datastream)
 	if err != nil {
 		b.Fatal(err)
 	}
-	dataStorage, disconnect_func, err := NewSqlStorage(dataConf)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer disconnect_func()
 
-	//Actual benchmarking
-	datastream := registry.DataStream{Name: fileName, Type: registry.Float}
-
-	// send some data
 	// send some data
 	var records senml.Pack
 	totRec := b.N
@@ -63,7 +76,7 @@ func BenchmarkCreation_OneSeries(b *testing.B) {
 	err = dataStorage.Submit(recordMap, streamMap)
 	//err = dataClient.Submit(barr, , datastream.Name)
 	if err != nil {
-		b.Error("Insetion failed")
+		b.Error("Insetion failed", err)
 	}
 
 }
@@ -71,24 +84,21 @@ func BenchmarkCreation_OneSeries(b *testing.B) {
 func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 	b.StopTimer()
 	//Setup for the testing
-	fileName := os.TempDir() + "/BenchmarkCreation_OneSeries"
-	deleteFile(fileName)
-	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SQLITE, DSN: fileName}}
+	funcName := "BenchmarkCreation_OneSeries"
+	fileName, disconnectFunc, dataStorage, regStorage, err := setupBenchmark(funcName)
+	if err != nil {
+		b.Fatalf("Error setting up benchmark:%s", err)
+	}
 	defer deleteFile(fileName)
-	var err error
-	if err != nil {
-		b.Fatal(err)
-	}
-	dataStorage, disconnect_func, err := NewSqlStorage(dataConf)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer disconnect_func()
+	defer disconnectFunc()
 
 	//Actual benchmarking
-	datastream := registry.DataStream{Name: fileName, Type: registry.Float}
+	datastream := registry.DataStream{Name: funcName, Type: registry.Float}
+	_, err = regStorage.Add(datastream)
+	if err != nil {
+		b.Fatal(err)
+	}
 
-	// send some data
 	// send some data
 	var records senml.Pack
 	totRec := TOTALENTRIES
@@ -101,7 +111,7 @@ func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 	err = dataStorage.Submit(recordMap, streamMap)
 	//err = dataClient.Submit(barr, , datastream.Name)
 	if err != nil {
-		b.Error("Insetion failed", err)
+		b.Error("Insetion failed:", err)
 	}
 
 	benchmarks := map[string]func(b *testing.B, storage Storage, timeStart float64, timeEnd float64, stream *registry.DataStream){
@@ -178,16 +188,13 @@ func benchmarkQueryRandom(b *testing.B, storage Storage, timeStart float64, time
 func BenchmarkCreation_MultiSeries(b *testing.B) {
 	//Setup for the testing
 	b.StopTimer()
-	fileName := os.TempDir() + "BenchmarkCreation_MultiSeries"
-	deleteFile(fileName)
-	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SQLITE, DSN: fileName}}
-
-	dataStorage, disconnect_func, err := NewSqlStorage(dataConf)
+	funcName := "BenchmarkCreation_MultiSeries"
+	fileName, disconnectFunc, dataStorage, regStorage, err := setupBenchmark(funcName)
 	if err != nil {
-		b.Fatal(err)
+		b.Fatalf("Error setting up benchmark:%s", err)
 	}
 	defer deleteFile(fileName)
-	defer disconnect_func()
+	defer disconnectFunc()
 
 	datastream := registry.DataStream{Name: fileName, Type: registry.Float}
 
@@ -202,6 +209,7 @@ func BenchmarkCreation_MultiSeries(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		datastream.Name = strconv.Itoa(i)
 		records[0].BaseName = datastream.Name
+		regStorage.Add(datastream)
 		recordmap[datastream.Name] = records
 		streamMap[datastream.Name] = &datastream
 	}

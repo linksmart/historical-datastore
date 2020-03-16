@@ -3,6 +3,7 @@
 package data
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/farshidtz/senml/v2"
@@ -41,4 +42,28 @@ type Storage interface {
 
 	// EventListener includes methods for event handling
 	registry.EventListener
+}
+
+func validateRecordAgainstRegistry(r senml.Record, ds *registry.DataStream) error {
+	// Check if type of value matches the data source type in registry
+	switch ds.Type {
+	case registry.Float:
+		if r.Value == nil {
+			return fmt.Errorf("missing value for %s", r.Name)
+		}
+	case registry.String:
+		if r.StringValue == "" {
+			return fmt.Errorf("missing String Value for %s", r.Name)
+		}
+	case registry.Bool:
+		if r.BoolValue == nil {
+			return fmt.Errorf("missing Boolean Value for %s", r.Name)
+		}
+	case registry.Data:
+		if r.DataValue == "" {
+			return fmt.Errorf("missing Data Value for %s", r.Name)
+		}
+	}
+
+	return nil
 }

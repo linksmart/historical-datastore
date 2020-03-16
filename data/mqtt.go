@@ -270,30 +270,12 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 			continue
 		}
 
-		// Check if type of value matches the data source type in registry
-		typeError := false
-		switch ds.Type {
-		case registry.Float:
-			if r.Value == nil {
-				typeError = true
-			}
-		case registry.String:
-			if r.StringValue == "" {
-				typeError = true
-			}
-		case registry.Bool:
-			if r.BoolValue == nil {
-				typeError = true
-			}
-		case registry.Data:
-			if r.DataValue == "" {
-				typeError = true
-			}
-		}
-		if typeError {
+		err := validateRecordAgainstRegistry(r, ds)
+
+		if err != nil {
 			logMQTTError(http.StatusBadRequest,
-				"Value for %v is empty or has a type other than what is set in registry: %v", r.Name, ds.Type)
-			continue
+				fmt.Sprintf("Error validating the record:%v", err))
+			return
 		}
 
 		_, ok := data[ds.Name]
@@ -333,7 +315,7 @@ func (c *MQTTConnector) CreateHandler(ds registry.DataStream) error {
 	return nil
 }
 
-// UpdateHandler handles updates of a data source
+// UpdateHandler handles updates of a data stream
 func (c *MQTTConnector) UpdateHandler(oldDS registry.DataStream, newDS registry.DataStream) error {
 	c.Lock()
 	defer c.Unlock()
