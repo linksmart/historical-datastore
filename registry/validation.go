@@ -23,6 +23,8 @@ import (
 
 func validateCreation(ds DataStream, conf common.RegConf) error {
 	var e validationError
+
+	//validate name
 	if ds.Name == "" {
 		e.mandatory = append(e.mandatory, "name")
 	}
@@ -33,6 +35,8 @@ func validateCreation(ds DataStream, conf common.RegConf) error {
 	if !validSenmlName.MatchString(ds.Name) {
 		e.invalid = append(e.invalid, "name")
 	}
+
+	//validate source
 
 	if e.Err() {
 		return e

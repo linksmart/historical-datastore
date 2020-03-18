@@ -23,7 +23,7 @@ func SupportedBackends(name string) bool {
 	supportedBackends := map[string]bool{
 		INFLUXDB:   false, // Influxdb is not supported from HDS v1.0.0
 		MONGODB:    false, // Mongodb is not supported after HDS v0.5.3
-		SENMLSTORE: false,
+		SENMLSTORE: false, //SenmlStore is not supported after HDS v1.0.0-beta.5
 		SQLITE:     true,
 	}
 	return supportedBackends[strings.ToLower(name)]

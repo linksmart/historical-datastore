@@ -33,37 +33,80 @@ func btoi(b bool) int {
 	return 0
 }
 
-func (s *SqlStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error {
-	for ds, pack := range data {
+func (s *SqlStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) (err error) {
+	const MAX_ENTRIES_PER_TX = 100
+	tx, txErr := s.pool.Begin()
+	if txErr != nil {
+		return txErr
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+			return
+		}
+		err = tx.Commit()
+	}()
+
+	for dsName, pack := range data {
 		valueStrings := make([]string, 0, len(pack))
 		valueArgs := make([]interface{}, 0, len(pack)*2)
-		switch sources[ds].Type {
+
+		execStmt := func() (execErr error) {
+			stmt := fmt.Sprintf("REPLACE INTO [%s] (time, value) VALUES %s",
+				dsName, strings.Join(valueStrings, ","))
+			_, execErr = tx.Exec(stmt, valueArgs...)
+			return execErr
+		}
+		write := func(index int, time float64, value interface{}) (writeErr error) {
+			valueStrings = append(valueStrings, "(?, ?)")
+			valueArgs = append(valueArgs, time, value)
+			if (index+1)%MAX_ENTRIES_PER_TX == 0 { //index+1 to ignore 0th index
+				writeErr = execStmt()
+				//reset the slices to empty
+				valueStrings = valueStrings[:0]
+				valueArgs = valueArgs[:0]
+			}
+			return writeErr
+		}
+		switch sources[dsName].Type {
 		case registry.Float:
-			for _, r := range pack {
-				valueStrings = append(valueStrings, "(?, ?)")
-				valueArgs = append(valueArgs, r.Time, *r.Value)
+			for index, r := range pack {
+				err = write(index, r.Time, *r.Value)
+				if err != nil {
+					return err
+				}
 			}
 		case registry.String:
-			for _, r := range pack {
-				valueStrings = append(valueStrings, "(?, ?)")
-				valueArgs = append(valueArgs, r.Time, r.StringValue)
+			for index, r := range pack {
+				err = write(index, r.Time, r.StringValue)
+				if err != nil {
+					return err
+				}
 			}
 		case registry.Bool:
-			for _, r := range pack {
-				valueStrings = append(valueStrings, "(?, ?)")
-				valueArgs = append(valueArgs, r.Time, btoi(*r.BoolValue))
+			for index, r := range pack {
+				err = write(index, r.Time, btoi(*r.BoolValue))
+				if err != nil {
+					return err
+				}
 			}
 		case registry.Data:
-			for _, r := range pack {
-				valueStrings = append(valueStrings, "(?, ?)")
-				valueArgs = append(valueArgs, r.Time, r.DataValue)
+			for index, r := range pack {
+				err = write(index, r.Time, r.DataValue)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
-		stmt := fmt.Sprintf("REPLACE INTO [%s] (time, value) VALUES %s",
-			ds, strings.Join(valueStrings, ","))
-		_, err := s.pool.Exec(stmt, valueArgs...)
-		return err
+		if len(valueStrings) != 0 {
+			err = execStmt()
+			if err != nil {
+				return err
+			}
+		}
+
 	}
 
 	return nil
