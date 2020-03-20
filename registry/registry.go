@@ -1,10 +1,10 @@
 package registry
 
-// DataStreamList describes a registry of registered Data Sources
+// DataStreamList describes a registry of registered Data streams
 type DataStreamList struct {
 	// BrokerURL is the BrokerURL of the DataStreamList API
 	URL string `json:"url"`
-	// Entries is an array of Data Sources
+	// Entries is an array of Data streams
 	Streams []DataStream `json:"streams"`
 	// Page is the current page in Entries pagination
 	Page int `json:"page"`

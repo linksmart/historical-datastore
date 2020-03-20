@@ -22,7 +22,7 @@ import (
 func setupHTTPAPI() (*mux.Router, []string) {
 	regStorage := registry.NewMemoryStorage(common.RegConf{})
 
-	// Create three dummy datasources with different types
+	// Create three dummy datastreams with different types
 	var testIDs []string
 	dss := []registry.DataStream{
 		{
@@ -153,10 +153,10 @@ func TestHttpQuery(t *testing.T) {
 
 type dummyDataStorage struct{}
 
-func (s *dummyDataStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error {
+func (s *dummyDataStorage) Submit(data map[string]senml.Pack, streams map[string]*registry.DataStream) error {
 	return nil
 }
-func (s *dummyDataStorage) Query(q Query, sources ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+func (s *dummyDataStorage) Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
 	return senml.Pack{}, nil, nil
 }
 func (s *dummyDataStorage) Disconnect() error {

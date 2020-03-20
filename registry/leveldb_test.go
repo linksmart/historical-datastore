@@ -131,7 +131,7 @@ func TestLevelDBDelete(t *testing.T) {
 
 	_, err = storage.Get(ID)
 	if err == nil {
-		t.Error("The previous call hasn't deleted the datasource!")
+		t.Error("The previous call hasn't deleted the datastream!")
 	}
 }
 
@@ -187,7 +187,7 @@ func TestLevelDBGetCount(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	// Add few datasources
+	// Add few datastreams
 	const total = 5
 	generateDummyData(total, storage)
 
@@ -196,7 +196,7 @@ func TestLevelDBGetCount(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	if total != c2-c1 {
-		t.Fatalf("Created %d but counted %d datasources!", total, c2-c1)
+		t.Fatalf("Created %d but counted %d datastreams!", total, c2-c1)
 	}
 }
 

@@ -364,14 +364,14 @@ func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]Da
 		return []DataStream{}, len(matchedIDs), nil
 	}
 
-	datasources := make([]DataStream, len(slice))
+	dataStreams := make([]DataStream, len(slice))
 	for i, id := range slice {
 		ds, err := s.Get(id)
 		if err != nil {
 			return nil, len(matchedIDs), err
 		}
-		datasources[i] = *ds
+		dataStreams[i] = *ds
 	}
 
-	return datasources, len(matchedIDs), nil
+	return dataStreams, len(matchedIDs), nil
 }

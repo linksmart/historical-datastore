@@ -7,7 +7,7 @@ require (
 	github.com/codegangsta/negroni v1.0.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/eclipse/paho.mqtt.golang v1.2.0
-	github.com/farshidtz/senml/v2 v2.0.0-alpha.4
+	github.com/farshidtz/senml/v2 v2.0.0-beta.3
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/gorilla/context v1.1.1
 	github.com/gorilla/mux v1.7.4
@@ -20,6 +20,7 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/syndtr/goleveldb v1.0.0
+	github.com/ugorji/go v1.1.7 // indirect
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a // indirect
 	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527 // indirect
 )

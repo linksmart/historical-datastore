@@ -121,7 +121,7 @@ func (api *API) Create(w http.ResponseWriter, r *http.Request) {
 		} else if errors.Is(err, ErrInvalid) {
 			common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
 		} else {
-			common.ErrorResponse(http.StatusInternalServerError, "Error storing data source: "+err.Error(), w)
+			common.ErrorResponse(http.StatusInternalServerError, "Error storing Data stream: "+err.Error(), w)
 		}
 		return
 	}
@@ -146,7 +146,7 @@ func (api *API) Retrieve(w http.ResponseWriter, r *http.Request) {
 		if ErrType(err, ErrNotFound) {
 			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
 		} else {
-			common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data source: "+err.Error(), w)
+			common.ErrorResponse(http.StatusInternalServerError, "Error retrieving Data stream: "+err.Error(), w)
 		}
 		return
 	}
@@ -186,7 +186,7 @@ func (api *API) Update(w http.ResponseWriter, r *http.Request) {
 		} else if ErrType(err, ErrNotFound) {
 			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
 		} else {
-			common.ErrorResponse(http.StatusInternalServerError, "Error updating data source: "+err.Error(), w)
+			common.ErrorResponse(http.StatusInternalServerError, "Error updating Data stream: "+err.Error(), w)
 		}
 		return
 	}
@@ -206,7 +206,7 @@ func (api *API) Delete(w http.ResponseWriter, r *http.Request) {
 		if ErrType(err, ErrNotFound) {
 			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
 		} else {
-			common.ErrorResponse(http.StatusInternalServerError, "Error deleting data source: "+err.Error(), w)
+			common.ErrorResponse(http.StatusInternalServerError, "Error deleting Data stream: "+err.Error(), w)
 		}
 		return
 	}

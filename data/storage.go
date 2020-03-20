@@ -31,21 +31,21 @@ func SupportedBackends(name string) bool {
 
 // Storage is an interface of a Data storage backend
 type Storage interface {
-	// Adds data points for multiple data sources
-	// data is a map where keys are data source ids
-	// sources is a map where keys are data source ids
-	Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) error
+	// Adds data points for multiple data streams
+	// data is a map where keys are data stream ids
+	// streams is a map where keys are data stream ids
+	Submit(data map[string]senml.Pack, streams map[string]*registry.DataStream) error
 
-	// Queries data for specified data sources
-	//Query(q Query, page, PerPage int, sources ...*registry.DataSource) (senml.Pack, int, error)
-	Query(q Query, sources ...*registry.DataStream) (pack senml.Pack, total *int, err error)
+	// Queries data for specified data streams
+	//Query(q Query, page, PerPage int, streams ...*registry.DataStream) (senml.Pack, int, error)
+	Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error)
 
 	// EventListener includes methods for event handling
 	registry.EventListener
 }
 
 func validateRecordAgainstRegistry(r senml.Record, ds *registry.DataStream) error {
-	// Check if type of value matches the data source type in registry
+	// Check if type of value matches the data stream type in registry
 	switch ds.Type {
 	case registry.Float:
 		if r.Value == nil {

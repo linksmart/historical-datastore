@@ -14,6 +14,7 @@ import (
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/farshidtz/senml/v2"
+	"github.com/farshidtz/senml/v2/codec"
 	"github.com/linksmart/historical-datastore/registry"
 )
 
@@ -67,7 +68,7 @@ func (c *MQTTConnector) Start(reg registry.Storage) error {
 	for page := 1; ; page++ {
 		dataStreams, total, err := c.registry.GetMany(page, perPage)
 		if err != nil {
-			return fmt.Errorf("MQTT: Error getting data sources: %v", err)
+			return fmt.Errorf("MQTT: Error getting Data streams: %v", err)
 		}
 
 		for _, ds := range dataStreams {
@@ -227,9 +228,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		log.Printf("%s %d %v %s", logHeader, code, time.Now().Sub(t1), fmt.Sprintf(format, v...))
 	}
 
-	//log.Printf("MQTT: %s %s", msg.Topic(), msg.Payload())
-
-	senmlPack, err := senml.Decode(msg.Payload(), senml.JSON)
+	senmlPack, err := codec.Decode(senml.MediaTypeSenmlJSON, msg.Payload())
 	if err != nil {
 		logMQTTError(http.StatusBadRequest, "Error parsing json: %s : %v", msg.Payload(), err)
 		return
@@ -240,7 +239,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 	data := make(map[string]senml.Pack)
 	streams := make(map[string]*registry.DataStream)
 	for _, r := range senmlPack {
-		// Find the data source for this entry
+		// Find the Data stream for this entry
 		ds, exists := s.connector.cache[r.Name]
 		if !exists {
 			ds, err = s.connector.registry.Get(r.Name)
@@ -262,11 +261,11 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 			continue
 		}
 		if ds.Source.MQTTSource.BrokerURL != s.url {
-			logMQTTError(http.StatusNotAcceptable, "Ignoring message from unwanted broker %v for data source: %v", s.url, r.Name)
+			logMQTTError(http.StatusNotAcceptable, "Ignoring message from unwanted broker %v for Data stream: %v", s.url, r.Name)
 			continue
 		}
 		if ds.Source.MQTTSource.Topic != s.topic {
-			logMQTTError(http.StatusNotAcceptable, "Ignoring message with unwanted topic %v for data source: %v", s.topic, r.Name)
+			logMQTTError(http.StatusNotAcceptable, "Ignoring message with unwanted topic %v for Data stream: %v", s.topic, r.Name)
 			continue
 		}
 
@@ -300,7 +299,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 // NOTIFICATION HANDLERS
 
-// CreateHandler handles the creation of a new data source
+// CreateHandler handles the creation of a new Data stream
 func (c *MQTTConnector) CreateHandler(ds registry.DataStream) error {
 	c.Lock()
 	defer c.Unlock()
@@ -344,7 +343,7 @@ func (c *MQTTConnector) UpdateHandler(oldDS registry.DataStream, newDS registry.
 	return nil
 }
 
-// DeleteHandler handles deletion of a data source
+// DeleteHandler handles deletion of a Data stream
 func (c *MQTTConnector) DeleteHandler(oldDS registry.DataStream) error {
 	c.Lock()
 	defer c.Unlock()

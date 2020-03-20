@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/farshidtz/senml/v2"
+	"github.com/farshidtz/senml/v2/codec"
 	"github.com/gorilla/mux"
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/registry"
@@ -62,7 +64,16 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse payload
-	senmlPack, err := senml.Decode(body, senml.JSON)
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, "Error parsing Content-Type header: "+err.Error(), w)
+	}
+
+	if mediaType == "application/json" {
+		mediaType = senml.MediaTypeSenmlJSON
+	}
+
+	senmlPack, err := codec.Decode(mediaType, body)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, "Error parsing message body: "+err.Error(), w)
 		return
@@ -74,15 +85,15 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	senmlPack.Normalize()
 	for _, r := range senmlPack {
 		if r.Name == "" {
-			common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Data source name not specified."), w)
+			common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Data stream name not specified."), w)
 			return
 		}
-		// Check if there is a data source for this entry
+		// Check if there is a Data stream for this entry
 		ds, ok := dsResources[r.Name]
 		if !ok {
 			ds, err = api.registry.Get(r.Name)
 			if err != nil {
-				common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data point for unknown data source %v.", r.Name), w)
+				common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data point for unknown Data stream %v.", r.Name), w)
 				return
 			}
 			dsResources[ds.Name] = ds
@@ -128,13 +139,22 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse payload
-	senmlPack, err := senml.Decode(body, senml.JSON)
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil {
+		common.ErrorResponse(http.StatusBadRequest, "Error parsing Content-Type header: "+err.Error(), w)
+	}
+
+	if mediaType == "application/json" {
+		mediaType = senml.MediaTypeSenmlJSON
+	}
+
+	senmlPack, err := codec.Decode(mediaType, body)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, "Error parsing message body: "+err.Error(), w)
 		return
 	}
 
-	// map of resource name -> data source
+	// map of resource name -> Data stream
 	nameDSs := make(map[string]*registry.DataStream)
 
 	// Fill the data map with provided data points
@@ -146,17 +166,17 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 		if !found {
 			ds, err = api.registry.FilterOne("name", "equals", r.Name)
 			if err != nil {
-				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error retrieving data source with name %v from the registry: %v", r.Name, err.Error()), w)
+				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error retrieving Data stream with name %v from the registry: %v", r.Name, err.Error()), w)
 				return
 			}
 			if ds == nil {
 				if !api.autoRegistration {
-					common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data source with name %v is not registered.", r.Name), w)
+					common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data stream with name %v is not registered.", r.Name), w)
 					return
 				}
 
-				// Register a data source with this name
-				log.Printf("Registering data source for %s", r.Name)
+				// Register a Data stream with this name
+				log.Printf("Registering Data stream for %s", r.Name)
 				newDS := registry.DataStream{
 					Name: r.Name,
 					Unit: r.Unit,
@@ -206,8 +226,6 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 	return
 }
-
-
 
 func GetUrlFromQuery(q Query, id ...string) (url string) {
 	var sort, limit, start, end, perPage, offset, denorm string
@@ -271,7 +289,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		ds, err := api.registry.Get(id)
 		if err != nil {
 			common.ErrorResponse(http.StatusNotFound,
-				fmt.Sprintf("Error retrieving data source %v from the registry: %v", id, err.Error()),
+				fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", id, err.Error()),
 				w)
 			return
 		}
@@ -279,7 +297,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(sources) == 0 {
 		common.ErrorResponse(http.StatusNotFound,
-			"None of the specified data sources could be retrieved from the registry.", w)
+			"None of the specified Data streams could be retrieved from the registry.", w)
 		return
 	}
 

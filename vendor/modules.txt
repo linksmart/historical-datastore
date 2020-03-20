@@ -15,9 +15,12 @@ github.com/eclipse/paho.mqtt.golang/packets
 github.com/farshidtz/elog
 # github.com/farshidtz/mqtt-match v1.0.1
 github.com/farshidtz/mqtt-match
-# github.com/farshidtz/senml/v2 v2.0.0-alpha.4
+# github.com/farshidtz/senml/v2 v2.0.0-beta.3
 ## explicit
 github.com/farshidtz/senml/v2
+github.com/farshidtz/senml/v2/codec
+# github.com/fxamacker/cbor/v2 v2.2.0
+github.com/fxamacker/cbor/v2
 # github.com/golang/snappy v0.0.1
 ## explicit
 github.com/golang/snappy
@@ -69,8 +72,10 @@ github.com/syndtr/goleveldb/leveldb/opt
 github.com/syndtr/goleveldb/leveldb/storage
 github.com/syndtr/goleveldb/leveldb/table
 github.com/syndtr/goleveldb/leveldb/util
-# github.com/ugorji/go/codec v1.1.7
-github.com/ugorji/go/codec
+# github.com/ugorji/go v1.1.7
+## explicit
+# github.com/x448/float16 v0.8.4
+github.com/x448/float16
 # golang.org/x/net v0.0.0-20200301022130-244492dfa37a
 ## explicit
 golang.org/x/net/internal/socks

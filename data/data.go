@@ -25,7 +25,7 @@ type RecordSet struct {
 	SelfLink string `json:"selfLink"`
 
 	// Data is a SenML object with data records, where
-	// Name (bn and n) constitute the resource BrokerURL of the corresponding Data Sources(s)
+	// Name (bn and n) constitute the resource BrokerURL of the corresponding Data streams(s)
 	Data senml.Pack `json:"data"`
 
 	// Time is the time of query in seconds

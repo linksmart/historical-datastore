@@ -33,7 +33,7 @@ func btoi(b bool) int {
 	return 0
 }
 
-func (s *SqlStorage) Submit(data map[string]senml.Pack, sources map[string]*registry.DataStream) (err error) {
+func (s *SqlStorage) Submit(data map[string]senml.Pack, streams map[string]*registry.DataStream) (err error) {
 	const MAX_ENTRIES_PER_TX = 100
 	tx, txErr := s.pool.Begin()
 	if txErr != nil {
@@ -49,8 +49,8 @@ func (s *SqlStorage) Submit(data map[string]senml.Pack, sources map[string]*regi
 	}()
 
 	for dsName, pack := range data {
-		valueStrings := make([]string, 0, len(pack))
-		valueArgs := make([]interface{}, 0, len(pack)*2)
+		valueStrings := make([]string, 0, MAX_ENTRIES_PER_TX)
+		valueArgs := make([]interface{}, 0, MAX_ENTRIES_PER_TX*2)
 
 		execStmt := func() (execErr error) {
 			stmt := fmt.Sprintf("REPLACE INTO [%s] (time, value) VALUES %s",
@@ -69,7 +69,7 @@ func (s *SqlStorage) Submit(data map[string]senml.Pack, sources map[string]*regi
 			}
 			return writeErr
 		}
-		switch sources[dsName].Type {
+		switch streams[dsName].Type {
 		case registry.Float:
 			for index, r := range pack {
 				err = write(index, r.Time, *r.Value)
@@ -319,7 +319,7 @@ func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStre
 			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
 			packArr[senmlName] = append(packArr[senmlName], record)
 		case registry.Bool:
-			boolVal := val.(bool)
+			boolVal := val.(int64) != 0
 			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
 			packArr[senmlName] = append(packArr[senmlName], record)

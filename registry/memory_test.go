@@ -13,7 +13,7 @@ import (
 	"github.com/linksmart/historical-datastore/common"
 )
 
-// Generate dummy data sources
+// Generate dummy data streams
 func generateDummyData(quantity int, storage Storage) ([]string, error) {
 	rand.Seed(time.Now().UTC().UnixNano())
 	randInt := func(min int, max int) int {
@@ -114,7 +114,7 @@ func TestMemstorageDelete(t *testing.T) {
 
 	err = storage.Delete(ID)
 	if err == nil {
-		t.Errorf("The previous call hasn't deleted the data source")
+		t.Errorf("The previous call hasn't deleted the data stream")
 	}
 }
 

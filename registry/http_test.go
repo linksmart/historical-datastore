@@ -85,12 +85,12 @@ func TestHttpIndex(t *testing.T) {
 
 	// Compare total created with total variable in returned registry
 	if reg.Total != totalDummy {
-		t.Errorf("Mismatched total created(%d) and accounted(%d) data sources!", totalDummy, reg.Total)
+		t.Errorf("Mismatched total created(%d) and accounted(%d) data streams!", totalDummy, reg.Total)
 	}
 
 	//// Now, check body of the registry for each page
 
-	// Compare created and returned data sources
+	// Compare created and returned data streams
 	totalReturnedDS := 0
 	perPage := 10
 	pages := int(math.Ceil(float64(totalDummy) / float64(perPage)))
@@ -123,7 +123,7 @@ func TestHttpIndex(t *testing.T) {
 		//			inThisPage = int(math.Mod(float64(totalDummy), float64(perPage)))
 		//		}
 
-		// Check for each data source in this page
+		// Check for each data stream in this page
 		for i := 0; i < inThisPage; i++ {
 			dummyDS := dummyDSs[i]
 			returnedDS := reg.Streams[i]
@@ -139,9 +139,9 @@ func TestHttpIndex(t *testing.T) {
 		totalReturnedDS += len(reg.Streams)
 	}
 
-	// Compare the total number of created and retrieved(in all pages of registry) data sources
+	// Compare the total number of created and retrieved(in all pages of registry) data streams
 	if totalReturnedDS != totalDummy {
-		t.Errorf("Mismatched total created(%d) and returned(%d) data sources!", totalDummy, totalReturnedDS)
+		t.Errorf("Mismatched total created(%d) and returned(%d) data streams!", totalDummy, totalReturnedDS)
 	}
 
 	return
@@ -199,14 +199,14 @@ func TestHttpCreate(t *testing.T) {
 	}
 	res.Body.Close()
 
-	// Extract id of new data source from url
+	// Extract id of new data stream from url
 	splitURL := strings.Split(url.Path, "/")
 	if len(splitURL) != 3 {
 		t.Fatal("Invalid url in Location header-entry")
 	}
 	name := splitURL[2]
 
-	// Manually construct the expected POSTed data source
+	// Manually construct the expected POSTed data stream
 	var postedDS DataStream
 	err = json.Unmarshal(b, &postedDS)
 	if err != nil {
@@ -215,14 +215,14 @@ func TestHttpCreate(t *testing.T) {
 	postedDS.Name = name
 	//postedDS.Name = fmt.Sprintf("%s/%s", common.DataAPILoc, postedDS.Name)
 
-	// Retrieve the added data source
+	// Retrieve the added data stream
 	addedDS, _ := registryClient.Get(name)
 
-	// marshal the stored data source for comparison
+	// marshal the stored data stream for comparison
 	postedDS_b, _ := json.Marshal(&postedDS)
 	addedDS_b, _ := json.Marshal(&addedDS)
 
-	// compare updated(PUT) data source with the one in memory
+	// compare updated(PUT) data stream with the one in memory
 	if string(postedDS_b) != string(addedDS_b) {
 		t.Errorf("The POSTed data:\n%s\n mismatch the stored data:\n%s\n", string(postedDS_b), string(addedDS_b))
 	}
@@ -230,7 +230,7 @@ func TestHttpCreate(t *testing.T) {
 	return
 }
 
-// Create a data source and retrieve it back
+// Create a data stream and retrieve it back
 func TestHttpRetrieve(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
@@ -256,10 +256,10 @@ func TestHttpRetrieve(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	// marshal the stored data source for comparison
+	// marshal the stored data stream for comparison
 	storedDS_b, _ := json.Marshal(&aDataSource)
 
-	// compare stored and retrieved(GET) data sources
+	// compare stored and retrieved(GET) data streams
 	if string(storedDS_b) != string(b) {
 		t.Errorf("Retrieved(GET):\n%s\n mismatch the stored data:\n%s\n", string(b), string(storedDS_b))
 	}
@@ -268,7 +268,7 @@ func TestHttpRetrieve(t *testing.T) {
 func TestHttpUpdate(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
-	// Create a dummy data source
+	// Create a dummy data stream
 	names, err := generateDummyData(1, registryClient)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -325,11 +325,11 @@ func TestHttpUpdate(t *testing.T) {
 	}
 	res.Body.Close()
 
-	// Retrieve the updated data source
+	// Retrieve the updated data stream
 	updatedDS, _ := registryClient.Get(name)
 	updated_b, _ := json.Marshal(&updatedDS)
 
-	// compare updated(PUT) data source with the one in memory
+	// compare updated(PUT) data stream with the one in memory
 	if string(b) != string(updated_b) {
 		t.Errorf("The submitted PUT:\n%s\n mismatch the stored data:\n%s\n", string(b), string(updated_b))
 	}
@@ -338,7 +338,7 @@ func TestHttpUpdate(t *testing.T) {
 func TestHttpDelete(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
-	// Create a dummy data source
+	// Create a dummy data stream
 	names, err := generateDummyData(1, registryClient)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -360,7 +360,7 @@ func TestHttpDelete(t *testing.T) {
 	// check whether it is deleted
 	_, err = registryClient.Get(name)
 	if err == nil {
-		t.Fatalf("Server responded %v but data source is not deleted!", res.StatusCode)
+		t.Fatalf("Server responded %v but data stream is not deleted!", res.StatusCode)
 	}
 
 	// Try deleting a non-existing item
@@ -410,7 +410,7 @@ func TestHttpFilter(t *testing.T) {
 		return fmt.Sprintf("%v%s/%s", ts.URL, common.RegistryAPILoc, filterStr)
 	}
 
-	// Search for the data source with Type: bool
+	// Search for the data stream with Type: bool
 	res, err := http.Get(filterURL(FTypeOne + "/dataType/equals/bool"))
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -430,13 +430,13 @@ func TestHttpFilter(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	if len(reg.Streams) != 1 {
-		t.Errorf("Instead of one, it returned %d datasources.", len(reg.Streams))
+		t.Errorf("Instead of one, it returned %d datastreams.", len(reg.Streams))
 	}
 	if reg.Streams[0].Type != Bool {
 		t.Errorf("Instead of the expected datasource (Type:bool), it returned:\n%+v", reg.Streams[0])
 	}
 
-	// Search for data sources that contains "sensor" in Resource
+	// Search for Data streams that contains "sensor" in Resource
 	res, err = http.Get(filterURL(FTypeMany + "/name/contains/dimmer.eu/sensor"))
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -452,7 +452,7 @@ func TestHttpFilter(t *testing.T) {
 	}
 	// Check if the total is correct
 	if reg.Total != 2 || len(reg.Streams) != 2 {
-		t.Errorf("Catalog contains total %d(%d entries) instead of 2 data sources:\n %+v", reg.Total, len(reg.Streams), reg)
+		t.Errorf("Catalog contains total %d(%d entries) instead of 2 data streams:\n %+v", reg.Total, len(reg.Streams), reg)
 	}
 	// Check if correct entries are queried
 	for _, ds := range reg.Streams {
@@ -462,7 +462,7 @@ func TestHttpFilter(t *testing.T) {
 	}
 }
 
-// A pool of bad data sources
+// A pool of bad data streams
 var (
 	invalidBodies = []string{
 		// Empty name //////////

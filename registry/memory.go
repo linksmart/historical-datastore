@@ -47,7 +47,7 @@ func (ms *MemoryStorage) Add(ds DataStream) (*DataStream, error) {
 		return nil, fmt.Errorf("%w: Resource name not unique: %s", ErrConflict, ds.Name)
 	}
 
-	// Add the new DataSource to the map
+	// Add the new Datastream to the map
 	ms.data[ds.Name] = &ds
 	// Add secondary index
 	ms.resources[ds.Name] = ds.Name
@@ -67,7 +67,7 @@ func (ms *MemoryStorage) Update(id string, ds DataStream) (*DataStream, error) {
 
 	_, ok := ms.data[id]
 	if !ok {
-		return nil, fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
+		return nil, fmt.Errorf("%s: %s", ErrNotFound, "Data stream is not found.")
 	}
 
 	oldDS := ms.data[id] // for comparison
@@ -104,7 +104,7 @@ func (ms *MemoryStorage) Delete(name string) error {
 
 	_, ok := ms.data[name]
 	if !ok {
-		return fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
+		return fmt.Errorf("%s: %s", name, ErrNotFound)
 	}
 
 	// Send a delete event
@@ -126,7 +126,7 @@ func (ms *MemoryStorage) Get(id string) (*DataStream, error) {
 
 	ds, ok := ms.data[id]
 	if !ok {
-		return nil, fmt.Errorf("%s: %s", ErrNotFound, "Data source is not found.")
+		return nil, fmt.Errorf("%s: %s", id, ErrNotFound)
 	}
 
 	return ds, nil

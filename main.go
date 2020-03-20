@@ -109,7 +109,7 @@ func main() {
 		defer disconnect_func()
 	}
 	if conf.Data.AutoRegistration {
-		log.Println("Auto Registration is enabled: Data HTTP API will automatically create new data sources.")
+		log.Println("Auto Registration is enabled: Data HTTP API will automatically create new data streams.")
 	}
 
 	// Setup registry

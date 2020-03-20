@@ -19,10 +19,10 @@ type DataStream struct {
 	// Name is the BrokerURL of the DataStreamList API
 	Name string `json:"name"`
 
-	//Source is an Data Sources
+	//Source of the Data streams
 	Source Source `json:"source,omitempty"`
 
-	//Function to be performed on the data sources
+	//Function to be performed on the Data streams
 	Function string `json:"function,omitempty"`
 
 	//Type of the data (eg: string, float, bool, data)
@@ -45,7 +45,7 @@ type DataStream struct {
 	keepSensitiveInfo bool
 }
 
-// DataSource describes a single data source such as a sensor (LinkSmart Resource)
+// Source describes a single Data stream such as a sensor (LinkSmart Resource)
 type Source struct {
 	//type of the source
 	//This can be either MQTT or a series element itself
