@@ -36,8 +36,8 @@ func EncodeJSON(p senml.Pack, options ...Option) ([]byte, error) {
 	return json.Marshal(p)
 }
 
-// DecodeJSON takes a SenML pack in JSON bytes and decodes it into a Pack
-func DecodeJSON(b []byte) (senml.Pack, error) {
+// DecodeJSON takes a SenML pack in JSON bytes and decodes it into a Pack. The options are ignored.
+func DecodeJSON(b []byte, _ ...Option) (senml.Pack, error) {
 	var p senml.Pack
 
 	err := json.Unmarshal(b, &p)

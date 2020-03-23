@@ -14,6 +14,7 @@ import (
 // DefaultCSVHeader is the default (currently fixed) CSV header
 const DefaultCSVHeader = "Time,Update Time,Name,Unit,Value,String Value,Boolean Value,Data Value,Sum"
 
+// WriteCSV serializes and writes the Pack on the given writer
 func WriteCSV(p senml.Pack, w io.Writer, options ...Option) error {
 	o := &codecOptions{
 		header: false,
@@ -75,6 +76,7 @@ func EncodeCSV(p senml.Pack, options ...Option) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// ReadCSV reads from the given reader to construct and returns a Pack
 func ReadCSV(r io.Reader, options ...Option) (senml.Pack, error) {
 	o := &codecOptions{
 		header: false,

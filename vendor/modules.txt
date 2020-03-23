@@ -15,7 +15,7 @@ github.com/eclipse/paho.mqtt.golang/packets
 github.com/farshidtz/elog
 # github.com/farshidtz/mqtt-match v1.0.1
 github.com/farshidtz/mqtt-match
-# github.com/farshidtz/senml/v2 v2.0.0-beta.3
+# github.com/farshidtz/senml/v2 v2.0.0-beta.6
 ## explicit
 github.com/farshidtz/senml/v2
 github.com/farshidtz/senml/v2/codec

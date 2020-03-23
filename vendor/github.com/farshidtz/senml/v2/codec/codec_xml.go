@@ -12,7 +12,6 @@ type xmlPack struct {
 	XMLNS      string `xml:"xmlns,attr"`
 }
 
-
 // EncodeXML serializes the SenML pack into XML bytes
 func EncodeXML(p senml.Pack, options ...Option) ([]byte, error) {
 	o := &codecOptions{
@@ -34,8 +33,8 @@ func EncodeXML(p senml.Pack, options ...Option) ([]byte, error) {
 	return xml.Marshal(&xmlPack)
 }
 
-// DecodeXML takes a SenML pack in XML bytes and decodes it into a Pack
-func DecodeXML(b []byte) (senml.Pack, error) {
+// DecodeXML takes a SenML pack in XML bytes and decodes it into a Pack. The options are ignored.
+func DecodeXML(b []byte, _ ...Option) (senml.Pack, error) {
 	var temp xmlPack
 	err := xml.Unmarshal(b, &temp)
 	if err != nil {
