@@ -80,6 +80,8 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 		mediaType = senml.MediaTypeSenmlEXI
 	case "application/csv", "text/csv":
 		mediaType = senml.MediaTypeSenmlCSV
+	default:
+		common.ErrorResponse(http.StatusBadRequest, "Missing Content-Type header", w)
 	}
 
 	senmlPack, err := codec.Decode(mediaType, body)
