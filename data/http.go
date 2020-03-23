@@ -69,8 +69,17 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 		common.ErrorResponse(http.StatusBadRequest, "Error parsing Content-Type header: "+err.Error(), w)
 	}
 
-	if mediaType == "application/json" {
+	switch mediaType {
+	case "application/senml+json", "application/json":
 		mediaType = senml.MediaTypeSenmlJSON
+	case "application/senml+cbor", "application/cbor":
+		mediaType = senml.MediaTypeSenmlCBOR
+	case "application/senml+xml", "application/xml":
+		mediaType = senml.MediaTypeSenmlXML
+	case "application/senml-exi", "application/exi":
+		mediaType = senml.MediaTypeSenmlEXI
+	case "application/csv", "text/csv":
+		mediaType = senml.MediaTypeSenmlCSV
 	}
 
 	senmlPack, err := codec.Decode(mediaType, body)
