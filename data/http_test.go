@@ -91,15 +91,26 @@ func TestHttpSubmit(t *testing.T) {
 	all := strings.Join(testIDs, ",")
 	//all = strings.Replace(all,":","",-1)
 	//all = strings.Replace(all, "/", "", -1)
-	// try html - should be not supported
-	res, err := http.Post(ts.URL+"/data/"+all, "application/text+html", bytes.NewReader(b))
+
+	//try empty payload
+	res, err := http.Post(ts.URL+"/data/"+all, "", bytes.NewReader(b))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	//if res.StatusCode != http.StatusUnsupportedMediaType {
-	//	t.Errorf("Server response is not %v but %v", http.StatusUnsupportedMediaType, res.StatusCode)
-	//}
+	if res.StatusCode != http.StatusBadRequest {
+		t.Errorf("Server response is not %v but %v", http.StatusUnsupportedMediaType, res.StatusCode)
+	}
+
+	// try html - should be not supported
+	res, err = http.Post(ts.URL+"/data/"+all, "application/text+html", bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusUnsupportedMediaType {
+		t.Errorf("Server response is not %v but %v", http.StatusUnsupportedMediaType, res.StatusCode)
+	}
 
 	// try bad payload
 	res, err = http.Post(ts.URL+"/data/"+all, "application/senml+json", bytes.NewReader([]byte{0xde, 0xad}))

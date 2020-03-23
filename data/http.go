@@ -69,22 +69,24 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 		common.ErrorResponse(http.StatusBadRequest, "Error parsing Content-Type header: "+err.Error(), w)
 	}
 
+	var senmlPack senml.Pack
 	switch mediaType {
 	case "application/senml+json", "application/json":
-		mediaType = senml.MediaTypeSenmlJSON
+		senmlPack, err = codec.DecodeJSON(body)
 	case "application/senml+cbor", "application/cbor":
-		mediaType = senml.MediaTypeSenmlCBOR
+		senmlPack, err = codec.DecodeCBOR(body)
 	case "application/senml+xml", "application/xml":
-		mediaType = senml.MediaTypeSenmlXML
-	case "application/senml-exi", "application/exi":
-		mediaType = senml.MediaTypeSenmlEXI
+		senmlPack, err = codec.DecodeXML(body)
 	case "application/csv", "text/csv":
-		mediaType = senml.MediaTypeSenmlCSV
+		senmlPack, err = codec.DecodeCSV(body)
+	case "":
+		common.ErrorResponse(http.StatusBadRequest, "Missing Content-Type", w)
+		return
 	default:
-		common.ErrorResponse(http.StatusBadRequest, "Missing Content-Type header", w)
+		common.ErrorResponse(http.StatusUnsupportedMediaType, fmt.Sprintf("Unsupported Content-Type:%s", mediaType), w)
+		return
 	}
 
-	senmlPack, err := codec.Decode(mediaType, body)
 	if err != nil {
 		common.ErrorResponse(http.StatusBadRequest, "Error parsing message body: "+err.Error(), w)
 		return
