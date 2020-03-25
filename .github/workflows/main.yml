@@ -1,0 +1,47 @@
+on: [push, pull_request]
+name: Build and release
+jobs:
+  build:
+    strategy:
+      matrix:
+        name: [hds-linux-amd64, hds-linux-arm64, hds-linux-arm, hds-darwin-amd64, hds-windows-amd64]
+        include:
+          - name: hds-linux-amd64
+            os: linux
+            arch: amd64
+          - name: hds-linux-arm64
+            os: linux
+            arch: arm64
+          - name: hds-linux-arm
+            os: linux
+            arch: arm
+          - name: hds-darwin-amd54
+            os: darwin
+            arch: amd64
+          - name: hds-windows-amd64
+            os: windows
+            arch: amd64
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v1
+      
+    - name: Checkout code
+      uses: actions/checkout@v2
+      
+    - name: Build project
+      run: mkdir -p bin && go build -o bin/${{ matrix.name }}
+      env:
+        GOOS: ${{ matrix.os }}
+        GOARCH: ${{ matrix.arch }}
+        
+    - name: Upload releases
+      uses: svenstaro/upload-release-action@v1-release
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: bin/*, sample_conf/*
+        tag: ${{ github.ref }}
+        overwrite: true
+        file_glob: true
