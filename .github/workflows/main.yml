@@ -30,7 +30,7 @@ jobs:
       with:
         go-version: 1.14.x
     - name: Install musl
-      run: sudo apt update && sudo apt add --no-cache musl-dev gcc build-base
+      run: sudo apt update && sudo apt add  musl-dev gcc build-base
       
     - name: Checkout code
       uses: actions/checkout@v2
