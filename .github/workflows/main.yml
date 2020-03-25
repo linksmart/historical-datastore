@@ -29,14 +29,12 @@ jobs:
       uses: actions/setup-go@v1
       with:
         go-version: 1.14.x
-    - name: Install musl
-      run: sudo apt update && sudo apt install  musl-dev gcc build-essential
       
     - name: Checkout code
       uses: actions/checkout@v2
   
     - name: Build project
-      run: go build -o ${{ matrix.name }} -ldflags "-linkmode external -extldflags -static -s -w -X main.Version=${{github.ref}} -X main.BuildNumber=${{github.run_number}}"
+      run: go build -o ${{ matrix.name }} -ldflags "-X main.BuildNumber=${{github.run_number}}"
       env:
         GOOS: ${{ matrix.os }}
         GOARCH: ${{ matrix.arch }}
