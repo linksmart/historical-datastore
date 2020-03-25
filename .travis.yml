@@ -1,6 +1,4 @@
-language: go
-go:
-    - 1.14
+language: minimal
 before_script:
     - 'export VERSION=${TRAVIS_BRANCH}  BUILDNUM=${TRAVIS_BUILD_NUMBER}'
 script:
@@ -20,20 +18,3 @@ deploy:
         on:
             tags: true
             repo: linksmart/historical-datastore
-    -  # cross-compile (uses global environment variables)
-        provider: script
-        script: 'curl -s https://raw.githubusercontent.com/linksmart/ci-scripts/master/go/go-build.sh | bash'
-        on:
-            tags: true
-    - # publish artifacts and sample config file
-        provider: releases
-        api_key: $GITHUB_KEY
-        file_glob: true
-        file:
-            - 'bin/*'
-            - 'sample_conf/*'
-        skip_cleanup: true
-        overwrite: true
-        prerelease: true  # release manually after QC
-        on:
-            tags: true
