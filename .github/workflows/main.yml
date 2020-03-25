@@ -33,7 +33,7 @@ jobs:
       uses: actions/checkout@v2
   
     - name: Build project
-      run: go build -o ${{ matrix.name }} -ldflags "-X main.Version=${{github.ref}} -X main.BuildNumber=${{github.run_number}}"
+      run: go build -o ${{ matrix.name }} -ldflags "-linkmode external -extldflags -static -s -w -X main.Version=${{github.ref}} -X main.BuildNumber=${{github.run_number}}"
       env:
         GOOS: ${{ matrix.os }}
         GOARCH: ${{ matrix.arch }}
