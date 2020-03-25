@@ -4,21 +4,21 @@ jobs:
   build:
     strategy:
       matrix:
-        name: [hds-linux-amd64, hds-linux-arm64, hds-linux-arm, hds-darwin-amd64, hds-windows-amd64]
+        name: [historical-datastore-linux-amd64, historical-datastore-linux-arm64, historical-datastore-linux-arm, historical-datastore-darwin-amd64, historical-datastore-windows-amd64.exe]
         include:
-          - name: hds-linux-amd64
+          - name: historical-datastore-linux-amd64
             os: linux
             arch: amd64
-          - name: hds-linux-arm64
+          - name: historical-datastore-linux-arm64
             os: linux
             arch: arm64
-          - name: hds-linux-arm
+          - name: historical-datastore-linux-arm
             os: linux
             arch: arm
-          - name: hds-darwin-amd54
+          - name: historical-datastore-darwin-amd54
             os: darwin
             arch: amd64
-          - name: hds-windows-amd64
+          - name: historical-datastore-windows-amd64.exe
             os: windows
             arch: amd64
 
@@ -37,8 +37,15 @@ jobs:
       env:
         GOOS: ${{ matrix.os }}
         GOARCH: ${{ matrix.arch }}
-        
+    - name: Upload snapshots
+      uses: actions/upload-artifact@v1.0.0
+      with:
+        # Artifact name
+        name: ${{ matrix.name }}
+        # Directory containing files to upload
+        path: ${{ matrix.name }}
     - name: Upload releases
+      if: startsWith(github.ref, 'refs/tags/') # on tag
       uses: svenstaro/upload-release-action@v1-release
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
