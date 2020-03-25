@@ -30,7 +30,7 @@ jobs:
       with:
         go-version: 1.14.x
     - name: Install musl
-      run: apk update && apk add --no-cache musl-dev gcc build-base
+      run: apt update && apt add --no-cache musl-dev gcc build-base
       
     - name: Checkout code
       uses: actions/checkout@v2
