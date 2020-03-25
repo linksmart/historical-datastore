@@ -15,7 +15,7 @@ jobs:
           - name: historical-datastore-linux-arm
             os: linux
             arch: arm
-          - name: historical-datastore-darwin-amd54
+          - name: historical-datastore-darwin-amd64
             os: darwin
             arch: amd64
           - name: historical-datastore-windows-amd64.exe
