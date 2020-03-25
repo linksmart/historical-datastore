@@ -1,41 +1,39 @@
 language: go
-
 go:
-  - 1.14
-
+    - 1.14
 before_script:
-    - export VERSION=${TRAVIS_BRANCH}  BUILDNUM=${TRAVIS_BUILD_NUMBER}
+    - 'export VERSION=${TRAVIS_BRANCH}  BUILDNUM=${TRAVIS_BUILD_NUMBER}'
 script:
-    - docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
-
+    - 'docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit'
 before_deploy:
-    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    - 'echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin'
 deploy:
-    - provider: script
-      script: docker push linksmart/hds:latest
-      on:
-        branch: master
-        repo: linksmart/historical-datastore
-    - provider: script   
-      script: docker tag linksmart/hds linksmart/hds:${TRAVIS_TAG} &&
-                 docker push linksmart/hds:${TRAVIS_TAG}
-      on:
-        tags: true
-        repo: linksmart/historical-datastore
-    # cross-compile (uses global environment variables)
-    - provider: script
-      script: curl -s https://raw.githubusercontent.com/linksmart/ci-scripts/master/go/go-build.sh | bash
-      on:
-       tags: true
-    # publish artifacts and sample config file
-    - provider: releases
-      api_key: $GITHUB_KEY
-      file_glob: true
-      file:
-       - bin/*
-       - sample_conf/*
-      skip_cleanup: true
-      overwrite: true
-    prerelease: true # release manually after QC
-    on:
-      tags: true
+    -
+        provider: script
+        script: 'docker push linksmart/hds:latest'
+        on:
+            branch: master
+            repo: linksmart/historical-datastore
+    -
+        provider: script
+        script: "docker tag linksmart/hds linksmart/hds:${TRAVIS_TAG} &&\ndocker push linksmart/hds:${TRAVIS_TAG}"
+        on:
+            tags: true
+            repo: linksmart/historical-datastore
+    -  # cross-compile (uses global environment variables)
+        provider: script
+        script: 'curl -s https://raw.githubusercontent.com/linksmart/ci-scripts/master/go/go-build.sh | bash'
+        on:
+            tags: true
+    - # publish artifacts and sample config file
+        provider: releases
+        api_key: $GITHUB_KEY
+        file_glob: true
+        file:
+            - 'bin/*'
+            - 'sample_conf/*'
+        skip_cleanup: true
+        overwrite: true
+        prerelease: true  # release manually after QC
+        on:
+            tags: true
