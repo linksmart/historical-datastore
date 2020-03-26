@@ -32,9 +32,13 @@ jobs:
       
     - name: Checkout code
       uses: actions/checkout@v2
-  
+      
+    - name: Get the version from tags
+      id: get_version
+      run: echo ::set-output name=VERSION::${GITHUB_REF##*/}
+      
     - name: Build project
-      run: go build -o ${{ matrix.name }} -ldflags "-X main.BuildNumber=${{github.run_number}}"
+      run: go build -o ${{ matrix.name }} -ldflags "-X main.Version=${{ steps.get_version.outputs.VERSION }} -X main.BuildNumber=${{github.run_number}}"
       env:
         GOOS: ${{ matrix.os }}
         GOARCH: ${{ matrix.arch }}
