@@ -98,8 +98,8 @@ func TestHttpSubmit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if res.StatusCode != http.StatusBadRequest {
-		t.Errorf("Server response is not %v but %v", http.StatusUnsupportedMediaType, res.StatusCode)
+	if res.StatusCode != http.StatusAccepted {
+		t.Errorf("Server response is not %v but %v", http.StatusAccepted, res.StatusCode)
 	}
 
 	// try html - should be not supported

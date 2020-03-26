@@ -7,7 +7,7 @@ require (
 	github.com/codegangsta/negroni v1.0.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/eclipse/paho.mqtt.golang v1.2.0
-	github.com/farshidtz/senml/v2 v2.0.0-beta.6
+	github.com/farshidtz/senml/v2 v2.0.0
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/gorilla/context v1.1.1
 	github.com/gorilla/mux v1.7.4

@@ -50,14 +50,15 @@ func NewAPI(registry registry.Storage, storage Storage, autoRegistration bool) *
 
 func getDecoderForContentType(contentType string) (decoder codec.Decoder, err error) {
 	decoderMap := map[string]codec.Decoder{
-		"application/senml+json": codec.DecodeJSON,
-		"application/json":       codec.DecodeJSON,
-		"application/senml+cbor": codec.DecodeCBOR,
-		"application/cbor":       codec.DecodeCBOR,
-		"application/senml+xml":  codec.DecodeXML,
-		"application/xml":        codec.DecodeXML,
-		"application/csv":        codec.DecodeCSV,
-		"text/csv":               codec.DecodeCSV,
+		"":                            codec.DecodeJSON,
+		"application/senml+json":      codec.DecodeJSON,
+		"application/json":            codec.DecodeJSON,
+		"application/senml+cbor":      codec.DecodeCBOR,
+		"application/cbor":            codec.DecodeCBOR,
+		"application/senml+xml":       codec.DecodeXML,
+		"application/xml":             codec.DecodeXML,
+		"text/csv":                    codec.DecodeCSV,
+		senml.MediaTypeCustomSenmlCSV: codec.DecodeCSV,
 	}
 
 	decoder, ok := decoderMap[contentType]
@@ -83,17 +84,14 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse payload
-	contentType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, "Error parsing Content-Type header: "+err.Error(), w)
-		return
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "" {
+		contentType, _, err = mime.ParseMediaType(contentType)
+		if err != nil {
+			common.ErrorResponse(http.StatusBadRequest, "Error parsing Content-Type header: "+err.Error(), w)
+			return
+		}
 	}
-
-	if contentType == "" {
-		common.ErrorResponse(http.StatusBadRequest, "Missing Content-Type", w)
-		return
-	}
-
 	decoder, err := getDecoderForContentType(contentType)
 	if err != nil {
 		common.ErrorResponse(http.StatusUnsupportedMediaType, "Error parsing Content-Type:"+err.Error(), w)
