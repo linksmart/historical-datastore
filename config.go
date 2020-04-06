@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/kelseyhightower/envconfig"
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/registry"
@@ -24,6 +25,12 @@ func loadConfig(confPath *string) (*common.Config, error) {
 
 	var conf common.Config
 	err = json.Unmarshal(file, &conf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Override loaded values with environment variables
+	err = envconfig.Process("hds", &conf)
 	if err != nil {
 		return nil, err
 	}
@@ -71,27 +78,33 @@ func loadConfig(confPath *string) (*common.Config, error) {
 	//
 
 	// VALIDATE SERVICE CATALOG CONFIG
-	if conf.ServiceCatalog != nil {
+	if conf.ServiceCatalog.Enabled {
 		if conf.ServiceCatalog.Endpoint == "" && conf.ServiceCatalog.Discover == false {
 			return nil, errors.New("All ServiceCatalog entries must have either endpoint or a discovery flag defined")
 		}
 		if conf.ServiceCatalog.TTL <= 0 {
 			return nil, errors.New("All ServiceCatalog entries must have TTL >= 0")
 		}
-		if conf.ServiceCatalog.Auth != nil {
+		if conf.ServiceCatalog.Auth.Enabled {
 			// Validate ticket obtainer config
 			err = conf.ServiceCatalog.Auth.Validate()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("invalid Service Catalog auth: %w", err)
 			}
 		}
 	}
 
 	if conf.Auth.Enabled {
 		// Validate ticket validator config
+		supportedProviders := map[string]bool{
+			common.Keycloak: true,
+		}
+		if !supportedProviders[conf.Auth.Provider] {
+			return nil, fmt.Errorf("auth provider %s is not supported", conf.Auth.Provider)
+		}
 		err = conf.Auth.Validate()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid auth: %w", err)
 		}
 	}
 

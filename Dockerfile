@@ -27,11 +27,14 @@ LABEL BUILD=${buildnum}
 ENV DISABLE_LOG_TIME=1
 
 COPY --from=builder /home/historical-datastore .
-COPY sample_conf/* /conf/
+COPY sample_conf/historical-datastore.json /home/conf/
 
-VOLUME /conf /data
+ENV HDS_DATA_BACKEND_DSN=/data/data.db
+ENV HDS_REGISTRY_BACKEND_DSN=/data/registry
+
+VOLUME /data
 EXPOSE 8085
 # HEALTHCHECK --interval=1m CMD wget localhost:8085/health -q -O - > /dev/null 2>&1
 
 ENTRYPOINT ["./historical-datastore"]
-CMD ["-conf", "/conf/docker.json"]
+# Note: this loads the default config files from /home/conf/. Use --help to to learn about CLI arguments.

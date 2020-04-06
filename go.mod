@@ -12,7 +12,8 @@ require (
 	github.com/gorilla/context v1.1.1
 	github.com/gorilla/mux v1.7.4
 	github.com/justinas/alice v1.2.0
-	github.com/linksmart/go-sec v1.0.1
+	github.com/kelseyhightower/envconfig v1.3.0
+	github.com/linksmart/go-sec v1.1.0
 	github.com/linksmart/service-catalog/v2 v2.4.1
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/onsi/ginkgo v1.8.0 // indirect

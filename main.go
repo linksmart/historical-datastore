@@ -154,7 +154,7 @@ func main() {
 	}
 
 	// Register in the LinkSmart Service Catalog
-	if conf.ServiceCatalog != nil {
+	if conf.ServiceCatalog.Enabled {
 		unregisterService, err := registerInServiceCatalog(conf)
 		if err != nil {
 			log.Panicf("Error registering service: %s", err)
@@ -204,7 +204,7 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
 	// Append auth handler if enabled
 	if conf.Auth.Enabled {
 		// Setup ticket validator
-		v, err := validator.Setup(conf.Auth.Provider, conf.Auth.ProviderURL, conf.Auth.ServiceID, conf.Auth.BasicEnabled, conf.Auth.Authz)
+		v, err := validator.Setup(conf.Auth.Provider, conf.Auth.ProviderURL, conf.Auth.ClientID, conf.Auth.BasicEnabled, &conf.Auth.Authz)
 		if err != nil {
 			log.Fatalf(err.Error())
 		}

@@ -27,6 +27,8 @@ const (
 	// Values for ParamSort
 	Asc  = "asc"  // ascending
 	Desc = "desc" // descending
+	//values for auth providers
+	Keycloak = "keycloak"
 )
 
 var (

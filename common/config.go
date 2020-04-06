@@ -3,10 +3,8 @@
 package common
 
 import (
-	"errors"
-	"net/url"
-
-	"github.com/linksmart/go-sec/authz"
+	"github.com/linksmart/go-sec/auth/obtainer"
+	"github.com/linksmart/go-sec/auth/validator"
 )
 
 type Config struct {
@@ -21,9 +19,9 @@ type Config struct {
 	// Aggregation API Config
 	Aggr AggrConf `json:"aggregation"`
 	// LinkSmart Service Catalog registration config
-	ServiceCatalog *ServiceCatalogConf `json:"serviceCatalog"`
+	ServiceCatalog ServiceCatalogConf `json:"serviceCatalog"`
 	// Auth config
-	Auth ValidatorConf `json:"auth"`
+	Auth validator.Conf `json:"auth"`
 }
 
 // HTTP config
@@ -79,97 +77,9 @@ type AggrConf struct{}
 
 // LinkSmart Service Catalog registration config
 type ServiceCatalogConf struct {
+	Enabled  bool          `json:"enabled"`
 	Discover bool          `json:"discover"`
 	Endpoint string        `json:"endpoint"`
 	TTL      uint          `json:"ttl"`
-	Auth     *ObtainerConf `json:"auth"`
-}
-
-// Ticket Validator Config
-type ValidatorConf struct {
-	// Auth switch
-	Enabled bool `json:"enabled"`
-	// Authentication provider name
-	Provider string `json:"provider"`
-	// Authentication provider BrokerURL
-	ProviderURL string `json:"providerURL"`
-	// Service ID
-	ServiceID string `json:"serviceID"`
-	// Basic Authentication switch
-	BasicEnabled bool `json:"basicEnabled"`
-	// Authorization config
-	Authz *authz.Conf `json:"authorization"`
-}
-
-func (c ValidatorConf) Validate() error {
-
-	// Validate Provider
-	if c.Provider == "" {
-		return errors.New("Ticket Validator: Auth provider name (provider) is not specified.")
-	}
-
-	// Validate ProviderURL
-	if c.ProviderURL == "" {
-		return errors.New("Ticket Validator: Auth provider BrokerURL (providerURL) is not specified.")
-	}
-	_, err := url.Parse(c.ProviderURL)
-	if err != nil {
-		return errors.New("Ticket Validator: Auth provider BrokerURL (providerURL) is invalid: " + err.Error())
-	}
-
-	// Validate ServiceID
-	if c.ServiceID == "" {
-		return errors.New("Ticket Validator: Auth Service ID (serviceID) is not specified.")
-	}
-
-	// Validate Authorization
-	if c.Authz != nil {
-		if err := c.Authz.Validate(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// Ticket Obtainer Client Config
-type ObtainerConf struct {
-	// Authentication provider name
-	Provider string `json:"provider"`
-	// Authentication provider BrokerURL
-	ProviderURL string `json:"providerURL"`
-	// Service ID
-	ServiceID string `json:"serviceID"`
-	// User credentials
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-func (c ObtainerConf) Validate() error {
-
-	// Validate Provider
-	if c.Provider == "" {
-		return errors.New("Ticket Obtainer: Auth provider name (provider) is not specified.")
-	}
-
-	// Validate ProviderURL
-	if c.ProviderURL == "" {
-		return errors.New("Ticket Obtainer: Auth provider BrokerURL (ProviderURL) is not specified.")
-	}
-	_, err := url.Parse(c.ProviderURL)
-	if err != nil {
-		return errors.New("Ticket Obtainer: Auth provider BrokerURL (ProviderURL) is invalid: " + err.Error())
-	}
-
-	// Validate Username
-	if c.Username == "" {
-		return errors.New("Ticket Obtainer: Auth Username (username) is not specified.")
-	}
-
-	// Validate ServiceID
-	if c.ServiceID == "" {
-		return errors.New("Ticket Obtainer: Auth Service ID (serviceID) is not specified.")
-	}
-
-	return nil
+	Auth     obtainer.Conf `json:"auth"`
 }
