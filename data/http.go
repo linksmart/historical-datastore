@@ -265,9 +265,6 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 	if q.Sort != "" {
 		sort = fmt.Sprintf("&%v=%v", common.ParamSort, q.Sort)
 	}
-	if q.Limit > 0 {
-		limit = fmt.Sprintf("&%v=%v", common.ParamLimit, q.Limit)
-	}
 	if !q.From.IsZero() {
 		start = fmt.Sprintf("&%v=%v", common.ParamFrom, q.From.UTC().Format(time.RFC3339))
 	}

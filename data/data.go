@@ -43,7 +43,6 @@ type Query struct {
 	To          time.Time
 	Sort        string
 	Page        int
-	Limit       int
 	PerPage     int
 	Denormalize DenormMask
 	count       bool
