@@ -307,24 +307,42 @@ func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStre
 			return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 		}
 		stream := *streamMap[senmlName]
+
 		switch stream.Type {
 		case registry.Float:
-			floatVal := val.(float64)
+			floatVal, ok := val.(float64)
+			if !ok {
+				return nil, nil, fmt.Errorf("error while scanning float64 query result: unexpected type obtained")
+			}
 			record := senml.Record{Name: senmlName, Value: &floatVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
 			packArr[senmlName] = append(packArr[senmlName], record)
 		case registry.String:
-			stringVal := val.(string)
+			stringVal, ok := val.(string)
+			if !ok {
+				return nil, nil, fmt.Errorf("error while scanning string query result: unexpected type obtained")
+			}
 			record := senml.Record{Name: senmlName, StringValue: stringVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
 			packArr[senmlName] = append(packArr[senmlName], record)
 		case registry.Bool:
-			boolVal := val.(int64) != 0
+			var boolVal bool
+			switch retType := val.(type) { //Some of the OS environments return the type as boolean even if the expected type is int64. This issue was found in Travis CI.
+			case int64:
+				boolVal = val.(int64) != 0
+			case bool:
+				boolVal = val.(bool)
+			default:
+				return nil, nil, fmt.Errorf("error while scanning boolean query result: unexpected type %v obtained", retType)
+			}
 			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
 			packArr[senmlName] = append(packArr[senmlName], record)
 		case registry.Data:
-			dataVal := val.(string)
+			dataVal, ok := val.(string)
+			if !ok {
+				return nil, nil, fmt.Errorf("error while scanning boolean query result: unexpected type obtained")
+			}
 			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: stream.Unit}
 			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
 			packArr[senmlName] = append(packArr[senmlName], record)
