@@ -574,11 +574,11 @@ components:
     denormalize:
       name: denormalize
       in: query
-      description: Comma separated list of fields to be denormalized in the response senml pack
+      description: Comma separated list of fields (or their labels) to be denormalized in the response senml pack
       required: false
       schema:
         type: string
-        enum: ["name","time", "unit", "value", "sum"]
+        enum: ["name","n","time","t", "unit","u", "value","v", "sum","s"]
   responses:
     badRequest:
       description: Bad Request
@@ -633,69 +633,84 @@ components:
       summary: DataStream
       value:
         {
-          "name": "Lobby/gw0/temperature",
+          "name": "terrace/temperature",
           "source": {
             "type": "MQTT",
             "url": "ssl://example.com:8883",
-            "topic": "gw0/temperature",
+            "topic": "terrace/temperature",
             "username": "*****",
             "password": "*****"
           },
           "dataType": "float",
+          "unit": "Cel",
           "meta": null,
         }
     DatastreamList:
       summary: Paginated Datastream List
       value:
         {
-          "url":"/registry",
-          "streams":[
+          "url": "/registry",
+          "streams": [
           {
-            "name": "Lobby/gw0/temperature",
+            "name": "hall/cat",
             "source": {
               "type": "MQTT",
               "url": "ssl://example.com:8883",
-              "topic": "gw0/temperature",
+              "topic": "hall/cat",
+              "username": "*****",
+              "password": "*****"
+            },
+            "dataType": "string",
+            "meta": null,
+          },
+          {
+            "name": "kitchen/lamp",
+            "source": {
+              "type": "MQTT",
+              "url": "ssl://example.com:8883",
+              "topic": "kitchen/lamp",
+              "username": "*****",
+              "password": "*****"
+            },
+            "dataType": "bool",
+            "meta": null,
+          },
+          {
+            "name": "terrace/temperature",
+            "source": {
+              "type": "MQTT",
+              "url": "ssl://example.com:8883",
+              "topic": "terrace/temperature",
               "username": "*****",
               "password": "*****"
             },
             "dataType": "float",
+            "unit": "Cel",
             "meta": null,
-          },
-          {
-            "name":"linksmart-pink/Temperature",
-            "source":{
-              "type":"MQTT",
-              "url":"tcp://linksmart-dev.fit.fraunhofer.de:1883",
-              "topic":"LS/v2/DGW/linksmart-pink/senml"
-            },
-            "dataType":"float",
-            "meta":null,
-            "retain":{
-
-            }
           }
           ],
-          "page":1,
-          "per_page":100,
-          "total":20
+          "page": 1,
+          "per_page": 100,
+          "total": 3
         }
     SenMLPack:
       summary: Example SenML pack
       value:
         [
-        {"n":"urn:example:1234","u":"Cel","t":1579192670, "v":20},
-        {"n":"urn:example:1234","u":"Cel","t":1579192675, "v":23.5}
+        {"n":"terrace/temperature","u":"Cel","t":1579192670, "v":20},
+        {"n":"terrace/temperature","u":"Cel","t":1579192675, "v":23.5}
         ]
     SenMLPackResponse:
       summary: Example data response
       value:
         {
-          "selfLink": "/data/urn:example:1234?perPage=1000&sort=desc&from=2020-03-04T12:30:00Z&to=2020-03-04T12:45:00Z",
-          "data":[
-          {"n":"urn:example:1234","t":1579192675, "v":23.5},
-          {"n":"urn:example:1234","t":1579192670, "v":20}
+          "selfLink": "/data/terrace/temperature?&perPage=1000&sort=desc&from=2020-02-10T17:10:00Z&to=2020-04-10T17:10:30Z&page=1&denormalize=n,u,v",
+          "data": [
+          {"bn": "terrace/temperature","bu": "Cel","bv": 20.770862545133333,"t": 1583861337.5185657},
+          {"t": 1583861332.5185533,"v": -1.0490685363560743},
+          {"and some":"skipped entries"},
+          {"t": 1583856342.5184987,"v": -0.9880044657724802}
           ],
-          "took": 0.001160139,
-          "nextLink": "/data/urn:example:1234?perPage=1000&sort=desc&from=2020-03-04T12:30:00Z&to=2020-03-04T12:45:00Z&offset=2020-03-04T12:35:00Z"
+          "took": 0.004148714,
+          "nextLink": "/data/terrace/temperature?&perPage=1000&sort=desc&from=2020-02-10T17:10:00Z&to=2020-04-10T17:10:30Z&page=2&denormalize=n,u,v"
         }
