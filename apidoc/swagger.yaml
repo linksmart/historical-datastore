@@ -4,10 +4,10 @@ info:
   title: 'LinkSmart Historical Datastore'
   description: 'LinkSmart Historical Datastore (HDS) is a modular service for time-series data storage. This stores sensor measurements in [SenML](https://tools.ietf.org/html/rfc8428) formats. Data API takes care of creating and accessing sensor measurements. Registry APIs manage metadata corresponding to the sensor measurements'
 tags:
-  - name: registry
-    description: Registry API
-  - name: data
-    description: Data API
+- name: registry
+  description: Registry API
+- name: data
+  description: Data API
 paths:
   /registry/:
     get:
@@ -30,7 +30,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DataStreamList'
+                  $ref: '#/components/schemas/DataStreamList'
               examples:
                 DatastreamList:
                   $ref: '#/components/examples/DatastreamList'
@@ -49,8 +49,8 @@ paths:
 
     post:
       tags:
-        - registry
-      summary: Creates new `DataStream`
+      - registry
+      summary: Creates new `DataStream` 
       requestBody:
         required: true
         content:
@@ -83,15 +83,15 @@ paths:
   /registry/{name}:
     get:
       tags:
-        - registry
+      - registry
       summary: Retrieves a `Datasource` object
       parameters:
-        - name: name
-          in: path
-          description: ID of the `Datasource`
-          required: true
-          schema:
-            type: string
+      - name: name
+        in: path
+        description: ID of the `Datasource`
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Successful response
@@ -114,15 +114,15 @@ paths:
           $ref: '#/components/responses/internalServerError'
     put:
       tags:
-        - registry
+      - registry
       summary: Updates the `Datasource`
       parameters:
-        - name: name
-          in: path
-          description: ID of the `Datasource`
-          required: true
-          schema:
-            type: string
+      - name: name
+        in: path
+        description: ID of the `Datasource`
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -151,15 +151,15 @@ paths:
           $ref: '#/components/responses/internalServerError'
     delete:
       tags:
-        - registry
+      - registry
       summary: Deletes the `DataStream`
       parameters:
-        - name: name
-          in: path
-          description: ID of the `Datasource`
-          required: true
-          schema:
-            type: string
+      - name: name
+        in: path
+        description: ID of the `Datasource`
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Successful response
@@ -176,7 +176,7 @@ paths:
   /registry/{type}/{path}/{op}/{value}:
     get:
       tags:
-        - registry
+      - registry
       summary: Filters Datasources
       description: |
         The filtering API enables filtering based on a given path, operator, and value. Below are few examples:
@@ -187,40 +187,40 @@ paths:
         * Filter all datasources based on address meta field:
           `/registry/many/meta.address/contains/Bonn`
       parameters:
-        - name: type
-          in: path
-          description: The expected type of response (one or many)
-          required: true
-          schema:
-            type: string
-        - name: path
-          in: path
-          description: Dot-separated path in the registration JSON
-          required: true
-          schema:
-            type: string
-        - name: op
-          in: path
-          description: One of (equals, prefix, suffix, contains) string comparison operations
-          required: true
-          schema:
-            type: string
-        - name: value
-          in: path
-          description: The intended value/prefix/suffix/substring of the key identified
-            by the path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/page'
-        - $ref: '#/components/parameters/perPage'
+      - name: type
+        in: path
+        description: The expected type of response (one or many)
+        required: true
+        schema:
+          type: string
+      - name: path
+        in: path
+        description: Dot-separated path in the registration JSON
+        required: true
+        schema:
+          type: string
+      - name: op
+        in: path
+        description: One of (equals, prefix, suffix, contains) string comparison operations
+        required: true
+        schema:
+          type: string
+      - name: value
+        in: path
+        description: The intended value/prefix/suffix/substring of the key identified
+          by the path
+        required: true
+        schema:
+          type: string
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/perPage'
       responses:
         '200':
           description: Successful response with matched elements
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DataStreamList'
+                  $ref: '#/components/schemas/DataStreamList'
               examples:
                 DatastreamList:
                   $ref: '#/components/examples/DatastreamList'
@@ -233,22 +233,22 @@ paths:
   /data/{names}:
     post:
       tags:
-        - data
+      - data
       summary: Submits `SenMLPack`
       parameters:
-        - name: names
-          in: path
-          description: Comma seperated names of the `datastream`
-          required: true
-          schema:
-            type: string
-        - name: Content-Type
-          in: header
-          description: MIME Type of dataset
-          required: true
-          schema:
-            type: string
-            enum: ["application/senml+json","application/senml+cbor","application/senml+xml","text/vnd.senml.v2+csv"]
+      - name: names
+        in: path
+        description: Comma seperated names of the `datastream` 
+        required: true
+        schema:
+          type: string
+      - name: Content-Type
+        in: header
+        description: MIME Type of dataset
+        required: true
+        schema:
+          type: string
+          enum: ["application/senml+json","application/senml+cbor","application/senml+xml","text/vnd.senml.v2+csv"]
       requestBody:
         required: true
         description: "Dataset to be submitted. \n\nThe dataset is a [SenML](https://tools.ietf.org/html/rfc8428)
@@ -257,31 +257,31 @@ paths:
           application/senml+json:
             schema:
               $ref: '#/components/schemas/SenMLPack'
-            example:
+            example: 
               SenMLPack:
                 $ref: '#/components/examples/SenMLPack'
           application/senml+cbor:
             schema:
               type: string
               format: binary
-            example:
+            example: 
               "84aa216664657631323322fbc046d5c28f5c28f62364646567432005006474656d7001646465674306fbbff000000000000007fb402400000000000002fb403619999999999a05fb0000000000000000a30064726f6f6d06fbbff000000000000003676b69746368656ea20064646174610863616263a200626f6b04f5"
           application/senml+xml:
             schema:
               $ref: '#/components/schemas/SenMLPack'
             example:
-              <sensml xmlns="urn:ietf:params:xml:ns:senml">
-              <senml bn="urn:dev:ow:10e2073a0108006:" bt="1.276020076001e+09"
-              bu="A" bver="5" n="voltage" u="V" v="120.1"></senml>
-              <senml n="current" t="-5" v="1.2"></senml>
-              <senml n="current" t="-4" v="1.3"></senml>
-              <senml n="current" t="-3" v="1.4"></senml>
-              <senml n="current" t="-2" v="1.5"></senml>
-              <senml n="current" t="-1" v="1.6"></senml>
-              <senml n="current" v="1.7"></senml>
+              <sensml xmlns="urn:ietf:params:xml:ns:senml"> 
+                 <senml bn="urn:dev:ow:10e2073a0108006:" bt="1.276020076001e+09"
+                 bu="A" bver="5" n="voltage" u="V" v="120.1"></senml>
+                 <senml n="current" t="-5" v="1.2"></senml>
+                 <senml n="current" t="-4" v="1.3"></senml>
+                 <senml n="current" t="-3" v="1.4"></senml>
+                 <senml n="current" t="-2" v="1.5"></senml>
+                 <senml n="current" t="-1" v="1.6"></senml>
+                 <senml n="current" v="1.7"></senml>
               </sensml>
           text/vnd.senml.v2+csv:
-            schema:
+            schema: 
               $ref: '#/components/schemas/SenMLPack'
             example:
               "Time,Update Time,Name,Unit,Value,String Value,Boolean Value,Data Value,Sum \n
@@ -304,14 +304,14 @@ paths:
           $ref: '#/components/responses/unsupportedMediaType'
         '500':
           $ref: '#/components/responses/internalServerError'
-    get:
+    get: 
       tags:
         - data
       summary: Retrieve the paginated data of the specified datastreams. See parameters
       parameters:
         - name: names
           in: path
-          description: Comma seperated names of the `datastream`
+          description: Comma seperated names of the `datastream` 
           required: true
           schema:
             type: string
@@ -320,42 +320,46 @@ paths:
         - $ref: "#/components/parameters/to"
         - $ref: "#/components/parameters/sort"
         - $ref: "#/components/parameters/denormalize"
+        - $ref: "#/components/parameters/count"
 
       responses:
         '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  selfLink:
-                    type: string
-                    description: link to fetch the current response
-                  took:
-                    description: Time taken in seconds
-                    type: number
-                  nextLink:
-                    type: string
-                    description: when the total entries exceed current limit of "perPage", the nextLink has the link to next page
-                  data:
-                    $ref: '#/components/schemas/SenMLPack'
-              examples:
-                SenMLPackResponse:
-                  $ref: '#/components/examples/SenMLPackResponse'
+            description: Successful response
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    selfLink:
+                      type: string
+                      description: link to fetch the current response
+                    took:
+                      description: Time taken in seconds
+                      type: number
+                    nextLink:
+                      type: string
+                      description: when the total entries exceed current limit of "perPage" (which defaults to 1000), the nextLink has the link to next page
+                    data:
+                        $ref: '#/components/schemas/SenMLPack'
+                    count:
+                      type: integer
+                      description: This field is only present when the GET has parameter `count=true`
+                examples:
+                  SenMLPackResponse:
+                    $ref: '#/components/examples/SenMLPackResponse'
   /data/:
     post:
       tags:
-        - data
+      - data
       summary: Submits `SenMLPack` without specifying the senml name
       parameters:
-        - name: Content-Type
-          in: header
-          description: MIME Type of dataset
-          required: true
-          schema:
-            type: string
-            enum: ["application/senml+json","application/senml+cbor","application/senml+xml","text/vnd.senml.v2+csv"]
+      - name: Content-Type
+        in: header
+        description: MIME Type of dataset
+        required: true
+        schema:
+          type: string
+          enum: ["application/senml+json","application/senml+cbor","application/senml+xml","text/vnd.senml.v2+csv"]
       requestBody:
         required: true
         description: "Dataset to be submitted. \n\nThe dataset is a [SenML](https://tools.ietf.org/html/rfc8428)
@@ -364,31 +368,31 @@ paths:
           application/senml+json:
             schema:
               $ref: '#/components/schemas/SenMLPack'
-            examples:
+            examples: 
               SenMLPack:
                 $ref: '#/components/examples/SenMLPack'
           application/senml+cbor:
             schema:
               type: string
               format: binary
-            example:
+            example: 
               "84aa216664657631323322fbc046d5c28f5c28f62364646567432005006474656d7001646465674306fbbff000000000000007fb402400000000000002fb403619999999999a05fb0000000000000000a30064726f6f6d06fbbff000000000000003676b69746368656ea20064646174610863616263a200626f6b04f5"
           application/senml+xml:
             schema:
               $ref: '#/components/schemas/SenMLPack'
             example:
-              <sensml xmlns="urn:ietf:params:xml:ns:senml">
-              <senml bn="urn:dev:ow:10e2073a0108006:" bt="1.276020076001e+09"
-              bu="A" bver="5" n="voltage" u="V" v="120.1"></senml>
-              <senml n="current" t="-5" v="1.2"></senml>
-              <senml n="current" t="-4" v="1.3"></senml>
-              <senml n="current" t="-3" v="1.4"></senml>
-              <senml n="current" t="-2" v="1.5"></senml>
-              <senml n="current" t="-1" v="1.6"></senml>
-              <senml n="current" v="1.7"></senml>
+              <sensml xmlns="urn:ietf:params:xml:ns:senml"> 
+                 <senml bn="urn:dev:ow:10e2073a0108006:" bt="1.276020076001e+09"
+                 bu="A" bver="5" n="voltage" u="V" v="120.1"></senml>
+                 <senml n="current" t="-5" v="1.2"></senml>
+                 <senml n="current" t="-4" v="1.3"></senml>
+                 <senml n="current" t="-3" v="1.4"></senml>
+                 <senml n="current" t="-2" v="1.5"></senml>
+                 <senml n="current" t="-1" v="1.6"></senml>
+                 <senml n="current" v="1.7"></senml>
               </sensml>
           text/vnd.senml.v2+csv:
-            schema:
+            schema: 
               $ref: '#/components/schemas/SenMLPack'
             example:
               "Time,Update Time,Name,Unit,Value,String Value,Boolean Value,Data Value,Sum \n
@@ -410,13 +414,13 @@ paths:
         '415':
           $ref: '#/components/responses/unsupportedMediaType'
         '500':
-          $ref: '#/components/responses/internalServerError'
-
+          $ref: '#/components/responses/internalServerError'        
+    
 components:
   schemas:
     DataStreamList:
       properties:
-        url:
+        url: 
           type: string
           description: "url of the registry endpoint"
         streams:
@@ -450,74 +454,74 @@ components:
               type: string
           description: "A map containing miscellaneous details about the registry entry"
         retain:
-          type: object
-          properties:
-            min:
-              type: string
-              example: "24h"
-            max:
-              type: string
-              example: "720h"
+            type: object
+            properties:
+              min: 
+                type: string
+                example: "24h"
+              max: 
+                type: string
+                example: "720h"
       required:
         - name
     MQTTSource:
-      type: object
-      required:
-        - uri
-        - topic
-      properties:
-        type:
-          type: string
-          pattern: 'MQTT'
-
-        url: #complete URL including protocols
-          type: string
-          example: "tcp://example.com:1883"
-        topic: #topic being used
-          type: string
-          example: "LS/#/temperature"
-        qos:
-          type: integer
-        username :
-          type: string
-        password:
-          type: string
-        caFile:
-          type: string
-        certFile:
-          type: string
-        keyFile:
-          type: string
+          type: object
+          required:
+            - uri
+            - topic
+          properties:
+            type:
+              type: string
+              pattern: 'MQTT'
+            
+            url: #complete URL including protocols
+              type: string
+              example: "tcp://example.com:1883"
+            topic: #topic being used
+              type: string
+              example: "LS/#/temperature"
+            qos: 
+              type: integer
+            username :
+              type: string
+            password:
+              type: string
+            caFile: 
+              type: string
+            certFile:
+              type: string
+            keyFile:
+              type: string
     SenMLPack:
       type: array
-      items:
+      items: 
         $ref: '#/components/schemas/Record'
     Record:
-      type: object
-      properties:
-        bn:
-          type: string
-        bt:
-          type: integer
-          format: double
-        bu:
-          type: string
-        bver:
-          type: integer
-        n:
-          type: string
-        t:
-          type: integer
-          format: double
-        u:
-          type: string
-        v:
-          type: number
-          format: double
-        vs:
-          type: string
-        vb:
-          type: boolean
+        type: object
+        properties: 
+          bn: 
+            type: string
+          bt: 
+            type: integer
+            format: double
+          bu: 
+            type: string
+          bver: 
+            type: integer
+          n: 
+            type: string
+          t: 
+            type: integer
+            format: double
+          u: 
+            type: string
+          v: 
+            type: number
+            format: double
+          vs:
+            type: string
+          vb: 
+            type: boolean
     Error:
       required:
         - code
@@ -540,7 +544,7 @@ components:
     perPage:
       name: per_page
       in: query
-      description: Number of entries per page
+      description: Number of entries per page. Default value is 1000
       required: false
       schema:
         type: integer
@@ -579,6 +583,13 @@ components:
       schema:
         type: string
         enum: ["name","n","time","t", "unit","u", "value","v", "sum","s"]
+    count:
+      name: count
+      in: query
+      description: Specifies the total number of entries satisfying the query. This is useful for pagination where the client can decide on the number of pages in advance. Please use this only in the first query as this might take more time than usual.
+      required: false
+      schema:
+        type: boolean
   responses:
     badRequest:
       description: Bad Request
@@ -632,62 +643,62 @@ components:
     DataStream:
       summary: DataStream
       value:
-        {
-          "name": "terrace/temperature",
-          "source": {
-            "type": "MQTT",
-            "url": "ssl://example.com:8883",
-            "topic": "terrace/temperature",
-            "username": "*****",
-            "password": "*****"
-          },
-          "dataType": "float",
-          "unit": "Cel",
-          "meta": null,
-        }
+          {
+            "name": "terrace/temperature",
+            "source": {
+                    "type": "MQTT",
+                    "url": "ssl://example.com:8883",
+                    "topic": "terrace/temperature",
+                    "username": "*****",
+                    "password": "*****"
+            },
+            "dataType": "float",
+            "unit": "Cel",
+            "meta": null,
+          }
     DatastreamList:
       summary: Paginated Datastream List
       value:
         {
           "url": "/registry",
           "streams": [
-          {
-            "name": "hall/cat",
-            "source": {
-              "type": "MQTT",
-              "url": "ssl://example.com:8883",
-              "topic": "hall/cat",
-              "username": "*****",
-              "password": "*****"
+            {
+              "name": "hall/cat",
+              "source": {
+                      "type": "MQTT",
+                      "url": "ssl://example.com:8883",
+                      "topic": "hall/cat",
+                      "username": "*****",
+                      "password": "*****"
+              },
+              "dataType": "string",
+              "meta": null,
             },
-            "dataType": "string",
-            "meta": null,
-          },
-          {
-            "name": "kitchen/lamp",
-            "source": {
-              "type": "MQTT",
-              "url": "ssl://example.com:8883",
-              "topic": "kitchen/lamp",
-              "username": "*****",
-              "password": "*****"
+            {
+              "name": "kitchen/lamp",
+              "source": {
+                      "type": "MQTT",
+                      "url": "ssl://example.com:8883",
+                      "topic": "kitchen/lamp",
+                      "username": "*****",
+                      "password": "*****"
+              },
+              "dataType": "bool",
+              "meta": null,
             },
-            "dataType": "bool",
-            "meta": null,
-          },
-          {
-            "name": "terrace/temperature",
-            "source": {
-              "type": "MQTT",
-              "url": "ssl://example.com:8883",
-              "topic": "terrace/temperature",
-              "username": "*****",
-              "password": "*****"
-            },
-            "dataType": "float",
-            "unit": "Cel",
-            "meta": null,
-          }
+            {
+              "name": "terrace/temperature",
+              "source": {
+                      "type": "MQTT",
+                      "url": "ssl://example.com:8883",
+                      "topic": "terrace/temperature",
+                      "username": "*****",
+                      "password": "*****"
+              },
+              "dataType": "float",
+              "unit": "Cel",
+              "meta": null,
+            }
           ],
           "page": 1,
           "per_page": 100,
@@ -697,8 +708,8 @@ components:
       summary: Example SenML pack
       value:
         [
-        {"n":"terrace/temperature","u":"Cel","t":1579192670, "v":20},
-        {"n":"terrace/temperature","u":"Cel","t":1579192675, "v":23.5}
+          {"n":"terrace/temperature","u":"Cel","t":1579192670, "v":20},
+          {"n":"terrace/temperature","u":"Cel","t":1579192675, "v":23.5}
         ]
     SenMLPackResponse:
       summary: Example data response
@@ -706,10 +717,10 @@ components:
         {
           "selfLink": "/data/terrace/temperature?&perPage=1000&sort=desc&from=2020-02-10T17:10:00Z&to=2020-04-10T17:10:30Z&page=1&denormalize=n,u,v",
           "data": [
-          {"bn": "terrace/temperature","bu": "Cel","bv": 20.770862545133333,"t": 1583861337.5185657},
-          {"t": 1583861332.5185533,"v": -1.0490685363560743},
-          {"and some":"skipped entries"},
-          {"t": 1583856342.5184987,"v": -0.9880044657724802}
+            {"bn": "terrace/temperature","bu": "Cel","bv": 20.770862545133333,"t": 1583861337.5185657},
+            {"t": 1583861332.5185533,"v": -1.0490685363560743},
+            {"and some":"skipped entries"},
+            {"t": 1583856342.5184987,"v": -0.9880044657724802}
           ],
           "took": 0.004148714,
           "nextLink": "/data/terrace/temperature?&perPage=1000&sort=desc&from=2020-02-10T17:10:00Z&to=2020-04-10T17:10:30Z&page=2&denormalize=n,u,v"
