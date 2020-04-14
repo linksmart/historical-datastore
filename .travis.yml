@@ -8,13 +8,13 @@ before_deploy:
 deploy:
     -
         provider: script
-        script: 'docker push linksmart/hds:latest'
+        script: docker push linksmart/hds:latest
         on:
             branch: master
             repo: linksmart/historical-datastore
     -
         provider: script
-        script: "docker tag linksmart/hds linksmart/hds:${TRAVIS_TAG} &&\ndocker push linksmart/hds:${TRAVIS_TAG}"
+        script: docker tag linksmart/hds linksmart/hds:${TRAVIS_TAG} &&\ndocker push linksmart/hds:${TRAVIS_TAG}
         on:
             tags: true
             repo: linksmart/historical-datastore
