@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  version: "v1.0.0-beta.7"
+  version: "v1.0.0-beta.8"
   title: 'LinkSmart Historical Datastore'
   description: 'LinkSmart Historical Datastore (HDS) is a modular service for time-series data storage. This stores sensor measurements in [SenML](https://tools.ietf.org/html/rfc8428) formats. Data API takes care of creating and accessing sensor measurements. Registry APIs manage metadata corresponding to the sensor measurements'
 tags:
