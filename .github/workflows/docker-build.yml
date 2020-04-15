@@ -17,3 +17,13 @@ jobs:
       env:
         VERSION: ${{steps.extract_branch.outputs.branch}}
         BUILDNUM: ${{github.run_number}}
+
+    - name: docker push latest
+      run: docker push linksmart/hds:latest
+      if: github.ref == 'refs/heads/master'
+    
+    - name: docker push tagged
+      run: |
+          docker tag linksmart/hds linksmart/hds:${steps.extract_branch.outputs.branch} && |
+          docker push linksmart/hds:${steps.extract_branch.outputs.branch}
+      if: startsWith(github.ref, 'refs/tags/') # on tag
