@@ -43,6 +43,7 @@ func main() {
 			"By default the data will not be persistent. Inorder to run hds in persistent mode use \"-persistent\" flag")
 		persistentDemo = flag.Bool("persistent", false, "While running Historical Datastore in demo mode, use persistent storage location specified"+
 			" in the config file")
+		ignoreEnv = flag.Bool("ignore-env", false, "Do not override the configurations by environmental variables. If this flag is enabled, only configuration file is considered")
 	)
 	flag.Parse()
 	if *version {
@@ -67,7 +68,7 @@ func main() {
 	}
 
 	// Load Config File
-	conf, err := loadConfig(confPath)
+	conf, err := loadConfig(confPath, *ignoreEnv)
 	if err != nil {
 		log.Panicf("Config File: %s\n", err)
 	}
