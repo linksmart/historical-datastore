@@ -19,6 +19,7 @@ import (
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/demo"
 	"github.com/linksmart/historical-datastore/registry"
+	"github.com/oleksandr/bonjour"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -165,6 +166,24 @@ func main() {
 
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI)
+
+	// Announce service using DNS-SD
+	var bonjourS *bonjour.Server
+	if conf.DnssdEnabled {
+		go func() {
+			bonjourS, err = bonjour.Register(conf.Description,
+				common.DNSSDServiceType,
+				"",
+				int(conf.HTTP.BindPort),
+				[]string{"uri=/"},
+				nil)
+			if err != nil {
+				log.Printf("Failed to register DNS-SD service: %s", err.Error())
+				return
+			}
+			log.Println("Registered service via DNS-SD using type", common.DNSSDServiceType)
+		}()
+	}
 
 	// Ctrl+C / Kill handling
 	handler := make(chan os.Signal, 1)
