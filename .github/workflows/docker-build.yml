@@ -17,7 +17,10 @@ jobs:
       env:
         VERSION: ${{steps.extract_branch.outputs.branch}}
         BUILDNUM: ${{github.run_number}}
-
+        
+    - name: Login to DockerHub Registry
+      run: echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+      
     - name: docker push latest
       run: docker push linksmart/hds:latest
       if: github.ref == 'refs/heads/master'
