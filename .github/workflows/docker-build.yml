@@ -19,7 +19,7 @@ jobs:
         BUILDNUM: ${{github.run_number}}
         
     - name: Login to DockerHub Registry
-      run: echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+      run: echo '${{ secrets.DOCKERHUB_PASSWORD }}' | docker login -u '${{ secrets.DOCKERHUB_USERNAME }}' --password-stdin
       
     - name: docker push latest
       run: docker push linksmart/hds:latest
