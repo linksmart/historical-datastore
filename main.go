@@ -192,6 +192,11 @@ func main() {
 	<-handler
 	log.Println("Shutting down...")
 
+	// Stop bonjour registration
+	if bonjourS != nil {
+		bonjourS.Shutdown()
+		time.Sleep(1e9)
+	}
 	// Close the DataStreamList Storage
 	if closeReg != nil {
 		err := closeReg()
