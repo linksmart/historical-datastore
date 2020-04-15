@@ -1,5 +1,5 @@
 on: [push, pull_request]
-name: Docker test build and release
+name: Docker Build
 jobs:
   build:
     runs-on: ubuntu-latest
