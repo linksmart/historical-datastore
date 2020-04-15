@@ -1,0 +1,15 @@
+on: [push, pull_request]
+name: Docker test build and release
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      
+    - name: Test project
+      run: docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
+      env:
+        VERSION: ${GITHUB_REF##*/}
+        BUILDNUM: ${github.run_number}
