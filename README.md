@@ -3,7 +3,7 @@ Historical Datastore
 [![GoDoc](https://godoc.org/github.com/linksmart/historical-datastore?status.svg)](https://godoc.org/github.com/linksmart/historical-datastore)
 [![Docker Pulls](https://img.shields.io/docker/pulls/linksmart/hds.svg)](https://hub.docker.com/r/linksmart/hds/tags)
 [![GitHub tag (latest pre-release)](https://img.shields.io/github/tag-pre/linksmart/historical-datastore.svg?label=pre-release)](https://github.com/linksmart/historical-datastore/tags)
-[![Build Status](https://travis-ci.com/linksmart/historical-datastore.svg?branch=master)](https://travis-ci.com/linksmart/historical-datastore)
+![Docker Build](https://github.com/linksmart/historical-datastore/workflows/Docker%20Build/badge.svg)
 
 LinkSmart Historical Datastore is a modular service for time-series data storage. It is designed to store timeseries data on low powered devices and single board computers. It uses [Sensor Measurement Lists (SenML)](https://tools.ietf.org/html/rfc8428) as the data format for storage and retrieval. Metadata related to the series is stored in Historical Datastore's registry.
 
