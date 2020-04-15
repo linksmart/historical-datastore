@@ -7,9 +7,13 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
+    
+    - name: set branch name
+      id: extract_branch
+      run: echo ${GITHUB_REF##*/}
       
     - name: Test code
       run: docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
       env:
-        VERSION: ${{GITHUB_REF##*/}}
+        VERSION: ${{steps.extract_branch.outputs.branch}}
         BUILDNUM: ${{github.run_number}}
