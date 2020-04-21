@@ -38,6 +38,7 @@ jobs:
       env:
         GOOS: ${{ matrix.os }}
         GOARCH: ${{ matrix.arch }}
+        CGO_ENABLED: 1
         
     - name: Upload snapshots
       uses: actions/upload-artifact@v1.0.0
