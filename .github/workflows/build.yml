@@ -2,7 +2,7 @@ on: [push, pull_request]
 name: Docker Build
 jobs:
   test: #Run this testing only for feature branches
-    if: ! (github.ref == 'refs/heads/master' ||  startsWith(github.ref, 'refs/tags/'))
+    if: github.ref != 'refs/heads/master' && !startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - 
