@@ -76,7 +76,7 @@ jobs:
       id: prepare
       run: |
         echo ::set-output name=docker_platforms::linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
-        echo ::set-output name=docker_image::linksmart/${{ github.event.repository.name }}
+        echo ::set-output name=docker_image::linksmart/hds
         echo ::set-output name=version::${GITHUB_REF##*/}
     -
       name: Set up Docker Buildx
