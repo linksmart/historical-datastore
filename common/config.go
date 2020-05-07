@@ -12,6 +12,10 @@ type Config struct {
 	ServiceID string `json:"serviceID"`
 	// HDS API addr
 	HTTP HTTPConf `json:"http"`
+	//DNS service discovery
+	DnssdEnabled bool `json:"dnssdEnabled"`
+	//DNS-SD description
+	Description string `json:"description"`
 	// Registry API Config
 	Reg RegConf `json:"registry"`
 	// Data API Config

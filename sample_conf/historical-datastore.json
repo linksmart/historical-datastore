@@ -1,4 +1,6 @@
 {
+  "description": "Linksmart Historical Datastore",
+  "dnssdEnabled": false,
   "serviceID": "",
   "http": {
     "publicEndpoint": "http://public-endpoint",

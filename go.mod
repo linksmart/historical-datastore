@@ -16,12 +16,12 @@ require (
 	github.com/linksmart/go-sec v1.1.0
 	github.com/linksmart/service-catalog/v2 v2.4.1
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
+	github.com/oleksandr/bonjour v0.0.0-20160508152359-5dcf00d8b228
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/rs/cors v1.7.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/ugorji/go v1.1.7 // indirect
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a // indirect
 	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527 // indirect
 )

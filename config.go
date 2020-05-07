@@ -17,7 +17,7 @@ import (
 )
 
 // loads service configuration from a file at the given path
-func loadConfig(confPath *string) (*common.Config, error) {
+func loadConfig(confPath *string, ignoreEnv bool) (*common.Config, error) {
 	file, err := ioutil.ReadFile(*confPath)
 	if err != nil {
 		return nil, err
@@ -30,11 +30,12 @@ func loadConfig(confPath *string) (*common.Config, error) {
 	}
 
 	// Override loaded values with environment variables
-	err = envconfig.Process("hds", &conf)
-	if err != nil {
-		return nil, err
+	if !ignoreEnv {
+		err = envconfig.Process("hds", &conf)
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	// VALIDATE HTTP
 	if conf.HTTP.BindAddr == "" || conf.HTTP.BindPort == 0 || conf.HTTP.PublicEndpoint == "" {
 		return nil, fmt.Errorf("HTTP bindAddr, publicEndpoint, and bindPort have to be defined")

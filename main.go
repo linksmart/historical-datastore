@@ -19,6 +19,7 @@ import (
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/demo"
 	"github.com/linksmart/historical-datastore/registry"
+	"github.com/oleksandr/bonjour"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -42,6 +43,7 @@ func main() {
 			"By default the data will not be persistent. Inorder to run hds in persistent mode use \"-persistent\" flag")
 		persistentDemo = flag.Bool("persistent", false, "While running Historical Datastore in demo mode, use persistent storage location specified"+
 			" in the config file")
+		ignoreEnv = flag.Bool("ignore-env", false, "Do not override the configurations by environmental variables. If this flag is enabled, only configuration file is considered")
 	)
 	flag.Parse()
 	if *version {
@@ -66,7 +68,7 @@ func main() {
 	}
 
 	// Load Config File
-	conf, err := loadConfig(confPath)
+	conf, err := loadConfig(confPath, *ignoreEnv)
 	if err != nil {
 		log.Panicf("Config File: %s\n", err)
 	}
@@ -166,6 +168,24 @@ func main() {
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI)
 
+	// Announce service using DNS-SD
+	var bonjourS *bonjour.Server
+	if conf.DnssdEnabled {
+		go func() {
+			bonjourS, err = bonjour.Register(conf.Description,
+				common.DNSSDServiceType,
+				"",
+				int(conf.HTTP.BindPort),
+				[]string{"uri=/"},
+				nil)
+			if err != nil {
+				log.Printf("Failed to register DNS-SD service: %s", err.Error())
+				return
+			}
+			log.Println("Registered service via DNS-SD using type", common.DNSSDServiceType)
+		}()
+	}
+
 	// Ctrl+C / Kill handling
 	handler := make(chan os.Signal, 1)
 	signal.Notify(handler, os.Interrupt, os.Kill)
@@ -173,6 +193,11 @@ func main() {
 	<-handler
 	log.Println("Shutting down...")
 
+	// Stop bonjour registration
+	if bonjourS != nil {
+		bonjourS.Shutdown()
+		time.Sleep(1e9)
+	}
 	// Close the DataStreamList Storage
 	if closeReg != nil {
 		err := closeReg()

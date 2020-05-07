@@ -29,6 +29,8 @@ const (
 	Desc = "desc" // descending
 	//values for auth providers
 	Keycloak = "keycloak"
+
+	DNSSDServiceType = "_linksmart-hds._tcp"
 )
 
 var (

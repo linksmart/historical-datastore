@@ -51,6 +51,11 @@ github.com/linksmart/service-catalog/v2/utils
 # github.com/mattn/go-sqlite3 v2.0.3+incompatible
 ## explicit
 github.com/mattn/go-sqlite3
+# github.com/miekg/dns v0.0.0-20170818131442-e4205768578d
+github.com/miekg/dns
+# github.com/oleksandr/bonjour v0.0.0-20160508152359-5dcf00d8b228
+## explicit
+github.com/oleksandr/bonjour
 # github.com/onsi/ginkgo v1.8.0
 ## explicit
 # github.com/onsi/gomega v1.5.0
@@ -75,14 +80,19 @@ github.com/syndtr/goleveldb/leveldb/opt
 github.com/syndtr/goleveldb/leveldb/storage
 github.com/syndtr/goleveldb/leveldb/table
 github.com/syndtr/goleveldb/leveldb/util
-# github.com/ugorji/go v1.1.7
-## explicit
 # github.com/x448/float16 v0.8.4
 github.com/x448/float16
 # golang.org/x/net v0.0.0-20200301022130-244492dfa37a
 ## explicit
+golang.org/x/net/bpf
+golang.org/x/net/internal/iana
+golang.org/x/net/internal/socket
 golang.org/x/net/internal/socks
+golang.org/x/net/ipv4
+golang.org/x/net/ipv6
 golang.org/x/net/proxy
 golang.org/x/net/websocket
 # golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527
 ## explicit
+golang.org/x/sys/unix
+golang.org/x/sys/windows
