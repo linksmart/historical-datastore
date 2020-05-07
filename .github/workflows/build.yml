@@ -107,7 +107,7 @@ jobs:
       name: Set up Docker Buildx
       uses: crazy-max/ghaction-docker-buildx@v1
       with:
-        version: latest
+        buildx-version: latest
 
     - 
       name: Docker Login
@@ -117,7 +117,7 @@ jobs:
         echo "${DOCKERHUB_PASSWORD}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
     - #upload with tags and the latest
-      name: Docker Buildx (push)
+      name: Docker Buildx (push) tagged when tagged
       if: startsWith(github.ref, 'refs/tags/')
       run: |
         docker buildx build --platform ${{ steps.prepare.outputs.docker_platforms }} \
@@ -128,7 +128,7 @@ jobs:
           --tag "${{ steps.prepare.outputs.docker_image }}:latest" \
           --file Dockerfile .
     - #upload latest only
-      name: Docker Buildx (push)
+      name: Docker Buildx (push) latest on master
       if: github.ref == 'refs/heads/master'
       run: |
         docker buildx build --platform ${{ steps.prepare.outputs.docker_platforms }} \
