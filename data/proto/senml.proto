@@ -1,0 +1,41 @@
+syntax = "proto3";
+package senml_protobuf;
+
+option go_package = "github.com/farshidtz/senml-protobuf/go";
+
+message Record {
+  // base meta fields
+  string baseName = 1;
+  double baseTime = 2;
+  string baseUnit = 3;
+  int32 baseVersion = 4;
+  oneof baseValueOptional {
+    double baseValue = 5;
+  }
+  oneof baseSumOptional {
+    double baseSum = 6;
+  }
+
+  // meta fields
+  string name = 7;
+  string unit = 8;
+  double time = 9;
+  double updateTime = 10;
+
+  // value fields
+  oneof valueOneof {
+    double value = 11;
+    string stringValue = 12;
+    string dataValue = 13;
+    bool boolValue = 14;
+  }
+
+  oneof sumOptional {
+    double sum = 15;
+  }
+}
+
+// this contains the senml pack (array of records)
+message Message {
+  repeated Record pack = 1;
+}

@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package data;
+
+import  "senml.proto";
+
+//option go_package = "github.com/linksmart/historical-datastore-protobuf";
+
+//Compile using protoc -I data\proto\ --go_out=plugins=grpc:data\proto data\proto\service.proto data\proto\senml.proto
+
+
+message Void
+{
+}
+
+service Data {
+    // Adds data points for multiple data streams
+    // SenMLPackMap has the 
+    rpc Submit(senml_protobuf.Message) returns(Void){}
+
+    // Adds data points for multiple data streams
+    // data is a map where keys are data stream ids
+    // streams is a map where keys are data stream ids
+    //Submit(data map[string]senml.Pack, streams map[string]*registry.DataStream) error
+
+    // Queries data for specified data streams
+    //Query(q Query, page, PerPage int, streams ...*registry.DataStream) (senml.Pack, int, error)
+    //Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error)
+
+    // EventListener includes methods for event handling
+    //registry.EventListener
+}

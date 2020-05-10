@@ -4,6 +4,7 @@ package data
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -18,6 +19,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/registry"
+	errors2 "github.com/syndtr/goleveldb/leveldb/errors"
 )
 
 const (
@@ -71,10 +73,6 @@ func getDecoderForContentType(contentType string) (decoder codec.Decoder, err er
 // Submit is a handler for submitting a new data point
 // Expected parameters: id(s)
 func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
-	//params := mux.Vars(r)
-	data := make(map[string]senml.Pack)
-	sources := make(map[string]*registry.DataStream)
-
 	// Read body
 	body, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -104,50 +102,29 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if DataSources are registered in the DataStreamList
-	dsResources := make(map[string]*registry.DataStream)
-	// Fill the data map with provided data points
-	senmlPack.Normalize()
-	for _, r := range senmlPack {
-		if r.Name == "" {
-			common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Data stream name not specified."), w)
-			return
-		}
-		// Check if there is a Data stream for this entry
-		ds, ok := dsResources[r.Name]
-		if !ok {
-			ds, err = api.registry.Get(r.Name)
-			if err != nil {
-				common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data point for unknown Data stream %v.", r.Name), w)
-				return
-			}
-			dsResources[ds.Name] = ds
-		}
-
-		err := validateRecordAgainstRegistry(r, ds)
-
+	params := mux.Vars(r)
+	// Parse id(s) and get streams from registry
+	ids := strings.Split(params["id"], common.IDSeparator)
+	streams := make(map[string]*registry.DataStream)
+	for _, id := range ids {
+		ds, err := api.registry.Get(id)
 		if err != nil {
-			common.ErrorResponse(http.StatusBadRequest,
-				fmt.Sprintf("Error validating the record:%v", err), w)
+			common.ErrorResponse(http.StatusNotFound,
+				fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", id, err.Error()),
+				w)
 			return
 		}
-
-		_, ok = data[ds.Name]
-		if !ok {
-			data[ds.Name] = senml.Pack{}
-			sources[ds.Name] = ds
-		}
-		data[ds.Name] = append(data[ds.Name], r)
+		streams[ds.Name] = ds
 	}
 
-	// Add data to the storage
-	err = api.storage.Submit(data, dsResources)
+	code, err := submittoStorage(senmlPack, api.storage, api.registry, streams, false)
+
 	if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
-		return
+		common.ErrorResponse(code, err.Error(), w)
+	} else {
+		w.Header().Set("Content-Type", common.DefaultMIMEType)
+		w.WriteHeader(http.StatusAccepted)
 	}
-	w.Header().Set("Content-Type", common.DefaultMIMEType)
-	w.WriteHeader(http.StatusAccepted)
 	return
 }
 
@@ -187,58 +164,73 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	code, err := submittoStorage(senmlPack, api.storage, api.registry, nil, api.autoRegistration)
+	if err != nil {
+		common.ErrorResponse(code, err.Error(), w)
+	} else {
+		w.Header().Set("Content-Type", common.DefaultMIMEType)
+		w.WriteHeader(http.StatusAccepted)
+	}
+	return
+}
+
+func submittoStorage(senmlPack senml.Pack, storage Storage, regStorage registry.Storage, streams map[string]*registry.DataStream, autoRegistration bool) (code int, err error) {
 	// map of resource name -> Data stream
 	nameDSs := make(map[string]*registry.DataStream)
-
+	fromStreamList := false
+	if streams != nil {
+		nameDSs = streams
+		fromStreamList = true
+	}
 	// Fill the data map with provided data points
 	data := make(map[string]senml.Pack)
 	senmlPack.Normalize()
 	for _, r := range senmlPack {
-
 		ds, found := nameDSs[r.Name]
+		if !found && fromStreamList {
+			return http.StatusBadRequest, fmt.Errorf("senml entry %s does not match the provided datastream", r.Name)
+		}
 		if !found {
-			ds, err = api.registry.FilterOne("name", "equals", r.Name)
+			ds, err := regStorage.Get(r.Name)
 			if err != nil {
-				common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error retrieving Data stream with name %v from the registry: %v", r.Name, err.Error()), w)
-				return
-			}
-			if ds == nil {
-				if !api.autoRegistration {
-					common.ErrorResponse(http.StatusNotFound, fmt.Sprintf("Data stream with name %v is not registered.", r.Name), w)
-					return
-				}
+				if errors.Is(err, errors2.ErrNotFound) {
+					if !autoRegistration {
+						return http.StatusNotFound, fmt.Errorf("Data stream with name %v is not registered.", r.Name)
 
-				// Register a Data stream with this name
-				log.Printf("Registering Data stream for %s", r.Name)
-				newDS := registry.DataStream{
-					Name: r.Name,
-					Unit: r.Unit,
+					}
+
+					// Register a Data stream with this name
+					log.Printf("Registering Data stream for %s", r.Name)
+					newDS := registry.DataStream{
+						Name: r.Name,
+						Unit: r.Unit,
+					}
+					if r.Value != nil || r.Sum != nil {
+						newDS.Type = registry.Float
+					} else if r.StringValue != "" {
+						newDS.Type = registry.String
+					} else if r.BoolValue != nil {
+						newDS.Type = registry.Bool
+					} else if r.DataValue != "" {
+						newDS.Type = registry.Data
+					}
+					addedDS, err := regStorage.Add(newDS)
+					if err != nil {
+						return http.StatusBadRequest, fmt.Errorf("Error registering %v in the registry: %v", r.Name, err)
+
+					}
+					ds = addedDS
 				}
-				if r.Value != nil || r.Sum != nil {
-					newDS.Type = registry.Float
-				} else if r.StringValue != "" {
-					newDS.Type = registry.String
-				} else if r.BoolValue != nil {
-					newDS.Type = registry.Bool
-				} else if r.DataValue != "" {
-					newDS.Type = registry.Data
-				}
-				addedDS, err := api.registry.Add(newDS)
-				if err != nil {
-					common.ErrorResponse(http.StatusBadRequest, fmt.Sprintf("Error registering %v in the registry: %v", r.Name, err.Error()), w)
-					return
-				}
-				ds = addedDS
+				nameDSs[r.Name] = ds
+			} else {
+				return http.StatusInternalServerError, err
 			}
-			nameDSs[r.Name] = ds
 		}
 
 		err := validateRecordAgainstRegistry(r, ds)
 
 		if err != nil {
-			common.ErrorResponse(http.StatusBadRequest,
-				fmt.Sprintf("Error validating the record:%v", err), w)
-			return
+			return http.StatusBadRequest, fmt.Errorf("Error validating the record:%v", err)
 		}
 
 		// Prepare for storage
@@ -250,14 +242,11 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add data to the storage
-	err = api.storage.Submit(data, nameDSs)
+	err = storage.Submit(data, nameDSs)
 	if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, "Error writing data to the database: "+err.Error(), w)
-		return
+		return http.StatusInternalServerError, fmt.Errorf("error writing data to the database: " + err.Error())
 	}
-	w.Header().Set("Content-Type", common.DefaultMIMEType)
-	w.WriteHeader(http.StatusAccepted)
-	return
+	return http.StatusAccepted, nil
 }
 
 func GetUrlFromQuery(q Query, id ...string) (url string) {

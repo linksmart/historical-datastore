@@ -7,7 +7,9 @@ require (
 	github.com/codegangsta/negroni v1.0.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/eclipse/paho.mqtt.golang v1.2.0
-	github.com/farshidtz/senml/v2 v2.0.0
+	github.com/farshidtz/senml-protobuf/go v0.0.0-20200401104923-1a78cd1643d7
+	github.com/farshidtz/senml/v2 v2.0.1-0.20200401105548-2ca7259f22bc
+	github.com/golang/protobuf v1.4.1
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/gorilla/context v1.1.1
 	github.com/gorilla/mux v1.7.4
@@ -22,6 +24,11 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/syndtr/goleveldb v1.0.0
-	golang.org/x/net v0.0.0-20200301022130-244492dfa37a // indirect
-	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527 // indirect
+	golang.org/x/net v0.0.0-20200506145744-7e3656a0809f // indirect
+	golang.org/x/sys v0.0.0-20200501145240-bc7a7d42d5c3 // indirect
+	golang.org/x/text v0.3.2 // indirect
+	google.golang.org/genproto v0.0.0-20200507105951-43844f6eee31 // indirect
+	google.golang.org/grpc v1.29.1
 )
+
+replace github.com/farshidtz/senml/v2 => ../../senml

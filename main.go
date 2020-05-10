@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -140,6 +141,7 @@ func main() {
 	// Setup APIs
 	regAPI := registry.NewAPI(regStorage)
 	dataAPI := data.NewAPI(regStorage, dataStorage, conf.Data.AutoRegistration)
+	grpcDataAPI := data.NewGrpcAPI(regStorage, dataStorage, conf.Data.AutoRegistration)
 	//aggrAPI := aggregation.NewAPI(regStorage, aggrStorage)
 
 	if *demomode {
@@ -168,6 +170,7 @@ func main() {
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI)
 
+	go startGRPCServer(conf, grpcDataAPI)
 	// Announce service using DNS-SD
 	var bonjourS *bonjour.Server
 	if conf.DnssdEnabled {
@@ -207,6 +210,18 @@ func main() {
 	}
 
 	log.Println("Stopped.")
+}
+
+func startGRPCServer(conf *common.Config, api *data.GrpcAPI) {
+	log.Println("Serving GRPC on :8888")
+	l, err := net.Listen("tcp", ":8888")
+	if err != nil {
+		log.Fatalf("could not listen to :8888: %v", err)
+	}
+	err = api.StartGrpcServer(l)
+	if err != nil {
+		log.Fatalf("Stopped listening GRPC: %v", err)
+	}
 }
 
 func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
