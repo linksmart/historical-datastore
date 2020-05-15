@@ -23,12 +23,12 @@ type GrpcAPI struct {
 func (a *GrpcAPI) Submit(ctx context.Context, message *senml_protobuf.Message) (*data.Void, error) {
 	//panic("implement me")
 	if message == nil {
-		return nil, fmt.Errorf("empty message received")
+		return &data.Void{}, fmt.Errorf("empty message received")
 	}
-	senmlPack := codec.DecodeProtobufMsg(*message)
+	senmlPack := codec.ImportProtobufMessage(*message)
 
-	submittoStorage(senmlPack, a.storage, a.registry, nil, false)
-
+	_, err := AddToStorage(senmlPack, a.storage, a.registry, nil, false)
+	return &data.Void{}, err
 }
 
 // NewAPI returns the configured Data API

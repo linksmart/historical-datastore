@@ -122,6 +122,14 @@ func TestHttpSubmit(t *testing.T) {
 		t.Errorf("Server response is not %v but %v", http.StatusBadRequest, res.StatusCode)
 	}
 
+	//when pack is has a datastream not in the URL
+	res, err = http.Post(ts.URL+"/data/"+testIDs[0], "application/senml+json", bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != http.StatusBadRequest {
+		t.Errorf("Server response is not %v but %v", http.StatusBadRequest, res.StatusCode)
+	}
 	// try a good one
 	res, err = http.Post(ts.URL+"/data/"+all, "application/senml+json", bytes.NewReader(b))
 	if err != nil {

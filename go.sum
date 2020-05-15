@@ -28,8 +28,12 @@ github.com/farshidtz/mqtt-match v1.0.1/go.mod h1:Kwf4JfzMhR3aPmVY5jqTkLXY/E3DgHs
 github.com/farshidtz/senml v1.0.1 h1:PFPecRt1NhvITPzOpCg1ck+6yOHa5cvKL+VdFxo6lsE=
 github.com/farshidtz/senml-protobuf/go v0.0.0-20200401104923-1a78cd1643d7 h1:AcMMZ0X4MZWq3dJ/BbUn08krQI8+1ceiFLYFeFZdTUI=
 github.com/farshidtz/senml-protobuf/go v0.0.0-20200401104923-1a78cd1643d7/go.mod h1:cFU0KL/60NcIsI+E/BdXx78LYL0brqjAP0qrrKdNwX0=
+github.com/farshidtz/senml/v2 v2.0.0 h1:Hk5dyfya2E1KToAzf9NH9jQazvKIbRc14acv/onQ3RE=
+github.com/farshidtz/senml/v2 v2.0.0/go.mod h1:MMhV93NbrFzyU1agBEoHRmhrhV/0nxbkMG0wMjyen8E=
 github.com/farshidtz/senml/v2 v2.0.1-0.20200401105548-2ca7259f22bc h1:49HP/OmOJV4S7XOXwFY6NzxbnLVqLdTKt9aQdeOpTlE=
 github.com/farshidtz/senml/v2 v2.0.1-0.20200401105548-2ca7259f22bc/go.mod h1:dbADsxazs2z8nWNcvtcDmyXeky0m6moVOwMFCLGznPM=
+github.com/farshidtz/senml/v2 v2.0.1-0.20200510133550-09f0cc3f0378 h1:qdBFgJX26KE3rmZvrDbOdC+LTgxZ75fDvVeSoyusrYw=
+github.com/farshidtz/senml/v2 v2.0.1-0.20200510133550-09f0cc3f0378/go.mod h1:dbADsxazs2z8nWNcvtcDmyXeky0m6moVOwMFCLGznPM=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fxamacker/cbor/v2 v2.2.0 h1:6eXqdDDe588rSYAi1HfZKbx6YYQO4mxQ9eC6xYpU/JQ=

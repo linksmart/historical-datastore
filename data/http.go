@@ -117,7 +117,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 		streams[ds.Name] = ds
 	}
 
-	code, err := submittoStorage(senmlPack, api.storage, api.registry, streams, false)
+	code, err := AddToStorage(senmlPack, api.storage, api.registry, streams, false)
 
 	if err != nil {
 		common.ErrorResponse(code, err.Error(), w)
@@ -164,7 +164,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code, err := submittoStorage(senmlPack, api.storage, api.registry, nil, api.autoRegistration)
+	code, err := AddToStorage(senmlPack, api.storage, api.registry, nil, api.autoRegistration)
 	if err != nil {
 		common.ErrorResponse(code, err.Error(), w)
 	} else {
@@ -174,7 +174,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func submittoStorage(senmlPack senml.Pack, storage Storage, regStorage registry.Storage, streams map[string]*registry.DataStream, autoRegistration bool) (code int, err error) {
+func AddToStorage(senmlPack senml.Pack, storage Storage, regStorage registry.Storage, streams map[string]*registry.DataStream, autoRegistration bool) (code int, err error) {
 	// map of resource name -> Data stream
 	nameDSs := make(map[string]*registry.DataStream)
 	fromStreamList := false
