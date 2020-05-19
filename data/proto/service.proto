@@ -13,19 +13,25 @@ message Void
 {
 }
 
+message Query
+{
+	string from = 1
+	string to = 2
+	int32 Page = 3
+	int32 PerPage = 4
+	Denormalize DenormMask
+	count       bool
+    bool sort_asc = 3
+}
+}
 service Data {
     // Adds data points for multiple data streams
     // SenMLPackMap has the 
     rpc Submit(senml_protobuf.Message) returns(Void){}
 
-    // Adds data points for multiple data streams
-    // data is a map where keys are data stream ids
-    // streams is a map where keys are data stream ids
-    //Submit(data map[string]senml.Pack, streams map[string]*registry.DataStream) error
-
     // Queries data for specified data streams
     //Query(q Query, page, PerPage int, streams ...*registry.DataStream) (senml.Pack, int, error)
-    //Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error)
+    rpc Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error)
 
     // EventListener includes methods for event handling
     //registry.EventListener

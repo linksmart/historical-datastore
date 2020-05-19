@@ -20,6 +20,22 @@ type GrpcAPI struct {
 	autoRegistration bool
 }
 
+// NewAPI returns the configured Data API
+func NewGrpcAPI(registry registry.Storage, storage Storage, autoRegistration bool) *GrpcAPI {
+	srv := grpc.NewServer()
+	grpcAPI := &GrpcAPI{registry, storage, srv, autoRegistration}
+	data.RegisterDataServer(srv, grpcAPI)
+	return grpcAPI
+}
+
+func (a *GrpcAPI) StartGrpcServer(l net.Listener) error {
+	return a.server.Serve(l)
+}
+
+func (a *GrpcAPI) StopGrpcServer() {
+	a.server.Stop()
+}
+
 func (a *GrpcAPI) Submit(ctx context.Context, message *senml_protobuf.Message) (*data.Void, error) {
 	//panic("implement me")
 	if message == nil {
@@ -31,14 +47,13 @@ func (a *GrpcAPI) Submit(ctx context.Context, message *senml_protobuf.Message) (
 	return &data.Void{}, err
 }
 
-// NewAPI returns the configured Data API
-func NewGrpcAPI(registry registry.Storage, storage Storage, autoRegistration bool) *GrpcAPI {
-	srv := grpc.NewServer()
-	grpcAPI := &GrpcAPI{registry, storage, srv, autoRegistration}
-	data.RegisterDataServer(srv, grpcAPI)
-	return grpcAPI
-}
+func (a *GrpcAPI) Get(ctx context.Context, message *senml_protobuf.Message) (*data.Void, error) {
+	//panic("implement me")
+	if message == nil {
+		return &data.Void{}, fmt.Errorf("empty message received")
+	}
+	senmlPack := codec.ImportProtobufMessage(*message)
 
-func (a *GrpcAPI) StartGrpcServer(l net.Listener) error {
-	return a.server.Serve(l)
+	_, err := AddToStorage(senmlPack, a.storage, a.registry, nil, false)
+	return &data.Void{}, err
 }

@@ -1,17 +1,21 @@
 package data
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net"
 	"testing"
 
 	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/common"
+	data "github.com/linksmart/historical-datastore/data/proto"
 	"github.com/linksmart/historical-datastore/registry"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func setupGrpCAPI() (grpcClient *GrpcClient) {
+func setupGrpcAPI(t testing.T) (grpcClient *GrpcClient) {
 	regStorage := registry.NewMemoryStorage(common.RegConf{})
 
 	// Create three dummy datastreams with different types
@@ -51,14 +55,29 @@ func setupGrpCAPI() (grpcClient *GrpcClient) {
 		}
 	}()
 
-	grpcClient, err := NewBufferClient(lis)
-	if err != nil {
-		log.Fatalf("Unable to connect to server:%v", err)
+	grpcClient, err := newGrpcClientFromBufConListener(lis)
+	bufDialer := func(ctx context.Context, s string) (conn net.Conn, err error) {
+		return lis.Dial()
 	}
-	return grpcClient
+	conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("Failed to dial bufnet: %v", err)
+	}
+	client := data.NewDataClient(conn)
+	if err != nil {
+		t.Fatalf("Unable to connect to server:%v", err)
+		return nil
+	}
+
+	t.Cleanup(func() {
+		conn.Close()
+		api.StopGrpcServer()
+	})
+	return &GrpcClient{Client: client}
 }
+
 func TestGrpcSubmit(t *testing.T) {
-	client := setupGrpCAPI()
+	client := setupGrpcAPI(t)
 
 	v1 := 42.0
 	r1 := senml.Record{
@@ -84,5 +103,9 @@ func TestGrpcSubmit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Submit failed:%v", err)
 	}
+
+}
+
+func newGrpcClientFromBufConListener(listener *bufconn.Listener) (*GrpcClient, error) {
 
 }
