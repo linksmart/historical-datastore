@@ -4,10 +4,8 @@ package data
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"mime"
 	"net/http"
 	"net/url"
@@ -19,7 +17,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/registry"
-	errors2 "github.com/syndtr/goleveldb/leveldb/errors"
 )
 
 const (
@@ -40,14 +37,12 @@ const (
 
 // API describes the RESTful HTTP data API
 type API struct {
-	registry         registry.Storage
-	storage          Storage
-	autoRegistration bool
+	controller *Controller
 }
 
 // NewAPI returns the configured Data API
 func NewAPI(registry registry.Storage, storage Storage, autoRegistration bool) *API {
-	return &API{registry, storage, autoRegistration}
+	return &API{NewController(registry, storage, autoRegistration)}
 }
 
 func getDecoderForContentType(contentType string) (decoder codec.Decoder, err error) {
@@ -65,7 +60,7 @@ func getDecoderForContentType(contentType string) (decoder codec.Decoder, err er
 
 	decoder, ok := decoderMap[contentType]
 	if !ok {
-		return nil, fmt.Errorf("Unsupported Content-Type:%s", contentType)
+		return nil, fmt.Errorf("unsupported Content-Type:%s", contentType)
 	}
 	return decoder, nil
 }
@@ -77,7 +72,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
 		return
 	}
 
@@ -86,41 +81,28 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	if contentType != "" {
 		contentType, _, err = mime.ParseMediaType(contentType)
 		if err != nil {
-			common.ErrorResponse(http.StatusBadRequest, "Error parsing Content-Type header: "+err.Error(), w)
+			common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing Content-Type header: " + err.Error()}, w)
 			return
 		}
 	}
 	decoder, err := getDecoderForContentType(contentType)
 	if err != nil {
-		common.ErrorResponse(http.StatusUnsupportedMediaType, "Error parsing Content-Type:"+err.Error(), w)
+		common.HttpErrorResponse(&common.UnsupportedMediaTypeError{S: "Error parsing Content-Type:" + err.Error()}, w)
 		return
 	}
 
 	senmlPack, err := decoder(body)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, "Error parsing message body: "+err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing message body: " + err.Error()}, w)
 		return
 	}
 
 	params := mux.Vars(r)
 	// Parse id(s) and get streams from registry
 	ids := strings.Split(params["id"], common.IDSeparator)
-	streams := make(map[string]*registry.DataStream)
-	for _, id := range ids {
-		ds, err := api.registry.Get(id)
-		if err != nil {
-			common.ErrorResponse(http.StatusNotFound,
-				fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", id, err.Error()),
-				w)
-			return
-		}
-		streams[ds.Name] = ds
-	}
-
-	code, err := AddToStorage(senmlPack, api.storage, api.registry, streams, false)
-
-	if err != nil {
-		common.ErrorResponse(code, err.Error(), w)
+	submitErr := api.controller.submit(senmlPack, ids)
+	if submitErr != nil {
+		common.HttpErrorResponse(submitErr, w)
 	} else {
 		w.Header().Set("Content-Type", common.DefaultMIMEType)
 		w.WriteHeader(http.StatusAccepted)
@@ -136,117 +118,42 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
 		return
 	}
 
 	// Parse payload
 	contentType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, "Error parsing Content-Type header: "+err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing Content-Type header: "}, w)
 		return
 	}
 
 	if contentType == "" {
-		common.ErrorResponse(http.StatusBadRequest, "Missing Content-Type", w)
+		common.HttpErrorResponse(&common.BadRequestError{S: "Missing Content-Type"}, w)
 		return
 	}
 
 	decoder, err := getDecoderForContentType(contentType)
 	if err != nil {
-		common.ErrorResponse(http.StatusUnsupportedMediaType, "Error parsing Content-Type:"+err.Error(), w)
+		common.HttpErrorResponse(&common.UnsupportedMediaTypeError{S: "Error parsing Content-Type:" + err.Error()}, w)
 		return
 	}
 
 	senmlPack, err := decoder(body)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, "Error parsing message body: "+err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing message body: " + err.Error()}, w)
 		return
 	}
 
-	code, err := AddToStorage(senmlPack, api.storage, api.registry, nil, api.autoRegistration)
-	if err != nil {
-		common.ErrorResponse(code, err.Error(), w)
+	submitErr := api.controller.submit(senmlPack, nil)
+	if submitErr != nil {
+		common.HttpErrorResponse(submitErr, w)
 	} else {
 		w.Header().Set("Content-Type", common.DefaultMIMEType)
 		w.WriteHeader(http.StatusAccepted)
 	}
 	return
-}
-
-func AddToStorage(senmlPack senml.Pack, storage Storage, regStorage registry.Storage, streams map[string]*registry.DataStream, autoRegistration bool) (code int, err error) {
-	// map of resource name -> Data stream
-	nameDSs := make(map[string]*registry.DataStream)
-	fromStreamList := false
-	if streams != nil {
-		nameDSs = streams
-		fromStreamList = true
-	}
-	// Fill the data map with provided data points
-	data := make(map[string]senml.Pack)
-	senmlPack.Normalize()
-	for _, r := range senmlPack {
-		ds, found := nameDSs[r.Name]
-		if !found && fromStreamList {
-			return http.StatusBadRequest, fmt.Errorf("senml entry %s does not match the provided datastream", r.Name)
-		}
-		if !found {
-			ds, err := regStorage.Get(r.Name)
-			if err != nil {
-				if errors.Is(err, errors2.ErrNotFound) {
-					if !autoRegistration {
-						return http.StatusNotFound, fmt.Errorf("Data stream with name %v is not registered.", r.Name)
-
-					}
-
-					// Register a Data stream with this name
-					log.Printf("Registering Data stream for %s", r.Name)
-					newDS := registry.DataStream{
-						Name: r.Name,
-						Unit: r.Unit,
-					}
-					if r.Value != nil || r.Sum != nil {
-						newDS.Type = registry.Float
-					} else if r.StringValue != "" {
-						newDS.Type = registry.String
-					} else if r.BoolValue != nil {
-						newDS.Type = registry.Bool
-					} else if r.DataValue != "" {
-						newDS.Type = registry.Data
-					}
-					addedDS, err := regStorage.Add(newDS)
-					if err != nil {
-						return http.StatusBadRequest, fmt.Errorf("Error registering %v in the registry: %v", r.Name, err)
-
-					}
-					ds = addedDS
-				}
-				nameDSs[r.Name] = ds
-			} else {
-				return http.StatusInternalServerError, err
-			}
-		}
-
-		err := validateRecordAgainstRegistry(r, ds)
-
-		if err != nil {
-			return http.StatusBadRequest, fmt.Errorf("Error validating the record:%v", err)
-		}
-
-		// Prepare for storage
-		_, found = data[ds.Name]
-		if !found {
-			data[ds.Name] = senml.Pack{}
-		}
-		data[ds.Name] = append(data[ds.Name], r)
-	}
-
-	// Add data to the storage
-	err = storage.Submit(data, nameDSs)
-	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("error writing data to the database: " + err.Error())
-	}
-	return http.StatusAccepted, nil
 }
 
 func GetUrlFromQuery(q Query, id ...string) (url string) {
@@ -303,39 +210,23 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 
 	// Parse id(s) and get sources from registry
 	ids := strings.Split(params["id"], common.IDSeparator)
-	sources := []*registry.DataStream{}
-	for _, id := range ids {
-		ds, err := api.registry.Get(id)
-		if err != nil {
-			common.ErrorResponse(http.StatusNotFound,
-				fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", id, err.Error()),
-				w)
-			return
-		}
-		sources = append(sources, ds)
-	}
-	if len(sources) == 0 {
-		common.ErrorResponse(http.StatusNotFound,
-			"None of the specified Data streams could be retrieved from the registry.", w)
-		return
-	}
 
 	// Parse query
 	q, err := ParseQueryParameters(r.Form)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing query parameters:" + err.Error()}, w)
 		return
 	}
 
-	data, total, err := api.storage.Query(q, sources...)
+	data, total, err := api.controller.Query(q, ids)
 	if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, "Error retrieving data from the database: "+err.Error(), w)
+		common.HttpErrorResponse(err, w)
 		return
 	}
 
-	curlink := common.DataAPILoc + "/" + GetUrlFromQuery(q, ids...)
+	curLink := common.DataAPILoc + "/" + GetUrlFromQuery(q, ids...)
 
-	nextlink := ""
+	nextLink := ""
 
 	responseLength := len(data)
 
@@ -344,20 +235,20 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	if responseLength >= q.PerPage {
 		nextQuery := q
 		nextQuery.Page = q.Page + 1
-		nextlink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
+		nextLink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
 	}
 
 	recordSet = RecordSet{
-		SelfLink: curlink,
+		SelfLink: curLink,
 		TimeTook: time.Since(timeStart).Seconds(),
 		Data:     data,
-		NextLink: nextlink,
+		NextLink: nextLink,
 		Count:    total,
 	}
 
-	csvStr, err := json.Marshal(recordSet)
-	if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, "Error marshalling recordset: "+err.Error(), w)
+	csvStr, errMarshal := json.Marshal(recordSet)
+	if errMarshal != nil {
+		common.HttpErrorResponse(&common.InternalError{S: "Error marshalling recordset: " + errMarshal.Error()}, w)
 		return
 	}
 
@@ -368,20 +259,9 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 
 // Utility functions
 
-func ParseQueryParameters(form url.Values) (Query, error) {
+func ParseQueryParameters(form url.Values) (Query, common.Error) {
 	q := Query{}
 	var err error
-
-	// start time
-	if form.Get(common.ParamFrom) == "" {
-		// Start from zero time
-		q.From = time.Time{}
-	} else {
-		q.From, err = time.Parse(time.RFC3339, form.Get(common.ParamFrom))
-		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing start argument: %s", err)
-		}
-	}
 
 	// end time
 	if form.Get(common.ParamTo) == "" {
@@ -390,14 +270,14 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 	} else {
 		q.To, err = time.Parse(time.RFC3339, form.Get(common.ParamTo))
 		if err != nil {
-			return Query{}, fmt.Errorf("Error parsing end argument: %s", err)
+			return Query{}, &common.BadRequestError{S: "Error parsing end argument:" + err.Error()}
 		}
 	}
 
 	q.Page, q.PerPage, err = common.ParsePagingParams(form.Get(common.ParamPage), form.Get(common.ParamPerPage), MaxPerPage)
 
 	if err != nil {
-		return Query{}, fmt.Errorf("Error parsing limit argument: %s", err)
+		return Query{}, &common.BadRequestError{S: "Error parsing limit argument:" + err.Error()}
 	}
 
 	// sort
@@ -406,26 +286,27 @@ func ParseQueryParameters(form url.Values) (Query, error) {
 		// default sorting order
 		q.Sort = common.Desc
 	} else if q.Sort != common.Asc && q.Sort != common.Desc {
-		return Query{}, fmt.Errorf("Invalid sort argument: %v", q.Sort)
+		return Query{}, &common.BadRequestError{S: "Invalid sort argument:" + q.Sort}
 	}
 
 	q.Page, q.PerPage, err = common.ParsePagingParams(form.Get(common.ParamPage), form.Get(common.ParamPerPage), MaxPerPage)
 
 	if err != nil {
-		return Query{}, fmt.Errorf("Error parsing paging parameters: %s", err)
+		return Query{}, &common.BadRequestError{S: "Error parsing paging parameters:" + err.Error()}
 	}
 
 	//denormalization fields
 	denormStr := form.Get(common.ParamDenormalize)
 	q.Denormalize, err = parseDenormParams(denormStr)
 	if err != nil {
-		return Query{}, fmt.Errorf("error in param %s=%s:%v", common.ParamDenormalize, denormStr, err)
+		return Query{}, &common.BadRequestError{S: fmt.Sprintf("error in param %s=%s:%v", common.ParamDenormalize, denormStr, err)}
 	}
 
 	//get count
 	if strings.EqualFold(form.Get(common.ParamCount), "true") {
 		q.count = true
 	}
+
 	return q, nil
 }
 

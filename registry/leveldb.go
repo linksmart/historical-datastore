@@ -76,13 +76,13 @@ func (s *LevelDBStorage) close() error {
 func (s *LevelDBStorage) Add(ds DataStream) (*DataStream, error) {
 	err := validateCreation(ds, s.conf)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrInvalid, err)
+		return nil, fmt.Errorf("%w: %s", ErrBadRequest, err)
 	}
 
 	// Convert to json bytes
 	dsBytes, err := ds.MarshalSensitiveJSON()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %s", ErrBadRequest, err)
 	}
 
 	if has, _ := s.db.Has([]byte(ds.Name), nil); has {
@@ -178,7 +178,7 @@ func (s *LevelDBStorage) Get(id string) (*DataStream, error) {
 	// Query from database
 	dsBytes, err := s.db.Get([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
-		return nil, fmt.Errorf("%s: %s", ErrNotFound, err)
+		return nil, fmt.Errorf("%w: %s", &common.NotFoundError{S: id + " not found"}, err)
 	} else if err != nil {
 		return nil, err
 	}

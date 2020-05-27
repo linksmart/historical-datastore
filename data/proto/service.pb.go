@@ -25,6 +25,45 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
+//The denormalization mask sp
+type DenormMask int32
+
+const (
+	//No value is denormalized
+	DenormMask_None   DenormMask = 0
+	DenormMask_FName  DenormMask = 1
+	DenormMask_FTime  DenormMask = 2
+	DenormMask_FUnit  DenormMask = 4
+	DenormMask_FValue DenormMask = 8
+	DenormMask_FSum   DenormMask = 16
+)
+
+var DenormMask_name = map[int32]string{
+	0:  "None",
+	1:  "FName",
+	2:  "FTime",
+	4:  "FUnit",
+	8:  "FValue",
+	16: "FSum",
+}
+
+var DenormMask_value = map[string]int32{
+	"None":   0,
+	"FName":  1,
+	"FTime":  2,
+	"FUnit":  4,
+	"FValue": 8,
+	"FSum":   16,
+}
+
+func (x DenormMask) String() string {
+	return proto.EnumName(DenormMask_name, int32(x))
+}
+
+func (DenormMask) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_a0b84a42fa06f626, []int{0}
+}
+
 type Void struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -56,8 +95,179 @@ func (m *Void) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Void proto.InternalMessageInfo
 
+type QueryRequest struct {
+	Streams              []string   `protobuf:"bytes,1,rep,name=streams,proto3" json:"streams,omitempty"`
+	From                 string     `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	To                   string     `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	Page                 int32      `protobuf:"varint,4,opt,name=Page,proto3" json:"Page,omitempty"`
+	PerPage              int32      `protobuf:"varint,5,opt,name=PerPage,proto3" json:"PerPage,omitempty"`
+	Denormalize          DenormMask `protobuf:"varint,6,opt,name=Denormalize,proto3,enum=data.DenormMask" json:"Denormalize,omitempty"`
+	Count                bool       `protobuf:"varint,7,opt,name=count,proto3" json:"count,omitempty"`
+	SortAsc              bool       `protobuf:"varint,8,opt,name=sort_asc,json=sortAsc,proto3" json:"sort_asc,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
+}
+
+func (m *QueryRequest) Reset()         { *m = QueryRequest{} }
+func (m *QueryRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryRequest) ProtoMessage()    {}
+func (*QueryRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a0b84a42fa06f626, []int{1}
+}
+
+func (m *QueryRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_QueryRequest.Unmarshal(m, b)
+}
+func (m *QueryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_QueryRequest.Marshal(b, m, deterministic)
+}
+func (m *QueryRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryRequest.Merge(m, src)
+}
+func (m *QueryRequest) XXX_Size() int {
+	return xxx_messageInfo_QueryRequest.Size(m)
+}
+func (m *QueryRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryRequest proto.InternalMessageInfo
+
+func (m *QueryRequest) GetStreams() []string {
+	if m != nil {
+		return m.Streams
+	}
+	return nil
+}
+
+func (m *QueryRequest) GetFrom() string {
+	if m != nil {
+		return m.From
+	}
+	return ""
+}
+
+func (m *QueryRequest) GetTo() string {
+	if m != nil {
+		return m.To
+	}
+	return ""
+}
+
+func (m *QueryRequest) GetPage() int32 {
+	if m != nil {
+		return m.Page
+	}
+	return 0
+}
+
+func (m *QueryRequest) GetPerPage() int32 {
+	if m != nil {
+		return m.PerPage
+	}
+	return 0
+}
+
+func (m *QueryRequest) GetDenormalize() DenormMask {
+	if m != nil {
+		return m.Denormalize
+	}
+	return DenormMask_None
+}
+
+func (m *QueryRequest) GetCount() bool {
+	if m != nil {
+		return m.Count
+	}
+	return false
+}
+
+func (m *QueryRequest) GetSortAsc() bool {
+	if m != nil {
+		return m.SortAsc
+	}
+	return false
+}
+
+type QueryResponse struct {
+	Message *_go.Message `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	// Types that are valid to be assigned to TotalOptional:
+	//	*QueryResponse_Total
+	TotalOptional        isQueryResponse_TotalOptional `protobuf_oneof:"totalOptional"`
+	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
+	XXX_unrecognized     []byte                        `json:"-"`
+	XXX_sizecache        int32                         `json:"-"`
+}
+
+func (m *QueryResponse) Reset()         { *m = QueryResponse{} }
+func (m *QueryResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryResponse) ProtoMessage()    {}
+func (*QueryResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a0b84a42fa06f626, []int{2}
+}
+
+func (m *QueryResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_QueryResponse.Unmarshal(m, b)
+}
+func (m *QueryResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_QueryResponse.Marshal(b, m, deterministic)
+}
+func (m *QueryResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryResponse.Merge(m, src)
+}
+func (m *QueryResponse) XXX_Size() int {
+	return xxx_messageInfo_QueryResponse.Size(m)
+}
+func (m *QueryResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryResponse proto.InternalMessageInfo
+
+func (m *QueryResponse) GetMessage() *_go.Message {
+	if m != nil {
+		return m.Message
+	}
+	return nil
+}
+
+type isQueryResponse_TotalOptional interface {
+	isQueryResponse_TotalOptional()
+}
+
+type QueryResponse_Total struct {
+	Total int32 `protobuf:"varint,2,opt,name=total,proto3,oneof"`
+}
+
+func (*QueryResponse_Total) isQueryResponse_TotalOptional() {}
+
+func (m *QueryResponse) GetTotalOptional() isQueryResponse_TotalOptional {
+	if m != nil {
+		return m.TotalOptional
+	}
+	return nil
+}
+
+func (m *QueryResponse) GetTotal() int32 {
+	if x, ok := m.GetTotalOptional().(*QueryResponse_Total); ok {
+		return x.Total
+	}
+	return 0
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*QueryResponse) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*QueryResponse_Total)(nil),
+	}
+}
+
 func init() {
+	proto.RegisterEnum("data.DenormMask", DenormMask_name, DenormMask_value)
 	proto.RegisterType((*Void)(nil), "data.Void")
+	proto.RegisterType((*QueryRequest)(nil), "data.QueryRequest")
+	proto.RegisterType((*QueryResponse)(nil), "data.QueryResponse")
 }
 
 func init() {
@@ -65,15 +275,31 @@ func init() {
 }
 
 var fileDescriptor_a0b84a42fa06f626 = []byte{
-	// 114 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x2d, 0x4e, 0x2d, 0x2a,
-	0xcb, 0x4c, 0x4e, 0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x49, 0x49, 0x2c, 0x49, 0x94,
-	0xe2, 0x2e, 0x4e, 0xcd, 0xcb, 0xcd, 0x81, 0x08, 0x29, 0xb1, 0x71, 0xb1, 0x84, 0xe5, 0x67, 0xa6,
-	0x18, 0x99, 0x73, 0xb1, 0xb8, 0x24, 0x96, 0x24, 0x0a, 0xe9, 0x73, 0xb1, 0x05, 0x97, 0x26, 0xe5,
-	0x66, 0x96, 0x08, 0x89, 0xeb, 0x81, 0xd5, 0xc5, 0x83, 0xd5, 0x25, 0x95, 0xa6, 0xe9, 0xf9, 0xa6,
-	0x16, 0x17, 0x27, 0xa6, 0xa7, 0x4a, 0x71, 0xe9, 0x81, 0x8c, 0xd1, 0x03, 0x69, 0x53, 0x62, 0x48,
-	0x62, 0x03, 0xcb, 0x1b, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x16, 0x96, 0xef, 0x9e, 0x6b, 0x00,
-	0x00, 0x00,
+	// 382 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x51, 0xc1, 0x8e, 0xd3, 0x30,
+	0x10, 0xad, 0xbb, 0x49, 0x9a, 0x4e, 0xe9, 0x62, 0x0d, 0x08, 0x4c, 0x4f, 0x51, 0x4e, 0x11, 0x87,
+	0x20, 0xc2, 0x17, 0x80, 0x56, 0x15, 0x97, 0x2e, 0x8b, 0x17, 0xf6, 0xba, 0x72, 0xb3, 0xb3, 0x28,
+	0x6a, 0x1c, 0x17, 0xdb, 0x41, 0x82, 0x9f, 0xe5, 0x57, 0x50, 0x6c, 0x2a, 0x96, 0xc3, 0xde, 0xde,
+	0x7b, 0x33, 0xb6, 0xde, 0x7b, 0x03, 0x6b, 0x47, 0xf6, 0x47, 0xd7, 0x52, 0x7d, 0xb4, 0xc6, 0x1b,
+	0x4c, 0xee, 0x94, 0x57, 0x9b, 0x95, 0xa3, 0x41, 0xf7, 0x51, 0x2a, 0x33, 0x48, 0x6e, 0x4c, 0x77,
+	0x57, 0xfe, 0x66, 0xf0, 0xe4, 0xf3, 0x48, 0xf6, 0xa7, 0xa4, 0xef, 0x23, 0x39, 0x8f, 0x02, 0x16,
+	0xce, 0x5b, 0x52, 0xda, 0x09, 0x56, 0x9c, 0x55, 0x4b, 0x79, 0xa2, 0x88, 0x90, 0xdc, 0x5b, 0xa3,
+	0xc5, 0xbc, 0x60, 0xd5, 0x52, 0x06, 0x8c, 0xe7, 0x30, 0xf7, 0x46, 0x9c, 0x05, 0x65, 0xee, 0xcd,
+	0xb4, 0x73, 0xa5, 0xbe, 0x91, 0x48, 0x0a, 0x56, 0xa5, 0x32, 0xe0, 0xe9, 0xc7, 0x2b, 0xb2, 0x41,
+	0x4e, 0x83, 0x7c, 0xa2, 0xd8, 0xc0, 0xea, 0x82, 0x06, 0x63, 0xb5, 0xea, 0xbb, 0x5f, 0x24, 0xb2,
+	0x82, 0x55, 0xe7, 0x0d, 0xaf, 0x27, 0xb7, 0x75, 0x1c, 0xec, 0x94, 0x3b, 0xc8, 0x87, 0x4b, 0xf8,
+	0x1c, 0xd2, 0xd6, 0x8c, 0x83, 0x17, 0x8b, 0x82, 0x55, 0xb9, 0x8c, 0x04, 0x5f, 0x41, 0xee, 0x8c,
+	0xf5, 0xb7, 0xca, 0xb5, 0x22, 0x0f, 0x83, 0xc5, 0xc4, 0xdf, 0xbb, 0xb6, 0x3c, 0xc0, 0xfa, 0x6f,
+	0x40, 0x77, 0x34, 0x83, 0x23, 0x7c, 0x0b, 0x0b, 0x4d, 0xce, 0x4d, 0x7e, 0x58, 0xc1, 0xaa, 0x55,
+	0xf3, 0xb2, 0x0e, 0xcd, 0xdc, 0x86, 0x66, 0xf6, 0xe3, 0x7d, 0xbd, 0x8b, 0x63, 0x79, 0xda, 0xc3,
+	0x17, 0x90, 0x7a, 0xe3, 0x55, 0x1f, 0xb2, 0xa7, 0x1f, 0x67, 0x32, 0xd2, 0x0f, 0x4f, 0x61, 0x1d,
+	0xc0, 0xa7, 0xa3, 0xef, 0xcc, 0xa0, 0xfa, 0xd7, 0x3b, 0x80, 0x7f, 0xc6, 0x31, 0x87, 0xe4, 0xd2,
+	0x0c, 0xc4, 0x67, 0xb8, 0x84, 0x74, 0x7b, 0xa9, 0x34, 0x71, 0x16, 0xe0, 0x97, 0x4e, 0x13, 0x9f,
+	0x07, 0xf8, 0x75, 0xe8, 0x3c, 0x4f, 0x10, 0x20, 0xdb, 0xde, 0xa8, 0x7e, 0x24, 0x9e, 0x4f, 0xcf,
+	0xb6, 0xd7, 0xa3, 0xe6, 0xbc, 0x39, 0x40, 0x72, 0xa1, 0xbc, 0xc2, 0x37, 0x90, 0x5d, 0x8f, 0x7b,
+	0xdd, 0x79, 0x7c, 0xcc, 0xeb, 0x06, 0x62, 0x6d, 0xe1, 0xa8, 0x33, 0x6c, 0x20, 0x0d, 0xa1, 0x11,
+	0xa3, 0xfc, 0xf0, 0xc4, 0x9b, 0x67, 0xff, 0x69, 0xb1, 0x95, 0x72, 0xb6, 0xcf, 0xc2, 0x9f, 0xef,
+	0xfe, 0x04, 0x00, 0x00, 0xff, 0xff, 0x02, 0x6c, 0xb2, 0x08, 0x3d, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -88,9 +314,8 @@ const _ = grpc.SupportPackageIsVersion6
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type DataClient interface {
-	// Adds data points for multiple data streams
-	// SenMLPackMap has the
 	Submit(ctx context.Context, in *_go.Message, opts ...grpc.CallOption) (*Void, error)
+	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 }
 
 type dataClient struct {
@@ -110,11 +335,19 @@ func (c *dataClient) Submit(ctx context.Context, in *_go.Message, opts ...grpc.C
 	return out, nil
 }
 
+func (c *dataClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
+	out := new(QueryResponse)
+	err := c.cc.Invoke(ctx, "/data.Data/Query", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DataServer is the server API for Data service.
 type DataServer interface {
-	// Adds data points for multiple data streams
-	// SenMLPackMap has the
 	Submit(context.Context, *_go.Message) (*Void, error)
+	Query(context.Context, *QueryRequest) (*QueryResponse, error)
 }
 
 // UnimplementedDataServer can be embedded to have forward compatible implementations.
@@ -123,6 +356,9 @@ type UnimplementedDataServer struct {
 
 func (*UnimplementedDataServer) Submit(ctx context.Context, req *_go.Message) (*Void, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Submit not implemented")
+}
+func (*UnimplementedDataServer) Query(ctx context.Context, req *QueryRequest) (*QueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")
 }
 
 func RegisterDataServer(s *grpc.Server, srv DataServer) {
@@ -147,6 +383,24 @@ func _Data_Submit_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Data_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataServer).Query(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data.Data/Query",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataServer).Query(ctx, req.(*QueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Data_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "data.Data",
 	HandlerType: (*DataServer)(nil),
@@ -154,6 +408,10 @@ var _Data_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Submit",
 			Handler:    _Data_Submit_Handler,
+		},
+		{
+			MethodName: "Query",
+			Handler:    _Data_Query_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

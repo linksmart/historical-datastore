@@ -5,6 +5,7 @@ package data
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -244,7 +245,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 		if !exists {
 			ds, err = s.connector.registry.Get(r.Name)
 			if err != nil {
-				if registry.ErrType(err, registry.ErrNotFound) {
+				if errors.Is(err, registry.ErrNotFound) {
 					logMQTTError(http.StatusNotFound, "Warning: Resource not found: %v", r.Name)
 					continue
 				}

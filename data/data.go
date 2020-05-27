@@ -9,13 +9,19 @@ import (
 	"github.com/farshidtz/senml/v2"
 )
 
+//Specifying which field needs to be denormalized
 type DenormMask int
 
 const (
+	//name field
 	FName DenormMask = 1 << iota
+	//time field
 	FTime
+	//unit field
 	FUnit
+	//Value field
 	FValue
+	//sum field
 	FSum
 )
 
@@ -39,8 +45,11 @@ type RecordSet struct {
 }
 
 type Query struct {
-	From        time.Time
-	To          time.Time
+	//Time from which the data needs to be fetched
+	From time.Time
+	//Time to which the data needs to be fetched
+	To time.Time
+	//Sort either ASC or DESC
 	Sort        string
 	Page        int
 	PerPage     int

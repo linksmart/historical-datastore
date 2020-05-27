@@ -6,33 +6,46 @@ import  "senml.proto";
 
 //option go_package = "github.com/linksmart/historical-datastore-protobuf";
 
-//Compile using protoc -I data\proto\ --go_out=plugins=grpc:data\proto data\proto\service.proto data\proto\senml.proto
-
+//
+//Compilation:
+// Go:  protoc -I data\proto\ --go_out=plugins=grpc:data\proto data\proto\service.proto data\proto\senml.proto
 
 message Void
 {
 }
 
-message Query
+//The denormalization mask sp
+enum DenormMask {
+	//No value is denormalized
+	None = 0;
+	FName = 1;
+	FTime = 2;
+	FUnit = 4;
+	FValue = 8;
+	FSum = 16;
+}
+message QueryRequest
 {
-	string from = 1
-	string to = 2
-	int32 Page = 3
-	int32 PerPage = 4
-	Denormalize DenormMask
-	count       bool
-    bool sort_asc = 3
+	repeated string streams = 1;
+	string from = 2;
+	string to = 3;
+	int32 offset = 4; //number of points to skip
+	int32 perChunk = 5; //Number of senml messages sent per packet
+	DenormMask Denormalize = 6; //the bitvise mask to specify the fields to be denormalized
+	bool count = 7;
+    bool sort_asc = 8;
+	int32 limit = 9;
 }
+
+message QueryResponse
+{
+	senml_protobuf.Message message  = 1;
+	oneof totalOptional {
+		int32 total = 2;
+	}
 }
+
 service Data {
-    // Adds data points for multiple data streams
-    // SenMLPackMap has the 
     rpc Submit(senml_protobuf.Message) returns(Void){}
-
-    // Queries data for specified data streams
-    //Query(q Query, page, PerPage int, streams ...*registry.DataStream) (senml.Pack, int, error)
-    rpc Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error)
-
-    // EventListener includes methods for event handling
-    //registry.EventListener
+    rpc Query(QueryRequest) returns(stream QueryResponse){}
 }
