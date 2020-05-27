@@ -158,8 +158,8 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 func GetUrlFromQuery(q Query, id ...string) (url string) {
 	var sort, limit, start, end, perPage, offset, denorm string
-	if q.Sort != "" {
-		sort = fmt.Sprintf("&%v=%v", common.ParamSort, q.Sort)
+	if q.SortAsc {
+		sort = fmt.Sprintf("&%v=%v", common.ParamSort, common.Asc)
 	}
 	if !q.From.IsZero() {
 		start = fmt.Sprintf("&%v=%v", common.ParamFrom, q.From.UTC().Format(time.RFC3339))
@@ -263,15 +263,17 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 	q := Query{}
 	var err error
 
+	// start time
+	q.To, err = parseFromValue(form.Get(common.ParamFrom))
+	if err != nil {
+		return Query{}, &common.BadRequestError{S: "Error parsing From value:" + err.Error()}
+	}
+
 	// end time
-	if form.Get(common.ParamTo) == "" {
-		// Open-ended query
-		q.To = time.Now().UTC()
-	} else {
-		q.To, err = time.Parse(time.RFC3339, form.Get(common.ParamTo))
-		if err != nil {
-			return Query{}, &common.BadRequestError{S: "Error parsing end argument:" + err.Error()}
-		}
+
+	q.To, err = parseToValue(form.Get(common.ParamTo))
+	if err != nil {
+		return Query{}, &common.BadRequestError{S: "Error parsing to value:" + err.Error()}
 	}
 
 	q.Page, q.PerPage, err = common.ParsePagingParams(form.Get(common.ParamPage), form.Get(common.ParamPerPage), MaxPerPage)
@@ -281,19 +283,13 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 	}
 
 	// sort
-	q.Sort = form.Get(common.ParamSort)
-	if q.Sort == "" {
+	sort := form.Get(common.ParamSort)
+	if sort == common.Asc {
 		// default sorting order
-		q.Sort = common.Desc
-	} else if q.Sort != common.Asc && q.Sort != common.Desc {
-		return Query{}, &common.BadRequestError{S: "Invalid sort argument:" + q.Sort}
-	}
-
-	q.Page, q.PerPage, err = common.ParsePagingParams(form.Get(common.ParamPage), form.Get(common.ParamPerPage), MaxPerPage)
-
-	if err != nil {
-		return Query{}, &common.BadRequestError{S: "Error parsing paging parameters:" + err.Error()}
-	}
+		q.SortAsc = true
+	} else if sort != common.Asc && sort != common.Desc {
+		return Query{}, &common.BadRequestError{S: "Invalid sort argument:" + sort}
+	} //else sortAsc is false
 
 	//denormalization fields
 	denormStr := form.Get(common.ParamDenormalize)
@@ -308,29 +304,4 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 	}
 
 	return q, nil
-}
-
-func parseDenormParams(denormString string) (denormMask DenormMask, err error) {
-
-	if denormString != "" {
-		denormStrings := strings.Split(denormString, ",")
-		for _, field := range denormStrings {
-			switch strings.ToLower(strings.TrimSpace(field)) {
-			case TimeField, TimeFieldShort:
-				denormMask = denormMask | FTime
-			case NameField, NameFieldShort:
-				denormMask = denormMask | FName
-			case UnitField, UnitFieldShort:
-				denormMask = denormMask | FUnit
-			case ValueField, ValueFieldShort:
-				denormMask = denormMask | FValue
-			case SumField, SumFieldShort:
-				denormMask = denormMask | FSum
-			default:
-				return 0, fmt.Errorf("unexpected senml field: %s", field)
-
-			}
-		}
-	}
-	return denormMask, nil
 }

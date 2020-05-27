@@ -112,7 +112,7 @@ func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Stor
 	}
 
 	//get these data
-	gotrecords, total, err := storage.Query(Query{Sort: common.Desc, Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec * 4}, streamArr...)
+	gotrecords, total, err := storage.Query(Query{ Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec * 4}, streamArr...)
 	if err != nil {
 		t.Error(err)
 	}
@@ -164,7 +164,7 @@ func testInsertData(t *testing.T, storage Storage, regstorage registry.Storage) 
 	}
 
 	//get these data
-	gotrecords, total, err := storage.Query(Query{Sort: common.Desc, Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.Query(Query{ Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
@@ -207,7 +207,7 @@ func testInsertBools(t *testing.T, storage Storage, regstorage registry.Storage)
 	}
 
 	//get these data
-	gotrecords, total, err := storage.Query(Query{Sort: common.Desc, Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.Query(Query{Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
@@ -250,7 +250,7 @@ func testInsertStrings(t *testing.T, storage Storage, regstorage registry.Storag
 	}
 
 	//get these data
-	gotrecords, total, err := storage.Query(Query{Sort: common.Desc, Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.Query(Query{Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
@@ -293,7 +293,7 @@ func testInsertVals(t *testing.T, storage Storage, regstorage registry.Storage) 
 	}
 
 	//get these data
-	gotrecords, total, err := storage.Query(Query{Sort: common.Desc, Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.Query(Query{ Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}

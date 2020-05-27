@@ -190,7 +190,11 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 		}
 	}
 
-	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), q.Sort, q.PerPage, (q.Page-1)*q.PerPage)
+	order := common.Desc
+	if q.SortAsc {
+		order = common.Asc
+	}
+	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), order, q.PerPage, (q.Page-1)*q.PerPage)
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
@@ -279,7 +283,11 @@ func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStre
 	}
 
 	//query the entries
-	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), q.Sort, q.PerPage, (q.Page-1)*q.PerPage)
+	order := common.Desc
+	if q.SortAsc {
+		order = common.Asc
+	}
+	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), order, q.PerPage, (q.Page-1)*q.PerPage)
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while querying rows:%s", err)

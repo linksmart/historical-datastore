@@ -10,7 +10,7 @@ import (
 )
 
 //Specifying which field needs to be denormalized
-type DenormMask int
+type DenormMask int32
 
 const (
 	//name field
@@ -50,7 +50,7 @@ type Query struct {
 	//Time to which the data needs to be fetched
 	To time.Time
 	//Sort either ASC or DESC
-	Sort        string
+	SortAsc     bool
 	Page        int
 	PerPage     int
 	Denormalize DenormMask

@@ -43,10 +43,35 @@ func (a *GrpcAPI) Submit(ctx context.Context, message *senml_protobuf.Message) (
 	senmlPack := codec.ImportProtobufMessage(*message)
 
 	err := a.c.submit(senmlPack, nil)
-	return &data.Void{}, status.Errorf(err.GrpcStatus(), err.Error())
+	return &data.Void{}, status.Errorf(err.GrpcStatus(), "Error submitting:"+err.Error())
 }
 
 func (a *GrpcAPI) Query(ctx context.Context, request *data.QueryRequest) (response *data.QueryResponse, err error) {
-	panic("implement me")
-	//from := request.From
+	var q Query
+	q.From, err = parseFromValue(request.From)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Error parsing from value: "+err.Error())
+	}
+
+	q.To, err = parseToValue(request.To)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Error parsing to Value: "+err.Error())
+	}
+
+	q.count = request.Count
+	q.Denormalize = DenormMask(request.DenormaMask)
+	q.SortAsc = request.SortAsc
+	q.Page = int(request.Offset)
+	q.PerPage = int(request.RecordPerPacket)
+
+	pack, total, queryErr := a.c.Query(q, request.Streams)
+	if err != nil {
+		return nil, status.Errorf(queryErr.GrpcStatus(), "Error querying: "+err.Error())
+	}
+	message := codec.ExportProtobufMessage(pack)
+	response.Message = &message
+	if total != nil {
+		response.TotalOptional = &data.QueryResponse_Total{Total: int32(*total)}
+	}
+	return response, nil
 }

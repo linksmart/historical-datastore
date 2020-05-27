@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/common"
@@ -123,4 +125,46 @@ func (c Controller) Query(q Query, ids []string) (pack senml.Pack, total *int, r
 		return
 	}
 	return data, total, nil
+}
+
+func parseDenormParams(denormString string) (denormMask DenormMask, err error) {
+
+	if denormString != "" {
+		denormStrings := strings.Split(denormString, ",")
+		for _, field := range denormStrings {
+			switch strings.ToLower(strings.TrimSpace(field)) {
+			case TimeField, TimeFieldShort:
+				denormMask = denormMask | FTime
+			case NameField, NameFieldShort:
+				denormMask = denormMask | FName
+			case UnitField, UnitFieldShort:
+				denormMask = denormMask | FUnit
+			case ValueField, ValueFieldShort:
+				denormMask = denormMask | FValue
+			case SumField, SumFieldShort:
+				denormMask = denormMask | FSum
+			default:
+				return 0, fmt.Errorf("unexpected senml field: %s", field)
+
+			}
+		}
+	}
+	return denormMask, nil
+}
+
+func parseFromValue(from string) (time.Time, error) {
+	if from == "" {
+		// start from zero time value
+		return time.Time{}, nil
+	} else {
+		return time.Parse(time.RFC3339, from)
+	}
+}
+func parseToValue(from string) (time.Time, error) {
+	if from == "" {
+		// start from zero time value
+		return time.Now().UTC(), nil
+	} else {
+		return time.Parse(time.RFC3339, from)
+	}
 }
