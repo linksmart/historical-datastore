@@ -49,7 +49,8 @@ func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
 			return &common.BadRequestError{S: fmt.Sprintf("senml entry %s does not match the provided datastream", r.Name)}
 		}
 		if !found {
-			ds, err := c.registry.Get(r.Name)
+			var err error
+			ds, err = c.registry.Get(r.Name)
 			if err != nil {
 				if errors.Is(err, errors2.ErrNotFound) {
 					if !c.autoRegistration {

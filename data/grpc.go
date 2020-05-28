@@ -36,14 +36,17 @@ func (a *GrpcAPI) StopGrpcServer() {
 }
 
 func (a *GrpcAPI) Submit(ctx context.Context, message *senml_protobuf.Message) (*data.Void, error) {
-	//panic("implement me")
+	void := &data.Void{}
 	if message == nil {
-		return &data.Void{}, status.Errorf(codes.InvalidArgument, "empty message received")
+		return void, status.Errorf(codes.InvalidArgument, "empty message received")
 	}
 	senmlPack := codec.ImportProtobufMessage(*message)
 
 	err := a.c.submit(senmlPack, nil)
-	return &data.Void{}, status.Errorf(err.GrpcStatus(), "Error submitting:"+err.Error())
+	if err != nil {
+		return void, status.Errorf(err.GrpcStatus(), "Error submitting:"+err.Error())
+	}
+	return void, nil
 }
 
 func (a *GrpcAPI) Query(ctx context.Context, request *data.QueryRequest) (response *data.QueryResponse, err error) {
