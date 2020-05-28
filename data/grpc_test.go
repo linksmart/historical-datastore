@@ -55,7 +55,7 @@ func setupGrpcAPI(t *testing.T) (grpcClient *GrpcClient) {
 		}
 	}()
 
-	grpcClient, err := newGrpcClientFromBufConListener(lis)
+	//grpcClient, err := newGrpcClientFromBufConListener(lis)
 	bufDialer := func(ctx context.Context, s string) (conn net.Conn, err error) {
 		return lis.Dial()
 	}
@@ -104,18 +104,4 @@ func TestGrpcSubmit(t *testing.T) {
 		t.Fatalf("Submit failed:%v", err)
 	}
 
-}
-
-func newGrpcClientFromBufConListener(listener *bufconn.Listener) (*GrpcClient, error) {
-	bufDialer := func(context.Context, string) (net.Conn, error) {
-		return listener.Dial()
-	}
-	ctx := context.Background()
-	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial bufnet: %v", err)
-	}
-	client := data.NewDataClient(conn)
-	return &GrpcClient{Client: client}, nil
 }
