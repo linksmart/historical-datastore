@@ -76,11 +76,11 @@ func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
 						return &common.BadRequestError{S: fmt.Sprintf("Error registering %v in the registry: %v", r.Name, err)}
 					}
 					ds = addedDS
+				} else {
+					return &common.InternalError{S: err.Error()}
 				}
-				nameDSs[r.Name] = ds
-			} else {
-				return &common.InternalError{S: err.Error()}
 			}
+			nameDSs[r.Name] = ds
 		}
 
 		err := validateRecordAgainstRegistry(r, ds)
