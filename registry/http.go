@@ -47,7 +47,7 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 	//TODO: add nextLink
 	lastModified, err := api.storage.getLastModifiedTime()
 	if err != nil {
-		log.Printf("Error retrieving last modified date: %w", err)
+		log.Printf("Error retrieving last modified date: %v", err)
 		lastModified = time.Now()
 	}
 

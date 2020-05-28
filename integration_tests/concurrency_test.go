@@ -179,6 +179,3 @@ func TestConcurrentDeletes(t *testing.T) {
 		}
 	}
 }
-
-//TODO: test the following
-// 1. Creation of duplicate names (Should not be allowed)

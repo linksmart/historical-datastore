@@ -15,10 +15,10 @@ type GrpcClient struct {
 
 func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
 	conn, err := grpc.Dial(serverEndpoint, grpc.WithInsecure())
-	client := data.NewDataClient(conn)
 	if err != nil {
 		return nil, err
 	}
+	client := data.NewDataClient(conn)
 	return &GrpcClient{Client: client}, nil
 }
 

@@ -26,7 +26,7 @@ func NewController(registry registry.Storage, storage Storage, autoRegistration 
 
 //TODO: Return right code in return so that right code is returned by callers. e.g. Grpc code or http error responses.
 func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
-	streams := make(map[string]*registry.DataStream)
+	//streams := make(map[string]*registry.DataStream)
 	nameDSs := make(map[string]*registry.DataStream)
 	fromStreamList := false
 	if ids != nil {
@@ -35,7 +35,7 @@ func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
 			if err != nil {
 				return &common.NotFoundError{S: fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", id, err)}
 			}
-			streams[ds.Name] = ds
+			nameDSs[ds.Name] = ds
 		}
 		fromStreamList = true
 	}
@@ -110,7 +110,7 @@ func (c Controller) Query(q Query, ids []string) (pack senml.Pack, total *int, r
 	for _, id := range ids {
 		ds, err := c.registry.Get(id)
 		if err != nil {
-			return nil, nil, &common.InternalError{S: fmt.Sprintf("Error retrieving Data stream %v from the registry: %w", id, err)}
+			return nil, nil, &common.InternalError{S: fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", id, err)}
 		}
 		sources = append(sources, ds)
 	}

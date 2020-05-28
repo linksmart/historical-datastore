@@ -287,7 +287,7 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 	if sort == common.Asc {
 		// default sorting order
 		q.SortAsc = true
-	} else if sort != common.Asc && sort != common.Desc {
+	} else if sort != "" && sort != common.Asc && sort != common.Desc {
 		return Query{}, &common.BadRequestError{S: "Invalid sort argument:" + sort}
 	} //else sortAsc is false
 

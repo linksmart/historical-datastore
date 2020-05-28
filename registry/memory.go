@@ -67,14 +67,14 @@ func (ms *MemoryStorage) Update(id string, ds DataStream) (*DataStream, error) {
 
 	_, ok := ms.data[id]
 	if !ok {
-		return nil, fmt.Errorf("%s: %s", ErrNotFound, "Data stream is not found.")
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, "Data stream is not found.")
 	}
 
 	oldDS := ms.data[id] // for comparison
 
 	err := validateUpdate(ds, *oldDS, ms.conf)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %s", ErrConflict, err)
+		return nil, fmt.Errorf("%w: %s", ErrConflict, err)
 	}
 
 	tempDS := *oldDS
@@ -104,7 +104,7 @@ func (ms *MemoryStorage) Delete(name string) error {
 
 	_, ok := ms.data[name]
 	if !ok {
-		return fmt.Errorf("%s: %s", name, ErrNotFound)
+		return fmt.Errorf("%s: %w", name, ErrNotFound)
 	}
 
 	// Send a delete event
@@ -126,7 +126,7 @@ func (ms *MemoryStorage) Get(id string) (*DataStream, error) {
 
 	ds, ok := ms.data[id]
 	if !ok {
-		return nil, fmt.Errorf("%s: %s", id, ErrNotFound)
+		return nil, fmt.Errorf("%s: %w", id, ErrNotFound)
 	}
 
 	return ds, nil

@@ -109,14 +109,14 @@ func (s *LevelDBStorage) Update(name string, ds DataStream) (*DataStream, error)
 
 	oldDS, err := s.Get(name) // for comparison
 	if err == leveldb.ErrNotFound {
-		return nil, fmt.Errorf("%s: %s", ErrNotFound, err)
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, err)
 	} else if err != nil {
 		return nil, err
 	}
 
 	err = validateUpdate(ds, *oldDS, s.conf)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %s", ErrConflict, err)
+		return nil, fmt.Errorf("%w: %s", ErrConflict, err)
 	}
 
 	tempDS := oldDS
@@ -165,7 +165,7 @@ func (s *LevelDBStorage) Delete(name string) error {
 
 	err = s.db.Delete([]byte(name), nil)
 	if err == leveldb.ErrNotFound {
-		return fmt.Errorf("%s: %s", ErrNotFound, err)
+		return fmt.Errorf("%w: %s", ErrNotFound, err)
 	} else if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func (s *LevelDBStorage) Get(id string) (*DataStream, error) {
 	// Query from database
 	dsBytes, err := s.db.Get([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
-		return nil, fmt.Errorf("%w: %s", &common.NotFoundError{S: id + " not found"}, err)
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, err)
 	} else if err != nil {
 		return nil, err
 	}
