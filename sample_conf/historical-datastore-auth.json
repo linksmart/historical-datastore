@@ -37,7 +37,7 @@
     "enabled": true,
     "provider": "keycloak",
     "providerURL": "http://example.com/kc",
-    "serviceID": "",
+    "clientID": "",
     "basicEnabled": false,
     "authorization": {
       "rules": [

@@ -3,49 +3,57 @@
 // Package authz provides simple rule-based authorization that can be used to implement access control
 package authz
 
-import "strings"
+import (
+	"strings"
+)
 
-// Authorized checks whether a user/group is authorized to access resource using a specific method
-func (authz *Conf) Authorized(resource, method, user string, groups []string) bool {
-	// Create a tree of paths
-	// e.g. parses /path1/path2/path3 to [/path1/path2/path3 /path1/path2 /path1]
-	// e.g. parses / to [/]
-	resource_split := strings.Split(resource, "/")
-	resource_split = resource_split[1:len(resource_split)] // truncate the first slash
-	var resource_tree []string
-	// construct tree from longest to shortest (/path1) path
-	for i := len(resource_split); i >= 1; i-- {
-		resource_tree = append(resource_tree, "/"+strings.Join(resource_split[0:i], "/"))
+// GroupAnonymous is the group name for unauthenticated users
+const GroupAnonymous = "anonymous"
+
+// Authorized checks whether a user/group is authorized to access a resource using the specific method
+func (authz *Conf) Authorized(resource, method string, claims *Claims) bool {
+	if claims == nil {
+		claims = &Claims{Groups: []string{GroupAnonymous}}
 	}
-	//fmt.Println(len(resource_split), resource_split)
-	//fmt.Println(len(resource_tree), resource_tree)
+	// Create a tree of paths
+	// e.g. /path1/path2/path3 -> [/path1/path2/path3 /path1/path2 /path1]
+	// e.g. / -> [/]
+	resourceSplit := strings.Split(resource, "/")[1:] // split and drop the first part (empty string before slash)
+	resourceTree := make([]string, 0, len(resourceSplit))
+	// construct tree from longest to shortest (/path1) path
+	for i := len(resourceSplit); i >= 1; i-- {
+		resourceTree = append(resourceTree, "/"+strings.Join(resourceSplit[:i], "/"))
+	}
+	//fmt.Printf("%s -> %v -> %v\n", resource, resourceSplit, resourceTree)
 
-	// Check whether a is in slice
-	inSlice := func(a string, slice []string) bool {
-		for _, b := range slice {
-			if b == a {
+	for _, rule := range authz.Rules {
+		for _, res := range resourceTree {
+			// Return true if user or group matches a rule
+			if inSlice(res, rule.Resources) &&
+				inSlice(method, rule.Methods) &&
+				(inSlice(claims.Username, rule.Users) || hasIntersection(claims.Groups, rule.Groups) || inSlice(claims.ClientID, rule.Clients)) {
 				return true
 			}
 		}
-		return false
 	}
-	// Check whether there is a match between two slices
-	inSliceM := func(slice1 []string, slice2 []string) bool {
-		for _, a := range slice1 {
-			for _, b := range slice2 {
-				if b == a {
-					return true
-				}
-			}
-		}
-		return false
-	}
+	return false
+}
 
-	for _, rule := range authz.Rules {
-		for _, res := range resource_tree {
-			// Return true if user or group matches a rule
-			if inSlice(res, rule.Resources) && inSlice(method, rule.Methods) &&
-				(inSlice(user, rule.Users) || inSliceM(groups, rule.Groups)) {
+// inSlice check whether a is in slice
+func inSlice(a string, slice []string) bool {
+	for _, b := range slice {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
+// hasIntersection checks whether there is a match between two slices
+func hasIntersection(slice1 []string, slice2 []string) bool {
+	for _, a := range slice1 {
+		for _, b := range slice2 {
+			if b == a {
 				return true
 			}
 		}
