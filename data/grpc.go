@@ -2,9 +2,12 @@ package data
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"net"
 
 	senml_protobuf "github.com/farshidtz/senml-protobuf/go"
+	"github.com/farshidtz/senml/v2"
 	"github.com/farshidtz/senml/v2/codec"
 	data "github.com/linksmart/historical-datastore/data/proto"
 	"github.com/linksmart/historical-datastore/registry"
@@ -49,32 +52,48 @@ func (a *GrpcAPI) Submit(ctx context.Context, message *senml_protobuf.Message) (
 	return void, nil
 }
 
-func (a *GrpcAPI) Query(ctx context.Context, request *data.QueryRequest) (response *data.QueryResponse, err error) {
+func (a *GrpcAPI) Query(request *data.QueryRequest, stream data.Data_QueryServer) (err error) {
 	var q Query
 	q.From, err = parseFromValue(request.From)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Error parsing from value: "+err.Error())
+		return status.Errorf(codes.InvalidArgument, "Error parsing from value: "+err.Error())
 	}
 
 	q.To, err = parseToValue(request.To)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Error parsing to Value: "+err.Error())
+		return status.Errorf(codes.InvalidArgument, "Error parsing to Value: "+err.Error())
 	}
 
-	q.count = request.Count
+	q.Count = request.Count
 	q.Denormalize = DenormMask(request.DenormaMask)
 	q.SortAsc = request.SortAsc
-	q.Page = int(request.Offset)
 	q.PerPage = int(request.RecordPerPacket)
 
-	pack, total, queryErr := a.c.Query(q, request.Streams)
-	if err != nil {
-		return nil, status.Errorf(queryErr.GrpcStatus(), "Error querying: "+err.Error())
+	remaining := int(request.Limit)
+	q.Page = 1
+
+	var sendFunc SendFunction =  func(pack senml.Pack) error{
+		ctx :=  stream.Context()
+		if ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded {
+			return ctx.Err()
+		}
+		message := codec.ExportProtobufMessage(pack)
+		return stream.Send(&message)
 	}
-	message := codec.ExportProtobufMessage(pack)
-	response.Message = &message
-	if total != nil {
-		response.TotalOptional = &data.QueryResponse_Total{Total: int32(*total)}
+	for remaining > 0 {
+		//If the perpage is greater than the
+		if remaining < q.PerPage {
+			q.PerPage = remaining
+		}
+		queryErr := a.c.QueryStream(q, request.Streams,sendFunc)
+		if err != nil {
+			return status.Errorf(queryErr.GrpcStatus(), "Error querying: "+err.Error())
+		}
+
+		//Prepare for the next loop
+		remaining -= len(pack)
+		q.Page += 1
 	}
-	return response, nil
+	return nil
 }
+send()

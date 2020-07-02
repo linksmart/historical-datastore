@@ -112,81 +112,35 @@ func (s *SqlStorage) Submit(data map[string]senml.Pack, streams map[string]*regi
 	return nil
 }
 
-//This function converts a floating point number (which is supported by senml) to a int64
-func floatTimeToInt64(senmlTime float64) int64 {
-	return int64(senmlTime * (1e9)) //time.Unix(int64(sec), int64(frac*(1e9))).UnixNano()
-}
-
-//This function converts a int64 floating point number (which is supported by senml)
-func int64ToFloatTime(timeVal int64) float64 {
-	return float64(timeVal) / 1e9
-}
-
-func ToSenmlTime(t time.Time) float64 {
-	if t.IsZero() {
-		return 0
-	}
-	return int64ToFloatTime(t.UnixNano())
-}
-
-func FromSenmlTime(t float64) time.Time {
-	return time.Unix(0, floatTimeToInt64(t))
-}
-
-//caution: this function modifies the record and baseRecord values
-func denormalizeRecord(record *senml.Record, baseRecord **senml.Record, mask DenormMask) {
-	if *baseRecord == nil {
-		//Store the address of the first record so that this can be used for the subsequent records.
-		//Storing just the value does not work unless a deep copy is performed.
-		*baseRecord = record
-		if mask&FName != 0 {
-			record.BaseName = record.Name
-			record.Name = ""
-		}
-		if mask&FTime != 0 {
-			record.BaseTime = record.Time
-			record.Time = 0
-		}
-		if mask&FUnit != 0 {
-			record.BaseUnit = record.Unit
-			record.Unit = ""
-		}
-		if mask&FValue != 0 {
-			record.BaseValue = record.Value
-			record.Value = nil
-		}
+func (s *SqlStorage) QueryPage(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+	if len(streams) == 1 {
+		return s.querySingleDataStream(q, *streams[0], false)
 	} else {
-		if mask&FName != 0 {
-			record.Name = ""
-		}
-		if mask&FTime != 0 {
-			record.Time = record.Time - (*baseRecord).BaseTime
-		}
-		if mask&FUnit != 0 {
-			record.Unit = ""
-		}
-		if mask&FValue != 0 {
-			if record.Value != nil && (*baseRecord).BaseValue != nil {
-				*record.Value = *record.Value - *(*baseRecord).BaseValue
-			}
-		}
+		return s.queryMultipleDataStreams(q, streams, false)
 	}
 }
 
-func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pack senml.Pack, total *int, err error) {
+func (s *SqlStorage) QueryStream(q Query, sendFunc SendFunction, streams ...*registry.DataStream) error {
+	if len(streams) != 1 {
+		return fmt.Errorf("multiple streams are not implemented")
+	}
+
 	//make a partial statement
 	var unionStmt strings.Builder
 	unionStmt.WriteString(fmt.Sprintf("[%s] where time BETWEEN %f and %f ",
 		stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
 
 	var stmt string
-	if q.count {
+	if q.Count || countOnly {
 		total = new(int)
 		stmt = "SELECT COUNT(*) FROM " + unionStmt.String()
 		row := s.pool.QueryRow(stmt)
 		err := row.Scan(total)
 		if err != nil {
-			return nil, nil, fmt.Errorf("error while querying count:%s", err)
+			return nil, nil, fmt.Errorf("error while querying Count:%s", err)
+		}
+		if countOnly { //return just the Count if the query just wants Count
+			return nil, total, nil
 		}
 	}
 
@@ -255,13 +209,157 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 	}
 	return records, total, nil
 }
+func (s *SqlStorage) Count(q Query, streams ...*registry.DataStream) (total int, err error) {
+	var pTotal *int
+	if len(streams) == 1 {
+		_, pTotal, err = s.querySingleDataStream(q, *streams[0], true)
+	} else {
+		_, pTotal, err = s.queryMultipleDataStreams(q, streams, true)
+	}
+	return *pTotal, err
+}
 
-func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+//This function converts a floating point number (which is supported by senml) to a int64
+func floatTimeToInt64(senmlTime float64) int64 {
+	return int64(senmlTime * (1e9)) //time.Unix(int64(sec), int64(frac*(1e9))).UnixNano()
+}
+
+//This function converts a int64 floating point number (which is supported by senml)
+func int64ToFloatTime(timeVal int64) float64 {
+	return float64(timeVal) / 1e9
+}
+
+func ToSenmlTime(t time.Time) float64 {
+	if t.IsZero() {
+		return 0
+	}
+	return int64ToFloatTime(t.UnixNano())
+}
+
+func FromSenmlTime(t float64) time.Time {
+	return time.Unix(0, floatTimeToInt64(t))
+}
+
+//caution: this function modifies the record and baseRecord values
+func denormalizeRecord(record *senml.Record, baseRecord **senml.Record, mask DenormMask) {
+	if *baseRecord == nil {
+		//Store the address of the first record so that this can be used for the subsequent records.
+		//Storing just the value does not work unless a deep copy is performed.
+		*baseRecord = record
+		if mask&FName != 0 {
+			record.BaseName = record.Name
+			record.Name = ""
+		}
+		if mask&FTime != 0 {
+			record.BaseTime = record.Time
+			record.Time = 0
+		}
+		if mask&FUnit != 0 {
+			record.BaseUnit = record.Unit
+			record.Unit = ""
+		}
+		if mask&FValue != 0 {
+			record.BaseValue = record.Value
+			record.Value = nil
+		}
+	} else {
+		if mask&FName != 0 {
+			record.Name = ""
+		}
+		if mask&FTime != 0 {
+			record.Time = record.Time - (*baseRecord).BaseTime
+		}
+		if mask&FUnit != 0 {
+			record.Unit = ""
+		}
+		if mask&FValue != 0 {
+			if record.Value != nil && (*baseRecord).BaseValue != nil {
+				*record.Value = *record.Value - *(*baseRecord).BaseValue
+			}
+		}
+	}
+}
+
+func (s *SqlStorage) querySingleDataStream(q Query, dataStream registry.DataStream, countOnly bool) (pack senml.Pack, total *int, err error) {
+	//make a partial statement
+	var unionStmt strings.Builder
+	unionStmt.WriteString(fmt.Sprintf("[%s] where time BETWEEN %f and %f ",
+		dataStream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
+
+	var stmt string
+
+	order := common.Desc
+	if q.SortAsc {
+		order = common.Asc
+	}
+	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), order, q.PerPage, (q.Page-1)*q.PerPage)
+	rows, err := s.pool.Query(stmt)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
+	}
+	defer rows.Close()
+
+	records := make([]senml.Record, 0, q.PerPage)
+
+	var timeVal float64
+	senmlName := dataStream.Name
+	var baseRecord *senml.Record
+	switch dataStream.Type {
+	case registry.Float:
+		for rows.Next() {
+			var val float64
+			err = rows.Scan(&timeVal, &val)
+			if err != nil {
+				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
+			}
+			record := senml.Record{Name: senmlName, Value: &val, Time: timeVal, Unit: dataStream.Unit}
+			denormalizeRecord(&record, &baseRecord, q.Denormalize)
+			records = append(records, record)
+
+		}
+	case registry.String:
+		for rows.Next() {
+			var strVal string
+			err = rows.Scan(&timeVal, &strVal)
+			if err != nil {
+				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
+			}
+			record := senml.Record{Name: senmlName, StringValue: strVal, Time: timeVal, Unit: dataStream.Unit}
+			denormalizeRecord(&record, &baseRecord, q.Denormalize)
+			records = append(records, record)
+		}
+	case registry.Bool:
+		for rows.Next() {
+			var boolVal bool
+			err = rows.Scan(&timeVal, &boolVal)
+			if err != nil {
+				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
+			}
+			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: dataStream.Unit}
+			denormalizeRecord(&record, &baseRecord, q.Denormalize)
+			records = append(records, record)
+		}
+	case registry.Data:
+		for rows.Next() {
+			var dataVal string
+			err = rows.Scan(&timeVal, &dataVal)
+			if err != nil {
+				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
+			}
+			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: dataStream.Unit}
+			denormalizeRecord(&record, &baseRecord, q.Denormalize)
+			records = append(records, record)
+		}
+	}
+	return records, total, nil
+}
+
+func (s *SqlStorage) queryMultipleDataStreams(q Query, dataStreams []*registry.DataStream, countOnly bool) (pack senml.Pack, total *int, err error) {
 	var unionStmt strings.Builder
 	unionStmt.WriteByte('(')
 	unionStr := ""
 
-	for _, stream := range streams {
+	for _, stream := range dataStreams {
 
 		//unionStmt.WriteString(fmt.Sprintf("%s(SELECT ('%s' as 'table_name' , '%s' as 'type_val', 'time' as 'time', 'value' as 'value') FROM [%s] WHERE time BETWEEN %f and %f)", unionStr, stream.Name, stream.Type, stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
 		unionStmt.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f and %f", unionStr, stream.Name, stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
@@ -272,13 +370,16 @@ func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStre
 
 	//counting the number
 	var stmt string
-	if q.count {
+	if q.Count || countOnly {
 		total = new(int)
 		stmt = "SELECT COUNT(*) FROM " + unionStmt.String()
 		row := s.pool.QueryRow(stmt)
 		err := row.Scan(&total)
 		if err != nil {
-			return nil, nil, fmt.Errorf("error while querying count:%s", err)
+			return nil, nil, fmt.Errorf("error while querying Count:%s", err)
+		}
+		if countOnly {
+			return nil, total, nil
 		}
 	}
 
@@ -297,11 +398,11 @@ func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStre
 	records := make([]senml.Record, 0, q.PerPage)
 
 	//prepare senml records
-	packArr := make(map[string][]senml.Record, len(streams))
+	packArr := make(map[string][]senml.Record, len(dataStreams))
 
-	streamMap := make(map[string]*registry.DataStream, len(streams))
-	baseRecordArr := make(map[string]**senml.Record, len(streams))
-	for _, stream := range streams {
+	streamMap := make(map[string]*registry.DataStream, len(dataStreams))
+	baseRecordArr := make(map[string]**senml.Record, len(dataStreams))
+	for _, stream := range dataStreams {
 		streamMap[stream.Name] = stream
 		var recordPtr *senml.Record
 		baseRecordArr[stream.Name] = &recordPtr
@@ -360,13 +461,6 @@ func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStre
 		records = append(records, val...)
 	}
 	return records, total, nil
-}
-func (s *SqlStorage) Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
-	if len(streams) == 1 {
-		return s.querySingleStream(q, *streams[0])
-	} else {
-		return s.queryMultipleStreams(q, streams...)
-	}
 }
 
 func (s *SqlStorage) Disconnect() error {

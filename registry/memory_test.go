@@ -208,7 +208,7 @@ func TestMemstoragePathFilter(t *testing.T) {
 		}
 	}
 
-	// Query for format with prefix "newtype"
+	// QueryPage for format with prefix "newtype"
 	_, total, err := storage.Filter("meta.newkey", "prefix", "a", 1, 100)
 	if err != nil {
 		t.Fatalf(err.Error())

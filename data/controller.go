@@ -106,7 +106,15 @@ func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
 	return nil
 }
 
-func (c Controller) Query(q Query, ids []string) (pack senml.Pack, total *int, retErr common.Error) {
+func (c Controller) QueryPage(q Query, ids []string) (pack senml.Pack, total *int, retErr common.Error) {
+	return c.queryStreamOrPage(q, ids, nil)
+}
+func (c Controller) QueryStream(q Query, ids []string, sendFunc SendFunction) (retErr common.Error) {
+	_, _, retErr = c.queryStreamOrPage(q, ids, sendFunc)
+	return retErr
+}
+
+func (c Controller) queryStreamOrPage(q Query, ids []string, sendFunc SendFunction) (pack senml.Pack, total *int, retErr common.Error) {
 	var sources []*registry.DataStream
 	for _, id := range ids {
 		ds, err := c.registry.Get(id)
@@ -120,12 +128,17 @@ func (c Controller) Query(q Query, ids []string) (pack senml.Pack, total *int, r
 		return nil, nil, &common.NotFoundError{S: "None of the specified Data streams could be retrieved from the registry."}
 	}
 
-	data, total, err := c.storage.Query(q, sources...)
+	var err error
+	if sendFunc == nil {
+		pack, total, err = c.storage.QueryPage(q, sources...)
+	} else {
+		err = c.storage.QueryStream(q, sendFunc, sources...)
+	}
 	if err != nil {
 		return nil, nil, &common.InternalError{S: "Error retrieving data from the database: " + err.Error()}
 		return
 	}
-	return data, total, nil
+	return pack, total, nil
 }
 
 func parseDenormParams(denormString string) (denormMask DenormMask, err error) {

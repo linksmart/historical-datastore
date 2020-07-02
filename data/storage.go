@@ -29,16 +29,22 @@ func SupportedBackends(name string) bool {
 	return supportedBackends[strings.ToLower(name)]
 }
 
+type SendFunction func(pack senml.Pack) error
+
 // Storage is an interface of a Data storage backend
 type Storage interface {
 	// Adds data points for multiple data streams
 	// data is a map where keys are data stream ids
 	// streams is a map where keys are data stream ids
-	Submit(data map[string]senml.Pack, streams map[string]*registry.DataStream) error
+	Submit(data map[string]senml.Pack, dataStreams map[string]*registry.DataStream) error
 
 	// Queries data for specified data streams
-	//Query(q Query, page, PerPage int, streams ...*registry.DataStream) (senml.Pack, int, error)
-	Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error)
+	//QueryPage(q QueryPage, page, PerPage int, streams ...*registry.DataStream) (senml.Pack, int, error)
+	QueryPage(q Query, dataStreams ...*registry.DataStream) (pack senml.Pack, total *int, err error)
+
+	QueryStream(q Query, sendFunc SendFunction, streams ...*registry.DataStream) error
+
+	Count(q Query, dataStreams ...*registry.DataStream) (total int, err error)
 
 	// EventListener includes methods for event handling
 	registry.EventListener

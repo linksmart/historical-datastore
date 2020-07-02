@@ -175,8 +175,16 @@ type dummyDataStorage struct{}
 func (s *dummyDataStorage) Submit(data map[string]senml.Pack, streams map[string]*registry.DataStream) error {
 	return nil
 }
-func (s *dummyDataStorage) Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+func (s *dummyDataStorage) QueryPage(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
 	return senml.Pack{}, nil, nil
+}
+
+func (s *dummyDataStorage) QueryStream(q Query, sendFunc SendFunction, streams ...*registry.DataStream) error {
+	return nil
+}
+
+func (s *dummyDataStorage) Count(q Query, streams ...*registry.DataStream) (total int, err error) {
+	return 0, nil
 }
 func (s *dummyDataStorage) Disconnect() error {
 	return nil

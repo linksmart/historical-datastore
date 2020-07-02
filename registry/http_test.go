@@ -113,7 +113,7 @@ func TestHttpIndex(t *testing.T) {
 			t.Fatalf(err.Error())
 		}
 
-		// Query the local data for comparison
+		// QueryPage the local data for comparison
 		dummyDSs, _, _ := registryClient.GetMany(page, perPage)
 
 		// Number of expected items in this page

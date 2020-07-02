@@ -200,7 +200,7 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 	)
 }
 
-// Query is a handler for querying data
+// QueryPage is a handler for querying data
 // Expected parameters: id(s), optional: pagination, query string
 func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
@@ -218,7 +218,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, total, err := api.controller.Query(q, ids)
+	data, total, err := api.controller.QueryPage(q, ids)
 	if err != nil {
 		common.HttpErrorResponse(err, w)
 		return
@@ -298,9 +298,9 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 		return Query{}, &common.BadRequestError{S: fmt.Sprintf("error in param %s=%s:%v", common.ParamDenormalize, denormStr, err)}
 	}
 
-	//get count
+	//get Count
 	if strings.EqualFold(form.Get(common.ParamCount), "true") {
-		q.count = true
+		q.Count = true
 	}
 
 	return q, nil

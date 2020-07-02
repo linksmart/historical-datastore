@@ -6,6 +6,7 @@ import (
 	"github.com/farshidtz/senml/v2"
 	"github.com/farshidtz/senml/v2/codec"
 	data "github.com/linksmart/historical-datastore/data/proto"
+	"github.com/linksmart/historical-datastore/registry"
 	"google.golang.org/grpc"
 )
 
@@ -24,6 +25,12 @@ func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
 
 func (c *GrpcClient) Submit(pack senml.Pack) error {
 	message := codec.ExportProtobufMessage(pack)
+	_, err := c.Client.Submit(context.Background(), &message)
+	return err
+}
+
+func (c *GrpcClient) Query(streams []string, q Query) error {
+	request := data.QueryRequest{Streams: streams,RecordPerPacket: q.PerPage,Offset: q.Page, SortAsc: q.SortAsc,}
 	_, err := c.Client.Submit(context.Background(), &message)
 	return err
 }

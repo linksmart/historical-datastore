@@ -175,7 +175,7 @@ func (s *LevelDBStorage) Delete(name string) error {
 }
 
 func (s *LevelDBStorage) Get(id string) (*DataStream, error) {
-	// Query from database
+	// QueryPage from database
 	dsBytes, err := s.db.Get([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, err)

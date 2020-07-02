@@ -41,18 +41,30 @@ type RecordSet struct {
 	NextLink string `json:"nextLink,omitempty"`
 
 	//Total number of entries
-	Count *int `json:"count,omitempty"`
+	Count *int `json:"Count,omitempty"`
 }
 
 type Query struct {
-	//Time from which the data needs to be fetched
+	// From is the Time from which the data needs to be fetched
 	From time.Time
-	//Time to which the data needs to be fetched
+	// Time to which the data needs to be fetched
 	To time.Time
-	//Sort either ASC or DESC
-	SortAsc     bool
-	Page        int
-	PerPage     int
+
+	// SortAsc if set to true, oldest measurements are listed first in the resulting pack. If set to false, latest entries are listed first.
+	SortAsc bool
+
+	// PerPag: in case of paginated query, number of measurements returned as part of the query. In case of streamed query, number of measurements per pack in the stream
+	PerPage int
+
+	// Denormalize is a set of flags to be set based on the fields to be denormalized (Base field)
 	Denormalize DenormMask
-	count       bool
+
+	// Count: if enabled, it will return the total number of entries to the query
+	Count bool
+
+	// Limit Applicable only for streamed queries
+	Limit int
+
+	// Page is applicable only for paginated queries
+	Page int
 }

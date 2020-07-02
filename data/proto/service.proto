@@ -29,7 +29,6 @@ message QueryRequest
 	repeated string streams = 1;
 	string from = 2;
 	string to = 3;
-	int32 offset = 4; //number of points to skip
 	int32 recordPerPacket = 5; //Number of senml messages sent per packet
 	DenormMask denormaMask = 6; //the bitwise mask to specify the fields to be denormalized
 	bool count = 7;
@@ -37,15 +36,11 @@ message QueryRequest
 	int32 limit = 9;
 }
 
-message QueryResponse
-{
-	senml_protobuf.Message message  = 1;
-	oneof totalOptional {
-		int32 total = 2;
-	}
+message CountResponse {
+	int32 total = 1;
 }
-
 service Data {
     rpc Submit(senml_protobuf.Message) returns(Void){}
-    rpc Query(QueryRequest) returns(QueryResponse){}
+    rpc Query(QueryRequest) returns(stream senml_protobuf.Message){}
+	rpc Count(QueryRequest) returns(CountResponse){}
 }
