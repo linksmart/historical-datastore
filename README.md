@@ -7,10 +7,13 @@ Historical Datastore
 
 LinkSmart Historical Datastore is a modular service for time-series data storage. It is designed to store timeseries data on low powered devices and single board computers. It uses [Sensor Measurement Lists (SenML)](https://tools.ietf.org/html/rfc8428) as the data format for storage and retrieval. Metadata related to the series is stored in Historical Datastore's registry.
 
-* [Documentation](https://docs.linksmart.eu/display/HDS)
+* [Documentation](https://github.com/linksmart/historical-datastore/wiki)
 
 
-## Run
+## Running the binary
+
+The binaries can be found in the [release](https://github.com/linksmart/historical-datastore/releases). 
+
 Use -conf flag to set the config file path. If not set, `./conf/historical-datastore.json` will be used.
 ```
 ./historical-datastore -conf historical-datastore.json
