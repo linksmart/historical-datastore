@@ -2,11 +2,11 @@ package data
 
 import (
 	"context"
+	"time"
 
 	"github.com/farshidtz/senml/v2"
 	"github.com/farshidtz/senml/v2/codec"
 	data "github.com/linksmart/historical-datastore/data/proto"
-	"github.com/linksmart/historical-datastore/registry"
 	"google.golang.org/grpc"
 )
 
@@ -30,7 +30,16 @@ func (c *GrpcClient) Submit(pack senml.Pack) error {
 }
 
 func (c *GrpcClient) Query(streams []string, q Query) error {
-	request := data.QueryRequest{Streams: streams,RecordPerPacket: q.PerPage,Offset: q.Page, SortAsc: q.SortAsc,}
-	_, err := c.Client.Submit(context.Background(), &message)
+	request := data.QueryRequest{
+		Streams:         streams,
+		From:            q.From.Format(time.RFC3339),
+		To:              q.To.Format(time.RFC3339),
+		RecordPerPacket: int32(q.PerPage),
+		DenormaMask:     data.DenormMask(q.Denormalize),
+		SortAsc:         q.SortAsc,
+		Limit:           int32(q.Limit),
+		Offset:          int32(q.Offset),
+	}
+	_, err := c.Client.Query(context.Background(), &request)
 	return err
 }

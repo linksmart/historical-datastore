@@ -31,9 +31,9 @@ message QueryRequest
 	string to = 3;
 	int32 recordPerPacket = 5; //Number of senml messages sent per packet
 	DenormMask denormaMask = 6; //the bitwise mask to specify the fields to be denormalized
-	bool count = 7;
-    bool sort_asc = 8;
-	int32 limit = 9;
+    bool sort_asc = 7;
+	int32 limit = 8;
+	int32 offset = 9;
 }
 
 message CountResponse {

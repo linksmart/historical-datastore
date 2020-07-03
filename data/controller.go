@@ -114,29 +114,47 @@ func (c Controller) QueryStream(q Query, ids []string, sendFunc SendFunction) (r
 	return retErr
 }
 
-func (c Controller) queryStreamOrPage(q Query, ids []string, sendFunc SendFunction) (pack senml.Pack, total *int, retErr common.Error) {
-	var sources []*registry.DataStream
-	for _, id := range ids {
-		ds, err := c.registry.Get(id)
+func (c Controller) Count(q Query, streamNames []string) (total int, retErr common.Error) {
+	var streams []*registry.DataStream
+	for _, streamName := range streamNames {
+		ds, err := c.registry.Get(streamName)
 		if err != nil {
-			return nil, nil, &common.InternalError{S: fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", id, err)}
+			return 0, &common.InternalError{S: fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", streamName, err)}
 		}
-		sources = append(sources, ds)
+		streams = append(streams, ds)
+	}
+	if len(streams) == 0 {
+		return 0, &common.NotFoundError{S: "None of the specified Data streams could be retrieved from the registry."}
+	}
+	total, err := c.storage.Count(q, streams...)
+	if err != nil {
+		return 0, &common.InternalError{S: "Error retrieving count from the database: " + err.Error()}
+	}
+	return total, nil
+}
+
+func (c Controller) queryStreamOrPage(q Query, streamNames []string, sendFunc SendFunction) (pack senml.Pack, total *int, retErr common.Error) {
+	var streams []*registry.DataStream
+	for _, streamName := range streamNames {
+		ds, err := c.registry.Get(streamName)
+		if err != nil {
+			return nil, nil, &common.InternalError{S: fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", streamName, err)}
+		}
+		streams = append(streams, ds)
 	}
 
-	if len(sources) == 0 {
+	if len(streams) == 0 {
 		return nil, nil, &common.NotFoundError{S: "None of the specified Data streams could be retrieved from the registry."}
 	}
 
 	var err error
 	if sendFunc == nil {
-		pack, total, err = c.storage.QueryPage(q, sources...)
+		pack, total, err = c.storage.QueryPage(q, streams...)
 	} else {
-		err = c.storage.QueryStream(q, sendFunc, sources...)
+		err = c.storage.QueryStream(q, sendFunc, streams...)
 	}
 	if err != nil {
 		return nil, nil, &common.InternalError{S: "Error retrieving data from the database: " + err.Error()}
-		return
 	}
 	return pack, total, nil
 }

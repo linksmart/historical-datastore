@@ -53,18 +53,22 @@ type Query struct {
 	// SortAsc if set to true, oldest measurements are listed first in the resulting pack. If set to false, latest entries are listed first.
 	SortAsc bool
 
-	// PerPag: in case of paginated query, number of measurements returned as part of the query. In case of streamed query, number of measurements per pack in the stream
+	// PerPage: in case of paginated query, number of measurements returned as part of the query. In case of streamed query, number of measurements per pack in the stream
 	PerPage int
 
 	// Denormalize is a set of flags to be set based on the fields to be denormalized (Base field)
 	Denormalize DenormMask
 
-	// Count: if enabled, it will return the total number of entries to the query
-	Count bool
-
-	// Limit Applicable only for streamed queries
+	// Limit is applicable only for streamed queries
 	Limit int
+
+	// Offset is applicable only for streamed queries
+	Offset int
 
 	// Page is applicable only for paginated queries
 	Page int
+
+	// Count: if enabled, it will return the total number of entries to the query.
+	// applicable only for paginated queries
+	Count bool
 }
