@@ -66,7 +66,7 @@ func SupportedPeriod(p string) bool {
 	return re.MatchString(p)
 }
 
-// SupportedPeriods returens supported periods
+// SupportedPeriods returns supported periods
 func SupportedPeriods() []string {
 	var periods []string
 	copy(periods, supportedPeriods)
