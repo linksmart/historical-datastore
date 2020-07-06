@@ -319,19 +319,18 @@ func (s *SqlStorage) queryMultipleDataStreams(q Query, dataStreams []*registry.D
 
 	records := make([]senml.Record, 0, q.PerPage)
 
-	//prepare senml records
-	packArr := make(map[string][]senml.Record, len(dataStreams))
-
 	streamMap := make(map[string]*registry.DataStream, len(dataStreams))
-	baseRecordArr := make(map[string]**senml.Record, len(dataStreams))
+
 	for _, stream := range dataStreams {
 		streamMap[stream.Name] = stream
-		var recordPtr *senml.Record
-		baseRecordArr[stream.Name] = &recordPtr
 	}
 	var senmlName string
 	var timeVal float64
 	var val interface{}
+
+	denormMask := q.Denormalize &^ FName // Reset the FName. denormalizing the name is not supported in case of multistream requests
+	var baseRecord *senml.Record
+
 	for rows.Next() {
 		err = rows.Scan(&senmlName, &timeVal, &val)
 		if err != nil {
@@ -339,23 +338,22 @@ func (s *SqlStorage) queryMultipleDataStreams(q Query, dataStreams []*registry.D
 		}
 		stream := *streamMap[senmlName]
 
+		var record senml.Record
+
 		switch stream.Type {
 		case registry.Float:
 			floatVal, ok := val.(float64)
 			if !ok {
 				return nil, nil, fmt.Errorf("error while scanning float64 query result: unexpected type obtained")
 			}
-			record := senml.Record{Name: senmlName, Value: &floatVal, Time: timeVal, Unit: stream.Unit}
-			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
-			packArr[senmlName] = append(packArr[senmlName], record)
+			record = senml.Record{Name: senmlName, Value: &floatVal, Time: timeVal, Unit: stream.Unit}
+
 		case registry.String:
 			stringVal, ok := val.(string)
 			if !ok {
 				return nil, nil, fmt.Errorf("error while scanning string query result: unexpected type obtained")
 			}
-			record := senml.Record{Name: senmlName, StringValue: stringVal, Time: timeVal, Unit: stream.Unit}
-			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
-			packArr[senmlName] = append(packArr[senmlName], record)
+			record = senml.Record{Name: senmlName, StringValue: stringVal, Time: timeVal, Unit: stream.Unit}
 		case registry.Bool:
 			var boolVal bool
 			switch retType := val.(type) { //Some of the OS environments return the type as boolean even if the expected type is int64. This issue was found in Travis CI.
@@ -366,22 +364,20 @@ func (s *SqlStorage) queryMultipleDataStreams(q Query, dataStreams []*registry.D
 			default:
 				return nil, nil, fmt.Errorf("error while scanning boolean query result: unexpected type %v obtained", retType)
 			}
-			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
-			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
-			packArr[senmlName] = append(packArr[senmlName], record)
+			record = senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
 		case registry.Data:
 			dataVal, ok := val.(string)
 			if !ok {
 				return nil, nil, fmt.Errorf("error while scanning boolean query result: unexpected type obtained")
 			}
-			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: stream.Unit}
-			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
-			packArr[senmlName] = append(packArr[senmlName], record)
+			record = senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: stream.Unit}
 		}
+
+		denormalizeRecord(&record, &baseRecord, denormMask)
+		records = append(records, record)
+
 	}
-	for _, val := range packArr {
-		records = append(records, val...)
-	}
+
 	return records, total, nil
 }
 
@@ -544,7 +540,7 @@ func (s *SqlStorage) streamMultipleStream(q Query, sendFunc SendFunction, dataSt
 	var senmlName string
 	var timeVal float64
 	var val interface{}
-	denormMask := q.Denormalize &^ FName // Reset the FName. denormalizing the name is not supported yet in case of multistream requests
+	denormMask := q.Denormalize &^ FName // Reset the FName. denormalizing the name is not supported  in case of multistream requests
 	var baseRecord *senml.Record
 	recordCount := 0
 	for rows.Next() {

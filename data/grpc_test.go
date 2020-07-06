@@ -118,7 +118,7 @@ func TestGrpcSubmit(t *testing.T) {
 	}
 
 	//validate submission by checking the count
-	q := Query{To: time.Now()}
+	q := Query{To: time.Now(), Denormalize: FName | FUnit}
 	streamNames := []string{"http://example.com/sensor1", "http://example.com/sensor2", "http://example.com/sensor3"}
 	total, err := client.Count(streamNames, q)
 	if err != nil {
