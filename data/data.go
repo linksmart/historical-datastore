@@ -9,13 +9,19 @@ import (
 	"github.com/farshidtz/senml/v2"
 )
 
-type DenormMask int
+//Specifying which field needs to be denormalized
+type DenormMask int32
 
 const (
+	//name field
 	FName DenormMask = 1 << iota
+	//time field
 	FTime
+	//unit field
 	FUnit
+	//Value field
 	FValue
+	//sum field
 	FSum
 )
 
@@ -35,15 +41,34 @@ type RecordSet struct {
 	NextLink string `json:"nextLink,omitempty"`
 
 	//Total number of entries
-	Count *int `json:"count,omitempty"`
+	Count *int `json:"Count,omitempty"`
 }
 
 type Query struct {
-	From        time.Time
-	To          time.Time
-	Sort        string
-	Page        int
-	PerPage     int
+	// From is the Time from which the data needs to be fetched
+	From time.Time
+	// Time to which the data needs to be fetched
+	To time.Time
+
+	// SortAsc if set to true, oldest measurements are listed first in the resulting pack. If set to false, latest entries are listed first.
+	SortAsc bool
+
+	// PerPage: in case of paginated query, number of measurements returned as part of the query. In case of streamed query, number of measurements per pack in the stream
+	PerPage int
+
+	// Denormalize is a set of flags to be set based on the fields to be denormalized (Base field)
 	Denormalize DenormMask
-	count       bool
+
+	// Limit is applicable only for streamed queries
+	Limit int
+
+	// Offset is applicable only for streamed queries
+	Offset int
+
+	// Page is applicable only for paginated queries
+	Page int
+
+	// Count: if enabled, it will return the total number of entries to the query.
+	// applicable only for paginated queries
+	Count bool
 }

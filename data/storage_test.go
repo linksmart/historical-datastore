@@ -112,28 +112,30 @@ func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Stor
 	}
 
 	//get these data
-	gotrecords, total, err := storage.Query(Query{Sort: common.Desc, Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec * 4}, streamArr...)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, streamArr...)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if *total != totRec*4 {
-		t.Errorf("Received count should be %d, got %d (len) instead", totRec, *total)
+		t.Errorf("Received Count should be %d, got %d (len) instead", totRec, *total)
 	}
 	if len(gotrecords) != totRec*4 {
 		t.Errorf("Received total should be %d, got %d (len) instead", totRec, len(gotrecords))
 	}
 
 	gotrecords.Normalize()
+	// segregate the got records
+	gotDataMap := make(map[string]senml.Pack)
 
-	//normalize sent records
-	for i, _ := range sentDataMap {
-		sentDataMap[i].Normalize()
+	for _, record := range gotrecords {
+		gotDataMap[record.Name] = append(gotDataMap[record.Name], record)
 	}
 
-	for i := 0; i < 4; i++ { //This loop runs under the assumption that the senml records are ordered according to names
-		start := totRec * i
-		if CompareSenml(gotrecords[start:start+totRec], sentDataMap[gotrecords[start].Name]) == false {
+	// normalize sent records
+	for i, _ := range sentDataMap {
+		sentDataMap[i].Normalize()
+		if CompareSenml(gotDataMap[i], sentDataMap[i]) == false {
 			t.Error("Sent records and received record did not match!!")
 		}
 	}
@@ -164,13 +166,13 @@ func testInsertData(t *testing.T, storage Storage, regstorage registry.Storage) 
 	}
 
 	//get these data
-	gotrecords, total, err := storage.Query(Query{Sort: common.Desc, Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if *total != totRec {
-		t.Errorf("Received count should be %d, got %d (len) instead", totRec, *total)
+		t.Errorf("Received Count should be %d, got %d (len) instead", totRec, *total)
 	}
 	if len(gotrecords) != totRec {
 		t.Errorf("Received total should be %d, got %d (len) instead", totRec, len(gotrecords))
@@ -207,13 +209,13 @@ func testInsertBools(t *testing.T, storage Storage, regstorage registry.Storage)
 	}
 
 	//get these data
-	gotrecords, total, err := storage.Query(Query{Sort: common.Desc, Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if *total != totRec {
-		t.Errorf("Received count should be %d, got %d (len) instead", totRec, *total)
+		t.Errorf("Received Count should be %d, got %d (len) instead", totRec, *total)
 	}
 	if len(gotrecords) != totRec {
 		t.Errorf("Received total should be %d, got %d (len) instead", totRec, len(gotrecords))
@@ -250,13 +252,13 @@ func testInsertStrings(t *testing.T, storage Storage, regstorage registry.Storag
 	}
 
 	//get these data
-	gotrecords, total, err := storage.Query(Query{Sort: common.Desc, Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if *total != totRec {
-		t.Errorf("Received count should be %d, got %d (len) instead", totRec, *total)
+		t.Errorf("Received Count should be %d, got %d (len) instead", totRec, *total)
 	}
 	if len(gotrecords) != totRec {
 		t.Errorf("Received total should be %d, got %d (len) instead", totRec, len(gotrecords))
@@ -293,13 +295,13 @@ func testInsertVals(t *testing.T, storage Storage, regstorage registry.Storage) 
 	}
 
 	//get these data
-	gotrecords, total, err := storage.Query(Query{Sort: common.Desc, Denormalize: FName | FTime, count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if *total != totRec {
-		t.Errorf("Received count should be %d, got %d (len) instead", totRec, *total)
+		t.Errorf("Received Count should be %d, got %d (len) instead", totRec, *total)
 	}
 	if len(gotrecords) != totRec {
 		t.Errorf("Received total should be %d, got %d (len) instead", totRec, len(gotrecords))
@@ -457,7 +459,7 @@ func benchmarkQueryRandom(b *testing.B, storage Storage, timeStart float64, time
 	}
 	for i := 0; i < b.N; i++ {
 		start := between(timeStart, timeEnd)
-		_, _, err := storage.Query(Query{From: time.Unix(0, int64(start*(1e9))), To: time.Unix(0, int64((start+2.0)*(1e9)))}, &registry.DataStream{Name: stream.Name})
+		_, _, err := storage.QueryPage(Query{From: time.Unix(0, int64(start*(1e9))), To: time.Unix(0, int64((start+2.0)*(1e9)))}, &registry.DataStream{Name: stream.Name})
 		if err != nil {
 			b.Error("query failed", err)
 		}
@@ -633,7 +635,7 @@ func benchmarkDeleteSeries(b *testing.B, storage Storage, regStorage registry.St
 
 func benchmarkQuerySeries(b *testing.B, storage Storage, _ registry.Storage) {
 	for i := 0; i < b.N; i++ {
-		_, _, err := storage.Query(Query{}, &registry.DataStream{Name: strconv.Itoa(i % TOTALSERIES)})
+		_, _, err := storage.QueryPage(Query{}, &registry.DataStream{Name: strconv.Itoa(i % TOTALSERIES)})
 		if err != nil {
 			b.Fatal("Error querying:", err)
 		}

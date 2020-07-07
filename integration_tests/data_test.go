@@ -8,7 +8,6 @@ import (
 
 	"github.com/farshidtz/senml/v2"
 	"github.com/farshidtz/senml/v2/codec"
-	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/registry"
 	uuid "github.com/satori/go.uuid"
@@ -111,7 +110,7 @@ func TestCreationDiffTimestamp(t *testing.T) {
 	}
 
 	//get these data
-	gotrecords, err := dataClient.Query(data.Query{Sort: common.Desc}, datastream.Name)
+	gotrecords, err := dataClient.Query(data.Query{}, datastream.Name)
 	if err != nil {
 		t.Error(err)
 	}
@@ -168,7 +167,7 @@ func TestCreationDiffTimestamp_Denormalized(t *testing.T) {
 	}
 
 	//get these data
-	gotrecords, err := dataClient.Query(data.Query{Sort: common.Desc, Denormalize: data.FName | data.FTime}, datastream.Name)
+	gotrecords, err := dataClient.Query(data.Query{ Denormalize: data.FName | data.FTime}, datastream.Name)
 	if err != nil {
 		t.Error(err)
 	}
@@ -254,7 +253,7 @@ func TestInsertRandom(t *testing.T) {
 	effREcords[inspos] = insrecord
 
 	//get these data
-	gotrecords, err := dataClient.Query(data.Query{Sort: common.Desc}, datastream.Name)
+	gotrecords, err := dataClient.Query(data.Query{}, datastream.Name)
 	if err != nil {
 		t.Error(err)
 	}

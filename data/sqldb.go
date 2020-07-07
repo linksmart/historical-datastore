@@ -112,6 +112,24 @@ func (s *SqlStorage) Submit(data map[string]senml.Pack, streams map[string]*regi
 	return nil
 }
 
+func (s *SqlStorage) QueryPage(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+	if len(streams) == 1 {
+		return s.querySingleDataStream(q, *streams[0], false)
+	} else {
+		return s.queryMultipleDataStreams(q, streams, false)
+	}
+}
+
+func (s *SqlStorage) Count(q Query, streams ...*registry.DataStream) (total int, err error) {
+	var pTotal *int
+	if len(streams) == 1 {
+		_, pTotal, err = s.querySingleDataStream(q, *streams[0], true)
+	} else {
+		_, pTotal, err = s.queryMultipleDataStreams(q, streams, true)
+	}
+	return *pTotal, err
+}
+
 //This function converts a floating point number (which is supported by senml) to a int64
 func floatTimeToInt64(senmlTime float64) int64 {
 	return int64(senmlTime * (1e9)) //time.Unix(int64(sec), int64(frac*(1e9))).UnixNano()
@@ -173,24 +191,30 @@ func denormalizeRecord(record *senml.Record, baseRecord **senml.Record, mask Den
 	}
 }
 
-func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pack senml.Pack, total *int, err error) {
+func (s *SqlStorage) querySingleDataStream(q Query, dataStream registry.DataStream, countOnly bool) (pack senml.Pack, total *int, err error) {
 	//make a partial statement
 	var unionStmt strings.Builder
 	unionStmt.WriteString(fmt.Sprintf("[%s] where time BETWEEN %f and %f ",
-		stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
+		dataStream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
 
 	var stmt string
-	if q.count {
+	if q.Count || countOnly {
 		total = new(int)
 		stmt = "SELECT COUNT(*) FROM " + unionStmt.String()
 		row := s.pool.QueryRow(stmt)
 		err := row.Scan(total)
 		if err != nil {
-			return nil, nil, fmt.Errorf("error while querying count:%s", err)
+			return nil, nil, fmt.Errorf("error while querying Count:%s", err)
+		}
+		if countOnly {
+			return nil, total, nil
 		}
 	}
-
-	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), q.Sort, q.PerPage, (q.Page-1)*q.PerPage)
+	order := common.Desc
+	if q.SortAsc {
+		order = common.Asc
+	}
+	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), order, q.PerPage, (q.Page-1)*q.PerPage)
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
@@ -200,9 +224,9 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 	records := make([]senml.Record, 0, q.PerPage)
 
 	var timeVal float64
-	senmlName := stream.Name
+	senmlName := dataStream.Name
 	var baseRecord *senml.Record
-	switch stream.Type {
+	switch dataStream.Type {
 	case registry.Float:
 		for rows.Next() {
 			var val float64
@@ -210,7 +234,7 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, Value: &val, Time: timeVal, Unit: stream.Unit}
+			record := senml.Record{Name: senmlName, Value: &val, Time: timeVal, Unit: dataStream.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 
@@ -222,7 +246,7 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, StringValue: strVal, Time: timeVal, Unit: stream.Unit}
+			record := senml.Record{Name: senmlName, StringValue: strVal, Time: timeVal, Unit: dataStream.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 		}
@@ -233,7 +257,7 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
+			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: dataStream.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 		}
@@ -244,7 +268,7 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: stream.Unit}
+			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: dataStream.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 		}
@@ -252,12 +276,12 @@ func (s *SqlStorage) querySingleStream(q Query, stream registry.DataStream) (pac
 	return records, total, nil
 }
 
-func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+func (s *SqlStorage) queryMultipleDataStreams(q Query, dataStreams []*registry.DataStream, countOnly bool) (pack senml.Pack, total *int, err error) {
 	var unionStmt strings.Builder
 	unionStmt.WriteByte('(')
 	unionStr := ""
 
-	for _, stream := range streams {
+	for _, stream := range dataStreams {
 
 		//unionStmt.WriteString(fmt.Sprintf("%s(SELECT ('%s' as 'table_name' , '%s' as 'type_val', 'time' as 'time', 'value' as 'value') FROM [%s] WHERE time BETWEEN %f and %f)", unionStr, stream.Name, stream.Type, stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
 		unionStmt.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f and %f", unionStr, stream.Name, stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
@@ -268,18 +292,25 @@ func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStre
 
 	//counting the number
 	var stmt string
-	if q.count {
+	if q.Count || countOnly {
 		total = new(int)
 		stmt = "SELECT COUNT(*) FROM " + unionStmt.String()
 		row := s.pool.QueryRow(stmt)
-		err := row.Scan(&total)
+		err := row.Scan(total)
 		if err != nil {
-			return nil, nil, fmt.Errorf("error while querying count:%s", err)
+			return nil, nil, fmt.Errorf("error while querying Count:%s", err)
+		}
+		if countOnly {
+			return nil, total, nil
 		}
 	}
 
 	//query the entries
-	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), q.Sort, q.PerPage, (q.Page-1)*q.PerPage)
+	order := common.Desc
+	if q.SortAsc {
+		order = common.Asc
+	}
+	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), order, q.PerPage, (q.Page-1)*q.PerPage)
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
@@ -288,19 +319,18 @@ func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStre
 
 	records := make([]senml.Record, 0, q.PerPage)
 
-	//prepare senml records
-	packArr := make(map[string][]senml.Record, len(streams))
+	streamMap := make(map[string]*registry.DataStream, len(dataStreams))
 
-	streamMap := make(map[string]*registry.DataStream, len(streams))
-	baseRecordArr := make(map[string]**senml.Record, len(streams))
-	for _, stream := range streams {
+	for _, stream := range dataStreams {
 		streamMap[stream.Name] = stream
-		var recordPtr *senml.Record
-		baseRecordArr[stream.Name] = &recordPtr
 	}
 	var senmlName string
 	var timeVal float64
 	var val interface{}
+
+	denormMask := q.Denormalize &^ FName // Reset the FName. denormalizing the name is not supported in case of multistream requests
+	var baseRecord *senml.Record
+
 	for rows.Next() {
 		err = rows.Scan(&senmlName, &timeVal, &val)
 		if err != nil {
@@ -308,23 +338,22 @@ func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStre
 		}
 		stream := *streamMap[senmlName]
 
+		var record senml.Record
+
 		switch stream.Type {
 		case registry.Float:
 			floatVal, ok := val.(float64)
 			if !ok {
 				return nil, nil, fmt.Errorf("error while scanning float64 query result: unexpected type obtained")
 			}
-			record := senml.Record{Name: senmlName, Value: &floatVal, Time: timeVal, Unit: stream.Unit}
-			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
-			packArr[senmlName] = append(packArr[senmlName], record)
+			record = senml.Record{Name: senmlName, Value: &floatVal, Time: timeVal, Unit: stream.Unit}
+
 		case registry.String:
 			stringVal, ok := val.(string)
 			if !ok {
 				return nil, nil, fmt.Errorf("error while scanning string query result: unexpected type obtained")
 			}
-			record := senml.Record{Name: senmlName, StringValue: stringVal, Time: timeVal, Unit: stream.Unit}
-			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
-			packArr[senmlName] = append(packArr[senmlName], record)
+			record = senml.Record{Name: senmlName, StringValue: stringVal, Time: timeVal, Unit: stream.Unit}
 		case registry.Bool:
 			var boolVal bool
 			switch retType := val.(type) { //Some of the OS environments return the type as boolean even if the expected type is int64. This issue was found in Travis CI.
@@ -335,30 +364,242 @@ func (s *SqlStorage) queryMultipleStreams(q Query, streams ...*registry.DataStre
 			default:
 				return nil, nil, fmt.Errorf("error while scanning boolean query result: unexpected type %v obtained", retType)
 			}
-			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
-			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
-			packArr[senmlName] = append(packArr[senmlName], record)
+			record = senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
 		case registry.Data:
 			dataVal, ok := val.(string)
 			if !ok {
 				return nil, nil, fmt.Errorf("error while scanning boolean query result: unexpected type obtained")
 			}
-			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: stream.Unit}
-			denormalizeRecord(&record, baseRecordArr[senmlName], q.Denormalize)
-			packArr[senmlName] = append(packArr[senmlName], record)
+			record = senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: stream.Unit}
 		}
+
+		denormalizeRecord(&record, &baseRecord, denormMask)
+		records = append(records, record)
+
 	}
-	for _, val := range packArr {
-		records = append(records, val...)
-	}
+
 	return records, total, nil
 }
-func (s *SqlStorage) Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+
+func (s *SqlStorage) QueryStream(q Query, sendFunc SendFunction, streams ...*registry.DataStream) error {
 	if len(streams) == 1 {
-		return s.querySingleStream(q, *streams[0])
+		return s.streamSingleStream(q, sendFunc, *streams[0])
 	} else {
-		return s.queryMultipleStreams(q, streams...)
+		return s.streamMultipleStream(q, sendFunc, streams)
 	}
+}
+
+func (s *SqlStorage) streamSingleStream(q Query, sendFunc SendFunction, stream registry.DataStream) error {
+	//make a partial statement
+	var unionStmt strings.Builder
+	unionStmt.WriteString(fmt.Sprintf("[%s] where time BETWEEN %f and %f ",
+		stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
+
+	order := common.Desc
+	if q.SortAsc {
+		order = common.Asc
+	}
+	limitStr := ""
+	if q.Limit != 0 {
+		limitStr = fmt.Sprintf("LIMIT %d OFFSET %d", q.Limit, q.Offset)
+	}
+	stmt := fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s %s", unionStmt.String(), order, limitStr)
+	rows, err := s.pool.Query(stmt)
+	if err != nil {
+		return fmt.Errorf("error while querying rows:%s", err)
+	}
+	defer rows.Close()
+
+	records := make([]senml.Record, 0, q.PerPage)
+
+	var timeVal float64
+	senmlName := stream.Name
+	var baseRecord *senml.Record
+	recordCount := 0
+	switch stream.Type {
+	case registry.Float:
+		for rows.Next() {
+			var val float64
+			err = rows.Scan(&timeVal, &val)
+			if err != nil {
+				return fmt.Errorf("error while scanning query results:%s", err)
+			}
+			record := senml.Record{Name: senmlName, Value: &val, Time: timeVal, Unit: stream.Unit}
+			denormalizeRecord(&record, &baseRecord, q.Denormalize)
+			records = append(records, record)
+			recordCount++
+			if recordCount == q.PerPage {
+				//prepare for the next round by resetting the slice
+				recordCount = 0
+				sendFunc(records)
+				records = records[:0]
+				baseRecord = nil
+			}
+		}
+	case registry.String:
+		for rows.Next() {
+			var strVal string
+			err = rows.Scan(&timeVal, &strVal)
+			if err != nil {
+				return fmt.Errorf("error while scanning query results:%s", err)
+			}
+			record := senml.Record{Name: senmlName, StringValue: strVal, Time: timeVal, Unit: stream.Unit}
+			denormalizeRecord(&record, &baseRecord, q.Denormalize)
+			records = append(records, record)
+			recordCount++
+			if recordCount == q.PerPage {
+				//prepare for the next round by resetting the slice
+				recordCount = 0
+				sendFunc(records)
+				records = records[:0]
+				baseRecord = nil
+			}
+		}
+	case registry.Bool:
+		for rows.Next() {
+			var boolVal bool
+			err = rows.Scan(&timeVal, &boolVal)
+			if err != nil {
+				return fmt.Errorf("error while scanning query results:%s", err)
+			}
+			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
+			denormalizeRecord(&record, &baseRecord, q.Denormalize)
+			records = append(records, record)
+			recordCount++
+			if recordCount == q.PerPage {
+				//prepare for the next round by resetting the slice
+				recordCount = 0
+				sendFunc(records)
+				records = records[:0]
+				baseRecord = nil
+			}
+		}
+	case registry.Data:
+		for rows.Next() {
+			var dataVal string
+			err = rows.Scan(&timeVal, &dataVal)
+			if err != nil {
+				return fmt.Errorf("error while scanning query results:%s", err)
+			}
+			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: stream.Unit}
+			denormalizeRecord(&record, &baseRecord, q.Denormalize)
+			records = append(records, record)
+			recordCount++
+			if recordCount == q.PerPage {
+				//prepare for the next round by resetting the slice
+				recordCount = 0
+				sendFunc(records)
+				records = records[:0]
+				baseRecord = nil
+			}
+		}
+	}
+	if recordCount != 0 { //send the last page
+		sendFunc(records)
+	}
+	return nil
+}
+
+func (s *SqlStorage) streamMultipleStream(q Query, sendFunc SendFunction, dataStreams []*registry.DataStream) error {
+	var unionStmt strings.Builder
+	unionStmt.WriteByte('(')
+	unionStr := ""
+
+	for _, stream := range dataStreams {
+
+		//unionStmt.WriteString(fmt.Sprintf("%s(SELECT ('%s' as 'table_name' , '%s' as 'type_val', 'time' as 'time', 'value' as 'value') FROM [%s] WHERE time BETWEEN %f and %f)", unionStr, stream.Name, stream.Type, stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
+		unionStmt.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f and %f", unionStr, stream.Name, stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
+		unionStr = " UNION ALL "
+
+	}
+	unionStmt.WriteByte(')')
+
+	//query the entries
+	order := common.Desc
+	if q.SortAsc {
+		order = common.Asc
+	}
+	limitStr := ""
+	if q.Limit != 0 {
+		limitStr = fmt.Sprintf("LIMIT %d OFFSET %d", q.Limit, q.Offset)
+	}
+	stmt := fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s %s", unionStmt.String(), order, limitStr)
+	rows, err := s.pool.Query(stmt)
+	if err != nil {
+		return fmt.Errorf("error while querying rows:%s", err)
+	}
+	defer rows.Close()
+
+	records := make([]senml.Record, 0, q.PerPage)
+
+	streamMap := make(map[string]*registry.DataStream, len(dataStreams))
+
+	for _, stream := range dataStreams {
+		streamMap[stream.Name] = stream
+	}
+	var senmlName string
+	var timeVal float64
+	var val interface{}
+	denormMask := q.Denormalize &^ FName // Reset the FName. denormalizing the name is not supported  in case of multistream requests
+	var baseRecord *senml.Record
+	recordCount := 0
+	for rows.Next() {
+		err = rows.Scan(&senmlName, &timeVal, &val)
+		if err != nil {
+			return fmt.Errorf("error while scanning query results:%s", err)
+		}
+		stream := *streamMap[senmlName]
+		var record senml.Record
+		switch stream.Type {
+		case registry.Float:
+			floatVal, ok := val.(float64)
+			if !ok {
+				return fmt.Errorf("error while scanning float64 query result: unexpected type obtained")
+			}
+			record = senml.Record{Name: senmlName, Value: &floatVal, Time: timeVal, Unit: stream.Unit}
+
+		case registry.String:
+			stringVal, ok := val.(string)
+			if !ok {
+				return fmt.Errorf("error while scanning string query result: unexpected type obtained")
+			}
+			record = senml.Record{Name: senmlName, StringValue: stringVal, Time: timeVal, Unit: stream.Unit}
+
+		case registry.Bool:
+			var boolVal bool
+			switch retType := val.(type) { //Some of the OS environments return the type as boolean even if the expected type is int64. This issue was found in Travis CI.
+			case int64:
+				boolVal = val.(int64) != 0
+			case bool:
+				boolVal = val.(bool)
+			default:
+				return fmt.Errorf("error while scanning boolean query result: unexpected type %v obtained", retType)
+			}
+			record = senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
+
+		case registry.Data:
+			dataVal, ok := val.(string)
+			if !ok {
+				return fmt.Errorf("error while scanning boolean query result: unexpected type obtained")
+			}
+			record = senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: stream.Unit}
+		}
+		denormalizeRecord(&record, &baseRecord, denormMask)
+		records = append(records, record)
+		recordCount++
+		if recordCount == q.PerPage {
+			//prepare for the next round by resetting the slice
+			recordCount = 0
+			sendFunc(records)
+			records = records[:0]
+			baseRecord = nil
+		}
+
+	}
+	if recordCount != 0 { //send the last page
+		sendFunc(records)
+	}
+	return nil
 }
 
 func (s *SqlStorage) Disconnect() error {

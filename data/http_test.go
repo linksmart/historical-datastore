@@ -122,6 +122,14 @@ func TestHttpSubmit(t *testing.T) {
 		t.Errorf("Server response is not %v but %v", http.StatusBadRequest, res.StatusCode)
 	}
 
+	//when pack is has a datastream not in the URL
+	res, err = http.Post(ts.URL+"/data/"+testIDs[0], "application/senml+json", bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != http.StatusBadRequest {
+		t.Errorf("Server response is not %v but %v", http.StatusBadRequest, res.StatusCode)
+	}
 	// try a good one
 	res, err = http.Post(ts.URL+"/data/"+all, "application/senml+json", bytes.NewReader(b))
 	if err != nil {
@@ -167,8 +175,16 @@ type dummyDataStorage struct{}
 func (s *dummyDataStorage) Submit(data map[string]senml.Pack, streams map[string]*registry.DataStream) error {
 	return nil
 }
-func (s *dummyDataStorage) Query(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+func (s *dummyDataStorage) QueryPage(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
 	return senml.Pack{}, nil, nil
+}
+
+func (s *dummyDataStorage) QueryStream(q Query, sendFunc SendFunction, streams ...*registry.DataStream) error {
+	return nil
+}
+
+func (s *dummyDataStorage) Count(q Query, streams ...*registry.DataStream) (total int, err error) {
+	return 0, nil
 }
 func (s *dummyDataStorage) Disconnect() error {
 	return nil

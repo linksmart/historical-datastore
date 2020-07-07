@@ -14,7 +14,7 @@ const (
 	// Location of APIs
 	RegistryAPILoc = "/registry"
 	DataAPILoc     = "/data"
-	// Query parameters
+	// QueryPage parameters
 	ParamPage        = "page"
 	ParamPerPage     = "perPage"
 	ParamLimit       = "limit"

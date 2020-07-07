@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -23,14 +22,10 @@ const (
 )
 
 var (
-	ErrNotFound = errors.New("datastream not found")
-	ErrConflict = errors.New("conflict")
-	ErrInvalid  = errors.New("invald datastream")
+	ErrNotFound   = &common.NotFoundError{S: "datastream not found"}
+	ErrConflict   = &common.ConflictError{S: "conflict"}
+	ErrBadRequest = &common.BadRequestError{S: "invald datastream"}
 )
-
-func ErrType(err, e error) bool {
-	return strings.Contains(err.Error(), e.Error())
-}
 
 // RESTful HTTP API
 type API struct {
@@ -52,14 +47,14 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 	//TODO: add nextLink
 	lastModified, err := api.storage.getLastModifiedTime()
 	if err != nil {
-		log.Printf("Error retrieving last modified date: %s", err)
+		log.Printf("Error retrieving last modified date: %v", err)
 		lastModified = time.Now()
 	}
 
 	if r.Header.Get("If-Modified-Since") != "" {
 		modifiedSince, err := time.Parse(time.RFC1123, r.Header.Get("If-Modified-Since"))
 		if err != nil {
-			common.ErrorResponse(http.StatusBadRequest, "Error parsing If-Modified-Since header: "+err.Error(), w)
+			common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing If-Modified-Since header: " + err.Error()}, w)
 			return
 		}
 		lastModified, _ = time.Parse(time.RFC1123, lastModified.UTC().Format(time.RFC1123))
@@ -71,13 +66,13 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 
 	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage), MaxPerPage)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
 		return
 	}
 
 	dataStreams, total, err := api.storage.GetMany(page, perPage)
 	if err != nil {
-		common.ErrorResponse(http.StatusInternalServerError, err.Error(), w)
+		common.HttpErrorResponse(&common.InternalError{S: err.Error()}, w)
 		return
 	}
 
@@ -103,32 +98,32 @@ func (api *API) Create(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
 		return
 	}
 
 	var ds DataStream
 	err = json.Unmarshal(body, &ds)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, "Error processing input: "+err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: "Error processing input: " + err.Error()}, w)
 		return
 	}
 
 	addedDS, err := api.storage.Add(ds)
 	if err != nil {
 		if errors.Is(err, ErrConflict) {
-			common.ErrorResponse(http.StatusConflict, err.Error(), w)
-		} else if errors.Is(err, ErrInvalid) {
-			common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+			common.HttpErrorResponse(&common.ConflictError{S: err.Error()}, w)
+		} else if errors.Is(err, ErrBadRequest) {
+			common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
 		} else {
-			common.ErrorResponse(http.StatusInternalServerError, "Error storing Data stream: "+err.Error(), w)
+			common.HttpErrorResponse(&common.InternalError{S: "Error storing Data stream: " + err.Error()}, w)
 		}
 		return
 	}
 
 	//b, _ := json.Marshal(&addedDS)
 	w.Header().Set("Location", common.RegistryAPILoc+"/"+addedDS.Name)
-	//w.Header().Set("Content-Type", common.DefaultMIMEType)
+
 	w.WriteHeader(http.StatusCreated)
 	//w.Write(b)
 
@@ -143,10 +138,10 @@ func (api *API) Retrieve(w http.ResponseWriter, r *http.Request) {
 
 	ds, err := api.storage.Get(id)
 	if err != nil {
-		if ErrType(err, ErrNotFound) {
-			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
+		if errors.Is(err, ErrNotFound) {
+			common.HttpErrorResponse(&common.NotFoundError{S: err.Error()}, w)
 		} else {
-			common.ErrorResponse(http.StatusInternalServerError, "Error retrieving Data stream: "+err.Error(), w)
+			common.HttpErrorResponse(&common.InternalError{S: "Error retrieving Data stream: " + err.Error()}, w)
 		}
 		return
 	}
@@ -168,25 +163,25 @@ func (api *API) Update(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
 		return
 	}
 
 	var ds DataStream
 	err = json.Unmarshal(body, &ds)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, "Error processing input: "+err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: "Error processing input: " + err.Error()}, w)
 		return
 	}
 
 	_, err = api.storage.Update(id, ds)
 	if err != nil {
-		if ErrType(err, ErrConflict) {
-			common.ErrorResponse(http.StatusConflict, err.Error(), w)
-		} else if ErrType(err, ErrNotFound) {
-			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
+		if errors.Is(err, ErrConflict) {
+			common.HttpErrorResponse(&common.ConflictError{S: err.Error()}, w)
+		} else if errors.Is(err, ErrNotFound) {
+			common.HttpErrorResponse(&common.NotFoundError{S: err.Error()}, w)
 		} else {
-			common.ErrorResponse(http.StatusInternalServerError, "Error updating Data stream: "+err.Error(), w)
+			common.HttpErrorResponse(&common.InternalError{S: "Error updating Data stream: " + err.Error()}, w)
 		}
 		return
 	}
@@ -203,10 +198,10 @@ func (api *API) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err := api.storage.Delete(id)
 	if err != nil {
-		if ErrType(err, ErrNotFound) {
-			common.ErrorResponse(http.StatusNotFound, err.Error(), w)
+		if errors.Is(err, ErrNotFound) {
+			common.HttpErrorResponse(&common.NotFoundError{S: err.Error()}, w)
 		} else {
-			common.ErrorResponse(http.StatusInternalServerError, "Error deleting Data stream: "+err.Error(), w)
+			common.HttpErrorResponse(&common.InternalError{S: "Error deleting Data stream: " + err.Error()}, w)
 		}
 		return
 	}
@@ -226,7 +221,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	page, perPage, err := common.ParsePagingParams(r.Form.Get(common.ParamPage), r.Form.Get(common.ParamPerPage), MaxPerPage)
 	if err != nil {
-		common.ErrorResponse(http.StatusBadRequest, err.Error(), w)
+		common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing pagination parameters:" + err.Error()}, w)
 		return
 	}
 
@@ -235,7 +230,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 	case FTypeOne:
 		dataStream, err := api.storage.FilterOne(fpath, fop, fvalue)
 		if err != nil {
-			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
+			common.HttpErrorResponse(&common.InternalError{S: "Error processing the filter request:" + err.Error()}, w)
 			return
 		}
 
@@ -256,7 +251,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 	case FTypeMany:
 		dataStreams, total, err := api.storage.Filter(fpath, fop, fvalue, page, perPage)
 		if err != nil {
-			common.ErrorResponse(http.StatusBadRequest, "Error processing the request: "+err.Error(), w)
+			common.HttpErrorResponse(&common.InternalError{S: "Error processing the filter request:" + err.Error()}, w)
 			return
 		}
 

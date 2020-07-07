@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package data;
+
+import  "senml.proto";
+
+//option go_package = "github.com/linksmart/historical-datastore-protobuf";
+
+//
+//Compilation:
+// Go:  protoc -I data\proto\ --go_out=plugins=grpc:data\proto data\proto\service.proto
+
+message Void
+{
+}
+
+//The denormalization mask sp
+enum DenormMask {
+	//No value is denormalized
+	None = 0;
+	FName = 1;
+	FTime = 2;
+	FUnit = 4;
+	FValue = 8;
+	FSum = 16;
+}
+message QueryRequest
+{
+	repeated string streams = 1;
+	string from = 2;
+	string to = 3;
+	int32 recordPerPacket = 5; //Number of senml messages sent per packet
+	DenormMask denormaMask = 6; //the bitwise mask to specify the fields to be denormalized
+    bool sort_asc = 7;
+	int32 limit = 8;
+	int32 offset = 9;
+}
+
+message CountResponse {
+	int32 total = 1;
+}
+service Data {
+    rpc Submit(senml_protobuf.Message) returns(Void){}
+    rpc Query(QueryRequest) returns(stream senml_protobuf.Message){}
+	rpc Count(QueryRequest) returns(CountResponse){}
+}
