@@ -104,7 +104,6 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	if submitErr != nil {
 		common.HttpErrorResponse(submitErr, w)
 	} else {
-		w.Header().Set("Content-Type", common.DefaultMIMEType)
 		w.WriteHeader(http.StatusAccepted)
 	}
 	return

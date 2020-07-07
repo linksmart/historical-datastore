@@ -123,7 +123,7 @@ func (api *API) Create(w http.ResponseWriter, r *http.Request) {
 
 	//b, _ := json.Marshal(&addedDS)
 	w.Header().Set("Location", common.RegistryAPILoc+"/"+addedDS.Name)
-	//w.Header().Set("Content-Type", common.DefaultMIMEType)
+
 	w.WriteHeader(http.StatusCreated)
 	//w.Write(b)
 

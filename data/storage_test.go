@@ -112,7 +112,7 @@ func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Stor
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{ Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, streamArr...)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, streamArr...)
 	if err != nil {
 		t.Error(err)
 	}
@@ -125,15 +125,17 @@ func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Stor
 	}
 
 	gotrecords.Normalize()
+	// segregate the got records
+	gotDataMap := make(map[string]senml.Pack)
 
-	//normalize sent records
-	for i, _ := range sentDataMap {
-		sentDataMap[i].Normalize()
+	for _, record := range gotrecords {
+		gotDataMap[record.Name] = append(gotDataMap[record.Name], record)
 	}
 
-	for i := 0; i < 4; i++ { //This loop runs under the assumption that the senml records are ordered according to names
-		start := totRec * i
-		if CompareSenml(gotrecords[start:start+totRec], sentDataMap[gotrecords[start].Name]) == false {
+	// normalize sent records
+	for i, _ := range sentDataMap {
+		sentDataMap[i].Normalize()
+		if CompareSenml(gotDataMap[i], sentDataMap[i]) == false {
 			t.Error("Sent records and received record did not match!!")
 		}
 	}
@@ -164,7 +166,7 @@ func testInsertData(t *testing.T, storage Storage, regstorage registry.Storage) 
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{ Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
@@ -293,7 +295,7 @@ func testInsertVals(t *testing.T, storage Storage, regstorage registry.Storage) 
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{ Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}

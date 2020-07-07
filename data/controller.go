@@ -26,6 +26,7 @@ func NewController(registry registry.Storage, storage Storage, autoRegistration 
 
 //TODO: Return right code in return so that right code is returned by callers. e.g. Grpc code or http error responses.
 func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
+	const Y3K = 32503680000 //Year 3000 BC, beyond which the time values are not taken
 	//streams := make(map[string]*registry.DataStream)
 	nameDSs := make(map[string]*registry.DataStream)
 	fromStreamList := false
@@ -44,6 +45,12 @@ func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
 	data := make(map[string]senml.Pack)
 	senmlPack.Normalize()
 	for _, r := range senmlPack {
+		// validate time. This is to make sure, timestamps are not set to precisions other than milliseconds.
+		if r.Time > Y3K {
+			return &common.BadRequestError{S: fmt.Sprintf("invalid senml entry %s: unix time value in seconds is too far in the future: %f", r.Name, r.Time)}
+		}
+
+		// search for the registry entry
 		ds, found := nameDSs[r.Name]
 		if !found && fromStreamList {
 			return &common.BadRequestError{S: fmt.Sprintf("senml entry %s does not match the provided datastream", r.Name)}
