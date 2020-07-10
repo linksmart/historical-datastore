@@ -10,8 +10,8 @@ import (
 type SourceType string
 
 const (
-	MqttType   = "MQTT"
-	SeriesType = "Series"
+	Mqtt       = "MQTT"
+	Stream = "Stream"
 )
 
 // A Datastream describes a stored stream of data
@@ -51,7 +51,7 @@ type Source struct {
 	//This can be either MQTT or a series element itself
 	SrcType SourceType `json:"type,omitempty"`
 	*MQTTSource
-	*SeriesSource
+	*StreamSource
 }
 
 type MQTTSource struct {
@@ -71,8 +71,8 @@ type MQTTSource struct {
 
 }
 
-type SeriesSource struct {
-	//name of the series
+type StreamSource struct {
+	//name of the stream
 	URL string `json:name`
 }
 
@@ -86,7 +86,7 @@ func (ds DataStream) copy() DataStream {
 // MarshalJSON masks sensitive information when using the default marshaller
 func (ds DataStream) MarshalJSON() ([]byte, error) {
 	if !ds.keepSensitiveInfo {
-		if ds.Source.SrcType == MqttType {
+		if ds.Source.SrcType == Mqtt {
 			// mask MQTT credentials and key paths
 			if ds.Source.Username != "" {
 				ds.Source.Username = "*****"

@@ -7,7 +7,7 @@ import (
 	senml_protobuf "github.com/farshidtz/senml-protobuf/go"
 	"github.com/farshidtz/senml/v2"
 	"github.com/farshidtz/senml/v2/codec"
-	data "github.com/linksmart/historical-datastore/data/proto"
+	_go "github.com/linksmart/historical-datastore/protobuf/go"
 	"github.com/linksmart/historical-datastore/registry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -24,7 +24,7 @@ type GrpcAPI struct {
 func NewGrpcAPI(registry registry.Storage, storage Storage, autoRegistration bool) *GrpcAPI {
 	srv := grpc.NewServer()
 	grpcAPI := &GrpcAPI{&Controller{registry, storage, autoRegistration}, srv} //TODO: Sharing controller between HTTP and Grpc instead of creating one for both
-	data.RegisterDataServer(srv, grpcAPI)
+	_go.RegisterDataServer(srv, grpcAPI)
 	return grpcAPI
 }
 
@@ -36,21 +36,20 @@ func (a *GrpcAPI) StopGrpcServer() {
 	a.server.Stop()
 }
 
-func (a *GrpcAPI) Submit(ctx context.Context, message *senml_protobuf.Message) (*data.Void, error) {
-	void := &data.Void{}
+func (a *GrpcAPI) Submit(ctx context.Context, message *senml_protobuf.Message) (*_go.Void, error) {
 	if message == nil {
-		return void, status.Errorf(codes.InvalidArgument, "empty message received")
+		return nil, status.Errorf(codes.InvalidArgument, "empty message received")
 	}
 	senmlPack := codec.ImportProtobufMessage(*message)
 
 	err := a.c.submit(senmlPack, nil)
 	if err != nil {
-		return void, status.Errorf(err.GrpcStatus(), "Error submitting:"+err.Error())
+		return nil, status.Errorf(err.GrpcStatus(), "Error submitting:"+err.Error())
 	}
-	return void, nil
+	return &_go.Void{}, nil
 }
 
-func (a *GrpcAPI) Query(request *data.QueryRequest, stream data.Data_QueryServer) (err error) {
+func (a *GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) (err error) {
 	var q Query
 	q.From, err = parseFromValue(request.From)
 	if err != nil {
@@ -68,7 +67,7 @@ func (a *GrpcAPI) Query(request *data.QueryRequest, stream data.Data_QueryServer
 	q.Limit = int(request.Limit)
 	q.Offset = int(request.Offset)
 
-	var sendFunc SendFunction = func(pack senml.Pack) error {
+	var sendFunc sendFunction = func(pack senml.Pack) error {
 		ctx := stream.Context()
 		if ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded {
 			return ctx.Err()
@@ -78,14 +77,14 @@ func (a *GrpcAPI) Query(request *data.QueryRequest, stream data.Data_QueryServer
 	}
 
 	queryErr := a.c.QueryStream(q, request.Streams, sendFunc)
-	if err != nil {
-		return status.Errorf(queryErr.GrpcStatus(), "Error querying: "+err.Error())
+	if queryErr != nil {
+		return status.Errorf(queryErr.GrpcStatus(), "Error querying: "+queryErr.Error())
 	}
 
 	return nil
 }
 
-func (a *GrpcAPI) Count(ctx context.Context, request *data.QueryRequest) (*data.CountResponse, error) {
+func (a *GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.CountResponse, error) {
 	var q Query
 	var err error
 	q.From, err = parseFromValue(request.From)
@@ -100,9 +99,27 @@ func (a *GrpcAPI) Count(ctx context.Context, request *data.QueryRequest) (*data.
 
 	q.Limit = int(request.Limit)
 	total, queryErr := a.c.Count(q, request.Streams)
-	if err != nil {
-		return nil, status.Errorf(queryErr.GrpcStatus(), "Error querying: "+err.Error())
+	if queryErr != nil {
+		return nil, status.Errorf(queryErr.GrpcStatus(), "Error querying: "+queryErr.Error())
 	}
-	response := data.CountResponse{Total: int32(total)}
+	response := _go.CountResponse{Total: int32(total)}
 	return &response, nil
+}
+
+func (a *GrpcAPI) Delete(ctx context.Context, request *_go.DeleteRequest) (*_go.Void, error) {
+	from, err := parseFromValue(request.From)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Error parsing from value: "+err.Error())
+	}
+
+	to, err := parseToValue(request.To)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Error parsing to Value: "+err.Error())
+	}
+
+	deleteErr := a.c.Delete(request.Streams, from, to)
+	if deleteErr != nil {
+		return nil, status.Errorf(deleteErr.GrpcStatus(), "Error deleting: "+deleteErr.Error())
+	}
+	return &_go.Void{}, nil
 }

@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/common"
@@ -55,7 +56,7 @@ func setupHTTPAPI() (*mux.Router, []string) {
 	r := mux.NewRouter().StrictSlash(true).SkipClean(true)
 	r.Methods("POST").Path("/data/{id:.+}").HandlerFunc(api.Submit)
 	r.Methods("GET").Path("/data/{id:.+}").HandlerFunc(api.Query)
-
+	r.Methods("DELETE").Path("/data/{id:.+}").HandlerFunc(api.Delete)
 	return r, testIDs
 }
 
@@ -166,6 +167,24 @@ func TestHttpQuery(t *testing.T) {
 	//t.Error("TODO: check response body")
 }
 
+func TestAPI_Delete(t *testing.T) {
+	router, testIDs := setupHTTPAPI()
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	all := strings.Join(testIDs, ",")
+	res, err := httpDoRequest(http.MethodDelete, ts.URL+"/data/"+all+"?from=2015-04-24T11:56:51Z", bytes.NewReader(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("Server should return %v, got instead: %d", http.StatusNoContent, res.StatusCode)
+	}
+}
+
 //TODO TEST limits
 
 // DUMMY DATA STORAGE
@@ -179,12 +198,16 @@ func (s *dummyDataStorage) QueryPage(q Query, streams ...*registry.DataStream) (
 	return senml.Pack{}, nil, nil
 }
 
-func (s *dummyDataStorage) QueryStream(q Query, sendFunc SendFunction, streams ...*registry.DataStream) error {
+func (s *dummyDataStorage) QueryStream(q Query, sendFunc sendFunction, streams ...*registry.DataStream) error {
 	return nil
 }
 
 func (s *dummyDataStorage) Count(q Query, streams ...*registry.DataStream) (total int, err error) {
 	return 0, nil
+}
+
+func (s *dummyDataStorage) Delete(streams []*registry.DataStream, from time.Time, to time.Time) (err error) {
+	return nil
 }
 func (s *dummyDataStorage) Disconnect() error {
 	return nil
@@ -197,4 +220,16 @@ func (s *dummyDataStorage) UpdateHandler(old registry.DataStream, new registry.D
 }
 func (s *dummyDataStorage) DeleteHandler(ds registry.DataStream) error {
 	return nil
+}
+
+func httpDoRequest(method, url string, r *bytes.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, r)
+	if err != nil {
+		return nil, err
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }

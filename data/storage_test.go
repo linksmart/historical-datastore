@@ -46,9 +46,9 @@ func setupTest(funcName string) (filename string, disconnectFunc func() error, d
 	return
 }
 
-func TestAPI_Submit(t *testing.T) {
+func TestStorage_Submit(t *testing.T) {
 	//Setup for the testing
-	funcName := "TestAPI_Submit"
+	funcName := "TestStorage_Submit"
 	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
 	if err != nil {
 		t.Fatalf("Error setting up benchmark:%s", err)
@@ -112,7 +112,7 @@ func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Stor
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, streamArr...)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, streamArr...)
 	if err != nil {
 		t.Error(err)
 	}
@@ -166,7 +166,7 @@ func testInsertData(t *testing.T, storage Storage, regstorage registry.Storage) 
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
@@ -209,7 +209,7 @@ func testInsertBools(t *testing.T, storage Storage, regstorage registry.Storage)
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
@@ -252,7 +252,7 @@ func testInsertStrings(t *testing.T, storage Storage, regstorage registry.Storag
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
@@ -295,7 +295,7 @@ func testInsertVals(t *testing.T, storage Storage, regstorage registry.Storage) 
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: FName | FTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotRecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
 	if err != nil {
 		t.Error(err)
 	}
@@ -303,17 +303,169 @@ func testInsertVals(t *testing.T, storage Storage, regstorage registry.Storage) 
 	if *total != totRec {
 		t.Errorf("Received Count should be %d, got %d (len) instead", totRec, *total)
 	}
-	if len(gotrecords) != totRec {
-		t.Errorf("Received total should be %d, got %d (len) instead", totRec, len(gotrecords))
+	if len(gotRecords) != totRec {
+		t.Errorf("Received total should be %d, got %d (len) instead", totRec, len(gotRecords))
 	}
 
 	sentData.Normalize()
-	gotrecords.Normalize()
-	if CompareSenml(gotrecords, sentData) == false {
+	gotRecords.Normalize()
+	if CompareSenml(gotRecords, sentData) == false {
 		t.Error("Sent records and received record did not match!!")
 	}
 }
 
+func TestStorage_Delete(t *testing.T) {
+	//Setup for the testing
+	funcName := "TestStorage_Delete"
+	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	if err != nil {
+		t.Fatalf("Error setting up benchmark:%s", err)
+	}
+	defer deleteFile(fileName)
+	defer func() {
+		err := disconnectFunc()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	testFuncs := map[string]func(t *testing.T, storage Storage, regStorage registry.Storage){
+		"DeleteValues":    testDeleteVals,
+		"DeleteMultiType": testDeleteMultiType,
+	}
+
+	for k, testFunc := range testFuncs {
+		t.Run(k, func(t *testing.T) {
+			fmt.Printf("\n%s:", k)
+			testFunc(t, dataStorage, regStorage)
+		})
+	}
+
+}
+
+func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Storage) {
+	totRec := 101
+	//Float Type
+	streamMap := map[string]*registry.DataStream{
+		"Value/Temperature": {Name: "Value/Temperature", Type: registry.Float, Unit: "Cel"},
+		"Value/Room":        {Name: "Value/Room", Type: registry.String},
+		"Value/Switch":      {Name: "Value/Switch", Type: registry.Bool},
+		"Value/Camera":      {Name: "Value/Camera", Type: registry.Data},
+	}
+
+	sentDataMap := make(map[string]senml.Pack)
+	streamArr := make([]*registry.DataStream, 0, len(streamMap))
+	for _, stream := range streamMap {
+		_, err := regStorage.Add(*stream)
+		if err != nil {
+			t.Fatal("Insertion failed:", err)
+		}
+		sentDataMap[stream.Name] = Same_name_same_types(totRec, *stream, true)
+		streamArr = append(streamArr, stream)
+	}
+
+	defer func() {
+		for name, _ := range streamMap {
+			err := regStorage.Delete(name)
+			if err != nil {
+				t.Fatal("deletion failed:", err)
+			}
+		}
+	}()
+	err := storage.Submit(sentDataMap, streamMap)
+	if err != nil {
+		t.Error("Error while inserting:", err)
+	}
+
+	delCount := 50
+	toTime := fromSenmlTime(sentDataMap["Value/Temperature"][delCount].Time)
+	//get these data
+	err = storage.Delete(streamArr, time.Time{}, toTime)
+	if err != nil {
+		t.Error(err)
+	}
+
+	streamCount := len(streamMap)
+
+	//get these data
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, streamArr...)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if *total != delCount*streamCount {
+		t.Errorf("Received Count should be %d, got %d (len) instead", totRec, *total)
+	}
+	if len(gotrecords) != *total {
+		t.Errorf("Received total should be %d, got %d (len) instead", totRec, len(gotrecords))
+	}
+
+	gotrecords.Normalize()
+	// segregate the got records
+	gotDataMap := make(map[string]senml.Pack)
+
+	for _, record := range gotrecords {
+		gotDataMap[record.Name] = append(gotDataMap[record.Name], record)
+	}
+
+	// normalize sent records
+	for i, _ := range sentDataMap {
+		sentDataMap[i].Normalize()
+		if CompareSenml(gotDataMap[i], sentDataMap[i][0:delCount]) == false {
+			t.Error("Sent records and received record did not match!!")
+		}
+	}
+}
+
+func testDeleteVals(t *testing.T, storage Storage, regStorage registry.Storage) {
+	ds := registry.DataStream{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
+	_, err := regStorage.Add(ds)
+	if err != nil {
+		t.Fatal("Insertion failed:", err)
+	}
+	defer func() {
+		err = regStorage.Delete(ds.Name)
+		if err != nil {
+			t.Fatal("deletion failed:", err)
+		}
+	}()
+	totRec := 101
+	sentData := Same_name_same_types(totRec, ds, true)
+	streamMap := make(map[string]*registry.DataStream)
+	streamMap[ds.Name] = &ds
+	recordMap := make(map[string]senml.Pack)
+	recordMap[ds.Name] = sentData
+	err = storage.Submit(recordMap, streamMap)
+	if err != nil {
+		t.Error("Error while inserting:", err)
+	}
+
+	delCount := 50
+	toTime := fromSenmlTime(sentData[delCount].Time)
+
+	err = storage.Delete([]*registry.DataStream{&ds}, time.Time{}, toTime)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	gotRecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if *total != delCount {
+		t.Errorf("Received Count should be %d, got %d (len) instead", delCount, *total)
+		return
+	}
+
+	sentData.Normalize()
+	gotRecords.Normalize()
+	if CompareSenml(gotRecords, sentData[0:delCount]) == false {
+		t.Error("Sent records and received record did not match!!")
+	}
+}
 func BenchmarkCreation_OneSeries(b *testing.B) {
 	b.StopTimer()
 	//Setup for the testing

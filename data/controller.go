@@ -116,9 +116,28 @@ func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
 func (c Controller) QueryPage(q Query, ids []string) (pack senml.Pack, total *int, retErr common.Error) {
 	return c.queryStreamOrPage(q, ids, nil)
 }
-func (c Controller) QueryStream(q Query, ids []string, sendFunc SendFunction) (retErr common.Error) {
+func (c Controller) QueryStream(q Query, ids []string, sendFunc sendFunction) (retErr common.Error) {
 	_, _, retErr = c.queryStreamOrPage(q, ids, sendFunc)
 	return retErr
+}
+
+func (c Controller) Delete(streamNames []string, from time.Time, to time.Time) (retErr common.Error) {
+	var streams []*registry.DataStream
+	for _, streamName := range streamNames {
+		ds, err := c.registry.Get(streamName)
+		if err != nil {
+			return &common.InternalError{S: fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", streamName, err)}
+		}
+		streams = append(streams, ds)
+	}
+	if len(streams) == 0 {
+		return &common.NotFoundError{S: "None of the specified Data streams could be retrieved from the registry."}
+	}
+	err := c.storage.Delete(streams, from, to)
+	if err != nil {
+		return &common.InternalError{S: "Error deleting the data: " + err.Error()}
+	}
+	return nil
 }
 
 func (c Controller) Count(q Query, streamNames []string) (total int, retErr common.Error) {
@@ -140,7 +159,7 @@ func (c Controller) Count(q Query, streamNames []string) (total int, retErr comm
 	return total, nil
 }
 
-func (c Controller) queryStreamOrPage(q Query, streamNames []string, sendFunc SendFunction) (pack senml.Pack, total *int, retErr common.Error) {
+func (c Controller) queryStreamOrPage(q Query, streamNames []string, sendFunc sendFunction) (pack senml.Pack, total *int, retErr common.Error) {
 	var streams []*registry.DataStream
 	for _, streamName := range streamNames {
 		ds, err := c.registry.Get(streamName)
@@ -173,15 +192,15 @@ func parseDenormParams(denormString string) (denormMask DenormMask, err error) {
 		for _, field := range denormStrings {
 			switch strings.ToLower(strings.TrimSpace(field)) {
 			case TimeField, TimeFieldShort:
-				denormMask = denormMask | FTime
+				denormMask = denormMask | DenormMaskTime
 			case NameField, NameFieldShort:
-				denormMask = denormMask | FName
+				denormMask = denormMask | DenormMaskName
 			case UnitField, UnitFieldShort:
-				denormMask = denormMask | FUnit
+				denormMask = denormMask | DenormMaskUnit
 			case ValueField, ValueFieldShort:
-				denormMask = denormMask | FValue
+				denormMask = denormMask | DenormMaskValue
 			case SumField, SumFieldShort:
-				denormMask = denormMask | FSum
+				denormMask = denormMask | DenormMaskSum
 			default:
 				return 0, fmt.Errorf("unexpected senml field: %s", field)
 

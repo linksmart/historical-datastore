@@ -130,9 +130,61 @@ func (s *SqlStorage) Count(q Query, streams ...*registry.DataStream) (total int,
 	return *pTotal, err
 }
 
-//This function converts a floating point number (which is supported by senml) to a int64
-func floatTimeToInt64(senmlTime float64) int64 {
-	return int64(senmlTime * (1e9)) //time.Unix(int64(sec), int64(frac*(1e9))).UnixNano()
+func (s *SqlStorage) Delete(dataStreams []*registry.DataStream, from time.Time, to time.Time) (err error) {
+	var stmt strings.Builder
+	seperator := ""
+
+	for _, stream := range dataStreams {
+		stmt.WriteString(fmt.Sprintf("%s DELETE FROM [%s] WHERE time BETWEEN %f and %f", seperator, stream.Name, toSenmlTime(from), toSenmlTime(to)))
+		seperator = ";"
+	}
+
+	_, err = s.pool.Exec(stmt.String())
+	if err != nil {
+		return fmt.Errorf("error executing the deletion command: %v", err)
+	}
+
+	return nil
+}
+func (s *SqlStorage) QueryStream(q Query, sendFunc sendFunction, streams ...*registry.DataStream) error {
+	if len(streams) == 1 {
+		return s.streamSingleStream(q, sendFunc, *streams[0])
+	} else {
+		return s.streamMultipleStream(q, sendFunc, streams)
+	}
+}
+
+func (s *SqlStorage) Disconnect() error {
+	return s.pool.Close()
+}
+
+// CreateHandler handles the creation of a new DataStream
+func (s *SqlStorage) CreateHandler(ds registry.DataStream) error {
+
+	typeVal := map[registry.StreamType]string{
+		registry.Float:  "DOUBLE",
+		registry.String: "TEXT",
+		registry.Bool:   "BOOLEAN",
+		registry.Data:   "TEXT",
+	}
+
+	stmt := fmt.Sprintf("CREATE TABLE [%s] (time DOUBLE NOT NULL, value %s,  PRIMARY KEY (time))", ds.Name, typeVal[ds.Type])
+	_, err := s.pool.Exec(stmt)
+	return err
+}
+
+// UpdateHandler handles updates of a DataStream
+func (s *SqlStorage) UpdateHandler(oldDS registry.DataStream, newDS registry.DataStream) error {
+	//TODO supporting retention
+
+	return nil
+}
+
+// DeleteHandler handles deletion of a DataStream
+func (s *SqlStorage) DeleteHandler(ds registry.DataStream) error {
+	stmt := fmt.Sprintf("DROP TABLE [%s]", ds.Name)
+	_, err := s.pool.Exec(stmt)
+	return err
 }
 
 //This function converts a int64 floating point number (which is supported by senml)
@@ -140,14 +192,19 @@ func int64ToFloatTime(timeVal int64) float64 {
 	return float64(timeVal) / 1e9
 }
 
-func ToSenmlTime(t time.Time) float64 {
+//This function converts a floating point number (which is supported by senml) to a int64
+func floatTimeToInt64(senmlTime float64) int64 {
+	return int64(senmlTime * (1e9)) //time.Unix(int64(sec), int64(frac*(1e9))).UnixNano()
+}
+
+func toSenmlTime(t time.Time) float64 {
 	if t.IsZero() {
 		return 0
 	}
 	return int64ToFloatTime(t.UnixNano())
 }
 
-func FromSenmlTime(t float64) time.Time {
+func fromSenmlTime(t float64) time.Time {
 	return time.Unix(0, floatTimeToInt64(t))
 }
 
@@ -157,33 +214,33 @@ func denormalizeRecord(record *senml.Record, baseRecord **senml.Record, mask Den
 		//Store the address of the first record so that this can be used for the subsequent records.
 		//Storing just the value does not work unless a deep copy is performed.
 		*baseRecord = record
-		if mask&FName != 0 {
+		if mask&DenormMaskName != 0 {
 			record.BaseName = record.Name
 			record.Name = ""
 		}
-		if mask&FTime != 0 {
+		if mask&DenormMaskTime != 0 {
 			record.BaseTime = record.Time
 			record.Time = 0
 		}
-		if mask&FUnit != 0 {
+		if mask&DenormMaskUnit != 0 {
 			record.BaseUnit = record.Unit
 			record.Unit = ""
 		}
-		if mask&FValue != 0 {
+		if mask&DenormMaskValue != 0 {
 			record.BaseValue = record.Value
 			record.Value = nil
 		}
 	} else {
-		if mask&FName != 0 {
+		if mask&DenormMaskName != 0 {
 			record.Name = ""
 		}
-		if mask&FTime != 0 {
+		if mask&DenormMaskTime != 0 {
 			record.Time = record.Time - (*baseRecord).BaseTime
 		}
-		if mask&FUnit != 0 {
+		if mask&DenormMaskUnit != 0 {
 			record.Unit = ""
 		}
-		if mask&FValue != 0 {
+		if mask&DenormMaskValue != 0 {
 			if record.Value != nil && (*baseRecord).BaseValue != nil {
 				*record.Value = *record.Value - *(*baseRecord).BaseValue
 			}
@@ -195,7 +252,7 @@ func (s *SqlStorage) querySingleDataStream(q Query, dataStream registry.DataStre
 	//make a partial statement
 	var unionStmt strings.Builder
 	unionStmt.WriteString(fmt.Sprintf("[%s] where time BETWEEN %f and %f ",
-		dataStream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
+		dataStream.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
 
 	var stmt string
 	if q.Count || countOnly {
@@ -283,8 +340,8 @@ func (s *SqlStorage) queryMultipleDataStreams(q Query, dataStreams []*registry.D
 
 	for _, stream := range dataStreams {
 
-		//unionStmt.WriteString(fmt.Sprintf("%s(SELECT ('%s' as 'table_name' , '%s' as 'type_val', 'time' as 'time', 'value' as 'value') FROM [%s] WHERE time BETWEEN %f and %f)", unionStr, stream.Name, stream.Type, stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
-		unionStmt.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f and %f", unionStr, stream.Name, stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
+		//unionStmt.WriteString(fmt.Sprintf("%s(SELECT ('%s' as 'table_name' , '%s' as 'type_val', 'time' as 'time', 'value' as 'value') FROM [%s] WHERE time BETWEEN %f and %f)", unionStr, stream.Name, stream.Type, stream.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
+		unionStmt.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f and %f", unionStr, stream.Name, stream.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
 		unionStr = " UNION ALL "
 
 	}
@@ -328,7 +385,7 @@ func (s *SqlStorage) queryMultipleDataStreams(q Query, dataStreams []*registry.D
 	var timeVal float64
 	var val interface{}
 
-	denormMask := q.Denormalize &^ FName // Reset the FName. denormalizing the name is not supported in case of multistream requests
+	denormMask := q.Denormalize &^ DenormMaskName // Reset the DenormMaskName. denormalizing the name is not supported in case of multistream requests
 	var baseRecord *senml.Record
 
 	for rows.Next() {
@@ -381,19 +438,11 @@ func (s *SqlStorage) queryMultipleDataStreams(q Query, dataStreams []*registry.D
 	return records, total, nil
 }
 
-func (s *SqlStorage) QueryStream(q Query, sendFunc SendFunction, streams ...*registry.DataStream) error {
-	if len(streams) == 1 {
-		return s.streamSingleStream(q, sendFunc, *streams[0])
-	} else {
-		return s.streamMultipleStream(q, sendFunc, streams)
-	}
-}
-
-func (s *SqlStorage) streamSingleStream(q Query, sendFunc SendFunction, stream registry.DataStream) error {
+func (s *SqlStorage) streamSingleStream(q Query, sendFunc sendFunction, stream registry.DataStream) error {
 	//make a partial statement
 	var unionStmt strings.Builder
 	unionStmt.WriteString(fmt.Sprintf("[%s] where time BETWEEN %f and %f ",
-		stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
+		stream.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
 
 	order := common.Desc
 	if q.SortAsc {
@@ -500,15 +549,15 @@ func (s *SqlStorage) streamSingleStream(q Query, sendFunc SendFunction, stream r
 	return nil
 }
 
-func (s *SqlStorage) streamMultipleStream(q Query, sendFunc SendFunction, dataStreams []*registry.DataStream) error {
+func (s *SqlStorage) streamMultipleStream(q Query, sendFunc sendFunction, dataStreams []*registry.DataStream) error {
 	var unionStmt strings.Builder
 	unionStmt.WriteByte('(')
 	unionStr := ""
 
 	for _, stream := range dataStreams {
 
-		//unionStmt.WriteString(fmt.Sprintf("%s(SELECT ('%s' as 'table_name' , '%s' as 'type_val', 'time' as 'time', 'value' as 'value') FROM [%s] WHERE time BETWEEN %f and %f)", unionStr, stream.Name, stream.Type, stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
-		unionStmt.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f and %f", unionStr, stream.Name, stream.Name, ToSenmlTime(q.From), ToSenmlTime(q.To)))
+		//unionStmt.WriteString(fmt.Sprintf("%s(SELECT ('%s' as 'table_name' , '%s' as 'type_val', 'time' as 'time', 'value' as 'value') FROM [%s] WHERE time BETWEEN %f and %f)", unionStr, stream.Name, stream.Type, stream.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
+		unionStmt.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f and %f", unionStr, stream.Name, stream.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
 		unionStr = " UNION ALL "
 
 	}
@@ -540,7 +589,7 @@ func (s *SqlStorage) streamMultipleStream(q Query, sendFunc SendFunction, dataSt
 	var senmlName string
 	var timeVal float64
 	var val interface{}
-	denormMask := q.Denormalize &^ FName // Reset the FName. denormalizing the name is not supported  in case of multistream requests
+	denormMask := q.Denormalize &^ DenormMaskName // Reset the DenormMaskName. denormalizing the name is not supported  in case of multistream requests
 	var baseRecord *senml.Record
 	recordCount := 0
 	for rows.Next() {
@@ -600,37 +649,4 @@ func (s *SqlStorage) streamMultipleStream(q Query, sendFunc SendFunction, dataSt
 		sendFunc(records)
 	}
 	return nil
-}
-
-func (s *SqlStorage) Disconnect() error {
-	return s.pool.Close()
-}
-
-// CreateHandler handles the creation of a new DataStream
-func (s *SqlStorage) CreateHandler(ds registry.DataStream) error {
-
-	typeVal := map[registry.StreamType]string{
-		registry.Float:  "DOUBLE",
-		registry.String: "TEXT",
-		registry.Bool:   "BOOLEAN",
-		registry.Data:   "TEXT",
-	}
-
-	stmt := fmt.Sprintf("CREATE TABLE [%s] (time DOUBLE NOT NULL, value %s,  PRIMARY KEY (time))", ds.Name, typeVal[ds.Type])
-	_, err := s.pool.Exec(stmt)
-	return err
-}
-
-// UpdateHandler handles updates of a DataStream
-func (s *SqlStorage) UpdateHandler(oldDS registry.DataStream, newDS registry.DataStream) error {
-	//TODO supporting retention
-
-	return nil
-}
-
-// DeleteHandler handles deletion of a DataStream
-func (s *SqlStorage) DeleteHandler(ds registry.DataStream) error {
-	stmt := fmt.Sprintf("DROP TABLE [%s]", ds.Name)
-	_, err := s.pool.Exec(stmt)
-	return err
 }

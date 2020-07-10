@@ -167,7 +167,7 @@ func TestCreationDiffTimestamp_Denormalized(t *testing.T) {
 	}
 
 	//get these data
-	gotrecords, err := dataClient.Query(data.Query{ Denormalize: data.FName | data.FTime}, datastream.Name)
+	gotrecords, err := dataClient.Query(data.Query{ Denormalize: data.DenormMaskName | data.DenormMaskTime}, datastream.Name)
 	if err != nil {
 		t.Error(err)
 	}

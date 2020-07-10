@@ -241,6 +241,7 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
 	router.handle(http.MethodPost, "/data", data.SubmitWithoutID)
 	router.handle(http.MethodPost, "/data/{id:.+}", data.Submit)
 	router.handle(http.MethodGet, "/data/{id:.+}", data.Query)
+	router.handle(http.MethodDelete, "/data/{id:.+}", data.Delete)
 	// Append auth handler if enabled
 	if conf.Auth.Enabled {
 		// Setup ticket validator

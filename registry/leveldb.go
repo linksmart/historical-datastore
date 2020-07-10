@@ -97,7 +97,14 @@ func (s *LevelDBStorage) Add(ds DataStream) (*DataStream, error) {
 
 	// Send a create event
 	err = s.event.created(&ds)
+	//if create event fails, then undo creation of the event
 	if err != nil {
+		// Send a delete event
+		s.event.deleted(&ds)
+		deleteErr := s.db.Delete([]byte(ds.Name), nil)
+		if deleteErr != nil {
+			err = fmt.Errorf("%w, followed by error undoing the datastream creation:%s", err, deleteErr)
+		}
 		return nil, err
 	}
 

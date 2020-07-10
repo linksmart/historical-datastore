@@ -4,11 +4,11 @@ package data;
 
 import  "senml.proto";
 
-//option go_package = "github.com/linksmart/historical-datastore-protobuf";
+option go_package = "github.com/linksmart/historical-datastore/protobuf/go";
 
 //
 //Compilation:
-// Go:  protoc -I data\proto\ --go_out=plugins=grpc:data\proto data\proto\service.proto
+// Go:  protoc -I protobuf --go_out=plugins=grpc,paths=source_relative:protobuf\go  protobuf\service.proto
 
 message Void
 {
@@ -36,6 +36,12 @@ message QueryRequest
 	int32 offset = 9;
 }
 
+message DeleteRequest
+{
+	repeated string streams = 1;
+	string from = 2;
+	string to = 3;
+}
 message CountResponse {
 	int32 total = 1;
 }
@@ -43,4 +49,5 @@ service Data {
     rpc Submit(senml_protobuf.Message) returns(Void){}
     rpc Query(QueryRequest) returns(stream senml_protobuf.Message){}
 	rpc Count(QueryRequest) returns(CountResponse){}
+	rpc Delete(DeleteRequest) returns(Void){}
 }

@@ -13,16 +13,11 @@ import (
 type DenormMask int32
 
 const (
-	//name field
-	FName DenormMask = 1 << iota
-	//time field
-	FTime
-	//unit field
-	FUnit
-	//Value field
-	FValue
-	//sum field
-	FSum
+	DenormMaskName DenormMask = 1 << iota
+	DenormMaskTime
+	DenormMaskUnit
+	DenormMaskValue
+	DenormMaskSum
 )
 
 // RecordSet describes the recordset returned on querying the Data API

@@ -5,6 +5,7 @@ package data
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/registry"
@@ -29,7 +30,7 @@ func SupportedBackends(name string) bool {
 	return supportedBackends[strings.ToLower(name)]
 }
 
-type SendFunction func(pack senml.Pack) error
+type sendFunction func(pack senml.Pack) error
 
 // Storage is an interface of a Data storage backend
 type Storage interface {
@@ -42,9 +43,12 @@ type Storage interface {
 	//QueryPage(q QueryPage, page, PerPage int, streams ...*registry.DataStream) (senml.Pack, int, error)
 	QueryPage(q Query, dataStreams ...*registry.DataStream) (pack senml.Pack, total *int, err error)
 
-	QueryStream(q Query, sendFunc SendFunction, streams ...*registry.DataStream) error
+	QueryStream(q Query, sendFunc sendFunction, streams ...*registry.DataStream) error
 
 	Count(q Query, dataStreams ...*registry.DataStream) (total int, err error)
+
+	// Delete the data within a given time range
+	Delete(streams []*registry.DataStream, from time.Time, to time.Time) (err error)
 
 	// EventListener includes methods for event handling
 	registry.EventListener

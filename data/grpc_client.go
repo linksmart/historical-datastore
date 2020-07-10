@@ -9,12 +9,12 @@ import (
 
 	"github.com/farshidtz/senml/v2"
 	"github.com/farshidtz/senml/v2/codec"
-	data "github.com/linksmart/historical-datastore/data/proto"
+	_go "github.com/linksmart/historical-datastore/protobuf/go"
 	"google.golang.org/grpc"
 )
 
 type GrpcClient struct {
-	Client data.DataClient
+	Client _go.DataClient
 }
 
 func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
@@ -22,7 +22,7 @@ func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	client := data.NewDataClient(conn)
+	client := _go.NewDataClient(conn)
 	return &GrpcClient{Client: client}, nil
 }
 
@@ -34,12 +34,12 @@ func (c *GrpcClient) Submit(pack senml.Pack) error {
 
 // TODO facilitate aborting of the query (using channels)
 func (c *GrpcClient) Query(streams []string, q Query) (senml.Pack, error) {
-	request := data.QueryRequest{
+	request := _go.QueryRequest{
 		Streams:         streams,
 		From:            q.From.Format(time.RFC3339),
 		To:              q.To.Format(time.RFC3339),
 		RecordPerPacket: int32(q.PerPage),
-		DenormaMask:     data.DenormMask(q.Denormalize),
+		DenormaMask:     _go.DenormMask(q.Denormalize),
 		SortAsc:         q.SortAsc,
 		Limit:           int32(q.Limit),
 		Offset:          int32(q.Offset),
@@ -62,21 +62,33 @@ func (c *GrpcClient) Query(streams []string, q Query) (senml.Pack, error) {
 	return records, err
 }
 
-
 func (c *GrpcClient) Count(streams []string, q Query) (total int, err error) {
-	request := data.QueryRequest{
+	request := _go.QueryRequest{
 		Streams:         streams,
 		From:            q.From.Format(time.RFC3339),
 		To:              q.To.Format(time.RFC3339),
 		RecordPerPacket: int32(q.PerPage),
-		DenormaMask:     data.DenormMask(q.Denormalize),
+		DenormaMask:     _go.DenormMask(q.Denormalize),
 		SortAsc:         q.SortAsc,
 		Limit:           int32(q.Limit),
 		Offset:          int32(q.Offset),
 	}
-	totalResponse, err := c.Client.Count(context.Background(),&request)
+	totalResponse, err := c.Client.Count(context.Background(), &request)
 	if err != nil {
-		return 0,fmt.Errorf("error retrieving the count: %v",err)
+		return 0, fmt.Errorf("error retrieving the count: %v", err)
 	}
-	return int(totalResponse.Total),nil
+	return int(totalResponse.Total), nil
+}
+
+func (c *GrpcClient) Delete(streams []string, from time.Time, to time.Time) error {
+	request := _go.DeleteRequest{
+		Streams: streams,
+		From:    from.Format(time.RFC3339),
+		To:      to.Format(time.RFC3339),
+	}
+	_, err := c.Client.Delete(context.Background(), &request)
+	if err != nil {
+		return fmt.Errorf("error deleting: %v", err)
+	}
+	return nil
 }

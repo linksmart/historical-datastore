@@ -45,24 +45,61 @@ func NewAPI(registry registry.Storage, storage Storage, autoRegistration bool) *
 	return &API{NewController(registry, storage, autoRegistration)}
 }
 
-func getDecoderForContentType(contentType string) (decoder codec.Decoder, err error) {
-	decoderMap := map[string]codec.Decoder{
-		"":                            codec.DecodeJSON,
-		"application/senml+json":      codec.DecodeJSON,
-		"application/json":            codec.DecodeJSON,
-		"application/senml+cbor":      codec.DecodeCBOR,
-		"application/cbor":            codec.DecodeCBOR,
-		"application/senml+xml":       codec.DecodeXML,
-		"application/xml":             codec.DecodeXML,
-		"text/csv":                    codec.DecodeCSV,
-		senml.MediaTypeCustomSenmlCSV: codec.DecodeCSV,
+// QueryPage is a handler for querying data
+// Expected parameters: id(s), optional: pagination, query string
+func (api *API) Query(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	timeStart := time.Now()
+	params := mux.Vars(r)
+	var recordSet RecordSet
+
+	// Parse id(s) and get sources from registry
+	ids := strings.Split(params["id"], common.IDSeparator)
+
+	// Parse query
+	q, err := ParseQueryParameters(r.Form)
+	if err != nil {
+		common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing query parameters:" + err.Error()}, w)
+		return
 	}
 
-	decoder, ok := decoderMap[contentType]
-	if !ok {
-		return nil, fmt.Errorf("unsupported Content-Type:%s", contentType)
+	data, total, err := api.controller.QueryPage(q, ids)
+	if err != nil {
+		common.HttpErrorResponse(err, w)
+		return
 	}
-	return decoder, nil
+
+	curLink := common.DataAPILoc + "/" + GetUrlFromQuery(q, ids...)
+
+	nextLink := ""
+
+	responseLength := len(data)
+
+	//If the response is already less than the number of elements supposed to be in a page,
+	//then it already means that we are in last page
+	if responseLength >= q.PerPage {
+		nextQuery := q
+		nextQuery.Page = q.Page + 1
+		nextLink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
+	}
+
+	recordSet = RecordSet{
+		SelfLink: curLink,
+		TimeTook: time.Since(timeStart).Seconds(),
+		Data:     data,
+		NextLink: nextLink,
+		Count:    total,
+	}
+
+	csvStr, errMarshal := json.Marshal(recordSet)
+	if errMarshal != nil {
+		common.HttpErrorResponse(&common.InternalError{S: "Error marshalling recordset: " + errMarshal.Error()}, w)
+		return
+	}
+
+	w.Header().Add("Content-Type", common.DefaultMIMEType)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(csvStr))
 }
 
 // Submit is a handler for submitting a new data point
@@ -155,6 +192,54 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func (api *API) Delete(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+
+	params := mux.Vars(r)
+
+	// Parse id(s) and get sources from registry
+	streams := strings.Split(params["id"], common.IDSeparator)
+
+	from, err := parseFromValue(r.Form.Get(common.ParamFrom))
+	if err != nil {
+		common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing From value:" + err.Error()}, w)
+		return
+	}
+
+	// end time
+	to, err := parseToValue(r.Form.Get(common.ParamTo))
+	if err != nil {
+		common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing to value:" + err.Error()}, w)
+		return
+	}
+	commonErr := api.controller.Delete(streams, from, to)
+	if commonErr != nil {
+		common.HttpErrorResponse(commonErr, w)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+func getDecoderForContentType(contentType string) (decoder codec.Decoder, err error) {
+	decoderMap := map[string]codec.Decoder{
+		"":                            codec.DecodeJSON,
+		"application/senml+json":      codec.DecodeJSON,
+		"application/json":            codec.DecodeJSON,
+		"application/senml+cbor":      codec.DecodeCBOR,
+		"application/cbor":            codec.DecodeCBOR,
+		"application/senml+xml":       codec.DecodeXML,
+		"application/xml":             codec.DecodeXML,
+		"text/csv":                    codec.DecodeCSV,
+		senml.MediaTypeCustomSenmlCSV: codec.DecodeCSV,
+	}
+
+	decoder, ok := decoderMap[contentType]
+	if !ok {
+		return nil, fmt.Errorf("unsupported Content-Type:%s", contentType)
+	}
+	return decoder, nil
+}
+
 func GetUrlFromQuery(q Query, id ...string) (url string) {
 	var sort, limit, start, end, perPage, offset, denorm string
 	if q.SortAsc {
@@ -175,19 +260,19 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 
 	if q.Denormalize != 0 {
 		denorm = fmt.Sprintf("&%v=", common.ParamDenormalize)
-		if q.Denormalize&FTime != 0 {
+		if q.Denormalize&DenormMaskTime != 0 {
 			denorm += TimeFieldShort + ","
 		}
-		if q.Denormalize&FName != 0 {
+		if q.Denormalize&DenormMaskName != 0 {
 			denorm += NameFieldShort + ","
 		}
-		if q.Denormalize&FUnit != 0 {
+		if q.Denormalize&DenormMaskUnit != 0 {
 			denorm += UnitFieldShort + ","
 		}
-		if q.Denormalize&FSum != 0 {
+		if q.Denormalize&DenormMaskSum != 0 {
 			denorm += SumFieldShort + ","
 		}
-		if q.Denormalize&FValue != 0 {
+		if q.Denormalize&DenormMaskValue != 0 {
 			denorm += ValueFieldShort + ","
 		}
 		denorm = strings.TrimSuffix(denorm, ",")
@@ -197,63 +282,6 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 		perPage,
 		sort, limit, start, end, offset, denorm,
 	)
-}
-
-// QueryPage is a handler for querying data
-// Expected parameters: id(s), optional: pagination, query string
-func (api *API) Query(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	timeStart := time.Now()
-	params := mux.Vars(r)
-	var recordSet RecordSet
-
-	// Parse id(s) and get sources from registry
-	ids := strings.Split(params["id"], common.IDSeparator)
-
-	// Parse query
-	q, err := ParseQueryParameters(r.Form)
-	if err != nil {
-		common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing query parameters:" + err.Error()}, w)
-		return
-	}
-
-	data, total, err := api.controller.QueryPage(q, ids)
-	if err != nil {
-		common.HttpErrorResponse(err, w)
-		return
-	}
-
-	curLink := common.DataAPILoc + "/" + GetUrlFromQuery(q, ids...)
-
-	nextLink := ""
-
-	responseLength := len(data)
-
-	//If the response is already less than the number of elements supposed to be in a page,
-	//then it already means that we are in last page
-	if responseLength >= q.PerPage {
-		nextQuery := q
-		nextQuery.Page = q.Page + 1
-		nextLink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
-	}
-
-	recordSet = RecordSet{
-		SelfLink: curLink,
-		TimeTook: time.Since(timeStart).Seconds(),
-		Data:     data,
-		NextLink: nextLink,
-		Count:    total,
-	}
-
-	csvStr, errMarshal := json.Marshal(recordSet)
-	if errMarshal != nil {
-		common.HttpErrorResponse(&common.InternalError{S: "Error marshalling recordset: " + errMarshal.Error()}, w)
-		return
-	}
-
-	w.Header().Add("Content-Type", common.DefaultMIMEType)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(csvStr))
 }
 
 // Utility functions

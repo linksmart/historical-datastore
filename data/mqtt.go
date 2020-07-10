@@ -73,7 +73,7 @@ func (c *MQTTConnector) Start(reg registry.Storage) error {
 		}
 
 		for _, ds := range dataStreams {
-			if ds.Source.SrcType == registry.MqttType {
+			if ds.Source.SrcType == registry.Mqtt {
 				err := c.register(*ds.Source.MQTTSource)
 				if err != nil {
 					log.Printf("MQTT: Error registering subscription: %v. Retrying in %ds", err, mqttRetryInterval)
