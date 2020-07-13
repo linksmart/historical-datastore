@@ -41,7 +41,8 @@ type TimeSeries struct {
 		//maximum requirement for the retention. This is useful for enforcing the data privacy
 		Max string `json:"max,omitempty"`
 	} `json:"retain,omitempty"`
-	// DynamicChild TODO
+
+	Parent            string `json:"parent,omitempty"`
 	keepSensitiveInfo bool
 }
 
