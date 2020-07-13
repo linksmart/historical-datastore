@@ -13,7 +13,7 @@ import (
 	"github.com/linksmart/historical-datastore/common"
 )
 
-// Generate dummy data streams
+// Generate dummy time series
 func generateDummyData(quantity int, storage Storage) ([]string, error) {
 	rand.Seed(time.Now().UTC().UnixNano())
 	randInt := func(min int, max int) int {
@@ -22,19 +22,19 @@ func generateDummyData(quantity int, storage Storage) ([]string, error) {
 
 	var IDs []string
 	for i := 1; i <= quantity; i++ {
-		var ds DataStream
-		ds.Name = fmt.Sprintf("http://example.com/sensor%d", i)
-		ds.Meta = make(map[string]interface{})
-		ds.Meta["SerialNumber"] = randInt(10000, 99999)
-		//ds.Retention = fmt.Sprintf("%d%s", randInt(1, 20), []string{"m", "h", "d", "w"}[randInt(0, 3)])
-		//ds.Aggregation TODO
-		ds.Type = []StreamType{Float, Bool, String}[randInt(0, 2)]
+		var ts TimeSeries
+		ts.Name = fmt.Sprintf("http://example.com/sensor%d", i)
+		ts.Meta = make(map[string]interface{})
+		ts.Meta["SerialNumber"] = randInt(10000, 99999)
+		//ts.Retention = fmt.Sprintf("%d%s", randInt(1, 20), []string{"m", "h", "d", "w"}[randInt(0, 3)])
+		//ts.Aggregation TODO
+		ts.Type = []ValueType{Float, Bool, String}[randInt(0, 2)]
 
-		newDS, err := storage.Add(ds)
+		newTS, err := storage.Add(ts)
 		if err != nil {
 			return nil, fmt.Errorf("error adding dummy: %s", err)
 		}
-		IDs = append(IDs, newDS.Name) // add the generated id
+		IDs = append(IDs, newTS.Name) // add the generated id
 	}
 
 	return IDs, nil
@@ -45,25 +45,25 @@ func setupMemStorage() Storage {
 }
 
 func TestMemstorageAdd(t *testing.T) {
-	var ds DataStream
-	ds.Name = "any_url"
-	//ds.Aggregation TODO
-	ds.Type = String
+	var ts TimeSeries
+	ts.Name = "any_url"
+	//ts.Aggregation TODO
+	ts.Type = String
 
 	storage := setupMemStorage()
-	addedDS, err := storage.Add(ds)
+	addedTS, err := storage.Add(ts)
 	if err != nil {
 		t.Fatalf("Received unexpected error on add: %v", err.Error())
 	}
 
-	getDS, err := storage.Get(addedDS.Name)
+	getTS, err := storage.Get(addedTS.Name)
 	if err != nil {
 		t.Errorf("Received unexpected error on get: %v", err.Error())
 	}
 
 	// compare added and retrieved data
-	if !reflect.DeepEqual(addedDS, getDS) {
-		t.Fatalf("Mismatch added:\n%v\n and retrieved:\n%v\n", addedDS, getDS)
+	if !reflect.DeepEqual(addedTS, getTS) {
+		t.Fatalf("Mismatch added:\n%v\n and retrieved:\n%v\n", addedTS, getTS)
 	}
 }
 
@@ -79,22 +79,22 @@ func TestMemstorageUpdate(t *testing.T) {
 	}
 	ID := IDs[0]
 
-	ds, err := storage.Get(ID)
+	ts, err := storage.Get(ID)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err.Error())
 	}
 
-	ds.Retention.Max = "20w"
-	//ds.Aggregation TODO
+	ts.Retention.Max = "20w"
+	//ts.Aggregation TODO
 
-	updatedDS, err := storage.Update(ID, *ds)
+	updatedDS, err := storage.Update(ID, *ts)
 	if err != nil {
 		t.Fatalf("Unexpected error on update: %v", err.Error())
 	}
 
 	// compare the updated and stored structs
-	if !reflect.DeepEqual(updatedDS, ds) {
-		t.Fatalf("Mismatch updated:\n%v\n and stored:\n%v\n", updatedDS, ds)
+	if !reflect.DeepEqual(updatedDS, ts) {
+		t.Fatalf("Mismatch updated:\n%v\n and stored:\n%v\n", updatedDS, ts)
 	}
 }
 
@@ -114,7 +114,7 @@ func TestMemstorageDelete(t *testing.T) {
 
 	err = storage.Delete(ID)
 	if err == nil {
-		t.Errorf("The previous call hasn't deleted the data stream")
+		t.Errorf("The previous call hasn't deleted the time series")
 	}
 }
 
@@ -173,15 +173,15 @@ func TestMemstoragePathFilterOne(t *testing.T) {
 	}
 	ID := IDs[0]
 
-	targetDS, _ := storage.Get(ID)
-	matchedDS, err := storage.FilterOne("name", "equals", targetDS.Name)
+	targetTS, _ := storage.Get(ID)
+	matchedTS, err := storage.FilterOne("name", "equals", targetTS.Name)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	// check if target is returned
-	if !reflect.DeepEqual(targetDS, matchedDS) {
-		t.Fatalf("Looking for:\n%v\n but matched:\n%v\n", &targetDS, matchedDS)
+	if !reflect.DeepEqual(targetTS, matchedTS) {
+		t.Fatalf("Looking for:\n%v\n but matched:\n%v\n", &targetTS, matchedTS)
 	}
 }
 
@@ -200,9 +200,9 @@ func TestMemstoragePathFilter(t *testing.T) {
 		t.Fatalf("Need more dummies!")
 	}
 	for i := 0; i < expected; i++ {
-		ds, _ := storage.Get(IDs[i])
-		ds.Meta["newkey"] = "a/b"
-		_, err := storage.Update(ds.Name, *ds)
+		ts, _ := storage.Get(IDs[i])
+		ts.Meta["newkey"] = "a/b"
+		_, err := storage.Update(ts.Name, *ts)
 		if err != nil {
 			t.Errorf("Error updating")
 		}

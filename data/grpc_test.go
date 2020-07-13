@@ -16,8 +16,8 @@ import (
 )
 
 func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage) (grpcClient *GrpcClient) {
-	// Create three dummy datastreams with different types
-	dss := []registry.DataStream{
+	// Create three dummy time series with different types
+	tss := []registry.TimeSeries{
 		{
 			Name: "http://example.com/sensor1",
 			Unit: "degC",
@@ -34,10 +34,10 @@ func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage
 			Type: registry.String,
 		},
 	}
-	for _, ds := range dss {
-		_, err := regStorage.Add(ds)
+	for _, ts := range tss {
+		_, err := regStorage.Add(ts)
 		if err != nil {
-			fmt.Println("Error creating dummy DS:", err)
+			fmt.Println("Error creating dummy TS:", err)
 			break
 		}
 	}
@@ -119,8 +119,8 @@ func TestGrpcSubmit(t *testing.T) {
 
 	//validate submission by checking the count
 	q := Query{To: time.Now(), Denormalize: DenormMaskName | DenormMaskUnit}
-	streamNames := []string{"http://example.com/sensor1", "http://example.com/sensor2", "http://example.com/sensor3"}
-	total, err := client.Count(streamNames, q)
+	seriesNames := []string{"http://example.com/sensor1", "http://example.com/sensor2", "http://example.com/sensor3"}
+	total, err := client.Count(seriesNames, q)
 	if err != nil {
 		t.Errorf("Fetching count failed:%v", err)
 	}
@@ -129,7 +129,7 @@ func TestGrpcSubmit(t *testing.T) {
 	}
 
 	//Query the values
-	pack, err := client.Query(streamNames, q)
+	pack, err := client.Query(seriesNames, q)
 	if err != nil {
 		t.Errorf("Query failed:%v", err)
 	}
@@ -194,8 +194,8 @@ func TestGrpcDelete(t *testing.T) {
 
 	//validate submission by checking the count
 	q := Query{To: time.Now(), Denormalize: DenormMaskName | DenormMaskUnit}
-	streamNames := []string{"http://example.com/sensor1", "http://example.com/sensor2", "http://example.com/sensor3"}
-	total, err := client.Count(streamNames, q)
+	seriesNames := []string{"http://example.com/sensor1", "http://example.com/sensor2", "http://example.com/sensor3"}
+	total, err := client.Count(seriesNames, q)
 	if err != nil {
 		t.Errorf("Fetching count failed:%v", err)
 	}
@@ -203,13 +203,13 @@ func TestGrpcDelete(t *testing.T) {
 		t.Errorf("Returned total is not the expected value:%d", len(records))
 	}
 
-	err = client.Delete(streamNames, fromSenmlTime(deleteTime-1.0), fromSenmlTime(deleteTime+1))
+	err = client.Delete(seriesNames, fromSenmlTime(deleteTime-1.0), fromSenmlTime(deleteTime+1))
 	if err != nil {
 		t.Errorf("Deletion failed")
 	}
 
 	//Query the values
-	pack, err := client.Query(streamNames, q)
+	pack, err := client.Query(seriesNames, q)
 	if err != nil {
 		t.Errorf("Query failed:%v", err)
 	}

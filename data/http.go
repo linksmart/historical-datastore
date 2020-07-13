@@ -135,7 +135,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	params := mux.Vars(r)
-	// Parse id(s) and get streams from registry
+	// Parse id(s) and get time series from registry
 	ids := strings.Split(params["id"], common.IDSeparator)
 	submitErr := api.controller.submit(senmlPack, ids)
 	if submitErr != nil {
@@ -198,7 +198,7 @@ func (api *API) Delete(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
 	// Parse id(s) and get sources from registry
-	streams := strings.Split(params["id"], common.IDSeparator)
+	seriesNames := strings.Split(params["id"], common.IDSeparator)
 
 	from, err := parseFromValue(r.Form.Get(common.ParamFrom))
 	if err != nil {
@@ -212,7 +212,7 @@ func (api *API) Delete(w http.ResponseWriter, r *http.Request) {
 		common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing to value:" + err.Error()}, w)
 		return
 	}
-	commonErr := api.controller.Delete(streams, from, to)
+	commonErr := api.controller.Delete(seriesNames, from, to)
 	if commonErr != nil {
 		common.HttpErrorResponse(commonErr, w)
 		return

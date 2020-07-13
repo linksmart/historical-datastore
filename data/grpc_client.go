@@ -33,9 +33,9 @@ func (c *GrpcClient) Submit(pack senml.Pack) error {
 }
 
 // TODO facilitate aborting of the query (using channels)
-func (c *GrpcClient) Query(streams []string, q Query) (senml.Pack, error) {
+func (c *GrpcClient) Query(seriesNames []string, q Query) (senml.Pack, error) {
 	request := _go.QueryRequest{
-		Streams:         streams,
+		Series:          seriesNames,
 		From:            q.From.Format(time.RFC3339),
 		To:              q.To.Format(time.RFC3339),
 		RecordPerPacket: int32(q.PerPage),
@@ -62,9 +62,9 @@ func (c *GrpcClient) Query(streams []string, q Query) (senml.Pack, error) {
 	return records, err
 }
 
-func (c *GrpcClient) Count(streams []string, q Query) (total int, err error) {
+func (c *GrpcClient) Count(series []string, q Query) (total int, err error) {
 	request := _go.QueryRequest{
-		Streams:         streams,
+		Series:         series,
 		From:            q.From.Format(time.RFC3339),
 		To:              q.To.Format(time.RFC3339),
 		RecordPerPacket: int32(q.PerPage),
@@ -80,11 +80,11 @@ func (c *GrpcClient) Count(streams []string, q Query) (total int, err error) {
 	return int(totalResponse.Total), nil
 }
 
-func (c *GrpcClient) Delete(streams []string, from time.Time, to time.Time) error {
+func (c *GrpcClient) Delete(seriesNames []string, from time.Time, to time.Time) error {
 	request := _go.DeleteRequest{
-		Streams: streams,
-		From:    from.Format(time.RFC3339),
-		To:      to.Format(time.RFC3339),
+		Series: seriesNames,
+		From:   from.Format(time.RFC3339),
+		To:     to.Format(time.RFC3339),
 	}
 	_, err := c.Client.Delete(context.Background(), &request)
 	if err != nil {

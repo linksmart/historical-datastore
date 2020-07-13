@@ -76,7 +76,7 @@ func (a *GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) 
 		return stream.Send(&message)
 	}
 
-	queryErr := a.c.QueryStream(q, request.Streams, sendFunc)
+	queryErr := a.c.QueryStream(q, request.Series, sendFunc)
 	if queryErr != nil {
 		return status.Errorf(queryErr.GrpcStatus(), "Error querying: "+queryErr.Error())
 	}
@@ -98,7 +98,7 @@ func (a *GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.Co
 	}
 
 	q.Limit = int(request.Limit)
-	total, queryErr := a.c.Count(q, request.Streams)
+	total, queryErr := a.c.Count(q, request.Series)
 	if queryErr != nil {
 		return nil, status.Errorf(queryErr.GrpcStatus(), "Error querying: "+queryErr.Error())
 	}
@@ -117,7 +117,7 @@ func (a *GrpcAPI) Delete(ctx context.Context, request *_go.DeleteRequest) (*_go.
 		return nil, status.Errorf(codes.InvalidArgument, "Error parsing to Value: "+err.Error())
 	}
 
-	deleteErr := a.c.Delete(request.Streams, from, to)
+	deleteErr := a.c.Delete(request.Series, from, to)
 	if deleteErr != nil {
 		return nil, status.Errorf(deleteErr.GrpcStatus(), "Error deleting: "+deleteErr.Error())
 	}

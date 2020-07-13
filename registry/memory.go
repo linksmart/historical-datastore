@@ -16,7 +16,7 @@ import (
 // In-memory storage
 type MemoryStorage struct {
 	conf         common.RegConf
-	data         map[string]*DataStream
+	data         map[string]*TimeSeries
 	mutex        sync.RWMutex
 	event        eventHandler
 	lastModified time.Time
@@ -26,7 +26,7 @@ type MemoryStorage struct {
 func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 	ms := &MemoryStorage{
 		conf:         conf,
-		data:         make(map[string]*DataStream),
+		data:         make(map[string]*TimeSeries),
 		lastModified: time.Now(),
 		resources:    make(map[string]string),
 		event:        listeners,
@@ -35,64 +35,64 @@ func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 	return ms
 }
 
-func (ms *MemoryStorage) Add(ds DataStream) (*DataStream, error) {
-	err := validateCreation(ds, ms.conf)
+func (ms *MemoryStorage) Add(ts TimeSeries) (*TimeSeries, error) {
+	err := validateCreation(ts, ms.conf)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrBadRequest, err)
 	}
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
-	if _, exists := ms.resources[ds.Name]; exists {
-		return nil, fmt.Errorf("%w: Resource name not unique: %s", ErrConflict, ds.Name)
+	if _, exists := ms.resources[ts.Name]; exists {
+		return nil, fmt.Errorf("%w: Resource name not unique: %s", ErrConflict, ts.Name)
 	}
 
-	// Add the new Datastream to the map
-	ms.data[ds.Name] = &ds
+	// Add the new time series to the map
+	ms.data[ts.Name] = &ts
 	// Add secondary index
-	ms.resources[ds.Name] = ds.Name
+	ms.resources[ts.Name] = ts.Name
 
 	// Send a create event
-	err = ms.event.created(&ds)
+	err = ms.event.created(&ts)
 	if err != nil {
 		return nil, err
 	}
 	ms.lastModified = time.Now()
-	return ms.data[ds.Name], nil
+	return ms.data[ts.Name], nil
 }
 
-func (ms *MemoryStorage) Update(id string, ds DataStream) (*DataStream, error) {
+func (ms *MemoryStorage) Update(id string, ts TimeSeries) (*TimeSeries, error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
 	_, ok := ms.data[id]
 	if !ok {
-		return nil, fmt.Errorf("%w: %s", ErrNotFound, "Data stream is not found.")
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, "time series is not found.")
 	}
 
-	oldDS := ms.data[id] // for comparison
+	oldTS := ms.data[id] // for comparison
 
-	err := validateUpdate(ds, *oldDS, ms.conf)
+	err := validateUpdate(ts, *oldTS, ms.conf)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrConflict, err)
 	}
 
-	tempDS := *oldDS
+	tempTS := *oldTS
 
 	// Modify writable elements
-	tempDS.Function = ds.Function
-	tempDS.Retention = ds.Retention
-	tempDS.Source = ds.Source
-	tempDS.Meta = ds.Meta
+	tempTS.Function = ts.Function
+	tempTS.Retention = ts.Retention
+	tempTS.Source = ts.Source
+	tempTS.Meta = ts.Meta
 
 	// Send an update event
-	err = ms.event.updated(oldDS, &tempDS)
+	err = ms.event.updated(oldTS, &tempTS)
 	if err != nil {
 		return nil, err
 	}
 
-	// Store the modified DS
-	ms.data[id] = &tempDS
+	// Store the modified ts
+	ms.data[id] = &tempTS
 
 	ms.lastModified = time.Now()
 	return ms.data[id], nil
@@ -120,19 +120,19 @@ func (ms *MemoryStorage) Delete(name string) error {
 	return nil
 }
 
-func (ms *MemoryStorage) Get(id string) (*DataStream, error) {
+func (ms *MemoryStorage) Get(id string) (*TimeSeries, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
-	ds, ok := ms.data[id]
+	ts, ok := ms.data[id]
 	if !ok {
 		return nil, fmt.Errorf("%s: %w", id, ErrNotFound)
 	}
 
-	return ds, nil
+	return ts, nil
 }
 
-func (ms *MemoryStorage) GetMany(page, perPage int) ([]DataStream, int, error) {
+func (ms *MemoryStorage) GetMany(page, perPage int) ([]TimeSeries, int, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
@@ -149,15 +149,15 @@ func (ms *MemoryStorage) GetMany(page, perPage int) ([]DataStream, int, error) {
 	// Get the queried page
 	pagedKeys, err := utils.GetPageOfSlice(allKeys, page, perPage, MaxPerPage)
 	if err != nil {
-		return []DataStream{}, 0, err
+		return []TimeSeries{}, 0, err
 	}
 
-	// DataStreamList is empty
+	// TimeSeriesList is empty
 	if len(pagedKeys) == 0 {
-		return []DataStream{}, total, nil
+		return []TimeSeries{}, total, nil
 	}
 
-	datasources := make([]DataStream, 0, len(pagedKeys))
+	datasources := make([]TimeSeries, 0, len(pagedKeys))
 	for _, k := range pagedKeys {
 		datasources = append(datasources, *ms.data[k])
 	}
@@ -175,20 +175,20 @@ func (ms *MemoryStorage) getLastModifiedTime() (time.Time, error) {
 
 // Path filtering
 // Filter one registration
-func (ms *MemoryStorage) FilterOne(path, op, value string) (*DataStream, error) {
+func (ms *MemoryStorage) FilterOne(path, op, value string) (*TimeSeries, error) {
 	pathTknz := strings.Split(path, ".")
 
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
 	// return the first one found
-	for _, ds := range ms.data {
-		matched, err := utils.MatchObject(ds, pathTknz, op, value)
+	for _, ts := range ms.data {
+		matched, err := utils.MatchObject(ts, pathTknz, op, value)
 		if err != nil {
 			return nil, err
 		}
 		if matched {
-			return ds, nil
+			return ts, nil
 		}
 	}
 
@@ -196,36 +196,36 @@ func (ms *MemoryStorage) FilterOne(path, op, value string) (*DataStream, error) 
 }
 
 // Filter multiple registrations
-func (ms *MemoryStorage) Filter(path, op, value string, page, perPage int) ([]DataStream, int, error) {
+func (ms *MemoryStorage) Filter(path, op, value string, page, perPage int) ([]TimeSeries, int, error) {
 	matchedIDs := []string{}
 	pathTknz := strings.Split(path, ".")
 
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
-	for _, ds := range ms.data {
-		matched, err := utils.MatchObject(ds, pathTknz, op, value)
+	for _, ts := range ms.data {
+		matched, err := utils.MatchObject(ts, pathTknz, op, value)
 		if err != nil {
-			return []DataStream{}, 0, err
+			return []TimeSeries{}, 0, err
 		}
 		if matched {
-			matchedIDs = append(matchedIDs, ds.Name)
+			matchedIDs = append(matchedIDs, ts.Name)
 		}
 	}
 
 	keys, err := utils.GetPageOfSlice(matchedIDs, page, perPage, MaxPerPage)
 	if err != nil {
-		return []DataStream{}, 0, err
+		return []TimeSeries{}, 0, err
 	}
 	if len(keys) == 0 {
-		return []DataStream{}, len(matchedIDs), nil
+		return []TimeSeries{}, len(matchedIDs), nil
 	}
 
-	dss := make([]DataStream, 0, len(keys))
-	//var dss []DataSource
+	ts := make([]TimeSeries, 0, len(keys))
+	//var ts []DataSource
 	for _, k := range keys {
-		dss = append(dss, *ms.data[k])
+		ts = append(ts, *ms.data[k])
 	}
 
-	return dss, len(matchedIDs), nil
+	return ts, len(matchedIDs), nil
 }

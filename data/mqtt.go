@@ -29,8 +29,8 @@ type MQTTConnector struct {
 	storage  Storage
 	clientID string
 	managers map[string]*Manager
-	// cache of resource->ds
-	cache map[string]*registry.DataStream
+	// cache of resource->ts
+	cache map[string]*registry.TimeSeries
 	// failed mqtt registrations
 	failedRegistrations map[string]*registry.MQTTSource
 }
@@ -56,7 +56,7 @@ func NewMQTTConnector(storage Storage, clientID string) (*MQTTConnector, error) 
 		storage:             storage,
 		clientID:            clientID,
 		managers:            make(map[string]*Manager),
-		cache:               make(map[string]*registry.DataStream),
+		cache:               make(map[string]*registry.TimeSeries),
 		failedRegistrations: make(map[string]*registry.MQTTSource),
 	}
 	return c, nil
@@ -67,17 +67,17 @@ func (c *MQTTConnector) Start(reg registry.Storage) error {
 
 	perPage := 100
 	for page := 1; ; page++ {
-		dataStreams, total, err := c.registry.GetMany(page, perPage)
+		series, total, err := c.registry.GetMany(page, perPage)
 		if err != nil {
-			return fmt.Errorf("MQTT: Error getting Data streams: %v", err)
+			return fmt.Errorf("MQTT: Error getting time series: %v", err)
 		}
 
-		for _, ds := range dataStreams {
-			if ds.Source.SrcType == registry.Mqtt {
-				err := c.register(*ds.Source.MQTTSource)
+		for _, ts := range series {
+			if ts.Source.SrcType == registry.Mqtt {
+				err := c.register(*ts.Source.MQTTSource)
 				if err != nil {
 					log.Printf("MQTT: Error registering subscription: %v. Retrying in %ds", err, mqttRetryInterval)
-					c.failedRegistrations[ds.Name] = ds.Source.MQTTSource
+					c.failedRegistrations[ts.Name] = ts.Source.MQTTSource
 				}
 			}
 		}
@@ -93,7 +93,7 @@ func (c *MQTTConnector) Start(reg registry.Storage) error {
 }
 
 func (c *MQTTConnector) flushCache() {
-	c.cache = make(map[string]*registry.DataStream)
+	c.cache = make(map[string]*registry.TimeSeries)
 }
 
 func (c *MQTTConnector) retryRegistrations() {
@@ -238,12 +238,12 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 	// Fill the data map with provided data points
 	senmlPack.Normalize()
 	data := make(map[string]senml.Pack)
-	streams := make(map[string]*registry.DataStream)
+	series := make(map[string]*registry.TimeSeries)
 	for _, r := range senmlPack {
-		// Find the Data stream for this entry
-		ds, exists := s.connector.cache[r.Name]
+		// Find the time series for this entry
+		ts, exists := s.connector.cache[r.Name]
 		if !exists {
-			ds, err = s.connector.registry.Get(r.Name)
+			ts, err = s.connector.registry.Get(r.Name)
 			if err != nil {
 				if errors.Is(err, registry.ErrNotFound) {
 					logMQTTError(http.StatusNotFound, "Warning: Resource not found: %v", r.Name)
@@ -253,24 +253,24 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 				continue
 			}
 
-			s.connector.cache[r.Name] = ds
+			s.connector.cache[r.Name] = ts
 		}
 
 		// Check if the message is wanted
-		if ds.Source.MQTTSource == nil {
+		if ts.Source.MQTTSource == nil {
 			logMQTTError(http.StatusNotAcceptable, "Ignoring unwanted message for resource: %v", r.Name)
 			continue
 		}
-		if ds.Source.MQTTSource.BrokerURL != s.url {
-			logMQTTError(http.StatusNotAcceptable, "Ignoring message from unwanted broker %v for Data stream: %v", s.url, r.Name)
+		if ts.Source.MQTTSource.BrokerURL != s.url {
+			logMQTTError(http.StatusNotAcceptable, "Ignoring message from unwanted broker %v for time series: %v", s.url, r.Name)
 			continue
 		}
-		if ds.Source.MQTTSource.Topic != s.topic {
-			logMQTTError(http.StatusNotAcceptable, "Ignoring message with unwanted topic %v for Data stream: %v", s.topic, r.Name)
+		if ts.Source.MQTTSource.Topic != s.topic {
+			logMQTTError(http.StatusNotAcceptable, "Ignoring message with unwanted topic %v for time series: %v", s.topic, r.Name)
 			continue
 		}
 
-		err := validateRecordAgainstRegistry(r, ds)
+		err := validateRecordAgainstRegistry(r, ts)
 
 		if err != nil {
 			logMQTTError(http.StatusBadRequest,
@@ -278,17 +278,17 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 			return
 		}
 
-		_, ok := data[ds.Name]
+		_, ok := data[ts.Name]
 		if !ok {
-			data[ds.Name] = []senml.Record{}
-			streams[ds.Name] = ds
+			data[ts.Name] = []senml.Record{}
+			series[ts.Name] = ts
 		}
-		data[ds.Name] = append(data[ds.Name], r)
+		data[ts.Name] = append(data[ts.Name], r)
 	}
 
 	if len(data) > 0 {
 		// Add data to the storage
-		err = s.connector.storage.Submit(data, streams)
+		err = s.connector.storage.Submit(data, series)
 		if err != nil {
 			logMQTTError(http.StatusInternalServerError, "Error writing data to the database: %v", err)
 			return
@@ -300,13 +300,13 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 // NOTIFICATION HANDLERS
 
-// CreateHandler handles the creation of a new Data stream
-func (c *MQTTConnector) CreateHandler(ds registry.DataStream) error {
+// CreateHandler handles the creation of a new time series
+func (c *MQTTConnector) CreateHandler(ts registry.TimeSeries) error {
 	c.Lock()
 	defer c.Unlock()
 
-	if ds.Source.MQTTSource != nil {
-		err := c.register(*ds.Source.MQTTSource)
+	if ts.Source.MQTTSource != nil {
+		err := c.register(*ts.Source.MQTTSource)
 		if err != nil {
 			return fmt.Errorf("MQTT: Error adding subscription: %v", err)
 		}
@@ -315,27 +315,27 @@ func (c *MQTTConnector) CreateHandler(ds registry.DataStream) error {
 	return nil
 }
 
-// UpdateHandler handles updates of a data stream
-func (c *MQTTConnector) UpdateHandler(oldDS registry.DataStream, newDS registry.DataStream) error {
+// UpdateHandler handles updates of a time series
+func (c *MQTTConnector) UpdateHandler(oldTs registry.TimeSeries, newTS registry.TimeSeries) error {
 	c.Lock()
 	defer c.Unlock()
 
-	if oldDS.Retention != newDS.Retention {
+	if oldTs.Retention != newTS.Retention {
 		c.flushCache()
 	}
 
-	if oldDS.Source.MQTTSource != newDS.Source.MQTTSource {
+	if oldTs.Source.MQTTSource != newTS.Source.MQTTSource {
 		// Remove old subscription
-		if oldDS.Source.MQTTSource != nil {
-			err := c.unregister(oldDS.Source.MQTTSource)
+		if oldTs.Source.MQTTSource != nil {
+			err := c.unregister(oldTs.Source.MQTTSource)
 			if err != nil {
 				return fmt.Errorf("MQTT: Error removing subscription: %v", err)
 			}
 		}
-		delete(c.failedRegistrations, oldDS.Name)
+		delete(c.failedRegistrations, oldTs.Name)
 		// Add new subscription
-		if newDS.Source.MQTTSource != nil {
-			err := c.register(*newDS.Source.MQTTSource)
+		if newTS.Source.MQTTSource != nil {
+			err := c.register(*newTS.Source.MQTTSource)
 			if err != nil {
 				return fmt.Errorf("MQTT: Error adding subscription: %v", err)
 			}
@@ -344,21 +344,21 @@ func (c *MQTTConnector) UpdateHandler(oldDS registry.DataStream, newDS registry.
 	return nil
 }
 
-// DeleteHandler handles deletion of a Data stream
-func (c *MQTTConnector) DeleteHandler(oldDS registry.DataStream) error {
+// DeleteHandler handles deletion of a time series
+func (c *MQTTConnector) DeleteHandler(oldTS registry.TimeSeries) error {
 	c.Lock()
 	defer c.Unlock()
 
 	c.flushCache()
 
 	// Remove old subscription
-	if oldDS.Source.MQTTSource != nil {
-		delete(c.cache, oldDS.Name)
-		err := c.unregister(oldDS.Source.MQTTSource)
+	if oldTS.Source.MQTTSource != nil {
+		delete(c.cache, oldTS.Name)
+		err := c.unregister(oldTS.Source.MQTTSource)
 		if err != nil {
 			return fmt.Errorf("MQTT: Error removing subscription: %v", err)
 		}
-		delete(c.failedRegistrations, oldDS.Name)
+		delete(c.failedRegistrations, oldTS.Name)
 	}
 	return nil
 }

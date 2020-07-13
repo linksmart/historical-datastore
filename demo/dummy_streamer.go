@@ -13,26 +13,26 @@ import (
 )
 
 func StartDummyStreamer(regStorage registry.Storage, dataStorage data.Storage) error {
-	dsBool, err := createDS(regStorage, "kitchen/lamp", registry.Bool, "")
+	tsBool, err := createTS(regStorage, "kitchen/lamp", registry.Bool, "")
 	if err != nil {
-		return fmt.Errorf("error creating stream: %s", err)
+		return fmt.Errorf("error creating time series: %s", err)
 	}
-	dsString, err := createDS(regStorage, "hall/cat", registry.String, "")
+	tsString, err := createTS(regStorage, "hall/cat", registry.String, "")
 	if err != nil {
-		return fmt.Errorf("error creating stream: %s", err)
+		return fmt.Errorf("error creating time series: %s", err)
 	}
 
-	dsFloat, err := createDS(regStorage, "terrace/temperature", registry.Float, "Cel")
+	tsFloat, err := createTS(regStorage, "terrace/temperature", registry.Float, "Cel")
 	if err != nil {
-		return fmt.Errorf("error creating stream: %s", err)
+		return fmt.Errorf("error creating time series: %s", err)
 	}
 
 	streamDummyData := func() {
 		ticker := time.NewTicker(time.Second * 5)
 		for range ticker.C {
-			addFloat(dataStorage, dsFloat)
-			addBool(dataStorage, dsBool)
-			addString(dataStorage, dsString)
+			addFloat(dataStorage, tsFloat)
+			addBool(dataStorage, tsBool)
+			addString(dataStorage, tsString)
 		}
 	}
 
@@ -41,26 +41,26 @@ func StartDummyStreamer(regStorage registry.Storage, dataStorage data.Storage) e
 	return nil
 }
 
-func createDS(regStorage registry.Storage, name string, datatype registry.StreamType, unit string) (ds registry.DataStream, err error) {
-	ds = registry.DataStream{
+func createTS(regStorage registry.Storage, name string, datatype registry.ValueType, unit string) (ts registry.TimeSeries, err error) {
+	ts = registry.TimeSeries{
 		Name: name,
 		Type: datatype,
 		Unit: unit,
 	}
-	_, err = regStorage.Add(ds)
+	_, err = regStorage.Add(ts)
 	if err != nil {
 		if errors.Is(err, registry.ErrConflict) { // strings.HasPrefix(err.Error(), registry.ErrConflict.Error()) {
-			log.Printf("Reusing existing stream %s", name)
+			log.Printf("Reusing existing time series %s", name)
 		} else {
-			log.Printf("Error creating datastream %s: %s", name, err)
-			return ds, err
+			log.Printf("Error creating time series %s: %s", name, err)
+			return ts, err
 		}
 	} else {
-		log.Printf("Creating stream %s\n", ds.Name)
+		log.Printf("Creating time series %s\n", ts.Name)
 	}
-	return ds, nil
+	return ts, nil
 }
-func addFloat(datastorage data.Storage, ds registry.DataStream) {
+func addFloat(datastorage data.Storage, ts registry.TimeSeries) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	curVal := 20.0
 	max := 40.0
@@ -72,30 +72,30 @@ func addFloat(datastorage data.Storage, ds registry.DataStream) {
 		curVal += rchange
 	}
 	senmlRecord := senml.Record{
-		Name:  ds.Name,
+		Name:  ts.Name,
 		Unit:  "Cel",
 		Value: &curVal,
 	}
 
-	log.Printf("Submitting %s: value %f\n", ds.Name, curVal)
-	submitData(datastorage, ds, senmlRecord)
+	log.Printf("Submitting %s: value %f\n", ts.Name, curVal)
+	submitData(datastorage, ts, senmlRecord)
 
 }
 
-func addBool(datastorage data.Storage, ds registry.DataStream) {
+func addBool(datastorage data.Storage, ts registry.TimeSeries) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	var curVal bool = r.Intn(2) != 0
 	senmlRecord := senml.Record{
-		Name:      ds.Name,
+		Name:      ts.Name,
 		BoolValue: &curVal,
 	}
 
-	log.Printf("Submitting %s: value %t\n", ds.Name, curVal)
-	submitData(datastorage, ds, senmlRecord)
+	log.Printf("Submitting %s: value %t\n", ts.Name, curVal)
+	submitData(datastorage, ts, senmlRecord)
 
 }
 
-func addString(datastorage data.Storage, ds registry.DataStream) {
+func addString(datastorage data.Storage, ts registry.TimeSeries) {
 	status := []string{
 		"Relaxed",
 		"Stretching",
@@ -111,22 +111,22 @@ func addString(datastorage data.Storage, ds registry.DataStream) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	index := r.Intn(len(status))
 	senmlRecord := senml.Record{
-		Name:        ds.Name,
+		Name:        ts.Name,
 		StringValue: status[index],
 	}
-	log.Printf("Submitting %s: status %s", ds.Name, status[index])
-	submitData(datastorage, ds, senmlRecord)
+	log.Printf("Submitting %s: status %s", ts.Name, status[index])
+	submitData(datastorage, ts, senmlRecord)
 
 }
 
-func submitData(datastorage data.Storage, ds registry.DataStream, record senml.Record) {
+func submitData(datastorage data.Storage, ts registry.TimeSeries, record senml.Record) {
 	var senmlPack senml.Pack = []senml.Record{record}
 	recordMap := make(map[string]senml.Pack)
 	senmlPack.Normalize()
-	recordMap[ds.Name] = senmlPack
-	streamMap := make(map[string]*registry.DataStream)
-	streamMap[ds.Name] = &ds
-	err := datastorage.Submit(recordMap, streamMap)
+	recordMap[ts.Name] = senmlPack
+	seriesMap := make(map[string]*registry.TimeSeries)
+	seriesMap[ts.Name] = &ts
+	err := datastorage.Submit(recordMap, seriesMap)
 	if err != nil {
 		log.Printf("insetion failed: %s", err)
 	}

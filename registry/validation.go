@@ -21,18 +21,18 @@ import (
 // type: mandatory, fixed
 // format: mandatory
 
-func validateCreation(ds DataStream, conf common.RegConf) error {
+func validateCreation(ts TimeSeries, conf common.RegConf) error {
 	var e validationError
 
 	//validate name
-	if ds.Name == "" {
+	if ts.Name == "" {
 		e.mandatory = append(e.mandatory, "name")
 	}
 	validSenmlName, err := regexp.Compile(`^[a-zA-Z0-9]+[a-zA-Z0-9-:./_]*$`)
 	if err != nil {
 		fmt.Println(err)
 	}
-	if !validSenmlName.MatchString(ds.Name) {
+	if !validSenmlName.MatchString(ts.Name) {
 		e.invalid = append(e.invalid, "name")
 	}
 
@@ -44,16 +44,16 @@ func validateCreation(ds DataStream, conf common.RegConf) error {
 	return nil
 }
 
-func validateUpdate(ds DataStream, oldDS DataStream, conf common.RegConf) error {
+func validateUpdate(ts TimeSeries, oldTS TimeSeries, conf common.RegConf) error {
 	var e validationError
 
 	// id
-	if ds.Name != oldDS.Name {
+	if ts.Name != oldTS.Name {
 		e.readOnly = append(e.readOnly, "id")
 	}
 
 	// type
-	if ds.Type != oldDS.Type {
+	if ts.Type != oldTS.Type {
 		e.readOnly = append(e.readOnly, "type")
 	}
 
@@ -61,34 +61,34 @@ func validateUpdate(ds DataStream, oldDS DataStream, conf common.RegConf) error 
 	/*
 
 		// url
-		if ds.BrokerURL != oldDS.BrokerURL {
+		if ts.BrokerURL != oldTS.BrokerURL {
 			e.readOnly = append(e.readOnly, "url")
 		}
 
 		// data
-		if ds.Data != oldDS.Data {
+		if ts.Data != oldTS.Data {
 			e.readOnly = append(e.readOnly, "data")
 		}
 
 		// resource
-		if ds.Resource != oldDS.Resource {
+		if ts.Resource != oldTS.Resource {
 			e.readOnly = append(e.readOnly, "resource")
 		}
 
 		// retention
-		if !common.SupportedPeriod(ds.Retention) {
+		if !common.SupportedPeriod(ts.Retention) {
 			e.invalid = append(e.invalid, "retention")
 		}
 
 
 
 		// aggregation
-		if ds.Type != common.FLOAT && len(ds.Aggregation) != 0 {
+		if ts.Type != common.FLOAT && len(ts.Aggregation) != 0 {
 			e.other = append(e.other, "Aggregations are only possible with float type.")
-		} else if ds.Type == common.FLOAT {
-			for _, aggr := range ds.Aggregation {
+		} else if ts.Type == common.FLOAT {
+			for _, aggr := range ts.Aggregation {
 				temp := aggr
-				temp.Make(ds.ID)
+				temp.Make(ts.ID)
 
 				// Accept *correct* id and data attributes, even though they are readonly
 				// id

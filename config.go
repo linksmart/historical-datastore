@@ -58,7 +58,7 @@ func loadConfig(confPath *string, ignoreEnv bool) (*common.Config, error) {
 	// Check retention periods
 	for _, rp := range conf.Reg.RetentionPeriods {
 		if !common.SupportedPeriod(rp) {
-			return nil, fmt.Errorf("DataStreamList retentionPeriod is not valid: %s. Supported period suffixes are: %s",
+			return nil, fmt.Errorf("registry retentionPeriod is not valid: %s. Supported period suffixes are: %s",
 				rp, strings.Join(common.SupportedPeriods(), ", "))
 		}
 	}

@@ -22,9 +22,9 @@ const (
 )
 
 var (
-	ErrNotFound   = &common.NotFoundError{S: "datastream not found"}
+	ErrNotFound   = &common.NotFoundError{S: "time series not found"}
 	ErrConflict   = &common.ConflictError{S: "conflict"}
-	ErrBadRequest = &common.BadRequestError{S: "invald datastream"}
+	ErrBadRequest = &common.BadRequestError{S: "invald time series"}
 )
 
 // RESTful HTTP API
@@ -32,7 +32,7 @@ type API struct {
 	storage Storage
 }
 
-// Returns the configured DataStreamList API
+// Returns the configured TimeSeriesList API
 func NewAPI(storage Storage) *API {
 	return &API{
 		storage,
@@ -70,16 +70,16 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dataStreams, total, err := api.storage.GetMany(page, perPage)
+	series, total, err := api.storage.GetMany(page, perPage)
 	if err != nil {
 		common.HttpErrorResponse(&common.InternalError{S: err.Error()}, w)
 		return
 	}
 
 	// Create a registry catalog
-	registry := DataStreamList{
+	registry := TimeSeriesList{
 		URL:     common.RegistryAPILoc,
-		Streams: dataStreams,
+		Series:  series,
 		Page:    page,
 		PerPage: perPage,
 		Total:   total,
@@ -102,27 +102,27 @@ func (api *API) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var ds DataStream
-	err = json.Unmarshal(body, &ds)
+	var ts TimeSeries
+	err = json.Unmarshal(body, &ts)
 	if err != nil {
 		common.HttpErrorResponse(&common.BadRequestError{S: "Error processing input: " + err.Error()}, w)
 		return
 	}
 
-	addedDS, err := api.storage.Add(ds)
+	addedTS, err := api.storage.Add(ts)
 	if err != nil {
 		if errors.Is(err, ErrConflict) {
 			common.HttpErrorResponse(&common.ConflictError{S: err.Error()}, w)
 		} else if errors.Is(err, ErrBadRequest) {
 			common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
 		} else {
-			common.HttpErrorResponse(&common.InternalError{S: "Error storing Data stream: " + err.Error()}, w)
+			common.HttpErrorResponse(&common.InternalError{S: "Error storing time series: " + err.Error()}, w)
 		}
 		return
 	}
 
-	//b, _ := json.Marshal(&addedDS)
-	w.Header().Set("Location", common.RegistryAPILoc+"/"+addedDS.Name)
+	//b, _ := json.Marshal(&addedTS)
+	w.Header().Set("Location", common.RegistryAPILoc+"/"+addedTS.Name)
 
 	w.WriteHeader(http.StatusCreated)
 	//w.Write(b)
@@ -136,17 +136,17 @@ func (api *API) Retrieve(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
-	ds, err := api.storage.Get(id)
+	ts, err := api.storage.Get(id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			common.HttpErrorResponse(&common.NotFoundError{S: err.Error()}, w)
 		} else {
-			common.HttpErrorResponse(&common.InternalError{S: "Error retrieving Data stream: " + err.Error()}, w)
+			common.HttpErrorResponse(&common.InternalError{S: "Error retrieving time series: " + err.Error()}, w)
 		}
 		return
 	}
 
-	b, _ := json.Marshal(&ds)
+	b, _ := json.Marshal(&ts)
 
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.Write(b)
@@ -167,21 +167,21 @@ func (api *API) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var ds DataStream
-	err = json.Unmarshal(body, &ds)
+	var ts TimeSeries
+	err = json.Unmarshal(body, &ts)
 	if err != nil {
 		common.HttpErrorResponse(&common.BadRequestError{S: "Error processing input: " + err.Error()}, w)
 		return
 	}
 
-	_, err = api.storage.Update(id, ds)
+	_, err = api.storage.Update(id, ts)
 	if err != nil {
 		if errors.Is(err, ErrConflict) {
 			common.HttpErrorResponse(&common.ConflictError{S: err.Error()}, w)
 		} else if errors.Is(err, ErrNotFound) {
 			common.HttpErrorResponse(&common.NotFoundError{S: err.Error()}, w)
 		} else {
-			common.HttpErrorResponse(&common.InternalError{S: "Error updating Data stream: " + err.Error()}, w)
+			common.HttpErrorResponse(&common.InternalError{S: "Error updating time series: " + err.Error()}, w)
 		}
 		return
 	}
@@ -201,7 +201,7 @@ func (api *API) Delete(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, ErrNotFound) {
 			common.HttpErrorResponse(&common.NotFoundError{S: err.Error()}, w)
 		} else {
-			common.HttpErrorResponse(&common.InternalError{S: "Error deleting Data stream: " + err.Error()}, w)
+			common.HttpErrorResponse(&common.InternalError{S: "Error deleting time series: " + err.Error()}, w)
 		}
 		return
 	}
@@ -228,37 +228,37 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 	var body []byte
 	switch ftype {
 	case FTypeOne:
-		dataStream, err := api.storage.FilterOne(fpath, fop, fvalue)
+		timeSeries, err := api.storage.FilterOne(fpath, fop, fvalue)
 		if err != nil {
 			common.HttpErrorResponse(&common.InternalError{S: "Error processing the filter request:" + err.Error()}, w)
 			return
 		}
 
 		// Respond with a catalog
-		registry := DataStreamList{
+		registry := TimeSeriesList{
 			URL:     common.RegistryAPILoc,
-			Streams: []DataStream{},
+			Series:  []TimeSeries{},
 			Page:    page,
 			PerPage: perPage,
 			Total:   0,
 		}
-		if dataStream != nil {
-			registry.Streams = append(registry.Streams, *dataStream)
+		if timeSeries != nil {
+			registry.Series = append(registry.Series, *timeSeries)
 			registry.Total++
 		}
 		body, _ = json.Marshal(&registry)
 
 	case FTypeMany:
-		dataStreams, total, err := api.storage.Filter(fpath, fop, fvalue, page, perPage)
+		timeSeries, total, err := api.storage.Filter(fpath, fop, fvalue, page, perPage)
 		if err != nil {
 			common.HttpErrorResponse(&common.InternalError{S: "Error processing the filter request:" + err.Error()}, w)
 			return
 		}
 
 		// Respond with a catalog
-		registry := DataStreamList{
+		registry := TimeSeriesList{
 			URL:     common.RegistryAPILoc,
-			Streams: dataStreams,
+			Series:  timeSeries,
 			Page:    page,
 			PerPage: perPage,
 			Total:   total,

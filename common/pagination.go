@@ -54,28 +54,28 @@ func ValidatePerItemLimit(_qLimit, _perPage, _numOfSrcs int) error {
 		return fmt.Errorf("%v must be positive", ParamLimit)
 	}
 
-	// qLimit must be divisible by the number of streams
+	// qLimit must be divisible by the number of time series
 	if qLimit > 0 && math.Remainder(qLimit, numOfSrcs) != 0 {
 		qLimit = math.Ceil(qLimit/numOfSrcs) * numOfSrcs
-		return fmt.Errorf("%v must be divisible by the number of queried streams. E.g. %v=%v", ParamLimit, ParamLimit, qLimit)
+		return fmt.Errorf("%v must be divisible by the number of queried time series. E.g. %v=%v", ParamLimit, ParamLimit, qLimit)
 	}
 
-	// perPage must be divisible by the number of streams
+	// perPage must be divisible by the number of  time series
 	if math.Remainder(perPage, numOfSrcs) != 0 {
 		perPage = math.Ceil(perPage/numOfSrcs) * numOfSrcs
-		return fmt.Errorf("%v must be divisible by the number of queried streams. E.g. %v=%v", ParamPerPage, ParamPerPage, perPage)
+		return fmt.Errorf("%v must be divisible by the number of queried time series. E.g. %v=%v", ParamPerPage, ParamPerPage, perPage)
 	}
 
 	return nil
 }
 
-// Calculate perItem and offset given the page, perPage, limit, and number of streams
+// Calculate perItem and offset given the page, perPage, limit, and number of  time series
 func PerItemPagination(_qLimit, _page, _perPage, _numOfSrcs int) (perItems []int, offsets []int) {
 	qLimit, page, perPage, numOfSrcs := float64(_qLimit), float64(_page), float64(_perPage), float64(_numOfSrcs)
 	limitIsSet := qLimit > 0
 	page-- // make page number 0-indexed
 
-	// Make qLimit and perPage divisible by the number of streams
+	// Make qLimit and perPage divisible by the number of  time series
 	if limitIsSet && math.Remainder(qLimit, numOfSrcs) != 0 {
 		qLimit = math.Ceil(qLimit/numOfSrcs) * numOfSrcs
 	}

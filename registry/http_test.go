@@ -77,7 +77,7 @@ func TestHttpIndex(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	var reg DataStreamList
+	var reg TimeSeriesList
 	err = json.Unmarshal(body, &reg)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -85,13 +85,13 @@ func TestHttpIndex(t *testing.T) {
 
 	// Compare total created with total variable in returned registry
 	if reg.Total != totalDummy {
-		t.Errorf("Mismatched total created(%d) and accounted(%d) data streams!", totalDummy, reg.Total)
+		t.Errorf("Mismatched total created(%d) and accounted(%d) time series!", totalDummy, reg.Total)
 	}
 
 	//// Now, check body of the registry for each page
 
-	// Compare created and returned data streams
-	totalReturnedDS := 0
+	// Compare created and returned time series
+	totalReturnedTS := 0
 	perPage := 10
 	pages := int(math.Ceil(float64(totalDummy) / float64(perPage)))
 	for page := 1; page <= pages; page++ {
@@ -107,41 +107,41 @@ func TestHttpIndex(t *testing.T) {
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
-		var reg DataStreamList
+		var reg TimeSeriesList
 		err = json.Unmarshal(body, &reg)
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
 
 		// QueryPage the local data for comparison
-		dummyDSs, _, _ := registryClient.GetMany(page, perPage)
+		dummyTSs, _, _ := registryClient.GetMany(page, perPage)
 
 		// Number of expected items in this page
-		inThisPage := len(dummyDSs)
+		inThisPage := len(dummyTSs)
 		//		inThisPage := perPage
 		//		if (totalDummy - (page-1)*perPage) < perPage {
 		//			inThisPage = int(math.Mod(float64(totalDummy), float64(perPage)))
 		//		}
 
-		// Check for each data stream in this page
+		// Check for each time series in this page
 		for i := 0; i < inThisPage; i++ {
-			dummyDS := dummyDSs[i]
-			returnedDS := reg.Streams[i]
+			dummyTS := dummyTSs[i]
+			returnedTS := reg.Series[i]
 
 			// compare them
-			dummyDS_b, _ := json.Marshal(dummyDS)
-			returnedDS_b, _ := json.Marshal(returnedDS)
-			if string(dummyDS_b) != string(returnedDS_b) {
-				t.Errorf("Mismatch retrieved:\n%s\n and stored:\n%s\n", string(dummyDS_b), string(returnedDS_b))
+			dummyTS_b, _ := json.Marshal(dummyTS)
+			returnedTS_b, _ := json.Marshal(returnedTS)
+			if string(dummyTS_b) != string(returnedTS_b) {
+				t.Errorf("Mismatch retrieved:\n%s\n and stored:\n%s\n", string(dummyTS_b), string(returnedTS_b))
 			}
 		}
 
-		totalReturnedDS += len(reg.Streams)
+		totalReturnedTS += len(reg.Series)
 	}
 
-	// Compare the total number of created and retrieved(in all pages of registry) data streams
-	if totalReturnedDS != totalDummy {
-		t.Errorf("Mismatched total created(%d) and returned(%d) data streams!", totalDummy, totalReturnedDS)
+	// Compare the total number of created and retrieved(in all pages of registry) time series
+	if totalReturnedTS != totalDummy {
+		t.Errorf("Mismatched total created(%d) and returned(%d) time series!", totalDummy, totalReturnedTS)
 	}
 
 	return
@@ -199,38 +199,38 @@ func TestHttpCreate(t *testing.T) {
 	}
 	res.Body.Close()
 
-	// Extract id of new data stream from url
+	// Extract id of new time series from url
 	splitURL := strings.Split(url.Path, "/")
 	if len(splitURL) != 3 {
 		t.Fatal("Invalid url in Location header-entry")
 	}
 	name := splitURL[2]
 
-	// Manually construct the expected POSTed data stream
-	var postedDS DataStream
-	err = json.Unmarshal(b, &postedDS)
+	// Manually construct the expected POSTed time series
+	var postedTS TimeSeries
+	err = json.Unmarshal(b, &postedTS)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	postedDS.Name = name
-	//postedDS.Name = fmt.Sprintf("%s/%s", common.DataAPILoc, postedDS.Name)
+	postedTS.Name = name
+	//postedTS.Name = fmt.Sprintf("%s/%s", common.DataAPILoc, postedTS.Name)
 
-	// Retrieve the added data stream
-	addedDS, _ := registryClient.Get(name)
+	// Retrieve the added time series
+	addedTS, _ := registryClient.Get(name)
 
-	// marshal the stored data stream for comparison
-	postedDS_b, _ := json.Marshal(&postedDS)
-	addedDS_b, _ := json.Marshal(&addedDS)
+	// marshal the stored time series for comparison
+	postedTS_b, _ := json.Marshal(&postedTS)
+	addedTS_b, _ := json.Marshal(&addedTS)
 
-	// compare updated(PUT) data stream with the one in memory
-	if string(postedDS_b) != string(addedDS_b) {
-		t.Errorf("The POSTed data:\n%s\n mismatch the stored data:\n%s\n", string(postedDS_b), string(addedDS_b))
+	// compare updated(PUT) time series with the one in memory
+	if string(postedTS_b) != string(addedTS_b) {
+		t.Errorf("The POSTed data:\n%s\n mismatch the stored data:\n%s\n", string(postedTS_b), string(addedTS_b))
 	}
 
 	return
 }
 
-// Create a data stream and retrieve it back
+// Create a time series and retrieve it back
 func TestHttpRetrieve(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
@@ -256,29 +256,29 @@ func TestHttpRetrieve(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	// marshal the stored data stream for comparison
-	storedDS_b, _ := json.Marshal(&aDataSource)
+	// marshal the stored time series for comparison
+	storedTS_b, _ := json.Marshal(&aDataSource)
 
-	// compare stored and retrieved(GET) data streams
-	if string(storedDS_b) != string(b) {
-		t.Errorf("Retrieved(GET):\n%s\n mismatch the stored data:\n%s\n", string(b), string(storedDS_b))
+	// compare stored and retrieved(GET) time series
+	if string(storedTS_b) != string(b) {
+		t.Errorf("Retrieved(GET):\n%s\n mismatch the stored data:\n%s\n", string(b), string(storedTS_b))
 	}
 }
 
 func TestHttpUpdate(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
-	// Create a dummy data stream
+	// Create a dummy time series
 	names, err := generateDummyData(1, registryClient)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 	name := names[0]
 
-	ts := httptest.NewServer(setupRouter(regAPI))
-	defer ts.Close()
+	testServer := httptest.NewServer(setupRouter(regAPI))
+	defer testServer.Close()
 
-	url := fmt.Sprintf("%s%s/%s", ts.URL, common.RegistryAPILoc, name)
+	url := fmt.Sprintf("%s%s/%s", testServer.URL, common.RegistryAPILoc, name)
 
 	// try bad payload
 	res, err := httpRequestClient("PUT", url, bytes.NewReader([]byte{0xde, 0xad}))
@@ -305,13 +305,13 @@ func TestHttpUpdate(t *testing.T) {
 		break
 	}
 
-	// Retrieve the stored ds
-	ds, err := registryClient.Get(name)
+	// Retrieve the stored ts
+	ts, err := registryClient.Get(name)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	ds.Retention.Min = "3h"
-	b, err := json.Marshal(&ds)
+	ts.Retention.Min = "3h"
+	b, err := json.Marshal(&ts)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -325,11 +325,11 @@ func TestHttpUpdate(t *testing.T) {
 	}
 	res.Body.Close()
 
-	// Retrieve the updated data stream
-	updatedDS, _ := registryClient.Get(name)
-	updated_b, _ := json.Marshal(&updatedDS)
+	// Retrieve the updated time series
+	updatedTS, _ := registryClient.Get(name)
+	updated_b, _ := json.Marshal(&updatedTS)
 
-	// compare updated(PUT) data stream with the one in memory
+	// compare updated(PUT) time series with the one in memory
 	if string(b) != string(updated_b) {
 		t.Errorf("The submitted PUT:\n%s\n mismatch the stored data:\n%s\n", string(b), string(updated_b))
 	}
@@ -338,7 +338,7 @@ func TestHttpUpdate(t *testing.T) {
 func TestHttpDelete(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
-	// Create a dummy data stream
+	// Create a dummy time series
 	names, err := generateDummyData(1, registryClient)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -360,7 +360,7 @@ func TestHttpDelete(t *testing.T) {
 	// check whether it is deleted
 	_, err = registryClient.Get(name)
 	if err == nil {
-		t.Fatalf("Server responded %v but data stream is not deleted!", res.StatusCode)
+		t.Fatalf("Server responded %v but time series is not deleted!", res.StatusCode)
 	}
 
 	// Try deleting a non-existing item
@@ -383,34 +383,34 @@ func TestHttpFilter(t *testing.T) {
 	regAPI, registryClient := setupAPI()
 
 	// Create some dummy data
-	dummyDSs := []DataStream{
-		DataStream{
+	dummyTSs := []TimeSeries{
+		TimeSeries{
 			Name: "dimmer.eu/sensor1",
 			Type: String,
 		},
-		DataStream{
+		TimeSeries{
 			Name: "dimmer.eu/sensor2",
 			Type: Bool,
 		},
-		DataStream{
+		TimeSeries{
 			Name: "dimmer.eu/actuator1",
 			Type: String,
 		},
 	}
-	for _, ds := range dummyDSs {
-		registryClient.Add(ds)
+	for _, ts := range dummyTSs {
+		registryClient.Add(ts)
 	}
 
-	ts := httptest.NewServer(setupRouter(regAPI))
-	defer ts.Close()
+	testServer := httptest.NewServer(setupRouter(regAPI))
+	defer testServer.Close()
 
 	// A function to generate filter url
 	filterURL := func(filterStr string) string {
 		// /registry/{path}/{type}/{op}/{value}
-		return fmt.Sprintf("%v%s/%s", ts.URL, common.RegistryAPILoc, filterStr)
+		return fmt.Sprintf("%v%s/%s", testServer.URL, common.RegistryAPILoc, filterStr)
 	}
 
-	// Search for the data stream with Type: bool
+	// Search for the time series with Type: bool
 	res, err := http.Get(filterURL(FTypeOne + "/dataType/equals/bool"))
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -424,19 +424,19 @@ func TestHttpFilter(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	// Check if it was queried correctly
-	var reg DataStreamList
+	var reg TimeSeriesList
 	err = json.Unmarshal(b, &reg)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if len(reg.Streams) != 1 {
-		t.Errorf("Instead of one, it returned %d datastreams.", len(reg.Streams))
+	if len(reg.Series) != 1 {
+		t.Errorf("Instead of one, it returned %d time series.", len(reg.Series))
 	}
-	if reg.Streams[0].Type != Bool {
-		t.Errorf("Instead of the expected datasource (Type:bool), it returned:\n%+v", reg.Streams[0])
+	if reg.Series[0].Type != Bool {
+		t.Errorf("Instead of the expected datasource (Type:bool), it returned:\n%+v", reg.Series[0])
 	}
 
-	// Search for Data streams that contains "sensor" in Resource
+	// Search for time series that contains "sensor" in Resource
 	res, err = http.Get(filterURL(FTypeMany + "/name/contains/dimmer.eu/sensor"))
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -451,18 +451,18 @@ func TestHttpFilter(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	// Check if the total is correct
-	if reg.Total != 2 || len(reg.Streams) != 2 {
-		t.Errorf("Catalog contains total %d(%d entries) instead of 2 data streams:\n %+v", reg.Total, len(reg.Streams), reg)
+	if reg.Total != 2 || len(reg.Series) != 2 {
+		t.Errorf("Catalog contains total %d(%d entries) instead of 2 time series:\n %+v", reg.Total, len(reg.Series), reg)
 	}
 	// Check if correct entries are queried
-	for _, ds := range reg.Streams {
-		if !strings.Contains(ds.Name, "sensor") {
-			t.Errorf("Catalog entry resource contains something other than 'sensor': %+v", ds.Name)
+	for _, ts := range reg.Series {
+		if !strings.Contains(ts.Name, "sensor") {
+			t.Errorf("Catalog entry resource contains something other than 'sensor': %+v", ts.Name)
 		}
 	}
 }
 
-// A pool of bad data streams
+// A pool of bad time series
 var (
 	invalidBodies = []string{
 		// Empty name //////////

@@ -37,7 +37,7 @@ func NewRemoteClient(serverEndpoint string, ticket *obtainer.Client) (*RemoteCli
 // Submit data for ingestion, where:
 // data - is a byte array with actual data
 // contentType - mime-type of the data (will be set in the header)
-// id... - ID (or array of IDs) of data streams for which the data is being submitted
+// id... - ID (or array of IDs) of time series for which the data is being submitted
 func (c *RemoteClient) Submit(data []byte, contentType string, id ...string) error {
 	res, err := utils.HTTPRequest("POST",
 		c.serverEndpoint.String()+"/"+strings.Join(id, ","),

@@ -8,7 +8,7 @@ import (
 	"github.com/linksmart/historical-datastore/registry"
 )
 
-func Same_name_same_types(count int, stream registry.DataStream, decremental bool) senml.Pack {
+func Same_name_same_types(count int, series registry.TimeSeries, decremental bool) senml.Pack {
 	value := 22.1
 	stringValue := "Machine Room"
 	boolValue := false
@@ -22,31 +22,31 @@ func Same_name_same_types(count int, stream registry.DataStream, decremental boo
 
 	var s = make([]senml.Record, count)
 
-	switch stream.Type {
+	switch series.Type {
 	case registry.Float:
-		s[0] = senml.Record{BaseName: stream.Name,
-			BaseUnit: stream.Unit,
+		s[0] = senml.Record{BaseName: series.Name,
+			BaseUnit: series.Unit,
 			Value:    &value, Time: timeinit}
 		for i := 1; i < count; i++ {
 			s[i] = senml.Record{Value: &value, Time: (timeinit + float64(i)*mult)}
 		}
 	case registry.String:
-		s[0] = senml.Record{BaseName: stream.Name,
-			BaseUnit:    stream.Unit,
+		s[0] = senml.Record{BaseName: series.Name,
+			BaseUnit:    series.Unit,
 			StringValue: stringValue, Time: timeinit}
 		for i := 1; i < count; i++ {
 			s[i] = senml.Record{StringValue: stringValue, Time: (timeinit + float64(i)*mult)}
 		}
 	case registry.Bool:
-		s[0] = senml.Record{BaseName: stream.Name,
-			BaseUnit:  stream.Unit,
+		s[0] = senml.Record{BaseName: series.Name,
+			BaseUnit:  series.Unit,
 			BoolValue: &boolValue, Time: timeinit}
 		for i := 1; i < count; i++ {
 			s[i] = senml.Record{BoolValue: &boolValue, Time: (timeinit + float64(i)*mult)}
 		}
 	case registry.Data:
-		s[0] = senml.Record{BaseName: stream.Name,
-			BaseUnit:  stream.Unit,
+		s[0] = senml.Record{BaseName: series.Name,
+			BaseUnit:  series.Unit,
 			DataValue: dataValue, Time: timeinit}
 		for i := 1; i < count; i++ {
 			s[i] = senml.Record{DataValue: dataValue, Time: (timeinit + float64(i)*mult)}

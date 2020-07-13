@@ -50,25 +50,25 @@ func TestLevelDBAdd(t *testing.T) {
 	defer clean(dbName)
 	defer closeDB()
 
-	var ds DataStream
-	ds.Name = "any_url"
-	//ds.Retention = ""
-	//ds.Aggregation TODO
-	ds.Type = String
+	var ts TimeSeries
+	ts.Name = "any_url"
+	//ts.Retention = ""
+	//ts.Aggregation TODO
+	ts.Type = String
 
-	addedDS, err := storage.Add(ds)
+	addedTS, err := storage.Add(ts)
 	if err != nil {
 		t.Fatalf("Received unexpected error on add: %v", err.Error())
 	}
 
-	getDS, err := storage.Get(addedDS.Name)
+	getTS, err := storage.Get(addedTS.Name)
 	if err != nil {
 		t.Fatalf("Received unexpected error on get: %v", err.Error())
 	}
 
 	// compare added and retrieved data
-	addedBytes, _ := json.Marshal(&addedDS)
-	getBytes, _ := json.Marshal(&getDS)
+	addedBytes, _ := json.Marshal(&addedTS)
+	getBytes, _ := json.Marshal(&getTS)
 	if string(getBytes) != string(addedBytes) {
 		t.Fatalf("Mismatch:\n added:\n%v\n retrieved:\n%v\n", string(addedBytes), string(getBytes))
 	}
@@ -92,21 +92,21 @@ func TestLevelDBUpdate(t *testing.T) {
 	}
 	ID := IDs[0]
 
-	ds, err := storage.Get(ID)
+	ts, err := storage.Get(ID)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err.Error())
 	}
 
-	updatedDS, err := storage.Update(ID, *ds)
+	updatedTS, err := storage.Update(ID, *ts)
 	if err != nil {
 		t.Fatalf("Unexpected error on update: %v", err.Error())
 	}
 
 	// compare the updated and stored structs
-	updatedBytes, _ := json.Marshal(&updatedDS)
-	dsBytes, _ := json.Marshal(&ds)
-	if string(updatedBytes) != string(dsBytes) {
-		t.Fatalf("Mismatch updated:\n%v\n and stored:\n%v\n", string(updatedBytes), string(dsBytes))
+	updatedBytes, _ := json.Marshal(&updatedTS)
+	tsBytes, _ := json.Marshal(&ts)
+	if string(updatedBytes) != string(tsBytes) {
+		t.Fatalf("Mismatch updated:\n%v\n and stored:\n%v\n", string(updatedBytes), string(tsBytes))
 	}
 }
 
@@ -131,7 +131,7 @@ func TestLevelDBDelete(t *testing.T) {
 
 	_, err = storage.Get(ID)
 	if err == nil {
-		t.Error("The previous call hasn't deleted the datastream!")
+		t.Error("The previous call hasn't deleted the time series!")
 	}
 }
 
@@ -161,9 +161,9 @@ func TestLevelDBGetMany(t *testing.T) {
 				inThisPage = int(math.Mod(float64(TOTAL), float64(perPage)))
 			}
 
-			DSs, _, _ := storage.GetMany(page, perPage)
-			if len(DSs) != inThisPage {
-				t.Errorf("Wrong number of entries per page. Returned %d instead of %d", len(DSs), inThisPage)
+			TS, _, _ := storage.GetMany(page, perPage)
+			if len(TS) != inThisPage {
+				t.Errorf("Wrong number of entries per page. Returned %d instead of %d", len(TS), inThisPage)
 			}
 		}
 	}
@@ -187,7 +187,7 @@ func TestLevelDBGetCount(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	// Add few datastreams
+	// Add few time series
 	const total = 5
 	generateDummyData(total, storage)
 
@@ -196,7 +196,7 @@ func TestLevelDBGetCount(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	if total != c2-c1 {
-		t.Fatalf("Created %d but counted %d datastreams!", total, c2-c1)
+		t.Fatalf("Created %d but counted %d time series!", total, c2-c1)
 	}
 }
 
@@ -214,15 +214,15 @@ func TestLevelDBPathFilterOne(t *testing.T) {
 	}
 	ID := IDs[0]
 
-	targetDS, _ := storage.Get(ID)
-	matchedDS, err := storage.FilterOne("name", "equals", targetDS.Name)
+	targetTS, _ := storage.Get(ID)
+	matchedTS, err := storage.FilterOne("name", "equals", targetTS.Name)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	// check if target is returned
-	targetBytes, _ := json.Marshal(&targetDS)
-	matchedBytes, _ := json.Marshal(&matchedDS)
+	targetBytes, _ := json.Marshal(&targetTS)
+	matchedBytes, _ := json.Marshal(&matchedTS)
 	if string(targetBytes) != string(matchedBytes) {
 		t.Fatalf("Looking for:\n%v\n but matched:\n%v\n", string(targetBytes), string(matchedBytes))
 	}
@@ -248,9 +248,9 @@ func TestLevelDBPathFilter(t *testing.T) {
 		t.Fatalf("Need more dummies!")
 	}
 	for i := 0; i < expected; i++ {
-		ds, _ := storage.Get(IDs[i])
-		ds.Meta["newkey"] = "a/b"
-		storage.Update(ds.Name, *ds)
+		ts, _ := storage.Get(IDs[i])
+		ts.Meta["newkey"] = "a/b"
+		storage.Update(ts.Name, *ts)
 	}
 
 	// QueryPage for format with prefix "newtype"

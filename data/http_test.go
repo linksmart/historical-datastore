@@ -23,9 +23,9 @@ import (
 func setupHTTPAPI() (*mux.Router, []string) {
 	regStorage := registry.NewMemoryStorage(common.RegConf{})
 
-	// Create three dummy datastreams with different types
+	// Create three dummy TimeSeries with different types
 	var testIDs []string
-	dss := []registry.DataStream{
+	dss := []registry.TimeSeries{
 		{
 			Name: "http://example.com/sensor1",
 			Unit: "degC",
@@ -42,10 +42,10 @@ func setupHTTPAPI() (*mux.Router, []string) {
 			Type: registry.String,
 		},
 	}
-	for _, ds := range dss {
-		created, err := regStorage.Add(ds)
+	for _, ts := range dss {
+		created, err := regStorage.Add(ts)
 		if err != nil {
-			fmt.Println("Error creating dummy DS:", err)
+			fmt.Println("Error creating dummy TS:", err)
 			break
 		}
 		testIDs = append(testIDs, created.Name)
@@ -123,7 +123,7 @@ func TestHttpSubmit(t *testing.T) {
 		t.Errorf("Server response is not %v but %v", http.StatusBadRequest, res.StatusCode)
 	}
 
-	//when pack is has a datastream not in the URL
+	//when pack is has a time series not in the URL
 	res, err = http.Post(ts.URL+"/data/"+testIDs[0], "application/senml+json", bytes.NewReader(b))
 	if err != nil {
 		t.Fatal(err)
@@ -191,34 +191,34 @@ func TestAPI_Delete(t *testing.T) {
 
 type dummyDataStorage struct{}
 
-func (s *dummyDataStorage) Submit(data map[string]senml.Pack, streams map[string]*registry.DataStream) error {
+func (s *dummyDataStorage) Submit(data map[string]senml.Pack, series map[string]*registry.TimeSeries) error {
 	return nil
 }
-func (s *dummyDataStorage) QueryPage(q Query, streams ...*registry.DataStream) (pack senml.Pack, total *int, err error) {
+func (s *dummyDataStorage) QueryPage(q Query, series ...*registry.TimeSeries) (pack senml.Pack, total *int, err error) {
 	return senml.Pack{}, nil, nil
 }
 
-func (s *dummyDataStorage) QueryStream(q Query, sendFunc sendFunction, streams ...*registry.DataStream) error {
+func (s *dummyDataStorage) QueryStream(q Query, sendFunc sendFunction, series ...*registry.TimeSeries) error {
 	return nil
 }
 
-func (s *dummyDataStorage) Count(q Query, streams ...*registry.DataStream) (total int, err error) {
+func (s *dummyDataStorage) Count(q Query, series ...*registry.TimeSeries) (total int, err error) {
 	return 0, nil
 }
 
-func (s *dummyDataStorage) Delete(streams []*registry.DataStream, from time.Time, to time.Time) (err error) {
+func (s *dummyDataStorage) Delete(series []*registry.TimeSeries, from time.Time, to time.Time) (err error) {
 	return nil
 }
 func (s *dummyDataStorage) Disconnect() error {
 	return nil
 }
-func (s *dummyDataStorage) CreateHandler(ds registry.DataStream) error {
+func (s *dummyDataStorage) CreateHandler(ts registry.TimeSeries) error {
 	return nil
 }
-func (s *dummyDataStorage) UpdateHandler(old registry.DataStream, new registry.DataStream) error {
+func (s *dummyDataStorage) UpdateHandler(old registry.TimeSeries, new registry.TimeSeries) error {
 	return nil
 }
-func (s *dummyDataStorage) DeleteHandler(ds registry.DataStream) error {
+func (s *dummyDataStorage) DeleteHandler(ts registry.TimeSeries) error {
 	return nil
 }
 

@@ -25,19 +25,19 @@ func TestCreationSameTimestamp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	datastream := &registry.DataStream{
+	timeSeries := &registry.TimeSeries{
 		Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
 		Type: registry.Float,
 	}
 
-	fmt.Printf("Creating the datastream with ID %s\n", datastream.Name)
-	_, err = registryClient.Add(datastream)
+	fmt.Printf("Creating the timeSeries with ID %s\n", timeSeries.Name)
+	_, err = registryClient.Add(timeSeries)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		fmt.Println("Deleting the datastream")
-		err = registryClient.Delete(datastream.Name)
+		fmt.Println("Deleting the timeSeries")
+		err = registryClient.Delete(timeSeries.Name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -48,16 +48,16 @@ func TestCreationSameTimestamp(t *testing.T) {
 	time := 1543059346.0
 	for i := 0; i < totRec; i++ {
 		v := float64(i)
-		records = append(records, senml.Record{Name: datastream.Name, Value: &v, Time: time})
+		records = append(records, senml.Record{Name: timeSeries.Name, Value: &v, Time: time})
 	}
 	b, _ := json.Marshal(records)
-	err = dataClient.Submit(b, "application/senml+json", datastream.Name)
+	err = dataClient.Submit(b, "application/senml+json", timeSeries.Name)
 	if err != nil {
 		t.Error(err)
 	}
 
 	//get these data
-	gotrecords, err := dataClient.Query(data.Query{}, datastream.Name)
+	gotrecords, err := dataClient.Query(data.Query{}, timeSeries.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,21 +79,21 @@ func TestCreationDiffTimestamp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	datastream := &registry.DataStream{
+	timeSeries := &registry.TimeSeries{
 		Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
 		Unit: "A",
 		Type: registry.Float,
 	}
 
 	defer func() {
-		fmt.Printf("Deleting the datastream %s\n", datastream.Name)
-		err = registryClient.Delete(datastream.Name)
+		fmt.Printf("Deleting the timeSeries %s\n", timeSeries.Name)
+		err = registryClient.Delete(timeSeries.Name)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	fmt.Printf("Creating the datastream with ID %s\n", datastream.Name)
-	_, err = registryClient.Add(datastream)
+	fmt.Printf("Creating the timeSeries with ID %s\n", timeSeries.Name)
+	_, err = registryClient.Add(timeSeries)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,16 +101,16 @@ func TestCreationDiffTimestamp(t *testing.T) {
 	// send some data
 	var records senml.Pack
 	totRec := 10
-	records = data.Same_name_same_types(totRec, *datastream, true)
+	records = data.Same_name_same_types(totRec, *timeSeries, true)
 
 	b, _ := json.Marshal(records)
-	err = dataClient.Submit(b, "application/senml+json", datastream.Name)
+	err = dataClient.Submit(b, "application/senml+json", timeSeries.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	//get these data
-	gotrecords, err := dataClient.Query(data.Query{}, datastream.Name)
+	gotrecords, err := dataClient.Query(data.Query{}, timeSeries.Name)
 	if err != nil {
 		t.Error(err)
 	}
@@ -136,21 +136,21 @@ func TestCreationDiffTimestamp_Denormalized(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	datastream := &registry.DataStream{
+	timeSeries := &registry.TimeSeries{
 		Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
 		Unit: "A",
 		Type: registry.Float,
 	}
 
 	defer func() {
-		fmt.Printf("Deleting the datastream %s\n", datastream.Name)
-		err = registryClient.Delete(datastream.Name)
+		fmt.Printf("Deleting the timeSeries %s\n", timeSeries.Name)
+		err = registryClient.Delete(timeSeries.Name)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	fmt.Printf("Creating the datastream with ID %s\n", datastream.Name)
-	_, err = registryClient.Add(datastream)
+	fmt.Printf("Creating the timeSeries with ID %s\n", timeSeries.Name)
+	_, err = registryClient.Add(timeSeries)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,16 +158,16 @@ func TestCreationDiffTimestamp_Denormalized(t *testing.T) {
 	// send some data
 	var records senml.Pack
 	totRec := 10
-	records = data.Same_name_same_types(totRec, *datastream, true)
+	records = data.Same_name_same_types(totRec, *timeSeries, true)
 
 	b, _ := json.Marshal(records)
-	err = dataClient.Submit(b, "application/senml+json", datastream.Name)
+	err = dataClient.Submit(b, "application/senml+json", timeSeries.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	//get these data
-	gotrecords, err := dataClient.Query(data.Query{ Denormalize: data.DenormMaskName | data.DenormMaskTime}, datastream.Name)
+	gotrecords, err := dataClient.Query(data.Query{ Denormalize: data.DenormMaskName | data.DenormMaskTime}, timeSeries.Name)
 	if err != nil {
 		t.Error(err)
 	}
@@ -195,21 +195,21 @@ func TestInsertRandom(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	datastream := &registry.DataStream{
+	timeSeries := &registry.TimeSeries{
 		Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
 		Unit: "A",
 		Type: registry.Float,
 	}
 
 	defer func() {
-		fmt.Printf("Deleting the datastream %s\n", datastream.Name)
-		err = registryClient.Delete(datastream.Name)
+		fmt.Printf("Deleting the timeSeries %s\n", timeSeries.Name)
+		err = registryClient.Delete(timeSeries.Name)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	fmt.Printf("Creating the datastream with ID %s\n", datastream.Name)
-	_, err = registryClient.Add(datastream)
+	fmt.Printf("Creating the timeSeries with ID %s\n", timeSeries.Name)
+	_, err = registryClient.Add(timeSeries)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,20 +217,20 @@ func TestInsertRandom(t *testing.T) {
 	// send some data
 	var records senml.Pack
 	totRec := 10
-	records = data.Same_name_same_types(totRec, *datastream, true)
+	records = data.Same_name_same_types(totRec, *timeSeries, true)
 
 	b, _ := json.Marshal(records)
-	err = dataClient.Submit(b, "application/senml+json", datastream.Name)
+	err = dataClient.Submit(b, "application/senml+json", timeSeries.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	//create a randomly insertable record and insert to the datastore
-	insrecords := data.Same_name_same_types(1, *datastream, true)
+	insrecords := data.Same_name_same_types(1, *timeSeries, true)
 	insrecords[0].Time = insrecords[0].Time + float64(rand.Intn(totRec-1)) + 0.5
 	fmt.Println(insrecords[0].Time)
 	b, _ = json.Marshal(insrecords)
-	err = dataClient.Submit(b, "application/senml+json", datastream.Name)
+	err = dataClient.Submit(b, "application/senml+json", timeSeries.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +253,7 @@ func TestInsertRandom(t *testing.T) {
 	effREcords[inspos] = insrecord
 
 	//get these data
-	gotrecords, err := dataClient.Query(data.Query{}, datastream.Name)
+	gotrecords, err := dataClient.Query(data.Query{}, timeSeries.Name)
 	if err != nil {
 		t.Error(err)
 	}

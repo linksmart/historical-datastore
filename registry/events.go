@@ -2,15 +2,15 @@ package registry
 
 // EventListener is implemented by storage modules and connectors which need to react to changes in the registry
 type EventListener interface {
-	CreateHandler(new DataStream) error
-	UpdateHandler(old DataStream, new DataStream) error
-	DeleteHandler(old DataStream) error
+	CreateHandler(new TimeSeries) error
+	UpdateHandler(old TimeSeries, new TimeSeries) error
+	DeleteHandler(old TimeSeries) error
 }
 
 // eventHandler implements sequential fav-out/fan-in of events from registry
 type eventHandler []EventListener
 
-func (h eventHandler) created(new *DataStream) error {
+func (h eventHandler) created(new *TimeSeries) error {
 	for i := range h {
 		err := h[i].CreateHandler(*new)
 		if err != nil {
@@ -20,7 +20,7 @@ func (h eventHandler) created(new *DataStream) error {
 	return nil
 }
 
-func (h eventHandler) updated(old *DataStream, new *DataStream) error {
+func (h eventHandler) updated(old *TimeSeries, new *TimeSeries) error {
 	for i := range h {
 		err := h[i].UpdateHandler(*old, *new)
 		if err != nil {
@@ -30,7 +30,7 @@ func (h eventHandler) updated(old *DataStream, new *DataStream) error {
 	return nil
 }
 
-func (h eventHandler) deleted(old *DataStream) error {
+func (h eventHandler) deleted(old *TimeSeries) error {
 	for i := range h {
 		err := h[i].DeleteHandler(*old)
 		if err != nil {

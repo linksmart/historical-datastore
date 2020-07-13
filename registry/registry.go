@@ -1,11 +1,11 @@
 package registry
 
-// DataStreamList describes a registry of registered Data streams
-type DataStreamList struct {
-	// BrokerURL is the BrokerURL of the DataStreamList API
+// TimeSeriesList describes a registry of registered time series
+type TimeSeriesList struct {
+	// BrokerURL is the BrokerURL of the Registry API
 	URL string `json:"url"`
-	// Entries is an array of Data streams
-	Streams []DataStream `json:"streams"`
+	// Entries is an array of time series
+	Series []TimeSeries `json:"streams"`
 	// Page is the current page in Entries pagination
 	Page int `json:"page"`
 	// MaxEntries is the results per page in Entries pagination

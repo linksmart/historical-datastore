@@ -50,8 +50,8 @@ func NewLevelDBStorage(conf common.RegConf, opts *opt.Options, listeners ...Even
 		s.wg.Add(1)
 		iter := s.db.NewIterator(nil, nil)
 		for iter.Next() {
-			var ds DataStream
-			err = json.Unmarshal(iter.Value(), &ds)
+			var ts TimeSeries
+			err = json.Unmarshal(iter.Value(), &ts)
 			if err != nil {
 				return nil, nil, fmt.Errorf("Error parsing registry data: %v", err)
 			}
@@ -73,99 +73,99 @@ func (s *LevelDBStorage) close() error {
 	return s.db.Close()
 }
 
-func (s *LevelDBStorage) Add(ds DataStream) (*DataStream, error) {
-	err := validateCreation(ds, s.conf)
+func (s *LevelDBStorage) Add(ts TimeSeries) (*TimeSeries, error) {
+	err := validateCreation(ts, s.conf)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrBadRequest, err)
 	}
 
 	// Convert to json bytes
-	dsBytes, err := ds.MarshalSensitiveJSON()
+	tsBytes, err := ts.MarshalSensitiveJSON()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrBadRequest, err)
 	}
 
-	if has, _ := s.db.Has([]byte(ds.Name), nil); has {
-		return nil, fmt.Errorf("%w: Resource name not unique: %s", ErrConflict, ds.Name)
+	if has, _ := s.db.Has([]byte(ts.Name), nil); has {
+		return nil, fmt.Errorf("%w: Resource name not unique: %s", ErrConflict, ts.Name)
 	}
 
 	// Add the new DataSource to database
-	err = s.db.Put([]byte(ds.Name), dsBytes, nil)
+	err = s.db.Put([]byte(ts.Name), tsBytes, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// Send a create event
-	err = s.event.created(&ds)
+	err = s.event.created(&ts)
 	//if create event fails, then undo creation of the event
 	if err != nil {
 		// Send a delete event
-		s.event.deleted(&ds)
-		deleteErr := s.db.Delete([]byte(ds.Name), nil)
+		s.event.deleted(&ts)
+		deleteErr := s.db.Delete([]byte(ts.Name), nil)
 		if deleteErr != nil {
-			err = fmt.Errorf("%w, followed by error undoing the datastream creation:%s", err, deleteErr)
+			err = fmt.Errorf("%w, followed by error undoing the time series creation:%s", err, deleteErr)
 		}
 		return nil, err
 	}
 
 	s.lastModified = time.Now()
-	return &ds, nil
+	return &ts, nil
 }
 
-func (s *LevelDBStorage) Update(name string, ds DataStream) (*DataStream, error) {
+func (s *LevelDBStorage) Update(name string, ts TimeSeries) (*TimeSeries, error) {
 
-	oldDS, err := s.Get(name) // for comparison
+	oldTS, err := s.Get(name) // for comparison
 	if err == leveldb.ErrNotFound {
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, err)
 	} else if err != nil {
 		return nil, err
 	}
 
-	err = validateUpdate(ds, *oldDS, s.conf)
+	err = validateUpdate(ts, *oldTS, s.conf)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrConflict, err)
 	}
 
-	tempDS := oldDS
+	tempTS := oldTS
 
 	// Modify writable elements
-	tempDS.Function = ds.Function
-	tempDS.Retention = ds.Retention
-	tempDS.Source = ds.Source
-	tempDS.Meta = ds.Meta
-	tempDS.Unit = ds.Unit
+	tempTS.Function = ts.Function
+	tempTS.Retention = ts.Retention
+	tempTS.Source = ts.Source
+	tempTS.Meta = ts.Meta
+	tempTS.Unit = ts.Unit
 
 	// Send an update event
-	err = s.event.updated(oldDS, tempDS)
+	err = s.event.updated(oldTS, tempTS)
 	if err != nil {
 		return nil, err
 	}
 
 	// Convert to json bytes
-	dsBytes, err := tempDS.MarshalSensitiveJSON()
+	tsBytes, err := tempTS.MarshalSensitiveJSON()
 	if err != nil {
 		return nil, err
 	}
 
-	// Store the modified DS
-	err = s.db.Put([]byte(tempDS.Name), dsBytes, nil)
+	// Store the modified TS
+	err = s.db.Put([]byte(tempTS.Name), tsBytes, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	s.lastModified = time.Now()
-	return tempDS, nil
+	return tempTS, nil
 }
 
 func (s *LevelDBStorage) Delete(name string) error {
 
-	ds, err := s.Get(name) // for notification
+	ts, err := s.Get(name) // for notification
 	if err != nil {
 		return err
 	}
 
 	// Send a delete event
-	err = s.event.deleted(ds)
+	err = s.event.deleted(ts)
 	if err != nil {
 		return err
 	}
@@ -181,25 +181,25 @@ func (s *LevelDBStorage) Delete(name string) error {
 	return nil
 }
 
-func (s *LevelDBStorage) Get(id string) (*DataStream, error) {
+func (s *LevelDBStorage) Get(id string) (*TimeSeries, error) {
 	// QueryPage from database
-	dsBytes, err := s.db.Get([]byte(id), nil)
+	tsBytes, err := s.db.Get([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, err)
 	} else if err != nil {
 		return nil, err
 	}
 
-	var ds DataStream
-	err = json.Unmarshal(dsBytes, &ds)
+	var ts TimeSeries
+	err = json.Unmarshal(tsBytes, &ts)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ds, nil
+	return &ts, nil
 }
 
-func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataStream, int, error) {
+func (s *LevelDBStorage) GetMany(page, perPage int) ([]TimeSeries, int, error) {
 
 	total, err := s.getTotal()
 	if err != nil {
@@ -229,10 +229,10 @@ func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataStream, int, error) {
 
 	// page/registry is empty
 	if limit == 0 {
-		return []DataStream{}, 0, nil
+		return []TimeSeries{}, 0, nil
 	}
 
-	datastreams := make([]DataStream, 0, limit)
+	timeSeries := make([]TimeSeries, 0, limit)
 
 	// a nil Range.Limit is treated as a key after all keys in the DB.
 	var end []byte = nil
@@ -246,13 +246,13 @@ func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataStream, int, error) {
 		&util.Range{Start: []byte(keys[offset]), Limit: end},
 		nil)
 	for iter.Next() {
-		dsBytes := iter.Value()
-		var ds DataStream
-		err = json.Unmarshal(dsBytes, &ds)
+		tsBytes := iter.Value()
+		var ts TimeSeries
+		err = json.Unmarshal(tsBytes, &ts)
 		if err != nil {
 			return nil, 0, err
 		}
-		datastreams = append(datastreams, ds)
+		timeSeries = append(timeSeries, ts)
 	}
 	iter.Release()
 	s.wg.Done()
@@ -261,7 +261,7 @@ func (s *LevelDBStorage) GetMany(page, perPage int) ([]DataStream, int, error) {
 		return nil, 0, err
 	}
 
-	return datastreams, total, nil
+	return timeSeries, total, nil
 }
 
 func (s *LevelDBStorage) getTotal() (int, error) {
@@ -288,22 +288,22 @@ func (s *LevelDBStorage) getLastModifiedTime() (time.Time, error) {
 
 // Path filtering
 // Filter one registration
-func (s *LevelDBStorage) FilterOne(path, op, value string) (*DataStream, error) {
+func (s *LevelDBStorage) FilterOne(path, op, value string) (*TimeSeries, error) {
 	pathTknz := strings.Split(path, ".")
 
 	// return the first one found
 	s.wg.Add(1)
 	iter := s.db.NewIterator(nil, nil)
 	for iter.Next() {
-		var ds DataStream
-		err := json.Unmarshal(iter.Value(), &ds)
+		var ts TimeSeries
+		err := json.Unmarshal(iter.Value(), &ts)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
 			return nil, err
 		}
 
-		matched, err := utils.MatchObject(ds, pathTknz, op, value)
+		matched, err := utils.MatchObject(ts, pathTknz, op, value)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
@@ -312,7 +312,7 @@ func (s *LevelDBStorage) FilterOne(path, op, value string) (*DataStream, error) 
 		if matched {
 			iter.Release()
 			s.wg.Done()
-			return &ds, nil
+			return &ts, nil
 		}
 	}
 	iter.Release()
@@ -327,7 +327,7 @@ func (s *LevelDBStorage) FilterOne(path, op, value string) (*DataStream, error) 
 }
 
 // Filter multiple registrations
-func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]DataStream, int, error) {
+func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]TimeSeries, int, error) {
 	//TODO: Filter based on path (i.e. path in name)
 	matchedIDs := []string{}
 	pathTknz := strings.Split(path, ".")
@@ -335,22 +335,22 @@ func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]Da
 	s.wg.Add(1)
 	iter := s.db.NewIterator(nil, nil)
 	for iter.Next() {
-		var ds DataStream
-		err := json.Unmarshal(iter.Value(), &ds)
+		var ts TimeSeries
+		err := json.Unmarshal(iter.Value(), &ts)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return []DataStream{}, 0, err
+			return []TimeSeries{}, 0, err
 		}
 
-		matched, err := utils.MatchObject(ds, pathTknz, op, value)
+		matched, err := utils.MatchObject(ts, pathTknz, op, value)
 		if err != nil {
 			iter.Release()
 			s.wg.Done()
-			return []DataStream{}, 0, err
+			return []TimeSeries{}, 0, err
 		}
 		if matched {
-			matchedIDs = append(matchedIDs, ds.Name)
+			matchedIDs = append(matchedIDs, ts.Name)
 		}
 	}
 	iter.Release()
@@ -368,17 +368,17 @@ func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]Da
 
 	// page/registry is empty
 	if len(slice) == 0 {
-		return []DataStream{}, len(matchedIDs), nil
+		return []TimeSeries{}, len(matchedIDs), nil
 	}
 
-	dataStreams := make([]DataStream, len(slice))
+	timeSeries := make([]TimeSeries, len(slice))
 	for i, id := range slice {
-		ds, err := s.Get(id)
+		ts, err := s.Get(id)
 		if err != nil {
 			return nil, len(matchedIDs), err
 		}
-		dataStreams[i] = *ds
+		timeSeries[i] = *ts
 	}
 
-	return dataStreams, len(matchedIDs), nil
+	return timeSeries, len(matchedIDs), nil
 }

@@ -21,17 +21,17 @@ func SupportedBackends(name string) bool {
 	return supportedBackends[strings.ToLower(name)]
 }
 
-// Storage is an interface of a DataStreamList storage backend
+// Storage is an interface of a Registry storage backend
 type Storage interface {
 	// CRUD
-	Add(ds DataStream) (*DataStream, error)
-	Update(name string, ds DataStream) (*DataStream, error)
-	Get(name string) (*DataStream, error)
+	Add(ts TimeSeries) (*TimeSeries, error)
+	Update(name string, ts TimeSeries) (*TimeSeries, error)
+	Get(name string) (*TimeSeries, error)
 	Delete(name string) error
 	// Utility functions
-	GetMany(page, perPage int) ([]DataStream, int, error)
-	FilterOne(path, op, value string) (*DataStream, error)
-	Filter(path, op, value string, page, perPage int) ([]DataStream, int, error)
+	GetMany(page, perPage int) ([]TimeSeries, int, error)
+	FilterOne(path, op, value string) (*TimeSeries, error)
+	Filter(path, op, value string, page, perPage int) ([]TimeSeries, int, error)
 	// needed internally
 	getTotal() (int, error)
 	getLastModifiedTime() (time.Time, error)

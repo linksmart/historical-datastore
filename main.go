@@ -112,7 +112,7 @@ func main() {
 		defer disconnect_func()
 	}
 	if conf.Data.AutoRegistration {
-		log.Println("Auto Registration is enabled: Data HTTP API will automatically create new data streams.")
+		log.Println("Auto Registration is enabled: Data HTTP API will automatically create new time series.")
 	}
 
 	// Setup registry
@@ -201,7 +201,7 @@ func main() {
 		bonjourS.Shutdown()
 		time.Sleep(1e9)
 	}
-	// Close the DataStreamList Storage
+	// Close the TimeSeriesList Storage
 	if closeReg != nil {
 		err := closeReg()
 		if err != nil {

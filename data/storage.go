@@ -34,29 +34,29 @@ type sendFunction func(pack senml.Pack) error
 
 // Storage is an interface of a Data storage backend
 type Storage interface {
-	// Adds data points for multiple data streams
-	// data is a map where keys are data stream ids
-	// streams is a map where keys are data stream ids
-	Submit(data map[string]senml.Pack, dataStreams map[string]*registry.DataStream) error
+	// Adds data points for multiple time series
+	// data is a map where keys are time series ids
+	// series is a map where keys are time series ids
+	Submit(data map[string]senml.Pack, series map[string]*registry.TimeSeries) error
 
-	// Queries data for specified data streams
-	//QueryPage(q QueryPage, page, PerPage int, streams ...*registry.DataStream) (senml.Pack, int, error)
-	QueryPage(q Query, dataStreams ...*registry.DataStream) (pack senml.Pack, total *int, err error)
+	// Queries data for specified time series
+	//QueryPage(q QueryPage, page, PerPage int, series ...*registry.TimeSeries) (senml.Pack, int, error)
+	QueryPage(q Query, series ...*registry.TimeSeries) (pack senml.Pack, total *int, err error)
 
-	QueryStream(q Query, sendFunc sendFunction, streams ...*registry.DataStream) error
+	QueryStream(q Query, sendFunc sendFunction, series ...*registry.TimeSeries) error
 
-	Count(q Query, dataStreams ...*registry.DataStream) (total int, err error)
+	Count(q Query, series ...*registry.TimeSeries) (total int, err error)
 
 	// Delete the data within a given time range
-	Delete(streams []*registry.DataStream, from time.Time, to time.Time) (err error)
+	Delete(series []*registry.TimeSeries, from time.Time, to time.Time) (err error)
 
 	// EventListener includes methods for event handling
 	registry.EventListener
 }
 
-func validateRecordAgainstRegistry(r senml.Record, ds *registry.DataStream) error {
-	// Check if type of value matches the data stream type in registry
-	switch ds.Type {
+func validateRecordAgainstRegistry(r senml.Record, ts *registry.TimeSeries) error {
+	// Check if type of value matches the data value type in registry
+	switch ts.Type {
 	case registry.Float:
 		if r.Value == nil {
 			return fmt.Errorf("missing value for %s", r.Name)

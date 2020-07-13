@@ -1,6 +1,6 @@
 // Copyright 2016 Fraunhofer Institute for Applied Information Technology FIT
 
-// Package registry implements DataStreamList API
+// Package registry implements TimeSeriesList API
 package registry
 
 import (
@@ -10,23 +10,23 @@ import (
 type SourceType string
 
 const (
-	Mqtt       = "MQTT"
-	Stream = "Stream"
+	Mqtt   = "MQTT"
+	Series = "Series"
 )
 
-// A Datastream describes a stored stream of data
-type DataStream struct {
-	// Name is the BrokerURL of the DataStreamList API
+// A TimeSeries describes a stored stream of data
+type TimeSeries struct {
+	// Name is the BrokerURL of the Registry API
 	Name string `json:"name"`
 
-	//Source of the Data streams
+	//Source of the time series
 	Source Source `json:"source,omitempty"`
 
-	//Function to be performed on the Data streams
+	//Function to be performed on the time series
 	Function string `json:"function,omitempty"`
 
 	//Type of the data (eg: string, float, bool, data)
-	Type StreamType `json:"dataType"`
+	Type ValueType `json:"dataType"`
 
 	//Unit of the data
 	Unit string `json:"unit,omitempty"`
@@ -45,13 +45,13 @@ type DataStream struct {
 	keepSensitiveInfo bool
 }
 
-// Source describes a single Data stream such as a sensor (LinkSmart Resource)
+// Source describes a single time series such as a sensor (LinkSmart Resource)
 type Source struct {
 	//type of the source
 	//This can be either MQTT or a series element itself
 	SrcType SourceType `json:"type,omitempty"`
 	*MQTTSource
-	*StreamSource
+	*SeriesSource
 }
 
 type MQTTSource struct {
@@ -71,50 +71,50 @@ type MQTTSource struct {
 
 }
 
-type StreamSource struct {
-	//name of the stream
+type SeriesSource struct {
+	//name of the time series
 	URL string `json:name`
 }
 
-func (ds DataStream) copy() DataStream {
-	newDS := ds
-	newDS.Source = ds.Source
-	//copy(newDS.Sources, ds.Sources)
-	return newDS
+func (ts TimeSeries) copy() TimeSeries {
+	newTS := ts
+	newTS.Source = ts.Source
+	//copy(newTS.Sources, ts.Sources)
+	return newTS
 }
 
 // MarshalJSON masks sensitive information when using the default marshaller
-func (ds DataStream) MarshalJSON() ([]byte, error) {
-	if !ds.keepSensitiveInfo {
-		if ds.Source.SrcType == Mqtt {
+func (ts TimeSeries) MarshalJSON() ([]byte, error) {
+	if !ts.keepSensitiveInfo {
+		if ts.Source.SrcType == Mqtt {
 			// mask MQTT credentials and key paths
-			if ds.Source.Username != "" {
-				ds.Source.Username = "*****"
+			if ts.Source.Username != "" {
+				ts.Source.Username = "*****"
 			}
-			if ds.Source.Password != "" {
-				ds.Source.Password = "*****"
+			if ts.Source.Password != "" {
+				ts.Source.Password = "*****"
 			}
-			if ds.Source.CaFile != "" {
-				ds.Source.CaFile = "*****"
+			if ts.Source.CaFile != "" {
+				ts.Source.CaFile = "*****"
 			}
-			if ds.Source.CertFile != "" {
-				ds.Source.CertFile = "*****"
+			if ts.Source.CertFile != "" {
+				ts.Source.CertFile = "*****"
 			}
-			if ds.Source.KeyFile != "" {
-				ds.Source.KeyFile = "*****"
+			if ts.Source.KeyFile != "" {
+				ts.Source.KeyFile = "*****"
 			}
-			if ds.Source.Insecure {
-				ds.Source.Insecure = false
+			if ts.Source.Insecure {
+				ts.Source.Insecure = false
 			}
 		}
 
 	}
-	type Alias DataStream
-	return json.Marshal((*Alias)(&ds))
+	type Alias TimeSeries
+	return json.Marshal((*Alias)(&ts))
 }
 
 // MarshalSensitiveJSON serializes the datasource including the sensitive information
-func (ds DataStream) MarshalSensitiveJSON() ([]byte, error) {
-	ds.keepSensitiveInfo = true
-	return json.Marshal(&ds)
+func (ts TimeSeries) MarshalSensitiveJSON() ([]byte, error) {
+	ts.keepSensitiveInfo = true
+	return json.Marshal(&ts)
 }

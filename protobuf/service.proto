@@ -26,7 +26,7 @@ enum DenormMask {
 }
 message QueryRequest
 {
-	repeated string streams = 1;
+	repeated string series = 1;
 	string from = 2;
 	string to = 3;
 	int32 recordPerPacket = 5; //Number of senml messages sent per packet
@@ -38,7 +38,7 @@ message QueryRequest
 
 message DeleteRequest
 {
-	repeated string streams = 1;
+	repeated string series = 1;
 	string from = 2;
 	string to = 3;
 }

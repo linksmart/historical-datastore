@@ -19,24 +19,24 @@ func TestConcurrentCreates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var entries []*registry.DataStream
+	var entries []*registry.TimeSeries
 
 	// create many concurrently
 	const TOTAL = 10
 	for i := 0; i < TOTAL; i++ {
-		ds := &registry.DataStream{
+		ts := &registry.TimeSeries{
 			Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
 			Type: registry.Float,
 		}
-		entries = append(entries, ds)
+		entries = append(entries, ts)
 	}
 
 	var wg sync.WaitGroup
 	for i := 0; i < TOTAL; i++ {
 		wg.Add(1)
-		go func(thisDS *registry.DataStream) {
+		go func(thisTS *registry.TimeSeries) {
 			defer wg.Done()
-			_, err := registryClient.Add(thisDS)
+			_, err := registryClient.Add(thisTS)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -64,35 +64,35 @@ func TestConcurrentUpdates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var entries []*registry.DataStream
+	var entries []*registry.TimeSeries
 
 	// create many
 	const TOTAL = 10
 	for i := 0; i < TOTAL; i++ {
-		ds := registry.DataStream{
+		ts := registry.TimeSeries{
 			Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
 			Type: registry.Float,
 		}
-		_, err = registryClient.Add(&ds)
+		_, err = registryClient.Add(&ts)
 		if err != nil {
 			t.Fatal(err)
 		}
-		addedDS, err := registryClient.Get(ds.Name)
+		addedTS, err := registryClient.Get(ts.Name)
 		if err != nil {
-			t.Error(err, ds.Name)
+			t.Error(err, ts.Name)
 		}
-		entries = append(entries, addedDS)
+		entries = append(entries, addedTS)
 	}
 
 	// send some data
-	for _, ds := range entries {
+	for _, ts := range entries {
 		var records []senml.Record
 		for i := 0; i < 100; i++ {
 			v := float64(i)
-			records = append(records, senml.Record{Name: ds.Name, Value: &v})
+			records = append(records, senml.Record{Name: ts.Name, Value: &v})
 		}
 		b, _ := json.Marshal(records)
-		err := dataClient.Submit(b, "application/senml+json", ds.Name)
+		err := dataClient.Submit(b, "application/senml+json", ts.Name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -102,10 +102,10 @@ func TestConcurrentUpdates(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < TOTAL; i++ {
 		wg.Add(1)
-		go func(thisDS *registry.DataStream) {
+		go func(thisTS *registry.TimeSeries) {
 			defer wg.Done()
-			thisDS.Retention.Min = ""
-			err := registryClient.Update(thisDS.Name, thisDS)
+			thisTS.Retention.Min = ""
+			err := registryClient.Update(thisTS.Name, thisTS)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -126,31 +126,31 @@ func TestConcurrentDeletes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var entries []registry.DataStream
+	var entries []registry.TimeSeries
 
 	// create many
 	const TOTAL = 10
 	for i := 0; i < TOTAL; i++ {
-		ds := registry.DataStream{
+		ts := registry.TimeSeries{
 			Name: fmt.Sprintf("dummy/%s", uuid.NewV4().String()),
 			Type: registry.Float,
 		}
-		_, err = registryClient.Add(&ds)
+		_, err = registryClient.Add(&ts)
 		if err != nil {
 			t.Fatal(err)
 		}
-		entries = append(entries, ds)
+		entries = append(entries, ts)
 	}
 
 	// send some data
-	for _, ds := range entries {
+	for _, ts := range entries {
 		var records []senml.Record
 		for i := 0; i < 100; i++ {
 			v := float64(i)
-			records = append(records, senml.Record{Name: ds.Name, Value: &v})
+			records = append(records, senml.Record{Name: ts.Name, Value: &v})
 		}
 		b, _ := json.Marshal(records)
-		err := dataClient.Submit(b, "application/senml+json", ds.Name)
+		err := dataClient.Submit(b, "application/senml+json", ts.Name)
 		if err != nil {
 			t.Fatal(err)
 		}

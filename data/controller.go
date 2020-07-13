@@ -27,18 +27,18 @@ func NewController(registry registry.Storage, storage Storage, autoRegistration 
 //TODO: Return right code in return so that right code is returned by callers. e.g. Grpc code or http error responses.
 func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
 	const Y3K = 32503680000 //Year 3000 BC, beyond which the time values are not taken
-	//streams := make(map[string]*registry.DataStream)
-	nameDSs := make(map[string]*registry.DataStream)
-	fromStreamList := false
+	//series := make(map[string]*registry.TimeSeries)
+	nameTS := make(map[string]*registry.TimeSeries)
+	fromSeriesList := false
 	if ids != nil {
 		for _, id := range ids {
-			ds, err := c.registry.Get(id)
+			ts, err := c.registry.Get(id)
 			if err != nil {
-				return &common.NotFoundError{S: fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", id, err)}
+				return &common.NotFoundError{S: fmt.Sprintf("Error retrieving time series %v from the registry: %v", id, err)}
 			}
-			nameDSs[ds.Name] = ds
+			nameTS[ts.Name] = ts
 		}
-		fromStreamList = true
+		fromSeriesList = true
 	}
 
 	// Fill the data map with provided data points
@@ -51,62 +51,62 @@ func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
 		}
 
 		// search for the registry entry
-		ds, found := nameDSs[r.Name]
-		if !found && fromStreamList {
-			return &common.BadRequestError{S: fmt.Sprintf("senml entry %s does not match the provided datastream", r.Name)}
+		ts, found := nameTS[r.Name]
+		if !found && fromSeriesList {
+			return &common.BadRequestError{S: fmt.Sprintf("senml entry %s does not match the provided time series", r.Name)}
 		}
 		if !found {
 			var err error
-			ds, err = c.registry.Get(r.Name)
+			ts, err = c.registry.Get(r.Name)
 			if err != nil {
 				if errors.Is(err, errors2.ErrNotFound) {
 					if !c.autoRegistration {
-						return &common.NotFoundError{S: fmt.Sprintf("Data stream with name %v is not registered.", r.Name)}
+						return &common.NotFoundError{S: fmt.Sprintf("Time series with name %v is not registered.", r.Name)}
 					}
 
-					// Register a Data stream with this name
-					log.Printf("Registering Data stream for %s", r.Name)
-					newDS := registry.DataStream{
+					// Register a  time series with this name
+					log.Printf("Registering time series for %s", r.Name)
+					newTS := registry.TimeSeries{
 						Name: r.Name,
 						Unit: r.Unit,
 					}
 					if r.Value != nil || r.Sum != nil {
-						newDS.Type = registry.Float
+						newTS.Type = registry.Float
 					} else if r.StringValue != "" {
-						newDS.Type = registry.String
+						newTS.Type = registry.String
 					} else if r.BoolValue != nil {
-						newDS.Type = registry.Bool
+						newTS.Type = registry.Bool
 					} else if r.DataValue != "" {
-						newDS.Type = registry.Data
+						newTS.Type = registry.Data
 					}
-					addedDS, err := c.registry.Add(newDS)
+					addedDS, err := c.registry.Add(newTS)
 					if err != nil {
 						return &common.BadRequestError{S: fmt.Sprintf("Error registering %v in the registry: %v", r.Name, err)}
 					}
-					ds = addedDS
+					ts = addedDS
 				} else {
 					return &common.InternalError{S: err.Error()}
 				}
 			}
-			nameDSs[r.Name] = ds
+			nameTS[r.Name] = ts
 		}
 
-		err := validateRecordAgainstRegistry(r, ds)
+		err := validateRecordAgainstRegistry(r, ts)
 
 		if err != nil {
 			return &common.BadRequestError{S: fmt.Sprintf("Error validating the record:%v", err)}
 		}
 
 		// Prepare for storage
-		_, found = data[ds.Name]
+		_, found = data[ts.Name]
 		if !found {
-			data[ds.Name] = senml.Pack{}
+			data[ts.Name] = senml.Pack{}
 		}
-		data[ds.Name] = append(data[ds.Name], r)
+		data[ts.Name] = append(data[ts.Name], r)
 	}
 
 	// Add data to the storage
-	err := c.storage.Submit(data, nameDSs)
+	err := c.storage.Submit(data, nameTS)
 	if err != nil {
 		return &common.InternalError{S: "error writing data to the database: " + err.Error()}
 	}
@@ -121,63 +121,63 @@ func (c Controller) QueryStream(q Query, ids []string, sendFunc sendFunction) (r
 	return retErr
 }
 
-func (c Controller) Delete(streamNames []string, from time.Time, to time.Time) (retErr common.Error) {
-	var streams []*registry.DataStream
-	for _, streamName := range streamNames {
-		ds, err := c.registry.Get(streamName)
+func (c Controller) Delete(seriesNames []string, from time.Time, to time.Time) (retErr common.Error) {
+	var series []*registry.TimeSeries
+	for _, seriesName := range seriesNames {
+		ts, err := c.registry.Get(seriesName)
 		if err != nil {
-			return &common.InternalError{S: fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", streamName, err)}
+			return &common.InternalError{S: fmt.Sprintf("Error retrieving time series %v from the registry: %v", seriesName, err)}
 		}
-		streams = append(streams, ds)
+		series = append(series, ts)
 	}
-	if len(streams) == 0 {
-		return &common.NotFoundError{S: "None of the specified Data streams could be retrieved from the registry."}
+	if len(series) == 0 {
+		return &common.NotFoundError{S: "None of the specified Time series could be retrieved from the registry."}
 	}
-	err := c.storage.Delete(streams, from, to)
+	err := c.storage.Delete(series, from, to)
 	if err != nil {
 		return &common.InternalError{S: "Error deleting the data: " + err.Error()}
 	}
 	return nil
 }
 
-func (c Controller) Count(q Query, streamNames []string) (total int, retErr common.Error) {
-	var streams []*registry.DataStream
-	for _, streamName := range streamNames {
-		ds, err := c.registry.Get(streamName)
+func (c Controller) Count(q Query, seriesNames []string) (total int, retErr common.Error) {
+	var series []*registry.TimeSeries
+	for _, seriesName := range seriesNames {
+		ts, err := c.registry.Get(seriesName)
 		if err != nil {
-			return 0, &common.InternalError{S: fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", streamName, err)}
+			return 0, &common.InternalError{S: fmt.Sprintf("Error retrieving time series %v from the registry: %v", seriesName, err)}
 		}
-		streams = append(streams, ds)
+		series = append(series, ts)
 	}
-	if len(streams) == 0 {
-		return 0, &common.NotFoundError{S: "None of the specified Data streams could be retrieved from the registry."}
+	if len(series) == 0 {
+		return 0, &common.NotFoundError{S: "None of the specified time series could be retrieved from the registry."}
 	}
-	total, err := c.storage.Count(q, streams...)
+	total, err := c.storage.Count(q, series...)
 	if err != nil {
 		return 0, &common.InternalError{S: "Error retrieving count from the database: " + err.Error()}
 	}
 	return total, nil
 }
 
-func (c Controller) queryStreamOrPage(q Query, streamNames []string, sendFunc sendFunction) (pack senml.Pack, total *int, retErr common.Error) {
-	var streams []*registry.DataStream
-	for _, streamName := range streamNames {
-		ds, err := c.registry.Get(streamName)
+func (c Controller) queryStreamOrPage(q Query, seriesNames []string, sendFunc sendFunction) (pack senml.Pack, total *int, retErr common.Error) {
+	var series []*registry.TimeSeries
+	for _, seriesName := range seriesNames {
+		ts, err := c.registry.Get(seriesName)
 		if err != nil {
-			return nil, nil, &common.InternalError{S: fmt.Sprintf("Error retrieving Data stream %v from the registry: %v", streamName, err)}
+			return nil, nil, &common.InternalError{S: fmt.Sprintf("Error retrieving time series %v from the registry: %v", seriesName, err)}
 		}
-		streams = append(streams, ds)
+		series = append(series, ts)
 	}
 
-	if len(streams) == 0 {
-		return nil, nil, &common.NotFoundError{S: "None of the specified Data streams could be retrieved from the registry."}
+	if len(series) == 0 {
+		return nil, nil, &common.NotFoundError{S: "None of the specified time series could be retrieved from the registry."}
 	}
 
 	var err error
 	if sendFunc == nil {
-		pack, total, err = c.storage.QueryPage(q, streams...)
+		pack, total, err = c.storage.QueryPage(q, series...)
 	} else {
-		err = c.storage.QueryStream(q, sendFunc, streams...)
+		err = c.storage.QueryStream(q, sendFunc, series...)
 	}
 	if err != nil {
 		return nil, nil, &common.InternalError{S: "Error retrieving data from the database: " + err.Error()}

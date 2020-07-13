@@ -80,7 +80,7 @@ func TestStorage_Submit(t *testing.T) {
 func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Storage) {
 	totRec := 101
 	//Float Type
-	streamMap := map[string]*registry.DataStream{
+	seriesMap := map[string]*registry.TimeSeries{
 		"Value/Temperature": {Name: "Value/Temperature", Type: registry.Float, Unit: "Cel"},
 		"Value/Room":        {Name: "Value/Room", Type: registry.String},
 		"Value/Switch":      {Name: "Value/Switch", Type: registry.Bool},
@@ -88,31 +88,31 @@ func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Stor
 	}
 
 	sentDataMap := make(map[string]senml.Pack)
-	streamArr := make([]*registry.DataStream, 0, len(streamMap))
-	for _, stream := range streamMap {
-		_, err := regstorage.Add(*stream)
+	seriesArr := make([]*registry.TimeSeries, 0, len(seriesMap))
+	for _, series := range seriesMap {
+		_, err := regstorage.Add(*series)
 		if err != nil {
 			t.Fatal("Insertion failed:", err)
 		}
-		sentDataMap[stream.Name] = Same_name_same_types(totRec, *stream, true)
-		streamArr = append(streamArr, stream)
+		sentDataMap[series.Name] = Same_name_same_types(totRec, *series, true)
+		seriesArr = append(seriesArr, series)
 	}
 
 	defer func() {
-		for name, _ := range streamMap {
+		for name, _ := range seriesMap {
 			err := regstorage.Delete(name)
 			if err != nil {
 				t.Fatal("deletion failed:", err)
 			}
 		}
 	}()
-	err := storage.Submit(sentDataMap, streamMap)
+	err := storage.Submit(sentDataMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, streamArr...)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, seriesArr...)
 	if err != nil {
 		t.Error(err)
 	}
@@ -143,30 +143,30 @@ func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Stor
 }
 
 func testInsertData(t *testing.T, storage Storage, regstorage registry.Storage) {
-	ds := registry.DataStream{Name: "Value/Camera", Type: registry.Data}
-	_, err := regstorage.Add(ds)
+	ts := registry.TimeSeries{Name: "Value/Camera", Type: registry.Data}
+	_, err := regstorage.Add(ts)
 	if err != nil {
 		t.Fatal("Insertion failed:", err)
 	}
 	defer func() {
-		err = regstorage.Delete(ds.Name)
+		err = regstorage.Delete(ts.Name)
 		if err != nil {
 			t.Fatal("deletion failed:", err)
 		}
 	}()
 	totRec := 101
-	sentData := Same_name_same_types(totRec, ds, true)
-	streamMap := make(map[string]*registry.DataStream)
-	streamMap[ds.Name] = &ds
+	sentData := Same_name_same_types(totRec, ts, true)
+	seriesMap := make(map[string]*registry.TimeSeries)
+	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
-	recordMap[ds.Name] = sentData
-	err = storage.Submit(recordMap, streamMap)
+	recordMap[ts.Name] = sentData
+	err = storage.Submit(recordMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
 	if err != nil {
 		t.Error(err)
 	}
@@ -186,30 +186,30 @@ func testInsertData(t *testing.T, storage Storage, regstorage registry.Storage) 
 }
 
 func testInsertBools(t *testing.T, storage Storage, regstorage registry.Storage) {
-	ds := registry.DataStream{Name: "Value/Switch", Type: registry.Float, Unit: "Cel"}
-	_, err := regstorage.Add(ds)
+	ts := registry.TimeSeries{Name: "Value/Switch", Type: registry.Float, Unit: "Cel"}
+	_, err := regstorage.Add(ts)
 	if err != nil {
 		t.Fatal("Insertion failed:", err)
 	}
 	defer func() {
-		err = regstorage.Delete(ds.Name)
+		err = regstorage.Delete(ts.Name)
 		if err != nil {
 			t.Fatal("deletion failed:", err)
 		}
 	}()
 	totRec := 101
-	sentData := Same_name_same_types(totRec, ds, true)
-	streamMap := make(map[string]*registry.DataStream)
-	streamMap[ds.Name] = &ds
+	sentData := Same_name_same_types(totRec, ts, true)
+	seriesMap := make(map[string]*registry.TimeSeries)
+	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
-	recordMap[ds.Name] = sentData
-	err = storage.Submit(recordMap, streamMap)
+	recordMap[ts.Name] = sentData
+	err = storage.Submit(recordMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
 	if err != nil {
 		t.Error(err)
 	}
@@ -229,30 +229,30 @@ func testInsertBools(t *testing.T, storage Storage, regstorage registry.Storage)
 }
 
 func testInsertStrings(t *testing.T, storage Storage, regstorage registry.Storage) {
-	ds := registry.DataStream{Name: "Value/Room", Type: registry.String}
-	_, err := regstorage.Add(ds)
+	ts := registry.TimeSeries{Name: "Value/Room", Type: registry.String}
+	_, err := regstorage.Add(ts)
 	if err != nil {
 		t.Fatal("Insertion failed:", err)
 	}
 	defer func() {
-		err = regstorage.Delete(ds.Name)
+		err = regstorage.Delete(ts.Name)
 		if err != nil {
 			t.Fatal("deletion failed:", err)
 		}
 	}()
 	totRec := 101
-	sentData := Same_name_same_types(totRec, ds, true)
-	streamMap := make(map[string]*registry.DataStream)
-	streamMap[ds.Name] = &ds
+	sentData := Same_name_same_types(totRec, ts, true)
+	seriesMap := make(map[string]*registry.TimeSeries)
+	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
-	recordMap[ds.Name] = sentData
-	err = storage.Submit(recordMap, streamMap)
+	recordMap[ts.Name] = sentData
+	err = storage.Submit(recordMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
 	if err != nil {
 		t.Error(err)
 	}
@@ -272,30 +272,30 @@ func testInsertStrings(t *testing.T, storage Storage, regstorage registry.Storag
 }
 
 func testInsertVals(t *testing.T, storage Storage, regstorage registry.Storage) {
-	ds := registry.DataStream{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
-	_, err := regstorage.Add(ds)
+	ts := registry.TimeSeries{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
+	_, err := regstorage.Add(ts)
 	if err != nil {
 		t.Fatal("Insertion failed:", err)
 	}
 	defer func() {
-		err = regstorage.Delete(ds.Name)
+		err = regstorage.Delete(ts.Name)
 		if err != nil {
 			t.Fatal("deletion failed:", err)
 		}
 	}()
 	totRec := 101
-	sentData := Same_name_same_types(totRec, ds, true)
-	streamMap := make(map[string]*registry.DataStream)
-	streamMap[ds.Name] = &ds
+	sentData := Same_name_same_types(totRec, ts, true)
+	seriesMap := make(map[string]*registry.TimeSeries)
+	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
-	recordMap[ds.Name] = sentData
-	err = storage.Submit(recordMap, streamMap)
+	recordMap[ts.Name] = sentData
+	err = storage.Submit(recordMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 
 	//get these data
-	gotRecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotRecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
 	if err != nil {
 		t.Error(err)
 	}
@@ -346,7 +346,7 @@ func TestStorage_Delete(t *testing.T) {
 func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Storage) {
 	totRec := 101
 	//Float Type
-	streamMap := map[string]*registry.DataStream{
+	seriesMap := map[string]*registry.TimeSeries{
 		"Value/Temperature": {Name: "Value/Temperature", Type: registry.Float, Unit: "Cel"},
 		"Value/Room":        {Name: "Value/Room", Type: registry.String},
 		"Value/Switch":      {Name: "Value/Switch", Type: registry.Bool},
@@ -354,25 +354,25 @@ func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Stor
 	}
 
 	sentDataMap := make(map[string]senml.Pack)
-	streamArr := make([]*registry.DataStream, 0, len(streamMap))
-	for _, stream := range streamMap {
-		_, err := regStorage.Add(*stream)
+	seriesArr := make([]*registry.TimeSeries, 0, len(seriesMap))
+	for _, series := range seriesMap {
+		_, err := regStorage.Add(*series)
 		if err != nil {
 			t.Fatal("Insertion failed:", err)
 		}
-		sentDataMap[stream.Name] = Same_name_same_types(totRec, *stream, true)
-		streamArr = append(streamArr, stream)
+		sentDataMap[series.Name] = Same_name_same_types(totRec, *series, true)
+		seriesArr = append(seriesArr, series)
 	}
 
 	defer func() {
-		for name, _ := range streamMap {
+		for name, _ := range seriesMap {
 			err := regStorage.Delete(name)
 			if err != nil {
 				t.Fatal("deletion failed:", err)
 			}
 		}
 	}()
-	err := storage.Submit(sentDataMap, streamMap)
+	err := storage.Submit(sentDataMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
@@ -380,20 +380,20 @@ func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Stor
 	delCount := 50
 	toTime := fromSenmlTime(sentDataMap["Value/Temperature"][delCount].Time)
 	//get these data
-	err = storage.Delete(streamArr, time.Time{}, toTime)
+	err = storage.Delete(seriesArr, time.Time{}, toTime)
 	if err != nil {
 		t.Error(err)
 	}
 
-	streamCount := len(streamMap)
+	seriesCount := len(seriesMap)
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, streamArr...)
+	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, seriesArr...)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if *total != delCount*streamCount {
+	if *total != delCount*seriesCount {
 		t.Errorf("Received Count should be %d, got %d (len) instead", totRec, *total)
 	}
 	if len(gotrecords) != *total {
@@ -418,24 +418,24 @@ func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Stor
 }
 
 func testDeleteVals(t *testing.T, storage Storage, regStorage registry.Storage) {
-	ds := registry.DataStream{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
-	_, err := regStorage.Add(ds)
+	ts := registry.TimeSeries{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
+	_, err := regStorage.Add(ts)
 	if err != nil {
 		t.Fatal("Insertion failed:", err)
 	}
 	defer func() {
-		err = regStorage.Delete(ds.Name)
+		err = regStorage.Delete(ts.Name)
 		if err != nil {
 			t.Fatal("deletion failed:", err)
 		}
 	}()
 	totRec := 101
-	sentData := Same_name_same_types(totRec, ds, true)
-	streamMap := make(map[string]*registry.DataStream)
-	streamMap[ds.Name] = &ds
+	sentData := Same_name_same_types(totRec, ts, true)
+	seriesMap := make(map[string]*registry.TimeSeries)
+	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
-	recordMap[ds.Name] = sentData
-	err = storage.Submit(recordMap, streamMap)
+	recordMap[ts.Name] = sentData
+	err = storage.Submit(recordMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
@@ -443,13 +443,13 @@ func testDeleteVals(t *testing.T, storage Storage, regStorage registry.Storage) 
 	delCount := 50
 	toTime := fromSenmlTime(sentData[delCount].Time)
 
-	err = storage.Delete([]*registry.DataStream{&ds}, time.Time{}, toTime)
+	err = storage.Delete([]*registry.TimeSeries{&ts}, time.Time{}, toTime)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	gotRecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ds)
+	gotRecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
 	if err != nil {
 		t.Error(err)
 		return
@@ -483,9 +483,9 @@ func BenchmarkCreation_OneSeries(b *testing.B) {
 		}
 	}()
 
-	datastream := registry.DataStream{Name: funcName, Type: registry.Float}
+	series := registry.TimeSeries{Name: funcName, Type: registry.Float}
 
-	_, err = regStorage.Add(datastream)
+	_, err = regStorage.Add(series)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -494,14 +494,14 @@ func BenchmarkCreation_OneSeries(b *testing.B) {
 	var records senml.Pack
 	totRec := b.N
 	fmt.Printf("%s:Count = %d\n", fileName, b.N)
-	records = Same_name_same_types(totRec, datastream, true)
+	records = Same_name_same_types(totRec, series, true)
 	recordMap := make(map[string]senml.Pack)
-	recordMap[datastream.Name] = records
-	streamMap := make(map[string]*registry.DataStream)
-	streamMap[datastream.Name] = &datastream
+	recordMap[series.Name] = records
+	seriesMap := make(map[string]*registry.TimeSeries)
+	seriesMap[series.Name] = &series
 	b.StartTimer()
-	err = dataStorage.Submit(recordMap, streamMap)
-	//err = dataClient.Submit(barr, , datastream.Name)
+	err = dataStorage.Submit(recordMap, seriesMap)
+	//err = dataClient.Submit(barr, , series.Name)
 	if err != nil {
 		b.Error("Insetion failed", err)
 	}
@@ -525,8 +525,8 @@ func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 	}()
 
 	//Actual benchmarking
-	datastream := registry.DataStream{Name: funcName, Type: registry.Float}
-	_, err = regStorage.Add(datastream)
+	series := registry.TimeSeries{Name: funcName, Type: registry.Float}
+	_, err = regStorage.Add(series)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -534,19 +534,19 @@ func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 	// send some data
 	var records senml.Pack
 	totRec := TOTALENTRIES
-	records = Same_name_same_types(totRec, datastream, true)
+	records = Same_name_same_types(totRec, series, true)
 
 	recordMap := make(map[string]senml.Pack)
-	recordMap[datastream.Name] = records
-	streamMap := make(map[string]*registry.DataStream)
-	streamMap[datastream.Name] = &datastream
-	err = dataStorage.Submit(recordMap, streamMap)
-	//err = dataClient.Submit(barr, , datastream.Name)
+	recordMap[series.Name] = records
+	seriesMap := make(map[string]*registry.TimeSeries)
+	seriesMap[series.Name] = &series
+	err = dataStorage.Submit(recordMap, seriesMap)
+	//err = dataClient.Submit(barr, , series.Name)
 	if err != nil {
 		b.Error("Insetion failed:", err)
 	}
 
-	benchmarks := map[string]func(b *testing.B, storage Storage, timeStart float64, timeEnd float64, stream *registry.DataStream){
+	benchmarks := map[string]func(b *testing.B, storage Storage, timeStart float64, timeEnd float64, series *registry.TimeSeries){
 		"InsertEnd":    benchmarkInsertEnd,
 		"InsertRandom": benchmarkInsertRandom,
 		"QueryRandom":  benchmarkQueryRandom,
@@ -560,58 +560,58 @@ func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 	for k, bm := range benchmarks {
 		b.Run(k, func(b *testing.B) {
 			fmt.Printf("\n%s:Count = %d\n", k, b.N)
-			bm(b, dataStorage, startTime, endTime, &datastream)
+			bm(b, dataStorage, startTime, endTime, &series)
 		})
 	}
 
 }
 
-func benchmarkInsertEnd(b *testing.B, storage Storage, _ float64, timeEnd float64, stream *registry.DataStream) {
+func benchmarkInsertEnd(b *testing.B, storage Storage, _ float64, timeEnd float64, series *registry.TimeSeries) {
 	endTime := timeEnd
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		endTime := endTime + 1
-		insRecords := Same_name_same_types(1, *stream, true)
+		insRecords := Same_name_same_types(1, *series, true)
 		insRecords[0].Time = endTime
 		recordMap := make(map[string]senml.Pack)
-		recordMap[stream.Name] = insRecords
-		streamMap := make(map[string]*registry.DataStream)
-		streamMap[stream.Name] = stream
+		recordMap[series.Name] = insRecords
+		seriesMap := make(map[string]*registry.TimeSeries)
+		seriesMap[series.Name] = series
 		b.StartTimer()
-		err := storage.Submit(recordMap, streamMap)
+		err := storage.Submit(recordMap, seriesMap)
 		if err != nil {
 			b.Error("insetion failed", err)
 		}
 	}
 }
-func benchmarkInsertRandom(b *testing.B, storage Storage, timeStart float64, timeEnd float64, stream *registry.DataStream) {
+func benchmarkInsertRandom(b *testing.B, storage Storage, timeStart float64, timeEnd float64, series *registry.TimeSeries) {
 	between := func(min float64, max float64) (randNum float64) {
 		return min + rand.Float64()*(max-min)
 	}
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		randTime := between(timeStart, timeEnd)
-		insRecords := Same_name_same_types(1, *stream, true)
+		insRecords := Same_name_same_types(1, *series, true)
 		insRecords[0].Time = randTime
 		recordMap := make(map[string]senml.Pack)
-		recordMap[stream.Name] = insRecords
-		streamMap := make(map[string]*registry.DataStream)
-		streamMap[stream.Name] = stream
+		recordMap[series.Name] = insRecords
+		seriesMap := make(map[string]*registry.TimeSeries)
+		seriesMap[series.Name] = series
 		b.StartTimer()
-		err := storage.Submit(recordMap, streamMap)
+		err := storage.Submit(recordMap, seriesMap)
 		if err != nil {
 			b.Error("insetion failed", err)
 		}
 	}
 }
 
-func benchmarkQueryRandom(b *testing.B, storage Storage, timeStart float64, timeEnd float64, stream *registry.DataStream) {
+func benchmarkQueryRandom(b *testing.B, storage Storage, timeStart float64, timeEnd float64, series *registry.TimeSeries) {
 	between := func(min float64, max float64) (randNum float64) {
 		return min + rand.Float64()*(max-min)
 	}
 	for i := 0; i < b.N; i++ {
 		start := between(timeStart, timeEnd)
-		_, _, err := storage.QueryPage(Query{From: time.Unix(0, int64(start*(1e9))), To: time.Unix(0, int64((start+2.0)*(1e9)))}, &registry.DataStream{Name: stream.Name})
+		_, _, err := storage.QueryPage(Query{From: time.Unix(0, int64(start*(1e9))), To: time.Unix(0, int64((start+2.0)*(1e9)))}, &registry.TimeSeries{Name: series.Name})
 		if err != nil {
 			b.Error("query failed", err)
 		}
@@ -633,29 +633,29 @@ func BenchmarkCreation_MultiSeries(b *testing.B) {
 		}
 	}()
 
-	datastream := registry.DataStream{Name: fileName, Type: registry.Float}
+	series := registry.TimeSeries{Name: fileName, Type: registry.Float}
 
 	// send some data
 	var records senml.Pack
 	totRec := 3
-	records = Same_name_same_types(totRec, datastream, true)
+	records = Same_name_same_types(totRec, series, true)
 
 	recordmap := make(map[string]senml.Pack, b.N)
-	streamMap := make(map[string]*registry.DataStream, b.N)
+	seriesMap := make(map[string]*registry.TimeSeries, b.N)
 	fmt.Printf("%s:Count = %d\n", fileName, b.N)
 	for i := 0; i < b.N; i++ {
-		datastream.Name = strconv.Itoa(i)
-		records[0].BaseName = datastream.Name
-		_, err := regStorage.Add(datastream)
+		series.Name = strconv.Itoa(i)
+		records[0].BaseName = series.Name
+		_, err := regStorage.Add(series)
 		if err != nil {
-			b.Fatal("Error adding datastream:", err)
+			b.Fatal("Error adding series:", err)
 		}
-		recordmap[datastream.Name] = records
-		streamMap[datastream.Name] = &datastream
+		recordmap[series.Name] = records
+		seriesMap[series.Name] = &series
 	}
 	b.StartTimer()
-	err = dataStorage.Submit(recordmap, streamMap)
-	//err = dataClient.Submit(barr, , datastream.Name)
+	err = dataStorage.Submit(recordmap, seriesMap)
+	//err = dataClient.Submit(barr, , series.Name)
 	if err != nil {
 		b.Error("Insetion failed")
 	}
@@ -679,25 +679,25 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 	// send some data
 	var records senml.Pack
 	totRec := 1
-	records = Same_name_same_types(totRec, registry.DataStream{Name: "dummy", Type: registry.Float, Unit: ""}, true)
+	records = Same_name_same_types(totRec, registry.TimeSeries{Name: "dummy", Type: registry.Float, Unit: ""}, true)
 
 	recordMap := make(map[string]senml.Pack, TOTALSERIES)
-	streamMap := make(map[string]*registry.DataStream, TOTALSERIES)
+	seriesMap := make(map[string]*registry.TimeSeries, TOTALSERIES)
 	//fmt.Printf("%s:Count = %d\n", fileName, b.N)
 	for i := 0; i < TOTALSERIES; i++ {
-		datastream := registry.DataStream{Name: strconv.Itoa(i), Type: registry.Float}
-		_, err := regStorage.Add(datastream)
+		series := registry.TimeSeries{Name: strconv.Itoa(i), Type: registry.Float}
+		_, err := regStorage.Add(series)
 		if err != nil {
-			b.Fatal("Error adding datastream:", err)
+			b.Fatal("Error adding series:", err)
 		}
 		newRecords := make(senml.Pack, totRec)
 		copy(newRecords, records)
-		newRecords[0].BaseName = datastream.Name
-		recordMap[datastream.Name] = newRecords
-		streamMap[datastream.Name] = &datastream
+		newRecords[0].BaseName = series.Name
+		recordMap[series.Name] = newRecords
+		seriesMap[series.Name] = &series
 	}
-	err = dataStorage.Submit(recordMap, streamMap)
-	//err = dataClient.Submit(barr, , datastream.Name)
+	err = dataStorage.Submit(recordMap, seriesMap)
+	//err = dataClient.Submit(barr, , stream.Name)
 	if err != nil {
 		b.Fatal("Insetion failed", err)
 	}
@@ -725,25 +725,25 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 }
 
 func benchmarkCreateNewSeries(b *testing.B, storage Storage, regStorage registry.Storage) {
-	records := Same_name_same_types(1, registry.DataStream{Name: "benchmarkCreateNewSeries", Type: registry.Float, Unit: ""}, true)
+	records := Same_name_same_types(1, registry.TimeSeries{Name: "benchmarkCreateNewSeries", Type: registry.Float, Unit: ""}, true)
 
 	recordMap := make(map[string]senml.Pack, b.N)
-	streamMap := make(map[string]*registry.DataStream, b.N)
+	seriesMap := make(map[string]*registry.TimeSeries, b.N)
 	b.StopTimer()
 	for i := 0; i < b.N; i++ {
-		datastream := registry.DataStream{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: registry.Float}
-		_, err := regStorage.Add(datastream)
+		series := registry.TimeSeries{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: registry.Float}
+		_, err := regStorage.Add(series)
 		if err != nil {
-			b.Fatal("Error adding datastream:", err)
+			b.Fatal("Error adding series:", err)
 		}
 		newRecords := make(senml.Pack, 1)
 		copy(newRecords, records)
-		newRecords[0].BaseName = datastream.Name
-		recordMap[datastream.Name] = newRecords
-		streamMap[datastream.Name] = &datastream
+		newRecords[0].BaseName = series.Name
+		recordMap[series.Name] = newRecords
+		seriesMap[series.Name] = &series
 	}
 	b.StartTimer()
-	err := storage.Submit(recordMap, streamMap)
+	err := storage.Submit(recordMap, seriesMap)
 	if err != nil {
 		b.Fatal("Error creating:", err)
 	}
@@ -753,32 +753,32 @@ func benchmarkCreateNewSeries(b *testing.B, storage Storage, regStorage registry
 func benchmarkDeleteSeries(b *testing.B, storage Storage, regStorage registry.Storage) {
 	b.StopTimer()
 	totRec := 1
-	records := Same_name_same_types(totRec, registry.DataStream{Name: "benchmarkDeleteSeries", Type: registry.Float, Unit: ""}, true)
+	records := Same_name_same_types(totRec, registry.TimeSeries{Name: "benchmarkDeleteSeries", Type: registry.Float, Unit: ""}, true)
 
 	recordMap := make(map[string]senml.Pack, b.N)
-	streamMap := make(map[string]*registry.DataStream, b.N)
+	seriesMap := make(map[string]*registry.TimeSeries, b.N)
 	for i := 0; i < b.N; i++ {
-		datastream := registry.DataStream{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: registry.Float}
-		_, err := regStorage.Add(datastream)
+		series := registry.TimeSeries{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: registry.Float}
+		_, err := regStorage.Add(series)
 		if err != nil {
-			b.Fatal("Error adding datastream:", err)
+			b.Fatal("Error adding series:", err)
 		}
 		newrecords := make(senml.Pack, totRec)
 		copy(newrecords, records)
-		newrecords[0].BaseName = datastream.Name
-		recordMap[datastream.Name] = newrecords
-		streamMap[datastream.Name] = &datastream
+		newrecords[0].BaseName = series.Name
+		recordMap[series.Name] = newrecords
+		seriesMap[series.Name] = &series
 	}
 
-	err := storage.Submit(recordMap, streamMap)
+	err := storage.Submit(recordMap, seriesMap)
 	if err != nil {
 		b.Fatal("Error creating:", err)
 	}
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		datastream := registry.DataStream{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: registry.Float}
-		err := storage.DeleteHandler(datastream)
+		series := registry.TimeSeries{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: registry.Float}
+		err := storage.DeleteHandler(series)
 		if err != nil {
 			b.Fatal("Error deleting:", err)
 		}
@@ -787,7 +787,7 @@ func benchmarkDeleteSeries(b *testing.B, storage Storage, regStorage registry.St
 
 func benchmarkQuerySeries(b *testing.B, storage Storage, _ registry.Storage) {
 	for i := 0; i < b.N; i++ {
-		_, _, err := storage.QueryPage(Query{}, &registry.DataStream{Name: strconv.Itoa(i % TOTALSERIES)})
+		_, _, err := storage.QueryPage(Query{}, &registry.TimeSeries{Name: strconv.Itoa(i % TOTALSERIES)})
 		if err != nil {
 			b.Fatal("Error querying:", err)
 		}

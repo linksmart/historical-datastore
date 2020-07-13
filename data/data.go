@@ -26,7 +26,7 @@ type RecordSet struct {
 	SelfLink string `json:"selfLink"`
 
 	// Data is a SenML object with data records, where
-	// Name (bn and n) constitute the resource BrokerURL of the corresponding Data streams(s)
+	// Name (bn and n) constitute the resource BrokerURL of the corresponding time series
 	Data senml.Pack `json:"data"`
 
 	// Time is the time of query in seconds
@@ -48,7 +48,7 @@ type Query struct {
 	// SortAsc if set to true, oldest measurements are listed first in the resulting pack. If set to false, latest entries are listed first.
 	SortAsc bool
 
-	// PerPage: in case of paginated query, number of measurements returned as part of the query. In case of streamed query, number of measurements per pack in the stream
+	// PerPage: in case of paginated query, number of measurements returned as part of the query. In case of streamed query, number of measurements per pack in the time series
 	PerPage int
 
 	// Denormalize is a set of flags to be set based on the fields to be denormalized (Base field)
