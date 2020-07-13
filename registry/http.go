@@ -5,6 +5,7 @@ package registry
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -264,6 +265,9 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 			Total:   total,
 		}
 		body, _ = json.Marshal(&registry)
+	default:
+		common.HttpErrorResponse(&common.BadRequestError{S: fmt.Sprintf("Invalid filter command %s: expected: '%s' or '%s'", ftype, FTypeMany, FTypeOne)}, w)
+		return
 	}
 
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
