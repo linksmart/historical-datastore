@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -79,12 +80,14 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 
 	// Create a registry catalog
 	registry := TimeSeriesList{
-		URL:     common.RegistryAPILoc,
-		Series:  series,
-		Page:    page,
-		PerPage: perPage,
-		Total:   total,
+		SelfLink: common.RegistryAPILoc,
+		Series:   series,
+		Page:     page,
+		PerPage:  perPage,
+		Total:    total,
 	}
+
+	registry.DataLink = DataLinkFromRegistryList(registry.Series)
 
 	b, _ := json.Marshal(&registry)
 	w.Header().Add("Content-Type", common.DefaultMIMEType)
@@ -237,16 +240,17 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 
 		// Respond with a catalog
 		registry := TimeSeriesList{
-			URL:     common.RegistryAPILoc,
-			Series:  []TimeSeries{},
-			Page:    page,
-			PerPage: perPage,
-			Total:   0,
+			SelfLink: common.RegistryAPILoc,
+			Series:   []TimeSeries{},
+			Page:     page,
+			PerPage:  perPage,
+			Total:    0,
 		}
 		if timeSeries != nil {
 			registry.Series = append(registry.Series, *timeSeries)
 			registry.Total++
 		}
+		registry.DataLink = DataLinkFromRegistryList(registry.Series)
 		body, _ = json.Marshal(&registry)
 
 	case FTypeMany:
@@ -258,12 +262,13 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 
 		// Respond with a catalog
 		registry := TimeSeriesList{
-			URL:     common.RegistryAPILoc,
-			Series:  timeSeries,
-			Page:    page,
-			PerPage: perPage,
-			Total:   total,
+			SelfLink: common.RegistryAPILoc,
+			Series:   timeSeries,
+			Page:     page,
+			PerPage:  perPage,
+			Total:    total,
 		}
+		registry.DataLink = DataLinkFromRegistryList(registry.Series)
 		body, _ = json.Marshal(&registry)
 	default:
 		common.HttpErrorResponse(&common.BadRequestError{S: fmt.Sprintf("Invalid filter command %s: expected: '%s' or '%s'", ftype, FTypeMany, FTypeOne)}, w)
@@ -272,4 +277,14 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", common.DefaultMIMEType)
 	w.Write(body)
+}
+
+func DataLinkFromRegistryList(seriesList []TimeSeries) string {
+	var linkBuilder strings.Builder
+	separator := common.DataAPILoc + "/"
+	for _, series := range seriesList {
+		linkBuilder.WriteString(separator + series.Name)
+		separator = ","
+	}
+	return linkBuilder.String()
 }

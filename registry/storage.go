@@ -12,15 +12,6 @@ const (
 	LEVELDB = "leveldb"
 )
 
-// SupportedBackends returns true if the backend is listed as true
-func SupportedBackends(name string) bool {
-	supportedBackends := map[string]bool{
-		MEMORY:  true,
-		LEVELDB: true,
-	}
-	return supportedBackends[strings.ToLower(name)]
-}
-
 // Storage is an interface of a Registry storage backend
 type Storage interface {
 	// CRUD
@@ -36,3 +27,13 @@ type Storage interface {
 	getTotal() (int, error)
 	getLastModifiedTime() (time.Time, error)
 }
+
+// SupportedBackends returns true if the backend is listed as true
+func SupportedBackends(name string) bool {
+	supportedBackends := map[string]bool{
+		MEMORY:  true,
+		LEVELDB: true,
+	}
+	return supportedBackends[strings.ToLower(name)]
+}
+

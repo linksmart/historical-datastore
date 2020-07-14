@@ -2,9 +2,9 @@ package registry
 
 // TimeSeriesList describes a registry of registered time series
 type TimeSeriesList struct {
-	// BrokerURL is the BrokerURL of the Registry API
-	URL string `json:"url"`
-	// Entries is an array of time series
+	// SelfLink is the SelfLink of the Registry API
+	SelfLink string `json:"selfLink"`
+	// Series is an array of time series
 	Series []TimeSeries `json:"streams"`
 	// Page is the current page in Entries pagination
 	Page int `json:"page"`
@@ -12,4 +12,6 @@ type TimeSeriesList struct {
 	PerPage int `json:"per_page"`
 	// Total is the total #of pages in Entries pagination
 	Total int `json:"total"`
+	// Measurements is the link to data API for the time series  returned in the current page
+	DataLink string `json:"dataLink"`
 }
