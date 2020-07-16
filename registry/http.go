@@ -80,11 +80,10 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 
 	// Create a registry catalog
 	registry := TimeSeriesList{
-		SelfLink: common.RegistryAPILoc,
-		Series:   series,
-		Page:     page,
-		PerPage:  perPage,
-		Total:    total,
+		Series:  series,
+		Page:    page,
+		PerPage: perPage,
+		Total:   total,
 	}
 
 	registry.DataLink = DataLinkFromRegistryList(registry.Series)
@@ -237,14 +236,12 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 			common.HttpErrorResponse(&common.InternalError{S: "Error processing the filter request:" + err.Error()}, w)
 			return
 		}
-
 		// Respond with a catalog
 		registry := TimeSeriesList{
-			SelfLink: common.RegistryAPILoc,
-			Series:   []TimeSeries{},
-			Page:     page,
-			PerPage:  perPage,
-			Total:    0,
+			Series:  []TimeSeries{},
+			Page:    page,
+			PerPage: perPage,
+			Total:   0,
 		}
 		if timeSeries != nil {
 			registry.Series = append(registry.Series, *timeSeries)
@@ -262,11 +259,10 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 
 		// Respond with a catalog
 		registry := TimeSeriesList{
-			SelfLink: common.RegistryAPILoc,
-			Series:   timeSeries,
-			Page:     page,
-			PerPage:  perPage,
-			Total:    total,
+			Series:  timeSeries,
+			Page:    page,
+			PerPage: perPage,
+			Total:   total,
 		}
 		registry.DataLink = DataLinkFromRegistryList(registry.Series)
 		body, _ = json.Marshal(&registry)

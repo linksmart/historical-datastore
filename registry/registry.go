@@ -2,8 +2,6 @@ package registry
 
 // TimeSeriesList describes a registry of registered time series
 type TimeSeriesList struct {
-	// SelfLink is the SelfLink of the Registry API
-	SelfLink string `json:"selfLink"`
 	// Series is an array of time series
 	Series []TimeSeries `json:"streams"`
 	// Page is the current page in Entries pagination
