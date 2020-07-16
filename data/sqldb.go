@@ -441,8 +441,10 @@ func (s *SqlStorage) queryMultipleSeries(q Query, series []*registry.TimeSeries,
 func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series registry.TimeSeries) error {
 	//make a partial statement
 	var unionStmt strings.Builder
+	fromTime := toSenmlTime(q.From)
+	toTime := toSenmlTime(q.To)
 	unionStmt.WriteString(fmt.Sprintf("[%s] where time BETWEEN %f and %f ",
-		series.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
+		series.Name, fromTime, toTime))
 
 	order := common.Desc
 	if q.SortAsc {
@@ -452,7 +454,22 @@ func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series r
 	if q.Limit != 0 {
 		limitStr = fmt.Sprintf("LIMIT %d OFFSET %d", q.Limit, q.Offset)
 	}
-	stmt := fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s %s", unionStmt.String(), order, limitStr)
+
+	intervalSec := q.Interval.Seconds()
+	var stmt string
+	if q.Aggregator != "" {
+		if series.Type == registry.Float {
+			stmt = fmt.Sprintf(`WITH RECURSIVE %s 
+                                   SELECT s AS time ,%s(value) AS value 
+                                   FROM  (SELECT * FROM %s) JOIN INTERVAL on time between s and e GROUP BY e ORDER BY time %s %s`,
+				aggrRangeQuery(fromTime, toTime, intervalSec),
+				q.Aggregator, unionStmt.String(), order, limitStr)
+		} else {
+			return fmt.Errorf("aggregation is not allowed on non numeric series %s", series.Name)
+		}
+	} else {
+		stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s %s", unionStmt.String(), order, limitStr)
+	}
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return fmt.Errorf("error while querying rows:%s", err)
@@ -547,6 +564,10 @@ func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series r
 		sendFunc(records)
 	}
 	return nil
+}
+
+func aggrFunc(aggregator string) interface{} {
+
 }
 
 func (s *SqlStorage) streamMultipleSeries(q Query, sendFunc sendFunction, series []*registry.TimeSeries) error {
@@ -649,4 +670,15 @@ func (s *SqlStorage) streamMultipleSeries(q Query, sendFunc sendFunction, series
 		sendFunc(records)
 	}
 	return nil
+}
+
+// Gets the recursive query making the table containing ranges
+func aggrRangeQuery(from float64, to float64, durSec float64) string {
+	retStr := fmt.Sprintf("Intervals(s,e) AS ("+
+		"SELECT %f AS s, %f AS e"+
+		"UNION ALL"+
+		"SELECT s-%f AS s, e-%f AS e FROM Intervals"+
+		"WHERE s > %f"+
+		") ", to-durSec, to, durSec, durSec, from)
+	return retStr
 }
