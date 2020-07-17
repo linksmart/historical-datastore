@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"strconv"
@@ -35,6 +36,7 @@ func deleteFile(path string) {
 
 func setupTest(funcName string) (filename string, disconnectFunc func() error, dataStorage Storage, regStorage registry.Storage, err error) {
 	fileName := os.TempDir() + "/" + funcName
+
 	deleteFile(fileName)
 	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SQLITE, DSN: fileName}}
 	dataStorage, disconnectFunc, err = NewSqlStorage(dataConf)
@@ -314,6 +316,81 @@ func testInsertVals(t *testing.T, storage Storage, regstorage registry.Storage) 
 	}
 }
 
+func TestStorage_Aggregation(t *testing.T) {
+	//Setup for the testing
+	funcName := "TestStorage_Aggregation"
+	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	if err != nil {
+		t.Fatalf("Error setting up benchmark:%s", err)
+	}
+	defer deleteFile(fileName)
+	defer func() {
+		err := disconnectFunc()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	testFuncs := map[string]func(t *testing.T, storage Storage, regStorage registry.Storage){
+		"aggrSingleSeries":   testSingleSeries,
+		"aggrMultipleSeries": testMultipleSeries,
+	}
+
+	for k, testFunc := range testFuncs {
+		t.Run(k, func(t *testing.T) {
+			fmt.Printf("\n%s:", k)
+			testFunc(t, dataStorage, regStorage)
+		})
+	}
+
+}
+
+func testMultipleSeries(t *testing.T, storage Storage, storage2 registry.Storage) {
+
+}
+
+func testSingleSeries(t *testing.T, storage Storage, regStorage registry.Storage) {
+	ts := registry.TimeSeries{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
+	_, err := regStorage.Add(ts)
+	if err != nil {
+		t.Fatal("Insertion failed:", err)
+	}
+	defer func() {
+		err = regStorage.Delete(ts.Name)
+		if err != nil {
+			t.Fatal("deletion failed:", err)
+		}
+	}()
+
+	sentData, expectedData := sampleDataForAggregation(5, ts, 1594000000, 1594100000, avg, 5*time.Minute)
+	seriesMap := make(map[string]*registry.TimeSeries)
+	seriesMap[ts.Name] = &ts
+	recordMap := make(map[string]senml.Pack)
+	recordMap[ts.Name] = sentData
+	err = storage.Submit(recordMap, seriesMap)
+	if err != nil {
+		t.Error("Error while inserting:", err)
+	}
+
+	expectedLen := int(math.Min(float64(len(expectedData)), MaxPerPage))
+	//get these data
+	gotRecords, total, err := storage.QueryPage(Query{Count: true, To: time.Now().UTC(), PerPage: expectedLen, SortAsc: true, Aggregator: "AVG", Interval: 5 * time.Minute}, &ts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if *total != len(expectedData) {
+		t.Errorf("Received total count should be %d, got %d instead", len(expectedData), *total)
+	}
+
+	if len(gotRecords) != len(expectedData) {
+		t.Errorf("Received record length should be %d, got %d (len) instead", len(expectedData), len(gotRecords))
+	}
+
+	//if CompareSenml(gotRecords, expectedData[0:expectedLen]) == false {
+	//	t.Error("Sent records and received record did not match!!")
+	//}
+}
 func TestStorage_Delete(t *testing.T) {
 	//Setup for the testing
 	funcName := "TestStorage_Delete"

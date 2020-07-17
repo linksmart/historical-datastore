@@ -3,6 +3,7 @@ package data
 
 import (
 	"math"
+	"time"
 
 	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/registry"
@@ -94,4 +95,48 @@ func Diff_name_diff_types() senml.Pack {
 		{BoolValue: &vb, Name: "ok"},
 	}
 	return s
+}
+
+type aggrFunction func(pack senml.Pack) senml.Record
+
+func avg(pack senml.Pack) senml.Record {
+	sum := 0.0
+	name := pack[0].Name
+	for _, record := range pack {
+		sum += *record.Value
+	}
+	avg := sum / float64(len(pack))
+	return senml.Record{Name: name, Value: &avg, Time: pack[len(pack)-1].Time}
+}
+func sampleDataForAggregation(maxPerBlock int,
+	series registry.TimeSeries,
+	from float64,
+	to float64,
+	aggrFunc aggrFunction,
+	interval time.Duration) (rawPack senml.Pack, aggrPack senml.Pack) {
+
+	curVal := 0.0
+
+	durSec := to - from
+	intervalDurSec := interval.Seconds()
+	increment := durSec / (intervalDurSec * float64(maxPerBlock))
+	totalBlocks := int(durSec / intervalDurSec)
+	totalCount := totalBlocks * maxPerBlock
+	rawPack = make([]senml.Record, 0, totalCount)
+	aggrPack = make([]senml.Record, 0, totalBlocks)
+
+	for curTime := from; curTime < to; curTime += intervalDurSec {
+		curPack := make([]senml.Record, 0, maxPerBlock)
+		for i := curTime; i < curTime+intervalDurSec; i += increment {
+			value := curVal
+			record := senml.Record{Name: series.Name, Value: &value, Time: (i)}
+			curVal++
+			curPack = append(curPack, record)
+		}
+		rawPack = append(rawPack, curPack...)
+		aggrPack = append(aggrPack, aggrFunc(curPack))
+	}
+
+	return rawPack, aggrPack
+
 }
