@@ -201,7 +201,7 @@ func main() {
 		bonjourS.Shutdown()
 		time.Sleep(1e9)
 	}
-	// Close the TimeSeriesList Storage
+	// Close the registry Storage
 	if closeReg != nil {
 		err := closeReg()
 		if err != nil {

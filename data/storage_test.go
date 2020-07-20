@@ -332,8 +332,8 @@ func TestStorage_Aggregation(t *testing.T) {
 	}()
 
 	testFuncs := map[string]func(t *testing.T, storage Storage, regStorage registry.Storage){
-		"aggrSingleSeries":   testSingleSeries,
-		"aggrMultipleSeries": testMultipleSeries,
+		"aggrSingleSeries":   testAggSingleSeries,
+		"aggrMultipleSeries": testAggMultipleSeries,
 	}
 
 	for k, testFunc := range testFuncs {
@@ -345,11 +345,83 @@ func TestStorage_Aggregation(t *testing.T) {
 
 }
 
-func testMultipleSeries(t *testing.T, storage Storage, storage2 registry.Storage) {
+func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.Storage) {
 
+	seriesMap := map[string]*registry.TimeSeries{
+		"Bedroom/Temperature": {Name: "Bedroom/Temperature", Type: registry.Float, Unit: "Cel"},
+		"Hall/Temperature":    {Name: "Hall/Temperature", Type: registry.Float, Unit: "Cel"},
+		"Kitchen/Temperature": {Name: "Kitchen/Temperature", Type: registry.Float, Unit: "Cel"},
+		"Balcony/Temperature": {Name: "Balcony/Temperature", Type: registry.Float, Unit: "Cel"},
+	}
+
+	seriesArr := make([]*registry.TimeSeries, 0, len(seriesMap))
+	for _, series := range seriesMap {
+		_, err := regStorage.Add(*series)
+		if err != nil {
+			t.Fatal("Insertion failed:", err)
+		}
+		seriesArr = append(seriesArr, series)
+	}
+
+	defer func() {
+		for name, _ := range seriesMap {
+			err := regStorage.Delete(name)
+			if err != nil {
+				t.Fatal("deletion failed:", err)
+			}
+		}
+	}()
+	sentData, expectedData := sampleDataForAggregation(5, 1594000000, 1594100000, avg, 5*time.Minute, seriesArr...)
+	sentDataMap := make(map[string]senml.Pack)
+	for _, r := range sentData {
+		sentDataMap[r.Name] = append(sentDataMap[r.Name], r)
+	}
+
+	err := storage.Submit(sentDataMap, seriesMap)
+	if err != nil {
+		t.Error("Error while inserting:", err)
+	}
+	expectedLen := int(math.Min(float64(len(expectedData)), MaxPerPage))
+	//get these data
+	gotRecords, total, err := storage.QueryPage(Query{Count: true,
+		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
+		From:       fromSenmlTime(sentData[0].Time),
+		Page:       1,
+		PerPage:    expectedLen,
+		SortAsc:    true,
+		Aggregator: "AVG",
+		Interval:   5 * time.Minute}, seriesArr...)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if *total != len(expectedData) {
+		t.Errorf("Received total count should be %d, got %d instead", len(expectedData), *total)
+		return
+	}
+
+	if len(gotRecords) != expectedLen {
+		t.Errorf("Received record length should be %d, got %d (len) instead", len(expectedData), len(gotRecords))
+		return
+	}
+
+	expectedDataMap := make(map[string]senml.Pack)
+	for _, r := range expectedData[0:expectedLen] {
+		expectedDataMap[r.Name] = append(expectedDataMap[r.Name], r)
+	}
+	gotRecordsMap := make(map[string]senml.Pack)
+	for _, r := range gotRecords {
+		gotRecordsMap[r.Name] = append(gotRecordsMap[r.Name], r)
+	}
+	for key, _ := range expectedDataMap {
+		if CompareSenml(gotRecordsMap[key], expectedDataMap[key]) == false {
+			t.Error("Sent records and expected records did not match!!")
+		}
+	}
 }
 
-func testSingleSeries(t *testing.T, storage Storage, regStorage registry.Storage) {
+func testAggSingleSeries(t *testing.T, storage Storage, regStorage registry.Storage) {
 	ts := registry.TimeSeries{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
 	_, err := regStorage.Add(ts)
 	if err != nil {
@@ -362,7 +434,7 @@ func testSingleSeries(t *testing.T, storage Storage, regStorage registry.Storage
 		}
 	}()
 
-	sentData, expectedData := sampleDataForAggregation(5, ts, 1594000000, 1594100000, avg, 5*time.Minute)
+	sentData, expectedData := sampleDataForAggregation(5, 1594000000, 1594100000, avg, 5*time.Minute, &ts)
 	seriesMap := make(map[string]*registry.TimeSeries)
 	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
@@ -374,22 +446,32 @@ func testSingleSeries(t *testing.T, storage Storage, regStorage registry.Storage
 
 	expectedLen := int(math.Min(float64(len(expectedData)), MaxPerPage))
 	//get these data
-	gotRecords, total, err := storage.QueryPage(Query{Count: true, To: time.Now().UTC(), PerPage: expectedLen, SortAsc: true, Aggregator: "AVG", Interval: 5 * time.Minute}, &ts)
+	gotRecords, total, err := storage.QueryPage(Query{Count: true,
+		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
+		From:       fromSenmlTime(sentData[0].Time),
+		Page:       1,
+		PerPage:    expectedLen,
+		SortAsc:    true,
+		Aggregator: "AVG",
+		Interval:   5 * time.Minute}, &ts)
 	if err != nil {
 		t.Error(err)
+		return
 	}
 
 	if *total != len(expectedData) {
 		t.Errorf("Received total count should be %d, got %d instead", len(expectedData), *total)
+		return
 	}
 
-	if len(gotRecords) != len(expectedData) {
+	if len(gotRecords) != expectedLen {
 		t.Errorf("Received record length should be %d, got %d (len) instead", len(expectedData), len(gotRecords))
+		return
 	}
 
-	//if CompareSenml(gotRecords, expectedData[0:expectedLen]) == false {
-	//	t.Error("Sent records and received record did not match!!")
-	//}
+	if CompareSenml(gotRecords, expectedData[0:expectedLen]) == false {
+		t.Error("Sent records and received record did not match!!")
+	}
 }
 func TestStorage_Delete(t *testing.T) {
 	//Setup for the testing

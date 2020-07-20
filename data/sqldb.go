@@ -325,24 +325,11 @@ func (s *SqlStorage) querySingleSeries(q Query, series registry.TimeSeries, coun
 }
 
 func (s *SqlStorage) queryMultipleSeries(q Query, series []*registry.TimeSeries, countOnly bool) (pack senml.Pack, total *int, err error) {
-	var unionStmt strings.Builder
-	unionStmt.WriteByte('(')
-	unionStr := ""
-
-	for _, ts := range series {
-
-		//unionStmt.WriteString(fmt.Sprintf("%s(SELECT ('%s' as 'table_name' , '%s' as 'type_val', 'time' as 'time', 'value' as 'value') FROM [%s] WHERE time BETWEEN %f and %f)", unionStr, ts.Name, ts.Type, ts.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
-		unionStmt.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f and %f", unionStr, ts.Name, ts.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
-		unionStr = " UNION ALL "
-
-	}
-	unionStmt.WriteByte(')')
-
 	//counting the number
 	var stmt string
 	if q.Count || countOnly {
 		total = new(int)
-		stmt = "SELECT COUNT(*) FROM " + unionStmt.String()
+		stmt = makeQuery(q, true, false, series...)
 		row := s.pool.QueryRow(stmt)
 		err := row.Scan(total)
 		if err != nil {
@@ -353,12 +340,7 @@ func (s *SqlStorage) queryMultipleSeries(q Query, series []*registry.TimeSeries,
 		}
 	}
 
-	//query the entries
-	order := common.Desc
-	if q.SortAsc {
-		order = common.Asc
-	}
-	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), order, q.PerPage, (q.Page-1)*q.PerPage)
+	stmt = makeQuery(q, false, false, series...)
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
@@ -658,12 +640,23 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
 
 	if q.Aggregator != "" {
 		durSec := q.Interval.Seconds()
+		/*
+			The below query explained:
+			The place holders for the time are created with the help of RECURSIVE queries.
+			"raw_data" expression fetches all the data between the given range
+			"actual_time_range" expression gets the actual time range where the data is available. this reduces the
+					table size of the place holders drastically when there is no data for the whole queried time range.
+					the upper limit i.e. `round(((%f-max(TIME))/%f)-0.5) as toT` will adjust the starting point of the aggregation such that it is: toTime-(a multiple of durSec)
+			"placeholder" is the "recursive" expression generating the time sequence which shall be used for the final
+						query as placeholders.
+			The final query joins the raw_data and placeholder tables to get the aggregated results
+		*/
 		stmt = fmt.Sprintf(`WITH RECURSIVE
 									raw_data(table_name,time,value) AS (
 										%s
                                     ),
                                     actual_time_range(fromT,toT) AS (
-									  	SELECT min(time) as fromT ,max(time) as toT FROM raw_data 
+									  	SELECT min(time) as fromT ,%f- max(round(((%f-max(TIME))/%f)-0.5),0) as toT FROM raw_data 
 									  ),
                                     placeholder(segS,segE,fromT) AS (
 									SELECT actual_time_range.toT-%f AS segS,actual_time_range.toT as segE, actual_time_range.fromT  as fromT from actual_time_range
@@ -671,15 +664,15 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
      								SELECT segS-%f as segS, segE-%f as segE, fromT FROM placeholder
       								WHERE segS > fromT
   									)
-                                     `, tableUnion.String(), durSec, durSec, durSec)
-		if count == false {
-			stmt = stmt +
-				fmt.Sprintf(`SELECT  table_name, segE AS time ,%s(value) AS value
-						FROM raw_data JOIN placeholder ON time BETWEEN segS AND segE GROUP BY segE,table_name ORDER BY segE %s %s`, q.Aggregator, order, limitStr)
-		} else {
+                                     `, tableUnion.String(), toTime, toTime, durSec, durSec, durSec, durSec)
+		if count {
 			stmt = stmt +
 				fmt.Sprintf(`SELECT COUNT(*) FROM (SELECT  table_name, segE AS time ,%s(value) AS value
-						FROM raw_data JOIN placeholder ON time BETWEEN segS AND segE GROUP BY segE,table_name  %s)`, q.Aggregator, limitStr)
+						FROM raw_data JOIN placeholder ON time > segS AND time <= segE GROUP BY segE,table_name  %s)`, q.Aggregator, limitStr)
+		} else {
+			stmt = stmt +
+				fmt.Sprintf(`SELECT  table_name, segE AS time ,%s(value) AS value
+						FROM raw_data JOIN placeholder ON time > segS AND time <= segE GROUP BY segE,table_name ORDER BY segE %s %s`, q.Aggregator, order, limitStr)
 		}
 	} else {
 		if count == true {

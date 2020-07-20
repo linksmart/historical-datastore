@@ -97,23 +97,27 @@ func Diff_name_diff_types() senml.Pack {
 	return s
 }
 
-type aggrFunction func(pack senml.Pack) senml.Record
+type aggrFunction func(pack senml.Pack) []senml.Record
 
-func avg(pack senml.Pack) senml.Record {
-	sum := 0.0
-	name := pack[0].Name
+func avg(pack senml.Pack) []senml.Record {
+	var retRec senml.Pack
+	sumMap := make(map[string]float64)
+	lenMap := make(map[string]int)
 	for _, record := range pack {
-		sum += *record.Value
+		sumMap[record.Name] += *record.Value
+		lenMap[record.Name] += 1
 	}
-	avg := sum / float64(len(pack))
-	return senml.Record{Name: name, Value: &avg, Time: pack[len(pack)-1].Time}
+	for k, v := range sumMap {
+		avg := v / float64(lenMap[k])
+		retRec = append(retRec, senml.Record{Name: k, Value: &avg, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
 }
 func sampleDataForAggregation(maxPerBlock int,
-	series registry.TimeSeries,
 	from float64,
 	to float64,
 	aggrFunc aggrFunction,
-	interval time.Duration) (rawPack senml.Pack, aggrPack senml.Pack) {
+	interval time.Duration, series ...*registry.TimeSeries) (rawPack senml.Pack, aggrPack senml.Pack) {
 
 	curVal := 0.0
 
@@ -129,12 +133,15 @@ func sampleDataForAggregation(maxPerBlock int,
 		curPack := make([]senml.Record, 0, maxPerBlock)
 		for i := curTime; i < curTime+intervalDurSec; i += increment {
 			value := curVal
-			record := senml.Record{Name: series.Name, Value: &value, Time: (i)}
+			for _, ts := range series {
+				record := senml.Record{Name: ts.Name, Value: &value, Time: (i)}
+				curPack = append(curPack, record)
+			}
 			curVal++
-			curPack = append(curPack, record)
+
 		}
 		rawPack = append(rawPack, curPack...)
-		aggrPack = append(aggrPack, aggrFunc(curPack))
+		aggrPack = append(aggrPack, aggrFunc(curPack)...)
 	}
 
 	return rawPack, aggrPack

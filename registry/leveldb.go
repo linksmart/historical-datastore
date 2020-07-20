@@ -74,6 +74,8 @@ func (s *LevelDBStorage) close() error {
 }
 
 func (s *LevelDBStorage) Add(ts TimeSeries) (*TimeSeries, error) {
+	s.wg.Add(1)
+	defer s.wg.Done()
 	err := validateCreation(ts, s.conf)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrBadRequest, err)
@@ -113,7 +115,8 @@ func (s *LevelDBStorage) Add(ts TimeSeries) (*TimeSeries, error) {
 }
 
 func (s *LevelDBStorage) Update(name string, ts TimeSeries) (*TimeSeries, error) {
-
+	s.wg.Add(1)
+	defer s.wg.Done()
 	oldTS, err := s.Get(name) // for comparison
 	if err == leveldb.ErrNotFound {
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, err)
@@ -158,7 +161,8 @@ func (s *LevelDBStorage) Update(name string, ts TimeSeries) (*TimeSeries, error)
 }
 
 func (s *LevelDBStorage) Delete(name string) error {
-
+	s.wg.Add(1)
+	defer s.wg.Done()
 	ts, err := s.Get(name) // for notification
 	if err != nil {
 		return err
