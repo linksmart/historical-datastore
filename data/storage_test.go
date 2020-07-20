@@ -331,21 +331,42 @@ func TestStorage_Aggregation(t *testing.T) {
 		}
 	}()
 
-	testFuncs := map[string]func(t *testing.T, storage Storage, regStorage registry.Storage){
+	testFuncs := map[string]func(t *testing.T, storage Storage, regStorage registry.Storage, aggr string){
 		"aggrSingleSeries":   testAggSingleSeries,
 		"aggrMultipleSeries": testAggMultipleSeries,
 	}
 
+	aggr := []string{"AVG", "COUNT", "MAX", "MIN", "SUM"}
+
 	for k, testFunc := range testFuncs {
-		t.Run(k, func(t *testing.T) {
-			fmt.Printf("\n%s:", k)
-			testFunc(t, dataStorage, regStorage)
-		})
+		for _, a := range aggr {
+			testName := k + "_" + a
+			t.Run(testName, func(t *testing.T) {
+				fmt.Printf("\n%s", testName)
+				testFunc(t, dataStorage, regStorage, a)
+			})
+		}
 	}
 
 }
+func getAggrFunction(aggr string) aggrFunction {
+	switch aggr {
+	case "AVG":
+		return aggrAvg
+	case "COUNT":
+		return aggrCount
+	case "MAX":
+		return aggrMax
+	case "MIN":
+		return aggrMin
+	case "SUM":
+		return aggrSum
+	default:
+		return nil
+	}
+}
 
-func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.Storage) {
+func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.Storage, aggr string) {
 
 	seriesMap := map[string]*registry.TimeSeries{
 		"Bedroom/Temperature": {Name: "Bedroom/Temperature", Type: registry.Float, Unit: "Cel"},
@@ -371,7 +392,7 @@ func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.St
 			}
 		}
 	}()
-	sentData, expectedData := sampleDataForAggregation(5, 1594000000, 1594100000, avg, 5*time.Minute, seriesArr...)
+	sentData, expectedData := sampleDataForAggregation(5, 1594000000, 1594100000, getAggrFunction(aggr), 5*time.Minute, seriesArr...)
 	sentDataMap := make(map[string]senml.Pack)
 	for _, r := range sentData {
 		sentDataMap[r.Name] = append(sentDataMap[r.Name], r)
@@ -389,7 +410,7 @@ func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.St
 		Page:       1,
 		PerPage:    expectedLen,
 		SortAsc:    true,
-		Aggregator: "AVG",
+		Aggregator: aggr,
 		Interval:   5 * time.Minute}, seriesArr...)
 	if err != nil {
 		t.Error(err)
@@ -421,7 +442,7 @@ func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.St
 	}
 }
 
-func testAggSingleSeries(t *testing.T, storage Storage, regStorage registry.Storage) {
+func testAggSingleSeries(t *testing.T, storage Storage, regStorage registry.Storage, aggr string) {
 	ts := registry.TimeSeries{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
 	_, err := regStorage.Add(ts)
 	if err != nil {
@@ -434,7 +455,7 @@ func testAggSingleSeries(t *testing.T, storage Storage, regStorage registry.Stor
 		}
 	}()
 
-	sentData, expectedData := sampleDataForAggregation(5, 1594000000, 1594100000, avg, 5*time.Minute, &ts)
+	sentData, expectedData := sampleDataForAggregation(5, 1594000000, 1594100000, getAggrFunction(aggr), 5*time.Minute, &ts)
 	seriesMap := make(map[string]*registry.TimeSeries)
 	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
@@ -452,7 +473,7 @@ func testAggSingleSeries(t *testing.T, storage Storage, regStorage registry.Stor
 		Page:       1,
 		PerPage:    expectedLen,
 		SortAsc:    true,
-		Aggregator: "AVG",
+		Aggregator: aggr,
 		Interval:   5 * time.Minute}, &ts)
 	if err != nil {
 		t.Error(err)

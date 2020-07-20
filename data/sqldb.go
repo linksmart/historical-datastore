@@ -671,7 +671,7 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
 						FROM raw_data JOIN placeholder ON time > segS AND time <= segE GROUP BY segE,table_name  %s)`, q.Aggregator, limitStr)
 		} else {
 			stmt = stmt +
-				fmt.Sprintf(`SELECT  table_name, segE AS time ,%s(value) AS value
+				fmt.Sprintf(`SELECT  table_name, segE AS time ,%s(value)*1.0 AS value
 						FROM raw_data JOIN placeholder ON time > segS AND time <= segE GROUP BY segE,table_name ORDER BY segE %s %s`, q.Aggregator, order, limitStr)
 		}
 	} else {

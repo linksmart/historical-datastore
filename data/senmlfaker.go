@@ -97,9 +97,9 @@ func Diff_name_diff_types() senml.Pack {
 	return s
 }
 
-type aggrFunction func(pack senml.Pack) []senml.Record
+type aggrFunction func(pack senml.Pack) senml.Pack
 
-func avg(pack senml.Pack) []senml.Record {
+func aggrAvg(pack senml.Pack) senml.Pack {
 	var retRec senml.Pack
 	sumMap := make(map[string]float64)
 	lenMap := make(map[string]int)
@@ -113,6 +113,70 @@ func avg(pack senml.Pack) []senml.Record {
 	}
 	return retRec
 }
+func aggrSum(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	sumMap := make(map[string]float64)
+	for _, record := range pack {
+		sumMap[record.Name] += *record.Value
+	}
+	for k, v := range sumMap {
+		sum := v
+		retRec = append(retRec, senml.Record{Name: k, Value: &sum, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
+func aggrMin(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	packMap := make(map[string]senml.Pack)
+	for _, record := range pack {
+		packMap[record.Name] = append(packMap[record.Name], record)
+	}
+
+	for k, p := range packMap {
+		var min float64
+		for i, r := range p {
+			if i == 0 || *r.Value < min {
+				min = *r.Value
+			}
+		}
+		retRec = append(retRec, senml.Record{Name: k, Value: &min, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
+func aggrMax(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	packMap := make(map[string]senml.Pack)
+	for _, record := range pack {
+		packMap[record.Name] = append(packMap[record.Name], record)
+	}
+
+	for k, p := range packMap {
+		var max float64
+		for i, r := range p {
+			if i == 0 || *r.Value > max {
+				max = *r.Value
+			}
+		}
+		retRec = append(retRec, senml.Record{Name: k, Value: &max, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
+func aggrCount(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	lenMap := make(map[string]int)
+	for _, record := range pack {
+		lenMap[record.Name] += 1
+	}
+	for k, v := range lenMap {
+		count := float64(v)
+		retRec = append(retRec, senml.Record{Name: k, Value: &count, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
 func sampleDataForAggregation(maxPerBlock int,
 	from float64,
 	to float64,
