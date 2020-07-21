@@ -601,14 +601,6 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
 		order = common.Asc
 	}
 
-	// create union of multiple series
-	var tableUnion strings.Builder
-	unionStr := ""
-	for _, ts := range series {
-		tableUnion.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f AND %f", unionStr, ts.Name, ts.Name, fromTime, toTime))
-		unionStr = " UNION ALL "
-	}
-
 	// set limit string
 	limitStr := ""
 	if stream && q.Limit != 0 { //for stream queries, limit with the provided limit
@@ -620,41 +612,41 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
 
 	if q.Aggregator != "" {
 		durSec := q.AggrInterval.Seconds()
-		/*
-			The below query explained:
-			The place holders for the time are created with the help of RECURSIVE queries.
-			"raw_data" expression fetches all the data between the given range
-			"actual_time_range" expression gets the actual time range where the data is available. this reduces the
-					table size of the place holders drastically when there is no data for the whole queried time range.
-					the upper limit i.e. `round(((%f-max(TIME))/%f)-0.5) as toT` will adjust the starting point of the aggregation such that it is: toTime-(a multiple of durSec)
-			"placeholder" is the "recursive" expression generating the time sequence which shall be used for the final
-						query as placeholders.
-			The final query joins the raw_data and placeholder tables to get the aggregated results
-		*/
-		stmt = fmt.Sprintf(`WITH RECURSIVE
-									raw_data(table_name,time,value) AS (
+		// create union of multiple series
+		timeAggr := fmt.Sprintf("%f- MAX(ROUND(((%f-time)/%f)-0.5),0)*%f", toTime, toTime, durSec, durSec)
+		var tableUnion strings.Builder
+		unionStr := ""
+		for _, ts := range series {
+			tableUnion.WriteString(fmt.Sprintf(`%sSELECT  '%s' AS 'table_name' , %s AS time, value 
+														FROM [%s] 
+														WHERE time BETWEEN %f AND %f`,
+				unionStr, ts.Name, timeAggr, ts.Name, fromTime, toTime))
+			unionStr = " UNION ALL "
+		}
+		stmt = fmt.Sprintf(`WITH raw_data(table_name,time,value) AS (
 										%s
-                                    ),
-                                    actual_time_range(fromT,toT) AS (
-									  	SELECT min(time) as fromT ,%f- max(round(((%f-max(TIME))/%f)-0.5),0) as toT FROM raw_data 
-									  ),
-                                    placeholder(segS,segE,fromT) AS (
-									SELECT actual_time_range.toT-%f AS segS,actual_time_range.toT as segE, actual_time_range.fromT  as fromT from actual_time_range
-     								UNION ALL
-     								SELECT segS-%f as segS, segE-%f as segE, fromT FROM placeholder
-      								WHERE segS > fromT
-  									)
-                                     `, tableUnion.String(), toTime, toTime, durSec, durSec, durSec, durSec)
+                                    )`, tableUnion.String())
 		if count {
 			stmt = stmt +
-				fmt.Sprintf(`SELECT COUNT(*) FROM (SELECT  table_name, segE AS time ,%s(value) AS value
-						FROM raw_data JOIN placeholder ON time > segS AND time <= segE GROUP BY segE,table_name  %s)`, aggrToSqlFunc(q.Aggregator), limitStr)
+				fmt.Sprintf(`
+						SELECT  COUNT(*) FROM (SELECT DISTINCT time,table_name
+						FROM raw_data  %s)`, limitStr)
 		} else {
 			stmt = stmt +
-				fmt.Sprintf(`SELECT  table_name, segE AS time ,%s(value)*1.0 AS value
-						FROM raw_data JOIN placeholder ON time > segS AND time <= segE GROUP BY segE,table_name ORDER BY segE %s %s`, aggrToSqlFunc(q.Aggregator), order, limitStr)
+				fmt.Sprintf(`
+						SELECT  table_name, time ,%s(value)*1.0 AS value
+						FROM raw_data GROUP BY time,table_name ORDER BY time %s %s`, aggrToSqlFunc(q.Aggregator), order, limitStr)
 		}
 	} else {
+
+		// create union of multiple series
+		var tableUnion strings.Builder
+		unionStr := ""
+		for _, ts := range series {
+			tableUnion.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f AND %f", unionStr, ts.Name, ts.Name, fromTime, toTime))
+			unionStr = " UNION ALL "
+		}
+
 		if count == true {
 			stmt = fmt.Sprintf("SELECT COUNT(*) FROM (%s) %s", tableUnion.String(), limitStr)
 		} else {
