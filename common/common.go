@@ -23,6 +23,7 @@ const (
 	ParamSort        = "sort"
 	ParamDenormalize = "denormalize"
 	ParamCount       = "count"
+	ParamGroupBy     = "groupBy"
 
 	// Values for ParamSort
 	Asc  = "asc"  // ascending
@@ -41,7 +42,7 @@ var (
 	DefaultMIMEType string
 
 	// supported aggregates
-	supportedAggregates = []string{"mean", "stddev", "sum", "min", "max", "median"}
+	supportedAggregates = []string{"mean", "sum", "min", "max", "count"}
 	// supported period suffixes
 	supportedPeriods = []string{"m", "h", "d", "w"}
 )

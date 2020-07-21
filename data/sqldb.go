@@ -510,29 +510,9 @@ func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series r
 }
 
 func (s *SqlStorage) streamMultipleSeries(q Query, sendFunc sendFunction, series []*registry.TimeSeries) error {
-	var unionStmt strings.Builder
-	unionStmt.WriteByte('(')
-	unionStr := ""
 
-	for _, ts := range series {
+	stmt := makeQuery(q, false, true, series...)
 
-		//unionStmt.WriteString(fmt.Sprintf("%s(SELECT ('%s' as 'table_name' , '%s' as 'type_val', 'time' as 'time', 'value' as 'value') FROM [%s] WHERE time BETWEEN %f and %f)", unionStr, ts.Name, ts.Type, ts.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
-		unionStmt.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f and %f", unionStr, ts.Name, ts.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
-		unionStr = " UNION ALL "
-
-	}
-	unionStmt.WriteByte(')')
-
-	//query the entries
-	order := common.Desc
-	if q.SortAsc {
-		order = common.Asc
-	}
-	limitStr := ""
-	if q.Limit != 0 {
-		limitStr = fmt.Sprintf("LIMIT %d OFFSET %d", q.Limit, q.Offset)
-	}
-	stmt := fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s %s", unionStmt.String(), order, limitStr)
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return fmt.Errorf("error while querying rows:%s", err)
@@ -634,12 +614,12 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
 	if stream && q.Limit != 0 { //for stream queries, limit with the provided limit
 		limitStr = fmt.Sprintf("LIMIT %d OFFSET %d", q.Limit, q.Offset)
 	}
-	if !stream && !count { //for page queries, limit with pagination parameters (For count
+	if !stream && !count { //for page queries, limit with pagination parameters. Count does not have the limit
 		limitStr = fmt.Sprintf("LIMIT %d OFFSET %d", q.PerPage, (q.Page-1)*q.PerPage)
 	}
 
 	if q.Aggregator != "" {
-		durSec := q.Interval.Seconds()
+		durSec := q.AggrInterval.Seconds()
 		/*
 			The below query explained:
 			The place holders for the time are created with the help of RECURSIVE queries.
@@ -668,11 +648,11 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
 		if count {
 			stmt = stmt +
 				fmt.Sprintf(`SELECT COUNT(*) FROM (SELECT  table_name, segE AS time ,%s(value) AS value
-						FROM raw_data JOIN placeholder ON time > segS AND time <= segE GROUP BY segE,table_name  %s)`, q.Aggregator, limitStr)
+						FROM raw_data JOIN placeholder ON time > segS AND time <= segE GROUP BY segE,table_name  %s)`, aggrToSqlFunc(q.Aggregator), limitStr)
 		} else {
 			stmt = stmt +
 				fmt.Sprintf(`SELECT  table_name, segE AS time ,%s(value)*1.0 AS value
-						FROM raw_data JOIN placeholder ON time > segS AND time <= segE GROUP BY segE,table_name ORDER BY segE %s %s`, q.Aggregator, order, limitStr)
+						FROM raw_data JOIN placeholder ON time > segS AND time <= segE GROUP BY segE,table_name ORDER BY segE %s %s`, aggrToSqlFunc(q.Aggregator), order, limitStr)
 		}
 	} else {
 		if count == true {
@@ -682,4 +662,28 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
 		}
 	}
 	return stmt
+}
+
+func aggrToSqlFunc(aggrName string) (sqlFunc string) {
+	const (
+		AGGR_AVG   = "AVG"
+		AGGR_SUM   = "SUM"
+		AGGR_MIN   = "MIN"
+		AGGR_MAX   = "MAX"
+		AGGR_COUNT = "COUNT"
+	)
+	switch aggrName {
+	case "mean":
+		return AGGR_AVG
+	case "sum":
+		return AGGR_SUM
+	case "min":
+		return AGGR_MIN
+	case "max":
+		return AGGR_MAX
+	case "count":
+		return AGGR_COUNT
+	default:
+		return AGGR_AVG
+	}
 }

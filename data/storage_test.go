@@ -336,7 +336,7 @@ func TestStorage_Aggregation(t *testing.T) {
 		"aggrMultipleSeries": testAggMultipleSeries,
 	}
 
-	aggr := []string{"AVG", "COUNT", "MAX", "MIN", "SUM"}
+	aggr := []string{"mean", "sum", "min", "max", "count"}
 
 	for k, testFunc := range testFuncs {
 		for _, a := range aggr {
@@ -351,15 +351,15 @@ func TestStorage_Aggregation(t *testing.T) {
 }
 func getAggrFunction(aggr string) aggrFunction {
 	switch aggr {
-	case "AVG":
+	case "mean":
 		return aggrAvg
-	case "COUNT":
+	case "count":
 		return aggrCount
-	case "MAX":
+	case "max":
 		return aggrMax
-	case "MIN":
+	case "min":
 		return aggrMin
-	case "SUM":
+	case "sum":
 		return aggrSum
 	default:
 		return nil
@@ -405,13 +405,13 @@ func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.St
 	expectedLen := int(math.Min(float64(len(expectedData)), MaxPerPage))
 	//get these data
 	gotRecords, total, err := storage.QueryPage(Query{Count: true,
-		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
-		From:       fromSenmlTime(sentData[0].Time),
-		Page:       1,
-		PerPage:    expectedLen,
-		SortAsc:    true,
-		Aggregator: aggr,
-		Interval:   5 * time.Minute}, seriesArr...)
+		To:           fromSenmlTime(sentData[len(sentData)-1].Time),
+		From:         fromSenmlTime(sentData[0].Time),
+		Page:         1,
+		PerPage:      expectedLen,
+		SortAsc:      true,
+		Aggregator:   aggr,
+		AggrInterval: 5 * time.Minute}, seriesArr...)
 	if err != nil {
 		t.Error(err)
 		return
@@ -468,13 +468,13 @@ func testAggSingleSeries(t *testing.T, storage Storage, regStorage registry.Stor
 	expectedLen := int(math.Min(float64(len(expectedData)), MaxPerPage))
 	//get these data
 	gotRecords, total, err := storage.QueryPage(Query{Count: true,
-		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
-		From:       fromSenmlTime(sentData[0].Time),
-		Page:       1,
-		PerPage:    expectedLen,
-		SortAsc:    true,
-		Aggregator: aggr,
-		Interval:   5 * time.Minute}, &ts)
+		To:           fromSenmlTime(sentData[len(sentData)-1].Time),
+		From:         fromSenmlTime(sentData[0].Time),
+		Page:         1,
+		PerPage:      expectedLen,
+		SortAsc:      true,
+		Aggregator:   aggr,
+		AggrInterval: 5 * time.Minute}, &ts)
 	if err != nil {
 		t.Error(err)
 		return

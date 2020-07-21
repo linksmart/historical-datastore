@@ -17,7 +17,7 @@ func ParsePagingParams(page, perPage string, maxPerPage int) (int, int, error) {
 	} else {
 		parsedPage, err = strconv.Atoi(page)
 		if err != nil {
-			return 0, 0, fmt.Errorf("Invalid value for parameter %s: %s", ParamPage, page)
+			return 0, 0, fmt.Errorf("invalid value for parameter %s: %s", ParamPage, page)
 		}
 	}
 
@@ -26,7 +26,7 @@ func ParsePagingParams(page, perPage string, maxPerPage int) (int, int, error) {
 	} else {
 		parsedPerPage, err = strconv.Atoi(perPage)
 		if err != nil {
-			return 0, 0, fmt.Errorf("Invalid value for parameter %s: %s", ParamPerPage, perPage)
+			return 0, 0, fmt.Errorf("invalid value for parameter %s: %s", ParamPerPage, perPage)
 		}
 	}
 

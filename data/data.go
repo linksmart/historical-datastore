@@ -57,8 +57,8 @@ type Query struct {
 	// Aggregator is the function performing the aggregation
 	Aggregator string
 
-	// Interval is the duration for aggregation
-	Interval time.Duration
+	// AggrInterval is the duration for aggregation
+	AggrInterval time.Duration
 
 	// Limit is applicable only for streamed queries
 	Limit int

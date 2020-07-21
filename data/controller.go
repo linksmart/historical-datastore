@@ -226,3 +226,23 @@ func parseToValue(from string) (time.Time, error) {
 		return time.Parse(time.RFC3339, from)
 	}
 }
+
+func parseGroupByParameter(groupBy string) (aggrFunction string, interval time.Duration, err error) {
+	if groupBy == "" {
+		return "", 0 * time.Second, nil
+	}
+	aggrStrings := strings.Split(groupBy, ",")
+	if len(aggrStrings) != 2 {
+		return "", 0 * time.Second, fmt.Errorf("unexpected aggregation syntax: %s", groupBy)
+	}
+	aggrFunction = strings.ToLower(strings.TrimSpace(aggrStrings[0]))
+	if !common.SupportedAggregate(aggrFunction) {
+		return "", 0 * time.Second, fmt.Errorf("unsupported aggregation function: %s", aggrFunction)
+	}
+
+	interval, err = time.ParseDuration(aggrStrings[1])
+	if err != nil {
+		return "", 0 * time.Second, fmt.Errorf("invalid aggregation duration: %s", aggrStrings[1])
+	}
+	return aggrFunction, interval, nil
+}

@@ -19,6 +19,7 @@ const (
 	DRIVER_SQLITE3 = "sqlite3"
 )
 
+
 // SupportedBackends returns true if the backend is listed as true
 func SupportedBackends(name string) bool {
 	supportedBackends := map[string]bool{
@@ -77,3 +78,5 @@ func validateRecordAgainstRegistry(r senml.Record, ts *registry.TimeSeries) erro
 
 	return nil
 }
+
+

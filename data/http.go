@@ -241,7 +241,7 @@ func getDecoderForContentType(contentType string) (decoder codec.Decoder, err er
 }
 
 func GetUrlFromQuery(q Query, id ...string) (url string) {
-	var sort, limit, start, end, perPage, offset, denorm string
+	var sort, limit, start, end, perPage, offset, denorm, groupBy string
 	if q.SortAsc {
 		sort = fmt.Sprintf("&%v=%v", common.ParamSort, common.Asc)
 	}
@@ -277,10 +277,15 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 		}
 		denorm = strings.TrimSuffix(denorm, ",")
 	}
-	return fmt.Sprintf("%v?%s%s%s%s%s%s%s",
+
+	if q.Aggregator != "" {
+		groupBy = fmt.Sprintf("&%v=%v,%v", common.ParamGroupBy, q.Aggregator, q.AggrInterval.String())
+	}
+
+	return fmt.Sprintf("%v?%s%s%s%s%s%s%s%s",
 		strings.Join(id, common.IDSeparator),
 		perPage,
-		sort, limit, start, end, offset, denorm,
+		sort, limit, start, end, offset, denorm, groupBy,
 	)
 }
 
@@ -330,5 +335,11 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 		q.Count = true
 	}
 
+	//get groupBy Parameter
+	grpByStr := form.Get(common.ParamGroupBy)
+	q.Aggregator, q.AggrInterval, err = parseGroupByParameter(grpByStr)
+	if err != nil {
+		return Query{}, &common.BadRequestError{S: fmt.Sprintf("error in param %s=%s:%v", common.ParamGroupBy, grpByStr, err)}
+	}
 	return q, nil
 }

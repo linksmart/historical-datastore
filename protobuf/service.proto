@@ -34,6 +34,8 @@ message QueryRequest
     bool sort_asc = 7;
 	int32 limit = 8;
 	int32 offset = 9;
+	string aggregator = 10;
+	string aggrInterval = 11;
 }
 
 message DeleteRequest
