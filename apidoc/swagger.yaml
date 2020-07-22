@@ -319,19 +319,39 @@ paths:
           required: false
           schema:
             type: boolean
-        - name: groupBy
+            # - name: groupBy
+            #   in: query
+            #   description: |
+            #     Function and window size for computing aggregates on the fly.
+
+            #     Valid aggregate functions are: `mean`, `sum`, `min`, `max`, `count`.
+
+            #     Valid window size units suffixes are: `ns`, `us`, `ms`, `s`, `m`, `h`, with support for fractions such as 1.5h or 1h30m.
+
+        #   required: false
+        #   schema:
+        #     type: string
+        #     example: mean,10m
+        - name: aggr
           in: query
-          description: |
-            Function and window size for computing aggregates on the fly.
-
-            Valid aggregate functions are: `mean`, `sum`, `min`, `max`, `count`.
-
-            Valid window size units suffixes are: `ns`, `us`, `ms`, `s`, `m`, `h`, with support for fractions such as 1.5h or 1h30m.
-
+          description: Function for computing aggregates on the fly.
           required: false
           schema:
             type: string
-            example: mean,10m
+            enum: ["mean", "sum", "min", "max", "count"]
+            example: mean
+        - name: window
+          in: query
+          description: |
+            Window size for computing aggregates on the fly.
+
+            Valid window size unit suffixes: ns, us, ms, s, m, h
+
+            Fractions may be given as 1.5h or 1h30m
+          required: false
+          schema:
+            type: string
+            example: 10m
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/perPage"
 
