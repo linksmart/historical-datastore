@@ -297,10 +297,10 @@ paths:
           schema:
             type: string
             format: date
-            default: "now (datetime value when query is created"
+            default: "now (datetime value when query is created)"
         - name: sort
           in: query
-          description: Sorting method either "desc" or "asc". If "DESC" then the resultant DataStream will have latest measurenemts first. If "asc" then the resultant DataStream will have oldest measurements first.
+          description: Sorting order of records by timestamps
           required: false
           schema:
             type: string
@@ -315,17 +315,22 @@ paths:
             enum: ["name","n","time","t", "unit","u", "value","v", "sum","s"]
         - name: count
           in: query
-          description: Specifies the total number of entries satisfying the query. This is useful for pagination where the client can decide on the number of pages in advance. Please use this only in the first query as this might take more time than usual.
+          description: Include the total number of entries inside the response. This is useful for pagination such that the client can calculate total pages after the first query. Please use this only in the first query as counting adds additional computation.
           required: false
           schema:
             type: boolean
         - name: groupBy
           in: query
-          description: Aggregate function and interval for calculating aggregations on the fly.
+          description: |
+            Function and window size for computing aggregates on the fly.
+
+            Valid aggregate functions are: `mean`, `sum`, `min`, `max`, `count`.
+
+            Valid window size units suffixes are: `ns`, `us`, `ms`, `s`, `m`, `h`, with support for fractions such as 1.5h or 1h30m.
+
           required: false
           schema:
             type: string
-            enum: ["mean", "sum", "min", "max", "count"]
             example: mean,10m
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/perPage"
