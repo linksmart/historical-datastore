@@ -252,9 +252,12 @@ func (s *SqlStorage) querySingleSeries(q Query, series registry.TimeSeries, coun
 
 	if q.Count || countOnly {
 		total = new(int)
-		stmt := makeQuery(q, true, false, &series)
+		stmt, err := makeQuery(q, true, false, &series)
+		if err != nil {
+			return nil, nil, err
+		}
 		row := s.pool.QueryRow(stmt)
-		err := row.Scan(total)
+		err = row.Scan(total)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error while querying Count:%s", err)
 		}
@@ -262,7 +265,10 @@ func (s *SqlStorage) querySingleSeries(q Query, series registry.TimeSeries, coun
 			return nil, total, nil
 		}
 	}
-	stmt := makeQuery(q, false, false, &series)
+	stmt, err := makeQuery(q, false, false, &series)
+	if err != nil {
+		return nil, nil, err
+	}
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
@@ -329,7 +335,10 @@ func (s *SqlStorage) queryMultipleSeries(q Query, series []*registry.TimeSeries,
 	var stmt string
 	if q.Count || countOnly {
 		total = new(int)
-		stmt = makeQuery(q, true, false, series...)
+		stmt, err = makeQuery(q, true, false, series...)
+		if err != nil {
+			return nil, nil, err
+		}
 		row := s.pool.QueryRow(stmt)
 		err := row.Scan(total)
 		if err != nil {
@@ -340,7 +349,10 @@ func (s *SqlStorage) queryMultipleSeries(q Query, series []*registry.TimeSeries,
 		}
 	}
 
-	stmt = makeQuery(q, false, false, series...)
+	stmt, err = makeQuery(q, false, false, series...)
+	if err != nil {
+		return nil, nil, err
+	}
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
@@ -412,7 +424,10 @@ func (s *SqlStorage) queryMultipleSeries(q Query, series []*registry.TimeSeries,
 }
 
 func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series registry.TimeSeries) error {
-	stmt := makeQuery(q, false, true, &series)
+	stmt, err := makeQuery(q, false, true, &series)
+	if err != nil {
+		return err
+	}
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return fmt.Errorf("error while querying rows:%s", err)
@@ -511,8 +526,10 @@ func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series r
 
 func (s *SqlStorage) streamMultipleSeries(q Query, sendFunc sendFunction, series []*registry.TimeSeries) error {
 
-	stmt := makeQuery(q, false, true, series...)
-
+	stmt, err := makeQuery(q, false, true, series...)
+	if err != nil {
+		return err
+	}
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return fmt.Errorf("error while querying rows:%s", err)
@@ -592,7 +609,7 @@ func (s *SqlStorage) streamMultipleSeries(q Query, sendFunc sendFunction, series
 }
 
 // Gets the recursive query making the table containing ranges
-func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries) (stmt string) {
+func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries) (stmt string, err error) {
 	fromTime := toSenmlTime(q.From)
 	toTime := toSenmlTime(q.To)
 	//query the entries
@@ -617,6 +634,9 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
 		var tableUnion strings.Builder
 		unionStr := ""
 		for _, ts := range series {
+			if ts.Type != registry.Float {
+				return "", fmt.Errorf("aggregation is not supported for non-numeric series %s", ts.Name)
+			}
 			tableUnion.WriteString(fmt.Sprintf(`%sSELECT  '%s' AS 'table_name' , %s AS time, value 
 														FROM [%s] 
 														WHERE time BETWEEN %f AND %f`,
@@ -653,7 +673,7 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
 			stmt = fmt.Sprintf("SELECT * FROM (%s) ORDER BY time %s %s", tableUnion.String(), order, limitStr)
 		}
 	}
-	return stmt
+	return stmt, nil
 }
 
 func aggrToSqlFunc(aggrName string) (sqlFunc string) {
@@ -676,6 +696,6 @@ func aggrToSqlFunc(aggrName string) (sqlFunc string) {
 	case "count":
 		return AGGR_COUNT
 	default:
-		return AGGR_AVG
+		panic("Invalid aggregation:" + aggrName)
 	}
 }

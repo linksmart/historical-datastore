@@ -974,3 +974,118 @@ func benchmarkQuerySeries(b *testing.B, storage Storage, _ registry.Storage) {
 	}
 
 }
+
+type aggrFunction func(pack senml.Pack) senml.Pack
+
+func aggrAvg(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	sumMap := make(map[string]float64)
+	lenMap := make(map[string]int)
+	for _, record := range pack {
+		sumMap[record.Name] += *record.Value
+		lenMap[record.Name] += 1
+	}
+	for k, v := range sumMap {
+		avg := v / float64(lenMap[k])
+		retRec = append(retRec, senml.Record{Name: k, Value: &avg, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+func aggrSum(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	sumMap := make(map[string]float64)
+	for _, record := range pack {
+		sumMap[record.Name] += *record.Value
+	}
+	for k, v := range sumMap {
+		sum := v
+		retRec = append(retRec, senml.Record{Name: k, Value: &sum, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
+func aggrMin(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	packMap := make(map[string]senml.Pack)
+	for _, record := range pack {
+		packMap[record.Name] = append(packMap[record.Name], record)
+	}
+
+	for k, p := range packMap {
+		var min float64
+		for i, r := range p {
+			if i == 0 || *r.Value < min {
+				min = *r.Value
+			}
+		}
+		retRec = append(retRec, senml.Record{Name: k, Value: &min, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
+func aggrMax(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	packMap := make(map[string]senml.Pack)
+	for _, record := range pack {
+		packMap[record.Name] = append(packMap[record.Name], record)
+	}
+
+	for k, p := range packMap {
+		var max float64
+		for i, r := range p {
+			if i == 0 || *r.Value > max {
+				max = *r.Value
+			}
+		}
+		retRec = append(retRec, senml.Record{Name: k, Value: &max, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
+func aggrCount(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	lenMap := make(map[string]int)
+	for _, record := range pack {
+		lenMap[record.Name] += 1
+	}
+	for k, v := range lenMap {
+		count := float64(v)
+		retRec = append(retRec, senml.Record{Name: k, Value: &count, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
+func sampleDataForAggregation(maxPerBlock int,
+	from float64,
+	to float64,
+	aggrFunc aggrFunction,
+	interval time.Duration, series ...*registry.TimeSeries) (rawPack senml.Pack, aggrPack senml.Pack) {
+
+	curVal := 0.0
+
+	durSec := to - from
+	intervalDurSec := interval.Seconds()
+	increment := durSec / (intervalDurSec * float64(maxPerBlock))
+	totalBlocks := int(durSec / intervalDurSec)
+	totalCount := totalBlocks * maxPerBlock
+	rawPack = make([]senml.Record, 0, totalCount)
+	aggrPack = make([]senml.Record, 0, totalBlocks)
+
+	for curTime := from; curTime < to; curTime += intervalDurSec {
+		curPack := make([]senml.Record, 0, maxPerBlock)
+		for i := curTime; i < curTime+intervalDurSec; i += increment {
+			value := curVal
+			for _, ts := range series {
+				record := senml.Record{Name: ts.Name, Value: &value, Time: (i)}
+				curPack = append(curPack, record)
+			}
+			curVal++
+
+		}
+		rawPack = append(rawPack, curPack...)
+		aggrPack = append(aggrPack, aggrFunc(curPack)...)
+	}
+
+	return rawPack, aggrPack
+
+}

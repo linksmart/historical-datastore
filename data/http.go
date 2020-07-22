@@ -69,7 +69,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	curLink := common.DataAPILoc + "/" + GetUrlFromQuery(q, ids...)
+	curLink := common.DataAPILoc + "/" + getUrlFromQuery(q, ids...)
 
 	nextLink := ""
 
@@ -80,7 +80,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	if responseLength >= q.PerPage {
 		nextQuery := q
 		nextQuery.Page = q.Page + 1
-		nextLink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
+		nextLink = common.DataAPILoc + "/" + getUrlFromQuery(nextQuery, ids...)
 	}
 
 	recordSet = RecordSet{
@@ -240,7 +240,7 @@ func getDecoderForContentType(contentType string) (decoder codec.Decoder, err er
 	return decoder, nil
 }
 
-func GetUrlFromQuery(q Query, id ...string) (url string) {
+func getUrlFromQuery(q Query, id ...string) (url string) {
 	var sort, limit, start, end, perPage, offset, denorm, groupBy string
 	if q.SortAsc {
 		sort = fmt.Sprintf("&%v=%v", common.ParamSort, common.Asc)
