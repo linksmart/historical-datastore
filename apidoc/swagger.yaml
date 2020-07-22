@@ -86,12 +86,7 @@ paths:
         - registry
       summary: Retrieves a `Datasource` object
       parameters:
-        - name: name
-          in: path
-          description: ID of the `Datasource`
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/name"
       responses:
         '200':
           description: Successful response
@@ -117,12 +112,7 @@ paths:
         - registry
       summary: Updates the `Datasource`
       parameters:
-        - name: name
-          in: path
-          description: ID of the `Datasource`
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/name"
       requestBody:
         required: true
         content:
@@ -154,12 +144,7 @@ paths:
         - registry
       summary: Deletes the `DataStream`
       parameters:
-        - name: name
-          in: path
-          description: ID of the `Datasource`
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/name"
       responses:
         '200':
           description: Successful response
@@ -236,12 +221,7 @@ paths:
         - data
       summary: Submits `SenMLPack`
       parameters:
-        - name: names
-          in: path
-          description: Comma seperated names of the `datastream`
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/names"
       requestBody:
         required: true
         description: "Dataset to be submitted. \n\nThe dataset is a [SenML](https://tools.ietf.org/html/rfc8428)
@@ -302,20 +282,53 @@ paths:
         - data
       summary: Retrieve the paginated data of the specified datastreams. See parameters
       parameters:
-        - name: names
-          in: path
-          description: Comma seperated names of the `datastream`
-          required: true
+        - $ref: "#/components/parameters/names"
+        - name: from
+          in: query
+          description: Time from which the measurements (chronologically) are expected
+          required: false
           schema:
             type: string
+            format: date
+        - name: to
+          in: query
+          description: Time upto which the measurements (chronologically) is expected
+          required: false
+          schema:
+            type: string
+            format: date
+            default: "now (datetime value when query is created"
+        - name: sort
+          in: query
+          description: Sorting method either "desc" or "asc". If "DESC" then the resultant DataStream will have latest measurenemts first. If "asc" then the resultant DataStream will have oldest measurements first.
+          required: false
+          schema:
+            type: string
+            enum: ["asc", "desc"]
+            default: "desc"
+        - name: denormalize
+          in: query
+          description: Comma separated list of fields (or their labels) to be denormalized in the response senml pack
+          required: false
+          schema:
+            type: string
+            enum: ["name","n","time","t", "unit","u", "value","v", "sum","s"]
+        - name: count
+          in: query
+          description: Specifies the total number of entries satisfying the query. This is useful for pagination where the client can decide on the number of pages in advance. Please use this only in the first query as this might take more time than usual.
+          required: false
+          schema:
+            type: boolean
+        - name: groupBy
+          in: query
+          description: Aggregate function and interval for calculating aggregations on the fly.
+          required: false
+          schema:
+            type: string
+            enum: ["mean", "sum", "min", "max", "count"]
+            example: mean,10m
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/perPage"
-        - $ref: "#/components/parameters/from"
-        - $ref: "#/components/parameters/to"
-        - $ref: "#/components/parameters/sort"
-        - $ref: "#/components/parameters/denormalize"
-        - $ref: "#/components/parameters/count"
-        - $ref: "#/components/parameters/groupBy"
 
       responses:
         '200':
@@ -407,7 +420,7 @@ components:
   schemas:
     DataStreamList:
       properties:
-        streams:
+        streams: # TODO: change to series
           type: array
           items:
             $ref: '#/components/schemas/DataStream'
@@ -520,6 +533,20 @@ components:
         message:
           type: string
   parameters:
+    name:
+      name: name
+      in: path
+      description: ID of the `Datasource`
+      required: true
+      schema:
+        type: string
+    names:
+      name: names
+      in: path
+      description: Comma seperated names of the `datastream`
+      required: true
+      schema:
+        type: string
     page:
       name: page
       in: query
@@ -528,64 +555,17 @@ components:
       schema:
         type: integer
         minimum: 1
+        default: 1
     perPage:
-      name: per_page
+      name: perPage
       in: query
-      description: Number of entries per page. Default value is 1000
+      description: Number of entries in each page.
       required: false
       schema:
         type: integer
         minimum: 1
-    from:
-      name: from
-      in: query
-      description: Time from which the measurements (chronologically) are expected
-      required: false
-      schema:
-        type: string
-        format: date
-    to:
-      name: to
-      in: query
-      description: Time upto which the measurements (chronologically) is expected
-      required: false
-      schema:
-        type: string
-        format: date
-        default: "now (datetime value when query is created"
-    sort:
-      name: sort
-      in: query
-      description: Sorting method either "desc" or "asc". If "DESC" then the resultant DataStream will have latest measurenemts first. If "asc" then the resultant DataStream will have oldest measurements first.
-      required: false
-      schema:
-        type: string
-        enum: ["asc", "desc"]
-        default: "desc"
-    denormalize:
-      name: denormalize
-      in: query
-      description: Comma separated list of fields (or their labels) to be denormalized in the response senml pack
-      required: false
-      schema:
-        type: string
-        enum: ["name","n","time","t", "unit","u", "value","v", "sum","s"]
-    count:
-      name: count
-      in: query
-      description: Specifies the total number of entries satisfying the query. This is useful for pagination where the client can decide on the number of pages in advance. Please use this only in the first query as this might take more time than usual.
-      required: false
-      schema:
-        type: boolean
-    groupBy:
-      name: groupBy
-      in: query
-      description: Aggregate function and interval for calculating aggregations on the fly.
-      required: false
-      schema:
-        type: string
-        enum: ["mean", "sum", "min", "max", "count"]
-        example: mean,10m
+        maximum: 1000
+        default: 1000
   responses:
     badRequest:
       description: Bad Request
