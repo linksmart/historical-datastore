@@ -54,6 +54,12 @@ type Query struct {
 	// Denormalize is a set of flags to be set based on the fields to be denormalized (Base field)
 	Denormalize DenormMask
 
+	// AggrFunc is the function performing the aggregation
+	AggrFunc string
+
+	// AggrWindow is the duration for aggregation
+	AggrWindow time.Duration
+
 	// Limit is applicable only for streamed queries
 	Limit int
 

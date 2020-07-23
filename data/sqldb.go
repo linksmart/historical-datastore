@@ -248,18 +248,16 @@ func denormalizeRecord(record *senml.Record, baseRecord **senml.Record, mask Den
 	}
 }
 
-func (s *SqlStorage) querySingleSeries(q Query, stream registry.TimeSeries, countOnly bool) (pack senml.Pack, total *int, err error) {
-	//make a partial statement
-	var unionStmt strings.Builder
-	unionStmt.WriteString(fmt.Sprintf("[%s] where time BETWEEN %f and %f ",
-		stream.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
+func (s *SqlStorage) querySingleSeries(q Query, series registry.TimeSeries, countOnly bool) (pack senml.Pack, total *int, err error) {
 
-	var stmt string
 	if q.Count || countOnly {
 		total = new(int)
-		stmt = "SELECT COUNT(*) FROM " + unionStmt.String()
+		stmt, err := makeQuery(q, true, false, &series)
+		if err != nil {
+			return nil, nil, err
+		}
 		row := s.pool.QueryRow(stmt)
-		err := row.Scan(total)
+		err = row.Scan(total)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error while querying Count:%s", err)
 		}
@@ -267,11 +265,10 @@ func (s *SqlStorage) querySingleSeries(q Query, stream registry.TimeSeries, coun
 			return nil, total, nil
 		}
 	}
-	order := common.Desc
-	if q.SortAsc {
-		order = common.Asc
+	stmt, err := makeQuery(q, false, false, &series)
+	if err != nil {
+		return nil, nil, err
 	}
-	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), order, q.PerPage, (q.Page-1)*q.PerPage)
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
@@ -281,17 +278,17 @@ func (s *SqlStorage) querySingleSeries(q Query, stream registry.TimeSeries, coun
 	records := make([]senml.Record, 0, q.PerPage)
 
 	var timeVal float64
-	senmlName := stream.Name
+	senmlName := series.Name
 	var baseRecord *senml.Record
-	switch stream.Type {
+	switch series.Type {
 	case registry.Float:
 		for rows.Next() {
 			var val float64
-			err = rows.Scan(&timeVal, &val)
+			err = rows.Scan(&senmlName, &timeVal, &val)
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, Value: &val, Time: timeVal, Unit: stream.Unit}
+			record := senml.Record{Name: senmlName, Value: &val, Time: timeVal, Unit: series.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 
@@ -299,33 +296,33 @@ func (s *SqlStorage) querySingleSeries(q Query, stream registry.TimeSeries, coun
 	case registry.String:
 		for rows.Next() {
 			var strVal string
-			err = rows.Scan(&timeVal, &strVal)
+			err = rows.Scan(&senmlName, &timeVal, &strVal)
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, StringValue: strVal, Time: timeVal, Unit: stream.Unit}
+			record := senml.Record{Name: senmlName, StringValue: strVal, Time: timeVal, Unit: series.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 		}
 	case registry.Bool:
 		for rows.Next() {
 			var boolVal bool
-			err = rows.Scan(&timeVal, &boolVal)
+			err = rows.Scan(&senmlName, &timeVal, &boolVal)
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: stream.Unit}
+			record := senml.Record{Name: senmlName, BoolValue: &boolVal, Time: timeVal, Unit: series.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 		}
 	case registry.Data:
 		for rows.Next() {
 			var dataVal string
-			err = rows.Scan(&timeVal, &dataVal)
+			err = rows.Scan(&senmlName, &timeVal, &dataVal)
 			if err != nil {
 				return nil, nil, fmt.Errorf("error while scanning query results:%s", err)
 			}
-			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: stream.Unit}
+			record := senml.Record{Name: senmlName, DataValue: dataVal, Time: timeVal, Unit: series.Unit}
 			denormalizeRecord(&record, &baseRecord, q.Denormalize)
 			records = append(records, record)
 		}
@@ -334,24 +331,14 @@ func (s *SqlStorage) querySingleSeries(q Query, stream registry.TimeSeries, coun
 }
 
 func (s *SqlStorage) queryMultipleSeries(q Query, series []*registry.TimeSeries, countOnly bool) (pack senml.Pack, total *int, err error) {
-	var unionStmt strings.Builder
-	unionStmt.WriteByte('(')
-	unionStr := ""
-
-	for _, ts := range series {
-
-		//unionStmt.WriteString(fmt.Sprintf("%s(SELECT ('%s' as 'table_name' , '%s' as 'type_val', 'time' as 'time', 'value' as 'value') FROM [%s] WHERE time BETWEEN %f and %f)", unionStr, ts.Name, ts.Type, ts.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
-		unionStmt.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f and %f", unionStr, ts.Name, ts.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
-		unionStr = " UNION ALL "
-
-	}
-	unionStmt.WriteByte(')')
-
 	//counting the number
 	var stmt string
 	if q.Count || countOnly {
 		total = new(int)
-		stmt = "SELECT COUNT(*) FROM " + unionStmt.String()
+		stmt, err = makeQuery(q, true, false, series...)
+		if err != nil {
+			return nil, nil, err
+		}
 		row := s.pool.QueryRow(stmt)
 		err := row.Scan(total)
 		if err != nil {
@@ -362,12 +349,10 @@ func (s *SqlStorage) queryMultipleSeries(q Query, series []*registry.TimeSeries,
 		}
 	}
 
-	//query the entries
-	order := common.Desc
-	if q.SortAsc {
-		order = common.Asc
+	stmt, err = makeQuery(q, false, false, series...)
+	if err != nil {
+		return nil, nil, err
 	}
-	stmt = fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s LIMIT %d OFFSET %d", unionStmt.String(), order, q.PerPage, (q.Page-1)*q.PerPage)
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
@@ -439,20 +424,10 @@ func (s *SqlStorage) queryMultipleSeries(q Query, series []*registry.TimeSeries,
 }
 
 func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series registry.TimeSeries) error {
-	//make a partial statement
-	var unionStmt strings.Builder
-	unionStmt.WriteString(fmt.Sprintf("[%s] where time BETWEEN %f and %f ",
-		series.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
-
-	order := common.Desc
-	if q.SortAsc {
-		order = common.Asc
+	stmt, err := makeQuery(q, false, true, &series)
+	if err != nil {
+		return err
 	}
-	limitStr := ""
-	if q.Limit != 0 {
-		limitStr = fmt.Sprintf("LIMIT %d OFFSET %d", q.Limit, q.Offset)
-	}
-	stmt := fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s %s", unionStmt.String(), order, limitStr)
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return fmt.Errorf("error while querying rows:%s", err)
@@ -469,7 +444,7 @@ func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series r
 	case registry.Float:
 		for rows.Next() {
 			var val float64
-			err = rows.Scan(&timeVal, &val)
+			err = rows.Scan(&senmlName, &timeVal, &val)
 			if err != nil {
 				return fmt.Errorf("error while scanning query results:%s", err)
 			}
@@ -488,7 +463,7 @@ func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series r
 	case registry.String:
 		for rows.Next() {
 			var strVal string
-			err = rows.Scan(&timeVal, &strVal)
+			err = rows.Scan(&senmlName, &timeVal, &strVal)
 			if err != nil {
 				return fmt.Errorf("error while scanning query results:%s", err)
 			}
@@ -507,7 +482,7 @@ func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series r
 	case registry.Bool:
 		for rows.Next() {
 			var boolVal bool
-			err = rows.Scan(&timeVal, &boolVal)
+			err = rows.Scan(&senmlName, &timeVal, &boolVal)
 			if err != nil {
 				return fmt.Errorf("error while scanning query results:%s", err)
 			}
@@ -526,7 +501,7 @@ func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series r
 	case registry.Data:
 		for rows.Next() {
 			var dataVal string
-			err = rows.Scan(&timeVal, &dataVal)
+			err = rows.Scan(&senmlName, &timeVal, &dataVal)
 			if err != nil {
 				return fmt.Errorf("error while scanning query results:%s", err)
 			}
@@ -550,29 +525,11 @@ func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series r
 }
 
 func (s *SqlStorage) streamMultipleSeries(q Query, sendFunc sendFunction, series []*registry.TimeSeries) error {
-	var unionStmt strings.Builder
-	unionStmt.WriteByte('(')
-	unionStr := ""
 
-	for _, ts := range series {
-
-		//unionStmt.WriteString(fmt.Sprintf("%s(SELECT ('%s' as 'table_name' , '%s' as 'type_val', 'time' as 'time', 'value' as 'value') FROM [%s] WHERE time BETWEEN %f and %f)", unionStr, ts.Name, ts.Type, ts.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
-		unionStmt.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f and %f", unionStr, ts.Name, ts.Name, toSenmlTime(q.From), toSenmlTime(q.To)))
-		unionStr = " UNION ALL "
-
+	stmt, err := makeQuery(q, false, true, series...)
+	if err != nil {
+		return err
 	}
-	unionStmt.WriteByte(')')
-
-	//query the entries
-	order := common.Desc
-	if q.SortAsc {
-		order = common.Asc
-	}
-	limitStr := ""
-	if q.Limit != 0 {
-		limitStr = fmt.Sprintf("LIMIT %d OFFSET %d", q.Limit, q.Offset)
-	}
-	stmt := fmt.Sprintf("SELECT * FROM %s  ORDER BY time %s %s", unionStmt.String(), order, limitStr)
 	rows, err := s.pool.Query(stmt)
 	if err != nil {
 		return fmt.Errorf("error while querying rows:%s", err)
@@ -649,4 +606,96 @@ func (s *SqlStorage) streamMultipleSeries(q Query, sendFunc sendFunction, series
 		sendFunc(records)
 	}
 	return nil
+}
+
+// Gets the recursive query making the table containing ranges
+func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries) (stmt string, err error) {
+	fromTime := toSenmlTime(q.From)
+	toTime := toSenmlTime(q.To)
+	//query the entries
+	order := common.Desc
+	if q.SortAsc {
+		order = common.Asc
+	}
+
+	// set limit string
+	limitStr := ""
+	if stream && q.Limit != 0 { //for stream queries, limit with the provided limit
+		limitStr = fmt.Sprintf("LIMIT %d OFFSET %d", q.Limit, q.Offset)
+	}
+	if !stream && !count { //for page queries, limit with pagination parameters. Count does not have the limit
+		limitStr = fmt.Sprintf("LIMIT %d OFFSET %d", q.PerPage, (q.Page-1)*q.PerPage)
+	}
+
+	if q.AggrFunc != "" {
+		durSec := q.AggrWindow.Seconds()
+		// create union of multiple series
+		timeAggr := fmt.Sprintf("%f- MAX(ROUND(((%f-time)/%f)-0.5),0)*%f", toTime, toTime, durSec, durSec)
+		var tableUnion strings.Builder
+		unionStr := ""
+		for _, ts := range series {
+			if ts.Type != registry.Float {
+				return "", fmt.Errorf("aggregation is not supported for non-numeric series %s", ts.Name)
+			}
+			tableUnion.WriteString(fmt.Sprintf(`%sSELECT  '%s' AS 'table_name' , %s AS time, value 
+														FROM [%s] 
+														WHERE time BETWEEN %f AND %f`,
+				unionStr, ts.Name, timeAggr, ts.Name, fromTime, toTime))
+			unionStr = " UNION ALL "
+		}
+		stmt = fmt.Sprintf(`WITH raw_data(table_name,time,value) AS (
+										%s
+                                    )`, tableUnion.String())
+		if count {
+			stmt = stmt +
+				fmt.Sprintf(`
+						SELECT  COUNT(*) FROM (SELECT DISTINCT time,table_name
+						FROM raw_data  %s)`, limitStr)
+		} else {
+			stmt = stmt +
+				fmt.Sprintf(`
+						SELECT  table_name, time ,%s(value)*1.0 AS value
+						FROM raw_data GROUP BY time,table_name ORDER BY time %s %s`, aggrToSqlFunc(q.AggrFunc), order, limitStr)
+		}
+	} else {
+
+		// create union of multiple series
+		var tableUnion strings.Builder
+		unionStr := ""
+		for _, ts := range series {
+			tableUnion.WriteString(fmt.Sprintf("%sSELECT  '%s' as 'table_name' , time, value FROM [%s] WHERE time BETWEEN %f AND %f", unionStr, ts.Name, ts.Name, fromTime, toTime))
+			unionStr = " UNION ALL "
+		}
+
+		if count == true {
+			stmt = fmt.Sprintf("SELECT COUNT(*) FROM (%s) %s", tableUnion.String(), limitStr)
+		} else {
+			stmt = fmt.Sprintf("SELECT * FROM (%s) ORDER BY time %s %s", tableUnion.String(), order, limitStr)
+		}
+	}
+	return stmt, nil
+}
+
+func aggrToSqlFunc(aggrName string) (sqlFunc string) {
+	const (
+		AGGR_AVG   = "AVG"
+		AGGR_SUM   = "SUM"
+		AGGR_MIN   = "MIN"
+		AGGR_MAX   = "MAX"
+		AGGR_COUNT = "COUNT"
+	)
+	switch aggrName {
+	case "mean":
+		return AGGR_AVG
+	case "sum":
+		return AGGR_SUM
+	case "min":
+		return AGGR_MIN
+	case "max":
+		return AGGR_MAX
+	case "count":
+		return AGGR_COUNT
+	default:
+		panic("Invalid aggregation:" + aggrName)
+	}
 }

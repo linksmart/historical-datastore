@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"strconv"
@@ -35,6 +36,7 @@ func deleteFile(path string) {
 
 func setupTest(funcName string) (filename string, disconnectFunc func() error, dataStorage Storage, regStorage registry.Storage, err error) {
 	fileName := os.TempDir() + "/" + funcName
+
 	deleteFile(fileName)
 	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SQLITE, DSN: fileName}}
 	dataStorage, disconnectFunc, err = NewSqlStorage(dataConf)
@@ -314,6 +316,184 @@ func testInsertVals(t *testing.T, storage Storage, regstorage registry.Storage) 
 	}
 }
 
+func TestStorage_Aggregation(t *testing.T) {
+	//Setup for the testing
+	funcName := "TestStorage_Aggregation"
+	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	if err != nil {
+		t.Fatalf("Error setting up benchmark:%s", err)
+	}
+	defer deleteFile(fileName)
+	defer func() {
+		err := disconnectFunc()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	testFuncs := map[string]func(t *testing.T, storage Storage, regStorage registry.Storage, aggr string){
+		"aggrSingleSeries":   testAggSingleSeries,
+		"aggrMultipleSeries": testAggMultipleSeries,
+	}
+
+	aggr := []string{"mean", "sum", "min", "max", "count"}
+
+	for k, testFunc := range testFuncs {
+		for _, a := range aggr {
+			testName := k + "_" + a
+			t.Run(testName, func(t *testing.T) {
+				fmt.Printf("\n%s", testName)
+				testFunc(t, dataStorage, regStorage, a)
+			})
+		}
+	}
+
+}
+func getAggrFunction(aggr string) aggrFunction {
+	switch aggr {
+	case "mean":
+		return aggrAvg
+	case "count":
+		return aggrCount
+	case "max":
+		return aggrMax
+	case "min":
+		return aggrMin
+	case "sum":
+		return aggrSum
+	default:
+		return nil
+	}
+}
+
+func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.Storage, aggr string) {
+
+	seriesMap := map[string]*registry.TimeSeries{
+		"Bedroom/Temperature": {Name: "Bedroom/Temperature", Type: registry.Float, Unit: "Cel"},
+		"Hall/Temperature":    {Name: "Hall/Temperature", Type: registry.Float, Unit: "Cel"},
+		"Kitchen/Temperature": {Name: "Kitchen/Temperature", Type: registry.Float, Unit: "Cel"},
+		"Balcony/Temperature": {Name: "Balcony/Temperature", Type: registry.Float, Unit: "Cel"},
+	}
+
+	seriesArr := make([]*registry.TimeSeries, 0, len(seriesMap))
+	for _, series := range seriesMap {
+		_, err := regStorage.Add(*series)
+		if err != nil {
+			t.Fatal("Insertion failed:", err)
+		}
+		seriesArr = append(seriesArr, series)
+	}
+
+	defer func() {
+		for name, _ := range seriesMap {
+			err := regStorage.Delete(name)
+			if err != nil {
+				t.Fatal("deletion failed:", err)
+			}
+		}
+	}()
+	sentData, expectedData := sampleDataForAggregation(5, 1594000000, 1594100000, getAggrFunction(aggr), 5*time.Minute, seriesArr...)
+	sentDataMap := make(map[string]senml.Pack)
+	for _, r := range sentData {
+		sentDataMap[r.Name] = append(sentDataMap[r.Name], r)
+	}
+
+	err := storage.Submit(sentDataMap, seriesMap)
+	if err != nil {
+		t.Error("Error while inserting:", err)
+	}
+	expectedLen := int(math.Min(float64(len(expectedData)), MaxPerPage))
+	//get these data
+	gotRecords, total, err := storage.QueryPage(Query{Count: true,
+		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
+		From:       fromSenmlTime(sentData[0].Time),
+		Page:       1,
+		PerPage:    expectedLen,
+		SortAsc:    true,
+		AggrFunc:   aggr,
+		AggrWindow: 5 * time.Minute}, seriesArr...)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if *total != len(expectedData) {
+		t.Errorf("Received total count should be %d, got %d instead", len(expectedData), *total)
+		return
+	}
+
+	if len(gotRecords) != expectedLen {
+		t.Errorf("Received record length should be %d, got %d (len) instead", len(expectedData), len(gotRecords))
+		return
+	}
+
+	expectedDataMap := make(map[string]senml.Pack)
+	for _, r := range expectedData[0:expectedLen] {
+		expectedDataMap[r.Name] = append(expectedDataMap[r.Name], r)
+	}
+	gotRecordsMap := make(map[string]senml.Pack)
+	for _, r := range gotRecords {
+		gotRecordsMap[r.Name] = append(gotRecordsMap[r.Name], r)
+	}
+	for key, _ := range expectedDataMap {
+		if CompareSenml(gotRecordsMap[key], expectedDataMap[key]) == false {
+			t.Error("Sent records and expected records did not match!!")
+		}
+	}
+}
+
+func testAggSingleSeries(t *testing.T, storage Storage, regStorage registry.Storage, aggr string) {
+	ts := registry.TimeSeries{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
+	_, err := regStorage.Add(ts)
+	if err != nil {
+		t.Fatal("Insertion failed:", err)
+	}
+	defer func() {
+		err = regStorage.Delete(ts.Name)
+		if err != nil {
+			t.Fatal("deletion failed:", err)
+		}
+	}()
+
+	sentData, expectedData := sampleDataForAggregation(5, 1594000000, 1594100000, getAggrFunction(aggr), 5*time.Minute, &ts)
+	seriesMap := make(map[string]*registry.TimeSeries)
+	seriesMap[ts.Name] = &ts
+	recordMap := make(map[string]senml.Pack)
+	recordMap[ts.Name] = sentData
+	err = storage.Submit(recordMap, seriesMap)
+	if err != nil {
+		t.Error("Error while inserting:", err)
+	}
+
+	expectedLen := int(math.Min(float64(len(expectedData)), MaxPerPage))
+	//get these data
+	gotRecords, total, err := storage.QueryPage(Query{Count: true,
+		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
+		From:       fromSenmlTime(sentData[0].Time),
+		Page:       1,
+		PerPage:    expectedLen,
+		SortAsc:    true,
+		AggrFunc:   aggr,
+		AggrWindow: 5 * time.Minute}, &ts)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if *total != len(expectedData) {
+		t.Errorf("Received total count should be %d, got %d instead", len(expectedData), *total)
+		return
+	}
+
+	if len(gotRecords) != expectedLen {
+		t.Errorf("Received record length should be %d, got %d (len) instead", len(expectedData), len(gotRecords))
+		return
+	}
+
+	if CompareSenml(gotRecords, expectedData[0:expectedLen]) == false {
+		t.Error("Sent records and received record did not match!!")
+	}
+}
 func TestStorage_Delete(t *testing.T) {
 	//Setup for the testing
 	funcName := "TestStorage_Delete"
@@ -792,5 +972,120 @@ func benchmarkQuerySeries(b *testing.B, storage Storage, _ registry.Storage) {
 			b.Fatal("Error querying:", err)
 		}
 	}
+
+}
+
+type aggrFunction func(pack senml.Pack) senml.Pack
+
+func aggrAvg(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	sumMap := make(map[string]float64)
+	lenMap := make(map[string]int)
+	for _, record := range pack {
+		sumMap[record.Name] += *record.Value
+		lenMap[record.Name] += 1
+	}
+	for k, v := range sumMap {
+		avg := v / float64(lenMap[k])
+		retRec = append(retRec, senml.Record{Name: k, Value: &avg, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+func aggrSum(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	sumMap := make(map[string]float64)
+	for _, record := range pack {
+		sumMap[record.Name] += *record.Value
+	}
+	for k, v := range sumMap {
+		sum := v
+		retRec = append(retRec, senml.Record{Name: k, Value: &sum, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
+func aggrMin(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	packMap := make(map[string]senml.Pack)
+	for _, record := range pack {
+		packMap[record.Name] = append(packMap[record.Name], record)
+	}
+
+	for k, p := range packMap {
+		var min float64
+		for i, r := range p {
+			if i == 0 || *r.Value < min {
+				min = *r.Value
+			}
+		}
+		retRec = append(retRec, senml.Record{Name: k, Value: &min, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
+func aggrMax(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	packMap := make(map[string]senml.Pack)
+	for _, record := range pack {
+		packMap[record.Name] = append(packMap[record.Name], record)
+	}
+
+	for k, p := range packMap {
+		var max float64
+		for i, r := range p {
+			if i == 0 || *r.Value > max {
+				max = *r.Value
+			}
+		}
+		retRec = append(retRec, senml.Record{Name: k, Value: &max, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
+func aggrCount(pack senml.Pack) senml.Pack {
+	var retRec senml.Pack
+	lenMap := make(map[string]int)
+	for _, record := range pack {
+		lenMap[record.Name] += 1
+	}
+	for k, v := range lenMap {
+		count := float64(v)
+		retRec = append(retRec, senml.Record{Name: k, Value: &count, Time: pack[len(pack)-1].Time})
+	}
+	return retRec
+}
+
+func sampleDataForAggregation(maxPerBlock int,
+	from float64,
+	to float64,
+	aggrFunc aggrFunction,
+	interval time.Duration, series ...*registry.TimeSeries) (rawPack senml.Pack, aggrPack senml.Pack) {
+
+	curVal := 0.0
+
+	durSec := to - from
+	intervalDurSec := interval.Seconds()
+	increment := durSec / (intervalDurSec * float64(maxPerBlock))
+	totalBlocks := int(durSec / intervalDurSec)
+	totalCount := totalBlocks * maxPerBlock
+	rawPack = make([]senml.Record, 0, totalCount)
+	aggrPack = make([]senml.Record, 0, totalBlocks)
+
+	for curTime := from; curTime < to; curTime += intervalDurSec {
+		curPack := make([]senml.Record, 0, maxPerBlock)
+		for i := curTime; i < curTime+intervalDurSec; i += increment {
+			value := curVal
+			for _, ts := range series {
+				record := senml.Record{Name: ts.Name, Value: &value, Time: (i)}
+				curPack = append(curPack, record)
+			}
+			curVal++
+
+		}
+		rawPack = append(rawPack, curPack...)
+		aggrPack = append(aggrPack, aggrFunc(curPack)...)
+	}
+
+	return rawPack, aggrPack
 
 }

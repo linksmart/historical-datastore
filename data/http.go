@@ -69,7 +69,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	curLink := common.DataAPILoc + "/" + GetUrlFromQuery(q, ids...)
+	curLink := common.DataAPILoc + "/" + getUrlFromQuery(q, ids...)
 
 	nextLink := ""
 
@@ -80,7 +80,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	if responseLength >= q.PerPage {
 		nextQuery := q
 		nextQuery.Page = q.Page + 1
-		nextLink = common.DataAPILoc + "/" + GetUrlFromQuery(nextQuery, ids...)
+		nextLink = common.DataAPILoc + "/" + getUrlFromQuery(nextQuery, ids...)
 	}
 
 	recordSet = RecordSet{
@@ -240,8 +240,8 @@ func getDecoderForContentType(contentType string) (decoder codec.Decoder, err er
 	return decoder, nil
 }
 
-func GetUrlFromQuery(q Query, id ...string) (url string) {
-	var sort, limit, start, end, perPage, offset, denorm string
+func getUrlFromQuery(q Query, id ...string) (url string) {
+	var sort, limit, start, end, perPage, offset, denorm, groupBy string
 	if q.SortAsc {
 		sort = fmt.Sprintf("&%v=%v", common.ParamSort, common.Asc)
 	}
@@ -277,10 +277,15 @@ func GetUrlFromQuery(q Query, id ...string) (url string) {
 		}
 		denorm = strings.TrimSuffix(denorm, ",")
 	}
-	return fmt.Sprintf("%v?%s%s%s%s%s%s%s",
+
+	if q.AggrFunc != "" {
+		groupBy = fmt.Sprintf("&%s=%s&%s=%s", common.ParamAggr, q.AggrFunc, common.ParamWindow, q.AggrWindow)
+	}
+
+	return fmt.Sprintf("%v?%s%s%s%s%s%s%s%s",
 		strings.Join(id, common.IDSeparator),
 		perPage,
-		sort, limit, start, end, offset, denorm,
+		sort, limit, start, end, offset, denorm, groupBy,
 	)
 }
 
@@ -330,5 +335,10 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 		q.Count = true
 	}
 
+	//get aggregation parameters
+	q.AggrFunc, q.AggrWindow, err = parseAggregationParams(form.Get(common.ParamAggr), form.Get(common.ParamWindow))
+	if err != nil {
+		return Query{}, &common.BadRequestError{S: fmt.Sprintf("error parsing aggregation params: %v", err)}
+	}
 	return q, nil
 }

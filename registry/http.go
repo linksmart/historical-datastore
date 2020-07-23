@@ -86,7 +86,7 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 		Total:   total,
 	}
 
-	registry.DataLink = DataLinkFromRegistryList(registry.Series)
+	registry.DataLink = dataLinkFromRegistryList(registry.Series)
 
 	b, _ := json.Marshal(&registry)
 	w.Header().Add("Content-Type", common.DefaultMIMEType)
@@ -247,7 +247,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 			registry.Series = append(registry.Series, *timeSeries)
 			registry.Total++
 		}
-		registry.DataLink = DataLinkFromRegistryList(registry.Series)
+		registry.DataLink = dataLinkFromRegistryList(registry.Series)
 		body, _ = json.Marshal(&registry)
 
 	case FTypeMany:
@@ -264,7 +264,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 			PerPage: perPage,
 			Total:   total,
 		}
-		registry.DataLink = DataLinkFromRegistryList(registry.Series)
+		registry.DataLink = dataLinkFromRegistryList(registry.Series)
 		body, _ = json.Marshal(&registry)
 	default:
 		common.HttpErrorResponse(&common.BadRequestError{S: fmt.Sprintf("Invalid filter command %s: expected: '%s' or '%s'", ftype, FTypeMany, FTypeOne)}, w)
@@ -275,7 +275,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
-func DataLinkFromRegistryList(seriesList []TimeSeries) string {
+func dataLinkFromRegistryList(seriesList []TimeSeries) string {
 	var linkBuilder strings.Builder
 	separator := common.DataAPILoc + "/"
 	for _, series := range seriesList {

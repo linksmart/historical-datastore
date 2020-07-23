@@ -28,28 +28,28 @@ func Same_name_same_types(count int, series registry.TimeSeries, decremental boo
 			BaseUnit: series.Unit,
 			Value:    &value, Time: timeinit}
 		for i := 1; i < count; i++ {
-			s[i] = senml.Record{Value: &value, Time: (timeinit + float64(i)*mult)}
+			s[i] = senml.Record{Value: &value, Time: timeinit + float64(i)*mult}
 		}
 	case registry.String:
 		s[0] = senml.Record{BaseName: series.Name,
 			BaseUnit:    series.Unit,
 			StringValue: stringValue, Time: timeinit}
 		for i := 1; i < count; i++ {
-			s[i] = senml.Record{StringValue: stringValue, Time: (timeinit + float64(i)*mult)}
+			s[i] = senml.Record{StringValue: stringValue, Time: timeinit + float64(i)*mult}
 		}
 	case registry.Bool:
 		s[0] = senml.Record{BaseName: series.Name,
 			BaseUnit:  series.Unit,
 			BoolValue: &boolValue, Time: timeinit}
 		for i := 1; i < count; i++ {
-			s[i] = senml.Record{BoolValue: &boolValue, Time: (timeinit + float64(i)*mult)}
+			s[i] = senml.Record{BoolValue: &boolValue, Time: timeinit + float64(i)*mult}
 		}
 	case registry.Data:
 		s[0] = senml.Record{BaseName: series.Name,
 			BaseUnit:  series.Unit,
 			DataValue: dataValue, Time: timeinit}
 		for i := 1; i < count; i++ {
-			s[i] = senml.Record{DataValue: dataValue, Time: (timeinit + float64(i)*mult)}
+			s[i] = senml.Record{DataValue: dataValue, Time: timeinit + float64(i)*mult}
 		}
 	}
 

@@ -3,10 +3,13 @@ package data
 import (
 	"context"
 	"net"
+	"strings"
+	"time"
 
 	senml_protobuf "github.com/farshidtz/senml-protobuf/go"
 	"github.com/farshidtz/senml/v2"
 	"github.com/farshidtz/senml/v2/codec"
+	"github.com/linksmart/historical-datastore/common"
 	_go "github.com/linksmart/historical-datastore/protobuf/go"
 	"github.com/linksmart/historical-datastore/registry"
 	"google.golang.org/grpc"
@@ -67,6 +70,17 @@ func (a *GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) 
 	q.Limit = int(request.Limit)
 	q.Offset = int(request.Offset)
 
+	if request.Aggregator != "" {
+		q.AggrFunc = strings.ToLower(strings.TrimSpace(request.Aggregator))
+		if !common.SupportedAggregate(q.AggrFunc) {
+			return status.Errorf(codes.InvalidArgument, "Unknown aggregation function: %s", request.Aggregator)
+		}
+
+		q.AggrWindow, err = time.ParseDuration(request.AggrInterval)
+		if err != nil {
+			return status.Errorf(codes.InvalidArgument, "Error parsing aggregation interval %s:%s ", request.AggrInterval, err.Error())
+		}
+	}
 	var sendFunc sendFunction = func(pack senml.Pack) error {
 		ctx := stream.Context()
 		if ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded {
@@ -98,6 +112,18 @@ func (a *GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.Co
 	}
 
 	q.Limit = int(request.Limit)
+	if request.Aggregator != "" {
+		q.AggrFunc = strings.ToLower(strings.TrimSpace(request.Aggregator))
+		if !common.SupportedAggregate(q.AggrFunc) {
+			return nil, status.Errorf(codes.InvalidArgument, "Unknown aggregation function: %s", request.Aggregator)
+		}
+
+		q.AggrWindow, err = time.ParseDuration(request.AggrInterval)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "Error parsing aggregation interval %s:%s ", request.AggrInterval, err.Error())
+		}
+	}
+
 	total, queryErr := a.c.Count(q, request.Series)
 	if queryErr != nil {
 		return nil, status.Errorf(queryErr.GrpcStatus(), "Error querying: "+queryErr.Error())
