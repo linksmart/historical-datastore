@@ -335,10 +335,8 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 		q.Count = true
 	}
 
-	//get groupBy Parameter
-	aggrStr := form.Get(common.ParamAggr)
-	windowStr := form.Get(common.ParamWindow)
-	q.AggrFunc, q.AggrWindow, err = parseAggregationParams(aggrStr, windowStr)
+	//get aggregation parameters
+	q.AggrFunc, q.AggrWindow, err = parseAggregationParams(form.Get(common.ParamAggr), form.Get(common.ParamWindow))
 	if err != nil {
 		return Query{}, &common.BadRequestError{S: fmt.Sprintf("error parsing aggregation params: %v", err)}
 	}
