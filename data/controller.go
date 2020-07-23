@@ -227,22 +227,20 @@ func parseToValue(from string) (time.Time, error) {
 	}
 }
 
-func parseGroupByParameter(groupBy string) (aggrFunction string, interval time.Duration, err error) {
-	if groupBy == "" {
-		return "", time.Duration(0), nil
-	}
-	aggrStrings := strings.Split(groupBy, ",")
-	if len(aggrStrings) != 2 {
-		return "", time.Duration(0), fmt.Errorf("unexpected aggregation syntax: %s", groupBy)
-	}
-	aggrFunction = strings.ToLower(strings.TrimSpace(aggrStrings[0]))
-	if !common.SupportedAggregate(aggrFunction) {
-		return "", time.Duration(0), fmt.Errorf("unsupported aggregation function: %s", aggrFunction)
+func parseAggregationParams(aggr, window string) (aggrFunction string, duration time.Duration, err error) {
+	if aggr == "" && window == "" { // nothing to parse
+		return
+	} else if aggr == "" || window == "" {
+		return "", 0, fmt.Errorf("aggregation function and window size must be set together")
 	}
 
-	interval, err = time.ParseDuration(aggrStrings[1])
-	if err != nil {
-		return "", time.Duration(0), fmt.Errorf("invalid aggregation duration: %s", aggrStrings[1])
+	if !common.SupportedAggregate(aggr) {
+		return "", 0, fmt.Errorf("unsupported aggregation function: %s", aggrFunction)
 	}
-	return aggrFunction, interval, nil
+
+	duration, err = time.ParseDuration(window)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid aggregation window: %s", window)
+	}
+	return aggr, duration, nil
 }

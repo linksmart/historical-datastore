@@ -23,7 +23,8 @@ const (
 	ParamSort        = "sort"
 	ParamDenormalize = "denormalize"
 	ParamCount       = "count"
-	ParamGroupBy     = "groupBy"
+	ParamAggr        = "aggr"
+	ParamWindow      = "window"
 
 	// Values for ParamSort
 	Asc  = "asc"  // ascending

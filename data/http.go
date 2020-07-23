@@ -279,7 +279,7 @@ func getUrlFromQuery(q Query, id ...string) (url string) {
 	}
 
 	if q.Aggregator != "" {
-		groupBy = fmt.Sprintf("&%v=%v,%v", common.ParamGroupBy, q.Aggregator, q.AggrInterval.String())
+		groupBy = fmt.Sprintf("&%s=%s&%s=%s", common.ParamAggr, q.Aggregator, common.ParamWindow, q.AggrInterval)
 	}
 
 	return fmt.Sprintf("%v?%s%s%s%s%s%s%s%s",
@@ -336,10 +336,11 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 	}
 
 	//get groupBy Parameter
-	grpByStr := form.Get(common.ParamGroupBy)
-	q.Aggregator, q.AggrInterval, err = parseGroupByParameter(grpByStr)
+	aggrStr := form.Get(common.ParamAggr)
+	windowStr := form.Get(common.ParamWindow)
+	q.Aggregator, q.AggrInterval, err = parseAggregationParams(aggrStr, windowStr)
 	if err != nil {
-		return Query{}, &common.BadRequestError{S: fmt.Sprintf("error in param %s=%s:%v", common.ParamGroupBy, grpByStr, err)}
+		return Query{}, &common.BadRequestError{S: fmt.Sprintf("error parsing aggregation params: %v", err)}
 	}
 	return q, nil
 }
