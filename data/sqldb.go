@@ -627,8 +627,8 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
 		limitStr = fmt.Sprintf("LIMIT %d OFFSET %d", q.PerPage, (q.Page-1)*q.PerPage)
 	}
 
-	if q.Aggregator != "" {
-		durSec := q.AggrInterval.Seconds()
+	if q.AggrFunc != "" {
+		durSec := q.AggrWindow.Seconds()
 		// create union of multiple series
 		timeAggr := fmt.Sprintf("%f- MAX(ROUND(((%f-time)/%f)-0.5),0)*%f", toTime, toTime, durSec, durSec)
 		var tableUnion strings.Builder
@@ -655,7 +655,7 @@ func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries)
 			stmt = stmt +
 				fmt.Sprintf(`
 						SELECT  table_name, time ,%s(value)*1.0 AS value
-						FROM raw_data GROUP BY time,table_name ORDER BY time %s %s`, aggrToSqlFunc(q.Aggregator), order, limitStr)
+						FROM raw_data GROUP BY time,table_name ORDER BY time %s %s`, aggrToSqlFunc(q.AggrFunc), order, limitStr)
 		}
 	} else {
 

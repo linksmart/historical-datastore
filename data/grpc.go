@@ -71,12 +71,12 @@ func (a *GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) 
 	q.Offset = int(request.Offset)
 
 	if request.Aggregator != "" {
-		q.Aggregator = strings.ToLower(strings.TrimSpace(request.Aggregator))
-		if !common.SupportedAggregate(q.Aggregator) {
+		q.AggrFunc = strings.ToLower(strings.TrimSpace(request.Aggregator))
+		if !common.SupportedAggregate(q.AggrFunc) {
 			return status.Errorf(codes.InvalidArgument, "Unknown aggregation function: %s", request.Aggregator)
 		}
 
-		q.AggrInterval, err = time.ParseDuration(request.AggrInterval)
+		q.AggrWindow, err = time.ParseDuration(request.AggrInterval)
 		if err != nil {
 			return status.Errorf(codes.InvalidArgument, "Error parsing aggregation interval %s:%s ", request.AggrInterval, err.Error())
 		}
@@ -113,12 +113,12 @@ func (a *GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.Co
 
 	q.Limit = int(request.Limit)
 	if request.Aggregator != "" {
-		q.Aggregator = strings.ToLower(strings.TrimSpace(request.Aggregator))
-		if !common.SupportedAggregate(q.Aggregator) {
+		q.AggrFunc = strings.ToLower(strings.TrimSpace(request.Aggregator))
+		if !common.SupportedAggregate(q.AggrFunc) {
 			return nil, status.Errorf(codes.InvalidArgument, "Unknown aggregation function: %s", request.Aggregator)
 		}
 
-		q.AggrInterval, err = time.ParseDuration(request.AggrInterval)
+		q.AggrWindow, err = time.ParseDuration(request.AggrInterval)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "Error parsing aggregation interval %s:%s ", request.AggrInterval, err.Error())
 		}

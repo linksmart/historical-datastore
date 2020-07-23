@@ -405,13 +405,13 @@ func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.St
 	expectedLen := int(math.Min(float64(len(expectedData)), MaxPerPage))
 	//get these data
 	gotRecords, total, err := storage.QueryPage(Query{Count: true,
-		To:           fromSenmlTime(sentData[len(sentData)-1].Time),
-		From:         fromSenmlTime(sentData[0].Time),
-		Page:         1,
-		PerPage:      expectedLen,
-		SortAsc:      true,
-		Aggregator:   aggr,
-		AggrInterval: 5 * time.Minute}, seriesArr...)
+		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
+		From:       fromSenmlTime(sentData[0].Time),
+		Page:       1,
+		PerPage:    expectedLen,
+		SortAsc:    true,
+		AggrFunc:   aggr,
+		AggrWindow: 5 * time.Minute}, seriesArr...)
 	if err != nil {
 		t.Error(err)
 		return
@@ -468,13 +468,13 @@ func testAggSingleSeries(t *testing.T, storage Storage, regStorage registry.Stor
 	expectedLen := int(math.Min(float64(len(expectedData)), MaxPerPage))
 	//get these data
 	gotRecords, total, err := storage.QueryPage(Query{Count: true,
-		To:           fromSenmlTime(sentData[len(sentData)-1].Time),
-		From:         fromSenmlTime(sentData[0].Time),
-		Page:         1,
-		PerPage:      expectedLen,
-		SortAsc:      true,
-		Aggregator:   aggr,
-		AggrInterval: 5 * time.Minute}, &ts)
+		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
+		From:       fromSenmlTime(sentData[0].Time),
+		Page:       1,
+		PerPage:    expectedLen,
+		SortAsc:    true,
+		AggrFunc:   aggr,
+		AggrWindow: 5 * time.Minute}, &ts)
 	if err != nil {
 		t.Error(err)
 		return

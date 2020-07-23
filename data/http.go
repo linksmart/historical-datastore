@@ -278,8 +278,8 @@ func getUrlFromQuery(q Query, id ...string) (url string) {
 		denorm = strings.TrimSuffix(denorm, ",")
 	}
 
-	if q.Aggregator != "" {
-		groupBy = fmt.Sprintf("&%s=%s&%s=%s", common.ParamAggr, q.Aggregator, common.ParamWindow, q.AggrInterval)
+	if q.AggrFunc != "" {
+		groupBy = fmt.Sprintf("&%s=%s&%s=%s", common.ParamAggr, q.AggrFunc, common.ParamWindow, q.AggrWindow)
 	}
 
 	return fmt.Sprintf("%v?%s%s%s%s%s%s%s%s",
@@ -338,7 +338,7 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 	//get groupBy Parameter
 	aggrStr := form.Get(common.ParamAggr)
 	windowStr := form.Get(common.ParamWindow)
-	q.Aggregator, q.AggrInterval, err = parseAggregationParams(aggrStr, windowStr)
+	q.AggrFunc, q.AggrWindow, err = parseAggregationParams(aggrStr, windowStr)
 	if err != nil {
 		return Query{}, &common.BadRequestError{S: fmt.Sprintf("error parsing aggregation params: %v", err)}
 	}
