@@ -30,10 +30,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DataStreamList'
+                $ref: '#/components/schemas/TimeSeriesList'
               examples:
-                DatastreamList:
-                  $ref: '#/components/examples/DatastreamList'
+                TimeSeriesList:
+                  $ref: '#/components/examples/TimeSeriesList'
         '304':
           description: Not Modified (since `If-Modified-Since`)
         '400':
@@ -48,24 +48,25 @@ paths:
           $ref: '#/components/responses/internalServerError'
 
     post:
+      deprecated: true
       tags:
         - registry
-      summary: Creates new `DataStream`
+      summary: Creates new `TimeSeries`
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/DataStream"
+              $ref: "#/components/schemas/TimeSeries"
             examples:
-              Datastream:
-                $ref: "#/components/examples/DataStream"
+              TimeSeries:
+                $ref: "#/components/examples/TimeSeries"
       responses:
         '201':
           description: Created Successfully
           headers:
             Location:
-              description: URL of the newly created Datasource
+              description: URL of the newly created TimeSeries
               schema:
                 type: string
         '400':
@@ -84,7 +85,7 @@ paths:
     get:
       tags:
         - registry
-      summary: Retrieves a `Datasource` object
+      summary: Retrieves a `TimeSeries` object
       parameters:
         - $ref: "#/components/parameters/name"
       responses:
@@ -93,10 +94,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DataStream'
+                $ref: '#/components/schemas/TimeSeries'
               examples:
-                DataStream:
-                  $ref: '#/components/examples/DataStream'
+                TimeSeries:
+                  $ref: '#/components/examples/TimeSeries'
         '400':
           $ref: '#/components/responses/badRequest'
         '401':
@@ -110,7 +111,7 @@ paths:
     put:
       tags:
         - registry
-      summary: Updates the `Datasource`
+      summary: Creates or Updates the TimeSeries object
       parameters:
         - $ref: "#/components/parameters/name"
       requestBody:
@@ -118,13 +119,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/DataStream"
+              $ref: "#/components/schemas/TimeSeries"
             example:
-              Datastream:
-                $ref: '#/components/examples/DataStream'
+              TimeSeries:
+                $ref: '#/components/examples/TimeSeries'
       responses:
         '200':
-          description: Datasource updated successfully
+          description: TimeSeries updated successfully
+        '201':
+          description: Created Successfully
+          headers:
+            Location:
+              description: URL of the newly created TimeSeries
+              schema:
+                type: string
         '400':
           $ref: '#/components/responses/badRequest'
         '401':
@@ -142,7 +150,7 @@ paths:
     delete:
       tags:
         - registry
-      summary: Deletes the `DataStream`
+      summary: Deletes the `TimeSeries`
       parameters:
         - $ref: "#/components/parameters/name"
       responses:
@@ -162,14 +170,14 @@ paths:
     get:
       tags:
         - registry
-      summary: Filters Datasources
+      summary: Filters TimeSeries objects
       description: |
         The filtering API enables filtering based on a given path, operator, and value. Below are few examples:
-        * Get datasource with name:
+        * Get TimeSeries with name:
           `/registry/one/name/equals/home/bedroom/temperature`
-        * Filter all datasources with prefix `home` in name:
+        * Filter all TimeSeriess with prefix `home` in name:
           `/registry/many/name/prefix/home`
-        * Filter all datasources based on address meta field:
+        * Filter all TimeSeriess based on address meta field:
           `/registry/many/meta.address/contains/Bonn`
       parameters:
         - name: type
@@ -205,10 +213,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DataStreamList'
+                $ref: '#/components/schemas/TimeSeriesList'
               examples:
-                DatastreamList:
-                  $ref: '#/components/examples/DatastreamList'
+                TimeSeriesList:
+                  $ref: '#/components/examples/TimeSeriesList'
         '401':
           $ref: '#/components/responses/unauthorized'
         '403':
@@ -280,7 +288,7 @@ paths:
     get:
       tags:
         - data
-      summary: Retrieve the paginated data of the specified datastreams. See parameters
+      summary: Retrieve the paginated data of the specified TimeSeries. See parameters
       parameters:
         - $ref: "#/components/parameters/names"
         - name: from
@@ -443,12 +451,12 @@ paths:
 
 components:
   schemas:
-    DataStreamList:
+    TimeSeriesList:
       properties:
         streams: # TODO: change to series
           type: array
           items:
-            $ref: '#/components/schemas/DataStream'
+            $ref: '#/components/schemas/TimeSeries'
         page:
           type: integer
         per_page:
@@ -460,7 +468,7 @@ components:
           description: "data query endpoint for items in the response"
       required:
         - name
-    DataStream:
+    TimeSeries:
       properties:
         name:
           type: string
@@ -561,14 +569,14 @@ components:
     name:
       name: name
       in: path
-      description: ID of the `Datasource`
+      description: Name of the `TimeSeries`
       required: true
       schema:
         type: string
     names:
       name: names
       in: path
-      description: Comma seperated names of the `datastream`
+      description: Comma seperated names of the `TimeSeries`
       required: true
       schema:
         type: string
@@ -641,8 +649,8 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   examples:
-    DataStream:
-      summary: DataStream
+    TimeSeries:
+      summary: TimeSeries
       value:
         {
           "name": "terrace/temperature",
@@ -657,8 +665,8 @@ components:
           "unit": "Cel",
           "meta": null,
         }
-    DatastreamList:
-      summary: Paginated Datastream List
+    TimeSeriesList:
+      summary: Paginated TimeSeries List
       value:
         {
           "streams": [

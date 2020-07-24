@@ -24,7 +24,7 @@ func setupRouter(regAPI *API) *mux.Router {
 	r.Methods("POST").Path("/registry").HandlerFunc(regAPI.Create)
 	r.Methods("GET").Path("/registry/{type}/{path}/{op}/{value:.*}").HandlerFunc(regAPI.Filter)
 	r.Methods("GET").Path("/registry/{id:.+}").HandlerFunc(regAPI.Retrieve)
-	r.Methods("PUT").Path("/registry/{id:.+}").HandlerFunc(regAPI.Update)
+	r.Methods("PUT").Path("/registry/{id:.+}").HandlerFunc(regAPI.UpdateOrCreate)
 	r.Methods("DELETE").Path("/registry/{id:.+}").HandlerFunc(regAPI.Delete)
 
 	return r
@@ -185,7 +185,7 @@ func TestHttpCreate(t *testing.T) {
 			"datatype": "string"
 		}
 		`)
-	res, err = http.Post(ts.URL+common.RegistryAPILoc, MIMEType, bytes.NewReader(b))
+	res, err = httpRequestClient("PUT", ts.URL+common.RegistryAPILoc+"/any_url", bytes.NewReader(b))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

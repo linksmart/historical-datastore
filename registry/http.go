@@ -157,9 +157,9 @@ func (api *API) Retrieve(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// Update is a handler for updating the given DataSource
+// UpdateOrCreate is a handler for updating the given DataSource
 // Expected parameters: id
-func (api *API) Update(w http.ResponseWriter, r *http.Request) {
+func (api *API) UpdateOrCreate(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
@@ -182,7 +182,24 @@ func (api *API) Update(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, ErrConflict) {
 			common.HttpErrorResponse(&common.ConflictError{S: err.Error()}, w)
 		} else if errors.Is(err, ErrNotFound) {
-			common.HttpErrorResponse(&common.NotFoundError{S: err.Error()}, w)
+			addedTS, err := api.storage.Add(ts)
+			if err != nil {
+				if errors.Is(err, ErrConflict) {
+					common.HttpErrorResponse(&common.ConflictError{S: err.Error()}, w)
+				} else if errors.Is(err, ErrBadRequest) {
+					common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
+				} else {
+					common.HttpErrorResponse(&common.InternalError{S: "Error storing time series: " + err.Error()}, w)
+				}
+				return
+			}
+			//b, _ := json.Marshal(&addedTS)
+			w.Header().Set("Location", common.RegistryAPILoc+"/"+addedTS.Name)
+
+			w.WriteHeader(http.StatusCreated)
+			//w.Write(b)
+
+			return
 		} else {
 			common.HttpErrorResponse(&common.InternalError{S: "Error updating time series: " + err.Error()}, w)
 		}
