@@ -263,8 +263,8 @@ paths:
               946684800,0,dev123data,degC,,,,abc, \n
               946684800,0,dev123ok,degC,,,true,,"
       responses:
-        '202':
-          description: Accepted
+        '200':
+          description: Successful response
         '401':
           $ref: '#/components/responses/unauthorized'
         '403':
@@ -426,8 +426,8 @@ paths:
               946684800,0,dev123data,degC,,,,abc, \n
               946684800,0,dev123ok,degC,,,true,,"
       responses:
-        '202':
-          description: Accepted
+        '200':
+          description: Successful response
         '401':
           $ref: '#/components/responses/unauthorized'
         '403':

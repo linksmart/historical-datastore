@@ -141,7 +141,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	if submitErr != nil {
 		common.HttpErrorResponse(submitErr, w)
 	} else {
-		w.WriteHeader(http.StatusAccepted)
+		w.WriteHeader(http.StatusOK)
 	}
 	return
 }
@@ -187,7 +187,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 		common.HttpErrorResponse(submitErr, w)
 	} else {
 		w.Header().Set("Content-Type", common.DefaultMIMEType)
-		w.WriteHeader(http.StatusAccepted)
+		w.WriteHeader(http.StatusOK)
 	}
 	return
 }

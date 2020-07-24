@@ -99,8 +99,8 @@ func TestHttpSubmit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if res.StatusCode != http.StatusAccepted {
-		t.Errorf("Server response is not %v but %v", http.StatusAccepted, res.StatusCode)
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("Server response is not %v but %v", http.StatusOK, res.StatusCode)
 	}
 
 	// try html - should be not supported
@@ -137,8 +137,8 @@ func TestHttpSubmit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if res.StatusCode != http.StatusAccepted {
-		t.Errorf("Server response is not %v but %v", http.StatusAccepted, res.StatusCode)
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("Server response is not %v but %v", http.StatusOK, res.StatusCode)
 	}
 }
 
@@ -148,7 +148,7 @@ func TestHttpQuery(t *testing.T) {
 	defer ts.Close()
 
 	all := strings.Join(testIDs, ",")
-	res, err := http.Get(ts.URL + "/data/" + all + "?limit=3&start=2015-04-24T11:56:51Z&page=1&per_page=12")
+	res, err := http.Get(ts.URL + "/data/" + all + "?limit=3&from=2015-04-24T11:56:51Z&page=1&per_page=12")
 	if err != nil {
 		t.Fatal(err)
 	}
