@@ -52,7 +52,7 @@ func (c *RemoteClient) Submit(data []byte, contentType string, id ...string) err
 
 	if res.StatusCode == http.StatusNotFound {
 		return registry.ErrNotFound
-	} else if res.StatusCode != http.StatusOK {
+	} else if res.StatusCode != http.StatusNoContent {
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			return err

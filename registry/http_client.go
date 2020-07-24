@@ -143,7 +143,7 @@ func (c *RemoteClient) Update(id string, d *TimeSeries) error {
 
 	if res.StatusCode == http.StatusNotFound {
 		return ErrNotFound
-	} else if res.StatusCode != http.StatusOK {
+	} else if res.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("%v: %v", res.StatusCode, string(body))
 	}
 	return nil
