@@ -296,7 +296,7 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 	var err error
 
 	// start time
-	q.To, err = parseFromValue(form.Get(common.ParamFrom))
+	q.From, err = parseFromValue(form.Get(common.ParamFrom))
 	if err != nil {
 		return Query{}, &common.BadRequestError{S: "Error parsing From value:" + err.Error()}
 	}
