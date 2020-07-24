@@ -99,8 +99,9 @@ func TestHttpSubmit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if res.StatusCode != http.StatusOK {
-		t.Errorf("Server response is not %v but %v", http.StatusOK, res.StatusCode)
+	if res.StatusCode != http.StatusNoContent {
+		t.Errorf("Server response is not %v but %v", http.StatusNoContent, res.StatusCode)
+		return
 	}
 
 	// try html - should be not supported
@@ -110,7 +111,7 @@ func TestHttpSubmit(t *testing.T) {
 	}
 
 	if res.StatusCode != http.StatusUnsupportedMediaType {
-		t.Errorf("Server response is not %v but %v", http.StatusUnsupportedMediaType, res.StatusCode)
+		t.Fatalf("Server response is not %v but %v", http.StatusUnsupportedMediaType, res.StatusCode)
 	}
 
 	// try bad payload
@@ -120,7 +121,7 @@ func TestHttpSubmit(t *testing.T) {
 	}
 
 	if res.StatusCode != http.StatusBadRequest {
-		t.Errorf("Server response is not %v but %v", http.StatusBadRequest, res.StatusCode)
+		t.Fatalf("Server response is not %v but %v", http.StatusBadRequest, res.StatusCode)
 	}
 
 	//when pack is has a time series not in the URL
@@ -130,6 +131,7 @@ func TestHttpSubmit(t *testing.T) {
 	}
 	if res.StatusCode != http.StatusBadRequest {
 		t.Errorf("Server response is not %v but %v", http.StatusBadRequest, res.StatusCode)
+		return
 	}
 	// try a good one
 	res, err = http.Post(ts.URL+"/data/"+all, "application/senml+json", bytes.NewReader(b))
@@ -137,8 +139,9 @@ func TestHttpSubmit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if res.StatusCode != http.StatusOK {
-		t.Errorf("Server response is not %v but %v", http.StatusOK, res.StatusCode)
+	if res.StatusCode != http.StatusNoContent {
+		t.Errorf("Server response is not %v but %v", http.StatusNoContent, res.StatusCode)
+		return
 	}
 }
 

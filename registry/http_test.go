@@ -320,8 +320,8 @@ func TestHttpUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if res.StatusCode != http.StatusOK {
-		t.Errorf("Server response is not %v but %v", http.StatusOK, res.StatusCode)
+	if res.StatusCode != http.StatusNoContent {
+		t.Errorf("Server response is not %v but %v", http.StatusNoContent, res.StatusCode)
 	}
 	res.Body.Close()
 
@@ -354,8 +354,8 @@ func TestHttpDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("Server response is %v instead of %v", res.StatusCode, http.StatusOK)
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("Server response is %v instead of %v", res.StatusCode, http.StatusNoContent)
 	}
 	// check whether it is deleted
 	_, err = registryClient.Get(name)
