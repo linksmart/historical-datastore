@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -16,6 +17,8 @@ import (
 type SqlStorage struct {
 	pool *sql.DB
 }
+
+var queryTimeout = time.Second * 30
 
 func NewSqlStorage(conf common.DataConf) (storage *SqlStorage, disconnect_func func() error, err error) {
 	storage = new(SqlStorage)
@@ -114,20 +117,26 @@ func (s *SqlStorage) Submit(data map[string]senml.Pack, series map[string]*regis
 
 func (s *SqlStorage) QueryPage(q Query, series ...*registry.TimeSeries) (pack senml.Pack, total *int, err error) {
 	if len(series) == 1 {
-		return s.querySingleSeries(q, *series[0], false)
+		return s.querySingleSeries(q, *series[0])
 	} else {
-		return s.queryMultipleSeries(q, series, false)
+		return s.queryMultipleSeries(q, series)
 	}
 }
 
-func (s *SqlStorage) Count(q Query, series ...*registry.TimeSeries) (total int, err error) {
-	var pTotal *int
-	if len(series) == 1 {
-		_, pTotal, err = s.querySingleSeries(q, *series[0], true)
-	} else {
-		_, pTotal, err = s.queryMultipleSeries(q, series, true)
+func (s *SqlStorage) Count(q Query, series ...*registry.TimeSeries) (int, error) {
+	total := new(int)
+	stmt, err := makeQuery(q, true, false, series...)
+	if err != nil {
+		return 0, err
 	}
-	return *pTotal, err
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+	row := s.pool.QueryRowContext(ctx, stmt)
+	err = row.Scan(total)
+	if err != nil {
+		return 0, fmt.Errorf("error while querying Count:%s", err)
+	}
+	return *total, err
 }
 
 func (s *SqlStorage) Delete(series []*registry.TimeSeries, from time.Time, to time.Time) (err error) {
@@ -248,28 +257,19 @@ func denormalizeRecord(record *senml.Record, baseRecord **senml.Record, mask Den
 	}
 }
 
-func (s *SqlStorage) querySingleSeries(q Query, series registry.TimeSeries, countOnly bool) (pack senml.Pack, total *int, err error) {
-
-	if q.Count || countOnly {
-		total = new(int)
-		stmt, err := makeQuery(q, true, false, &series)
-		if err != nil {
-			return nil, nil, err
-		}
-		row := s.pool.QueryRow(stmt)
-		err = row.Scan(total)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error while querying Count:%s", err)
-		}
-		if countOnly {
-			return nil, total, nil
-		}
+func (s *SqlStorage) querySingleSeries(q Query, series registry.TimeSeries) (pack senml.Pack, total *int, err error) {
+	total = new(int)
+	*total, err = s.Count(q, &series)
+	if err != nil {
+		return nil, nil, err
 	}
 	stmt, err := makeQuery(q, false, false, &series)
 	if err != nil {
 		return nil, nil, err
 	}
-	rows, err := s.pool.Query(stmt)
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+	rows, err := s.pool.QueryContext(ctx, stmt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
 	}
@@ -330,30 +330,22 @@ func (s *SqlStorage) querySingleSeries(q Query, series registry.TimeSeries, coun
 	return records, total, nil
 }
 
-func (s *SqlStorage) queryMultipleSeries(q Query, series []*registry.TimeSeries, countOnly bool) (pack senml.Pack, total *int, err error) {
-	//counting the number
-	var stmt string
-	if q.Count || countOnly {
-		total = new(int)
-		stmt, err = makeQuery(q, true, false, series...)
-		if err != nil {
-			return nil, nil, err
-		}
-		row := s.pool.QueryRow(stmt)
-		err := row.Scan(total)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error while querying Count:%s", err)
-		}
-		if countOnly {
-			return nil, total, nil
-		}
+func (s *SqlStorage) queryMultipleSeries(q Query, series []*registry.TimeSeries) (pack senml.Pack, total *int, err error) {
+	total = new(int)
+	*total, err = s.Count(q, series...)
+	if err != nil {
+		return nil, nil, err
 	}
+
+	var stmt string
 
 	stmt, err = makeQuery(q, false, false, series...)
 	if err != nil {
 		return nil, nil, err
 	}
-	rows, err := s.pool.Query(stmt)
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+	rows, err := s.pool.QueryContext(ctx, stmt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while querying rows:%s", err)
 	}
@@ -428,7 +420,9 @@ func (s *SqlStorage) streamSingleSeries(q Query, sendFunc sendFunction, series r
 	if err != nil {
 		return err
 	}
-	rows, err := s.pool.Query(stmt)
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+	rows, err := s.pool.QueryContext(ctx, stmt)
 	if err != nil {
 		return fmt.Errorf("error while querying rows:%s", err)
 	}
@@ -530,7 +524,9 @@ func (s *SqlStorage) streamMultipleSeries(q Query, sendFunc sendFunction, series
 	if err != nil {
 		return err
 	}
-	rows, err := s.pool.Query(stmt)
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+	rows, err := s.pool.QueryContext(ctx, stmt)
 	if err != nil {
 		return fmt.Errorf("error while querying rows:%s", err)
 	}
