@@ -4,6 +4,7 @@ package data
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -194,22 +195,22 @@ func TestAPI_Delete(t *testing.T) {
 
 type dummyDataStorage struct{}
 
-func (s *dummyDataStorage) Submit(data map[string]senml.Pack, series map[string]*registry.TimeSeries) error {
+func (s *dummyDataStorage) Submit(ctx context.Context, data map[string]senml.Pack, series map[string]*registry.TimeSeries) error {
 	return nil
 }
-func (s *dummyDataStorage) QueryPage(q Query, series ...*registry.TimeSeries) (pack senml.Pack, total *int, err error) {
+func (s *dummyDataStorage) QueryPage(ctx context.Context, q Query, series ...*registry.TimeSeries) (pack senml.Pack, total *int, err error) {
 	return senml.Pack{}, nil, nil
 }
 
-func (s *dummyDataStorage) QueryStream(q Query, sendFunc sendFunction, series ...*registry.TimeSeries) error {
+func (s *dummyDataStorage) QueryStream(ctx context.Context, q Query, sendFunc sendFunction, series ...*registry.TimeSeries) error {
 	return nil
 }
 
-func (s *dummyDataStorage) Count(q Query, series ...*registry.TimeSeries) (total int, err error) {
+func (s *dummyDataStorage) Count(ctx context.Context, q Query, series ...*registry.TimeSeries) (total int, err error) {
 	return 0, nil
 }
 
-func (s *dummyDataStorage) Delete(series []*registry.TimeSeries, from time.Time, to time.Time) (err error) {
+func (s *dummyDataStorage) Delete(ctx context.Context, series []*registry.TimeSeries, from time.Time, to time.Time) (err error) {
 	return nil
 }
 func (s *dummyDataStorage) Disconnect() error {

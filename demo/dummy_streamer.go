@@ -1,6 +1,7 @@
 package demo
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -126,7 +127,7 @@ func submitData(datastorage data.Storage, ts registry.TimeSeries, record senml.R
 	recordMap[ts.Name] = senmlPack
 	seriesMap := make(map[string]*registry.TimeSeries)
 	seriesMap[ts.Name] = &ts
-	err := datastorage.Submit(recordMap, seriesMap)
+	err := datastorage.Submit(context.Background(), recordMap, seriesMap)
 	if err != nil {
 		log.Printf("insetion failed: %s", err)
 	}

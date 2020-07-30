@@ -3,6 +3,7 @@
 package data
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -288,7 +289,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 	if len(data) > 0 {
 		// Add data to the storage
-		err = s.connector.storage.Submit(data, series)
+		err = s.connector.storage.Submit(context.Background(),data, series)
 		if err != nil {
 			logMQTTError(http.StatusInternalServerError, "Error writing data to the database: %v", err)
 			return

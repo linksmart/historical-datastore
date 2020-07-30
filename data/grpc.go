@@ -45,7 +45,7 @@ func (a *GrpcAPI) Submit(ctx context.Context, message *senml_protobuf.Message) (
 	}
 	senmlPack := codec.ImportProtobufMessage(*message)
 
-	err := a.c.submit(senmlPack, nil)
+	err := a.c.submit(ctx, senmlPack, nil)
 	if err != nil {
 		return nil, status.Errorf(err.GrpcStatus(), "Error submitting:"+err.Error())
 	}
@@ -90,7 +90,7 @@ func (a *GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) 
 		return stream.Send(&message)
 	}
 
-	queryErr := a.c.QueryStream(q, request.Series, sendFunc)
+	queryErr := a.c.QueryStream(stream.Context(), q, request.Series, sendFunc)
 	if queryErr != nil {
 		return status.Errorf(queryErr.GrpcStatus(), "Error querying: "+queryErr.Error())
 	}
@@ -124,7 +124,7 @@ func (a *GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.Co
 		}
 	}
 
-	total, queryErr := a.c.Count(q, request.Series)
+	total, queryErr := a.c.Count(ctx, q, request.Series)
 	if queryErr != nil {
 		return nil, status.Errorf(queryErr.GrpcStatus(), "Error querying: "+queryErr.Error())
 	}
@@ -143,7 +143,7 @@ func (a *GrpcAPI) Delete(ctx context.Context, request *_go.DeleteRequest) (*_go.
 		return nil, status.Errorf(codes.InvalidArgument, "Error parsing to Value: "+err.Error())
 	}
 
-	deleteErr := a.c.Delete(request.Series, from, to)
+	deleteErr := a.c.Delete(ctx, request.Series, from, to)
 	if deleteErr != nil {
 		return nil, status.Errorf(deleteErr.GrpcStatus(), "Error deleting: "+deleteErr.Error())
 	}

@@ -3,6 +3,7 @@
 package data
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -18,7 +19,6 @@ const (
 	SQLITE         = "sqlite"
 	DRIVER_SQLITE3 = "sqlite3"
 )
-
 
 // SupportedBackends returns true if the backend is listed as true
 func SupportedBackends(name string) bool {
@@ -38,18 +38,18 @@ type Storage interface {
 	// Adds data points for multiple time series
 	// data is a map where keys are time series ids
 	// series is a map where keys are time series ids
-	Submit(data map[string]senml.Pack, series map[string]*registry.TimeSeries) error
+	Submit(ctx context.Context, data map[string]senml.Pack, series map[string]*registry.TimeSeries) error
 
 	// Queries data for specified time series
 	//QueryPage(q QueryPage, page, PerPage int, series ...*registry.TimeSeries) (senml.Pack, int, error)
-	QueryPage(q Query, series ...*registry.TimeSeries) (pack senml.Pack, total *int, err error)
+	QueryPage(ctx context.Context, q Query, series ...*registry.TimeSeries) (pack senml.Pack, total *int, err error)
 
-	QueryStream(q Query, sendFunc sendFunction, series ...*registry.TimeSeries) error
+	QueryStream(ctx context.Context, q Query, sendFunc sendFunction, series ...*registry.TimeSeries) error
 
-	Count(q Query, series ...*registry.TimeSeries) (total int, err error)
+	Count(ctx context.Context, q Query, series ...*registry.TimeSeries) (total int, err error)
 
 	// Delete the data within a given time range
-	Delete(series []*registry.TimeSeries, from time.Time, to time.Time) (err error)
+	Delete(ctx context.Context, series []*registry.TimeSeries, from time.Time, to time.Time) (err error)
 
 	// EventListener includes methods for event handling
 	registry.EventListener
@@ -78,5 +78,3 @@ func validateRecordAgainstRegistry(r senml.Record, ts *registry.TimeSeries) erro
 
 	return nil
 }
-
-

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -25,7 +26,7 @@ func NewController(registry registry.Storage, storage Storage, autoRegistration 
 }
 
 //TODO: Return right code in return so that right code is returned by callers. e.g. Grpc code or http error responses.
-func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
+func (c Controller) submit(ctx context.Context, senmlPack senml.Pack, ids []string) common.Error {
 	const Y3K = 32503680000 //Year 3000 BC, beyond which the time values are not taken
 	//series := make(map[string]*registry.TimeSeries)
 	nameTS := make(map[string]*registry.TimeSeries)
@@ -94,7 +95,7 @@ func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
 		err := validateRecordAgainstRegistry(r, ts)
 
 		if err != nil {
-			return &common.BadRequestError{S: fmt.Sprintf("Error validating the record:%v", err)}
+			return &common.BadRequestError{S: fmt.Sprintf("Error validating the record: %v", err)}
 		}
 
 		// Prepare for storage
@@ -106,22 +107,22 @@ func (c Controller) submit(senmlPack senml.Pack, ids []string) common.Error {
 	}
 
 	// Add data to the storage
-	err := c.storage.Submit(data, nameTS)
+	err := c.storage.Submit(ctx, data, nameTS)
 	if err != nil {
 		return &common.InternalError{S: "error writing data to the database: " + err.Error()}
 	}
 	return nil
 }
 
-func (c Controller) QueryPage(q Query, ids []string) (pack senml.Pack, total *int, retErr common.Error) {
-	return c.queryStreamOrPage(q, ids, nil)
+func (c Controller) QueryPage(ctx context.Context, q Query, ids []string) (pack senml.Pack, total *int, retErr common.Error) {
+	return c.queryStreamOrPage(ctx, q, ids, nil)
 }
-func (c Controller) QueryStream(q Query, ids []string, sendFunc sendFunction) (retErr common.Error) {
-	_, _, retErr = c.queryStreamOrPage(q, ids, sendFunc)
+func (c Controller) QueryStream(ctx context.Context, q Query, ids []string, sendFunc sendFunction) (retErr common.Error) {
+	_, _, retErr = c.queryStreamOrPage(ctx, q, ids, sendFunc)
 	return retErr
 }
 
-func (c Controller) Delete(seriesNames []string, from time.Time, to time.Time) (retErr common.Error) {
+func (c Controller) Delete(ctx context.Context, seriesNames []string, from time.Time, to time.Time) (retErr common.Error) {
 	var series []*registry.TimeSeries
 	for _, seriesName := range seriesNames {
 		ts, err := c.registry.Get(seriesName)
@@ -133,14 +134,14 @@ func (c Controller) Delete(seriesNames []string, from time.Time, to time.Time) (
 	if len(series) == 0 {
 		return &common.NotFoundError{S: "None of the specified Time series could be retrieved from the registry."}
 	}
-	err := c.storage.Delete(series, from, to)
+	err := c.storage.Delete(ctx, series, from, to)
 	if err != nil {
 		return &common.InternalError{S: "Error deleting the data: " + err.Error()}
 	}
 	return nil
 }
 
-func (c Controller) Count(q Query, seriesNames []string) (total int, retErr common.Error) {
+func (c Controller) Count(ctx context.Context, q Query, seriesNames []string) (total int, retErr common.Error) {
 	var series []*registry.TimeSeries
 	for _, seriesName := range seriesNames {
 		ts, err := c.registry.Get(seriesName)
@@ -152,14 +153,19 @@ func (c Controller) Count(q Query, seriesNames []string) (total int, retErr comm
 	if len(series) == 0 {
 		return 0, &common.NotFoundError{S: "None of the specified time series could be retrieved from the registry."}
 	}
-	total, err := c.storage.Count(q, series...)
+	total, err := c.storage.Count(ctx, q, series...)
+
 	if err != nil {
-		return 0, &common.InternalError{S: "Error retrieving count from the database: " + err.Error()}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return 0, &common.BadRequestError{S: "timeout trying to prepare a response for the given query"}
+		} else {
+			return 0, &common.InternalError{S: "Error retrieving count from the database: " + err.Error()}
+		}
 	}
 	return total, nil
 }
 
-func (c Controller) queryStreamOrPage(q Query, seriesNames []string, sendFunc sendFunction) (pack senml.Pack, total *int, retErr common.Error) {
+func (c Controller) queryStreamOrPage(ctx context.Context, q Query, seriesNames []string, sendFunc sendFunction) (pack senml.Pack, total *int, retErr common.Error) {
 	var series []*registry.TimeSeries
 	for _, seriesName := range seriesNames {
 		ts, err := c.registry.Get(seriesName)
@@ -175,12 +181,16 @@ func (c Controller) queryStreamOrPage(q Query, seriesNames []string, sendFunc se
 
 	var err error
 	if sendFunc == nil {
-		pack, total, err = c.storage.QueryPage(q, series...)
+		pack, total, err = c.storage.QueryPage(ctx, q, series...)
 	} else {
-		err = c.storage.QueryStream(q, sendFunc, series...)
+		err = c.storage.QueryStream(ctx, q, sendFunc, series...)
 	}
 	if err != nil {
-		return nil, nil, &common.InternalError{S: "Error retrieving data from the database: " + err.Error()}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, nil, &common.BadRequestError{S: "timeout trying to prepare a response for the given query"}
+		} else {
+			return nil, nil, &common.InternalError{S: "Error retrieving data from the database: " + err.Error()}
+		}
 	}
 	return pack, total, nil
 }

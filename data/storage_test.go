@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -108,13 +109,14 @@ func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Stor
 			}
 		}
 	}()
-	err := storage.Submit(sentDataMap, seriesMap)
+	ctx := context.Background()
+	err := storage.Submit(ctx, sentDataMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, seriesArr...)
+	gotrecords, total, err := storage.QueryPage(ctx, Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, seriesArr...)
 	if err != nil {
 		t.Error(err)
 	}
@@ -162,13 +164,14 @@ func testInsertData(t *testing.T, storage Storage, regstorage registry.Storage) 
 	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
 	recordMap[ts.Name] = sentData
-	err = storage.Submit(recordMap, seriesMap)
+	ctx := context.Background()
+	err = storage.Submit(ctx, recordMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
+	gotrecords, total, err := storage.QueryPage(ctx, Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
 	if err != nil {
 		t.Error(err)
 	}
@@ -205,13 +208,15 @@ func testInsertBools(t *testing.T, storage Storage, regstorage registry.Storage)
 	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
 	recordMap[ts.Name] = sentData
-	err = storage.Submit(recordMap, seriesMap)
+
+	ctx := context.Background()
+	err = storage.Submit(ctx, recordMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
+	gotrecords, total, err := storage.QueryPage(ctx, Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
 	if err != nil {
 		t.Error(err)
 	}
@@ -248,13 +253,14 @@ func testInsertStrings(t *testing.T, storage Storage, regstorage registry.Storag
 	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
 	recordMap[ts.Name] = sentData
-	err = storage.Submit(recordMap, seriesMap)
+	ctx := context.Background()
+	err = storage.Submit(ctx, recordMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
+	gotrecords, total, err := storage.QueryPage(ctx, Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
 	if err != nil {
 		t.Error(err)
 	}
@@ -291,13 +297,15 @@ func testInsertVals(t *testing.T, storage Storage, regstorage registry.Storage) 
 	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
 	recordMap[ts.Name] = sentData
-	err = storage.Submit(recordMap, seriesMap)
+
+	ctx := context.Background()
+	err = storage.Submit(ctx, recordMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 
 	//get these data
-	gotRecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
+	gotRecords, total, err := storage.QueryPage(ctx, Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
 	if err != nil {
 		t.Error(err)
 	}
@@ -397,14 +405,15 @@ func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.St
 	for _, r := range sentData {
 		sentDataMap[r.Name] = append(sentDataMap[r.Name], r)
 	}
-
-	err := storage.Submit(sentDataMap, seriesMap)
+	ctx := context.Background()
+	err := storage.Submit(ctx, sentDataMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 	expectedLen := int(math.Min(float64(len(expectedData)), MaxPerPage))
 	//get these data
-	gotRecords, total, err := storage.QueryPage(Query{Count: true,
+
+	gotRecords, total, err := storage.QueryPage(ctx, Query{Count: true,
 		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
 		From:       fromSenmlTime(sentData[0].Time),
 		Page:       1,
@@ -460,14 +469,16 @@ func testAggSingleSeries(t *testing.T, storage Storage, regStorage registry.Stor
 	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
 	recordMap[ts.Name] = sentData
-	err = storage.Submit(recordMap, seriesMap)
+	ctx := context.Background()
+	err = storage.Submit(ctx, recordMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
 
 	expectedLen := int(math.Min(float64(len(expectedData)), MaxPerPage))
 	//get these data
-	gotRecords, total, err := storage.QueryPage(Query{Count: true,
+
+	gotRecords, total, err := storage.QueryPage(ctx, Query{Count: true,
 		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
 		From:       fromSenmlTime(sentData[0].Time),
 		Page:       1,
@@ -552,7 +563,8 @@ func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Stor
 			}
 		}
 	}()
-	err := storage.Submit(sentDataMap, seriesMap)
+	ctx := context.Background()
+	err := storage.Submit(ctx, sentDataMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
@@ -560,7 +572,7 @@ func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Stor
 	delCount := 50
 	toTime := fromSenmlTime(sentDataMap["Value/Temperature"][delCount].Time)
 	//get these data
-	err = storage.Delete(seriesArr, time.Time{}, toTime)
+	err = storage.Delete(ctx, seriesArr, time.Time{}, toTime)
 	if err != nil {
 		t.Error(err)
 	}
@@ -568,7 +580,7 @@ func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Stor
 	seriesCount := len(seriesMap)
 
 	//get these data
-	gotrecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, seriesArr...)
+	gotrecords, total, err := storage.QueryPage(ctx, Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec * 4}, seriesArr...)
 	if err != nil {
 		t.Error(err)
 	}
@@ -615,7 +627,8 @@ func testDeleteVals(t *testing.T, storage Storage, regStorage registry.Storage) 
 	seriesMap[ts.Name] = &ts
 	recordMap := make(map[string]senml.Pack)
 	recordMap[ts.Name] = sentData
-	err = storage.Submit(recordMap, seriesMap)
+	ctx := context.Background()
+	err = storage.Submit(ctx, recordMap, seriesMap)
 	if err != nil {
 		t.Error("Error while inserting:", err)
 	}
@@ -623,13 +636,13 @@ func testDeleteVals(t *testing.T, storage Storage, regStorage registry.Storage) 
 	delCount := 50
 	toTime := fromSenmlTime(sentData[delCount].Time)
 
-	err = storage.Delete([]*registry.TimeSeries{&ts}, time.Time{}, toTime)
+	err = storage.Delete(ctx, []*registry.TimeSeries{&ts}, time.Time{}, toTime)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	gotRecords, total, err := storage.QueryPage(Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
+	gotRecords, total, err := storage.QueryPage(ctx, Query{Denormalize: DenormMaskName | DenormMaskTime, Count: true, To: time.Now().UTC(), PerPage: totRec}, &ts)
 	if err != nil {
 		t.Error(err)
 		return
@@ -680,7 +693,8 @@ func BenchmarkCreation_OneSeries(b *testing.B) {
 	seriesMap := make(map[string]*registry.TimeSeries)
 	seriesMap[series.Name] = &series
 	b.StartTimer()
-	err = dataStorage.Submit(recordMap, seriesMap)
+	ctx := context.Background()
+	err = dataStorage.Submit(ctx, recordMap, seriesMap)
 	//err = dataClient.Submit(barr, , series.Name)
 	if err != nil {
 		b.Error("Insetion failed", err)
@@ -720,7 +734,8 @@ func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 	recordMap[series.Name] = records
 	seriesMap := make(map[string]*registry.TimeSeries)
 	seriesMap[series.Name] = &series
-	err = dataStorage.Submit(recordMap, seriesMap)
+	ctx := context.Background()
+	err = dataStorage.Submit(ctx, recordMap, seriesMap)
 	//err = dataClient.Submit(barr, , series.Name)
 	if err != nil {
 		b.Error("Insetion failed:", err)
@@ -758,7 +773,8 @@ func benchmarkInsertEnd(b *testing.B, storage Storage, _ float64, timeEnd float6
 		seriesMap := make(map[string]*registry.TimeSeries)
 		seriesMap[series.Name] = series
 		b.StartTimer()
-		err := storage.Submit(recordMap, seriesMap)
+		ctx := context.Background()
+		err := storage.Submit(ctx, recordMap, seriesMap)
 		if err != nil {
 			b.Error("insetion failed", err)
 		}
@@ -778,7 +794,8 @@ func benchmarkInsertRandom(b *testing.B, storage Storage, timeStart float64, tim
 		seriesMap := make(map[string]*registry.TimeSeries)
 		seriesMap[series.Name] = series
 		b.StartTimer()
-		err := storage.Submit(recordMap, seriesMap)
+		ctx := context.Background()
+		err := storage.Submit(ctx, recordMap, seriesMap)
 		if err != nil {
 			b.Error("insetion failed", err)
 		}
@@ -791,7 +808,8 @@ func benchmarkQueryRandom(b *testing.B, storage Storage, timeStart float64, time
 	}
 	for i := 0; i < b.N; i++ {
 		start := between(timeStart, timeEnd)
-		_, _, err := storage.QueryPage(Query{From: time.Unix(0, int64(start*(1e9))), To: time.Unix(0, int64((start+2.0)*(1e9)))}, &registry.TimeSeries{Name: series.Name})
+		ctx := context.Background()
+		_, _, err := storage.QueryPage(ctx, Query{From: time.Unix(0, int64(start*(1e9))), To: time.Unix(0, int64((start+2.0)*(1e9)))}, &registry.TimeSeries{Name: series.Name})
 		if err != nil {
 			b.Error("query failed", err)
 		}
@@ -834,7 +852,8 @@ func BenchmarkCreation_MultiSeries(b *testing.B) {
 		seriesMap[series.Name] = &series
 	}
 	b.StartTimer()
-	err = dataStorage.Submit(recordmap, seriesMap)
+	ctx := context.Background()
+	err = dataStorage.Submit(ctx, recordmap, seriesMap)
 	//err = dataClient.Submit(barr, , series.Name)
 	if err != nil {
 		b.Error("Insetion failed")
@@ -876,7 +895,8 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 		recordMap[series.Name] = newRecords
 		seriesMap[series.Name] = &series
 	}
-	err = dataStorage.Submit(recordMap, seriesMap)
+	ctx := context.Background()
+	err = dataStorage.Submit(ctx, recordMap, seriesMap)
 	//err = dataClient.Submit(barr, , stream.Name)
 	if err != nil {
 		b.Fatal("Insetion failed", err)
@@ -923,7 +943,8 @@ func benchmarkCreateNewSeries(b *testing.B, storage Storage, regStorage registry
 		seriesMap[series.Name] = &series
 	}
 	b.StartTimer()
-	err := storage.Submit(recordMap, seriesMap)
+	ctx := context.Background()
+	err := storage.Submit(ctx, recordMap, seriesMap)
 	if err != nil {
 		b.Fatal("Error creating:", err)
 	}
@@ -949,8 +970,8 @@ func benchmarkDeleteSeries(b *testing.B, storage Storage, regStorage registry.St
 		recordMap[series.Name] = newrecords
 		seriesMap[series.Name] = &series
 	}
-
-	err := storage.Submit(recordMap, seriesMap)
+	ctx := context.Background()
+	err := storage.Submit(ctx, recordMap, seriesMap)
 	if err != nil {
 		b.Fatal("Error creating:", err)
 	}
@@ -966,8 +987,9 @@ func benchmarkDeleteSeries(b *testing.B, storage Storage, regStorage registry.St
 }
 
 func benchmarkQuerySeries(b *testing.B, storage Storage, _ registry.Storage) {
+	ctx := context.Background()
 	for i := 0; i < b.N; i++ {
-		_, _, err := storage.QueryPage(Query{}, &registry.TimeSeries{Name: strconv.Itoa(i % TOTALSERIES)})
+		_, _, err := storage.QueryPage(ctx, Query{}, &registry.TimeSeries{Name: strconv.Itoa(i % TOTALSERIES)})
 		if err != nil {
 			b.Fatal("Error querying:", err)
 		}

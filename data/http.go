@@ -63,7 +63,7 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, total, err := api.controller.QueryPage(q, ids)
+	data, total, err := api.controller.QueryPage(r.Context(), q, ids)
 	if err != nil {
 		common.HttpErrorResponse(err, w)
 		return
@@ -137,7 +137,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	// Parse id(s) and get time series from registry
 	ids := strings.Split(params["id"], common.IDSeparator)
-	submitErr := api.controller.submit(senmlPack, ids)
+	submitErr := api.controller.submit(r.Context(), senmlPack, ids)
 	if submitErr != nil {
 		common.HttpErrorResponse(submitErr, w)
 	} else {
@@ -182,7 +182,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	submitErr := api.controller.submit(senmlPack, nil)
+	submitErr := api.controller.submit(r.Context(), senmlPack, nil)
 	if submitErr != nil {
 		common.HttpErrorResponse(submitErr, w)
 	} else {
@@ -194,7 +194,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 func (api *API) Delete(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-
+	r.Context()
 	params := mux.Vars(r)
 
 	// Parse id(s) and get sources from registry
@@ -212,7 +212,7 @@ func (api *API) Delete(w http.ResponseWriter, r *http.Request) {
 		common.HttpErrorResponse(&common.BadRequestError{S: "Error parsing to value:" + err.Error()}, w)
 		return
 	}
-	commonErr := api.controller.Delete(seriesNames, from, to)
+	commonErr := api.controller.Delete(r.Context(), seriesNames, from, to)
 	if commonErr != nil {
 		common.HttpErrorResponse(commonErr, w)
 		return

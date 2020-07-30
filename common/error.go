@@ -49,8 +49,7 @@ func (e *BadRequestError) HttpStatus() int { return http.StatusBadRequest }
 
 func (e *BadRequestError) GrpcStatus() codes.Code { return codes.InvalidArgument }
 
-// Unsupported mediaType
-// Bad Request
+// Deadline Exceeded Error
 type UnsupportedMediaTypeError struct{ S string }
 
 func (e *UnsupportedMediaTypeError) Error() string          { return e.S }
