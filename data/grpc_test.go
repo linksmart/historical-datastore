@@ -142,7 +142,7 @@ func TestGrpcSubmit(t *testing.T) {
 }
 
 func TestGrpcDelete(t *testing.T) {
-	funcName := "TestGrpcSubmit"
+	funcName := "TestGrpcDelete"
 	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
 	if err != nil {
 		t.Fatalf("Error setting up benchmark:%s", err)

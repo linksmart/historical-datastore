@@ -28,8 +28,22 @@ func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
 
 func (c *GrpcClient) Submit(pack senml.Pack) error {
 	message := codec.ExportProtobufMessage(pack)
-	_, err := c.Client.Submit(context.Background(), &message)
-	return err
+	stream, err := c.Client.Submit(context.Background())
+	if err != nil {
+		return err
+	}
+	err = stream.Send(&message)
+	if err == io.EOF {
+		return fmt.Errorf("unexpected EOF")
+	}
+	if err != nil {
+		return err
+	}
+	_, err = stream.CloseAndRecv()
+	if err != nil {
+		return fmt.Errorf("error receving response: %w", err)
+	}
+	return nil
 }
 
 // TODO facilitate aborting of the query (using channels)
@@ -64,7 +78,7 @@ func (c *GrpcClient) Query(seriesNames []string, q Query) (senml.Pack, error) {
 
 func (c *GrpcClient) Count(series []string, q Query) (total int, err error) {
 	request := _go.QueryRequest{
-		Series:         series,
+		Series:          series,
 		From:            q.From.Format(time.RFC3339),
 		To:              q.To.Format(time.RFC3339),
 		RecordPerPacket: int32(q.PerPage),

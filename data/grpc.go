@@ -2,11 +2,11 @@ package data
 
 import (
 	"context"
+	"io"
 	"net"
 	"strings"
 	"time"
 
-	senml_protobuf "github.com/farshidtz/senml-protobuf/go"
 	"github.com/farshidtz/senml/v2"
 	"github.com/farshidtz/senml/v2/codec"
 	"github.com/linksmart/historical-datastore/common"
@@ -39,17 +39,26 @@ func (a *GrpcAPI) StopGrpcServer() {
 	a.server.Stop()
 }
 
-func (a *GrpcAPI) Submit(ctx context.Context, message *senml_protobuf.Message) (*_go.Void, error) {
-	if message == nil {
-		return nil, status.Errorf(codes.InvalidArgument, "empty message received")
-	}
-	senmlPack := codec.ImportProtobufMessage(*message)
+func (a *GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
+	for {
+		message, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&_go.Void{})
+		}
+		if err != nil {
+			return err
+		}
+		if message == nil {
+			return status.Errorf(codes.InvalidArgument, "empty message received")
+		}
+		senmlPack := codec.ImportProtobufMessage(*message)
 
-	err := a.c.submit(ctx, senmlPack, nil)
-	if err != nil {
-		return nil, status.Errorf(err.GrpcStatus(), "Error submitting:"+err.Error())
+		submitErr := a.c.submit(stream.Context(), senmlPack, nil)
+		if submitErr != nil {
+			return status.Errorf(submitErr.GrpcStatus(), "Error submitting:"+err.Error())
+		}
 	}
-	return &_go.Void{}, nil
+	return nil
 }
 
 func (a *GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) (err error) {
