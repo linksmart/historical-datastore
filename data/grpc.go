@@ -31,15 +31,15 @@ func NewGrpcAPI(registry registry.Storage, storage Storage, autoRegistration boo
 	return grpcAPI
 }
 
-func (a *GrpcAPI) StartGrpcServer(l net.Listener) error {
+func (a GrpcAPI) StartGrpcServer(l net.Listener) error {
 	return a.server.Serve(l)
 }
 
-func (a *GrpcAPI) StopGrpcServer() {
+func (a GrpcAPI) StopGrpcServer() {
 	a.server.Stop()
 }
 
-func (a *GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
+func (a GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
 	for {
 		message, err := stream.Recv()
 		if err == io.EOF {
@@ -61,7 +61,7 @@ func (a *GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
 	return nil
 }
 
-func (a *GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) (err error) {
+func (a GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) (err error) {
 	var q Query
 	q.From, err = parseFromValue(request.From)
 	if err != nil {
@@ -107,7 +107,7 @@ func (a *GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) 
 	return nil
 }
 
-func (a *GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.CountResponse, error) {
+func (a GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.CountResponse, error) {
 	var q Query
 	var err error
 	q.From, err = parseFromValue(request.From)
@@ -141,7 +141,7 @@ func (a *GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.Co
 	return &response, nil
 }
 
-func (a *GrpcAPI) Delete(ctx context.Context, request *_go.DeleteRequest) (*_go.Void, error) {
+func (a GrpcAPI) Delete(ctx context.Context, request *_go.DeleteRequest) (*_go.Void, error) {
 	from, err := parseFromValue(request.From)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Error parsing from value: "+err.Error())

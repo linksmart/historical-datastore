@@ -132,8 +132,6 @@ func (s *LevelDBStorage) Update(name string, ts TimeSeries) (*TimeSeries, error)
 	tempTS := oldTS
 
 	// Modify writable elements
-	tempTS.Function = ts.Function
-	tempTS.Retention = ts.Retention
 	tempTS.Source = ts.Source
 	tempTS.Meta = ts.Meta
 	tempTS.Unit = ts.Unit

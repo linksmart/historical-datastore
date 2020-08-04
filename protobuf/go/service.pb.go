@@ -8,6 +8,7 @@ import (
 	fmt "fmt"
 	_go "github.com/farshidtz/senml-protobuf/go"
 	proto "github.com/golang/protobuf/proto"
+	any "github.com/golang/protobuf/ptypes/any"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -62,6 +63,37 @@ func (x DenormMask) String() string {
 
 func (DenormMask) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_a0b84a42fa06f626, []int{0}
+}
+
+type Series_ValueType int32
+
+const (
+	Series_Float  Series_ValueType = 0
+	Series_String Series_ValueType = 1
+	Series_Bool   Series_ValueType = 2
+	Series_Data   Series_ValueType = 3
+)
+
+var Series_ValueType_name = map[int32]string{
+	0: "Float",
+	1: "String",
+	2: "Bool",
+	3: "Data",
+}
+
+var Series_ValueType_value = map[string]int32{
+	"Float":  0,
+	"String": 1,
+	"Bool":   2,
+	"Data":   3,
+}
+
+func (x Series_ValueType) String() string {
+	return proto.EnumName(Series_ValueType_name, int32(x))
+}
+
+func (Series_ValueType) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_a0b84a42fa06f626, []int{4, 0}
 }
 
 type Void struct {
@@ -300,12 +332,334 @@ func (m *CountResponse) GetTotal() int32 {
 	return 0
 }
 
+type Series struct {
+	Name                 string              `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Type                 Series_ValueType    `protobuf:"varint,2,opt,name=type,proto3,enum=data.Series_ValueType" json:"type,omitempty"`
+	Unit                 string              `protobuf:"bytes,3,opt,name=unit,proto3" json:"unit,omitempty"`
+	Meta                 map[string]*any.Any `protobuf:"bytes,4,rep,name=meta,proto3" json:"meta,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
+}
+
+func (m *Series) Reset()         { *m = Series{} }
+func (m *Series) String() string { return proto.CompactTextString(m) }
+func (*Series) ProtoMessage()    {}
+func (*Series) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a0b84a42fa06f626, []int{4}
+}
+
+func (m *Series) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Series.Unmarshal(m, b)
+}
+func (m *Series) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Series.Marshal(b, m, deterministic)
+}
+func (m *Series) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Series.Merge(m, src)
+}
+func (m *Series) XXX_Size() int {
+	return xxx_messageInfo_Series.Size(m)
+}
+func (m *Series) XXX_DiscardUnknown() {
+	xxx_messageInfo_Series.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Series proto.InternalMessageInfo
+
+func (m *Series) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *Series) GetType() Series_ValueType {
+	if m != nil {
+		return m.Type
+	}
+	return Series_Float
+}
+
+func (m *Series) GetUnit() string {
+	if m != nil {
+		return m.Unit
+	}
+	return ""
+}
+
+func (m *Series) GetMeta() map[string]*any.Any {
+	if m != nil {
+		return m.Meta
+	}
+	return nil
+}
+
+type Registrations struct {
+	SeriesList           []*Series `protobuf:"bytes,1,rep,name=seriesList,proto3" json:"seriesList,omitempty"`
+	Total                int32     `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	Page                 int32     `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PerPage              int32     `protobuf:"varint,4,opt,name=perPage,proto3" json:"perPage,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *Registrations) Reset()         { *m = Registrations{} }
+func (m *Registrations) String() string { return proto.CompactTextString(m) }
+func (*Registrations) ProtoMessage()    {}
+func (*Registrations) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a0b84a42fa06f626, []int{5}
+}
+
+func (m *Registrations) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Registrations.Unmarshal(m, b)
+}
+func (m *Registrations) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Registrations.Marshal(b, m, deterministic)
+}
+func (m *Registrations) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Registrations.Merge(m, src)
+}
+func (m *Registrations) XXX_Size() int {
+	return xxx_messageInfo_Registrations.Size(m)
+}
+func (m *Registrations) XXX_DiscardUnknown() {
+	xxx_messageInfo_Registrations.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Registrations proto.InternalMessageInfo
+
+func (m *Registrations) GetSeriesList() []*Series {
+	if m != nil {
+		return m.SeriesList
+	}
+	return nil
+}
+
+func (m *Registrations) GetTotal() int32 {
+	if m != nil {
+		return m.Total
+	}
+	return 0
+}
+
+func (m *Registrations) GetPage() int32 {
+	if m != nil {
+		return m.Page
+	}
+	return 0
+}
+
+func (m *Registrations) GetPerPage() int32 {
+	if m != nil {
+		return m.PerPage
+	}
+	return 0
+}
+
+type SeriesName struct {
+	Series               string   `protobuf:"bytes,1,opt,name=series,proto3" json:"series,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SeriesName) Reset()         { *m = SeriesName{} }
+func (m *SeriesName) String() string { return proto.CompactTextString(m) }
+func (*SeriesName) ProtoMessage()    {}
+func (*SeriesName) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a0b84a42fa06f626, []int{6}
+}
+
+func (m *SeriesName) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SeriesName.Unmarshal(m, b)
+}
+func (m *SeriesName) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SeriesName.Marshal(b, m, deterministic)
+}
+func (m *SeriesName) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SeriesName.Merge(m, src)
+}
+func (m *SeriesName) XXX_Size() int {
+	return xxx_messageInfo_SeriesName.Size(m)
+}
+func (m *SeriesName) XXX_DiscardUnknown() {
+	xxx_messageInfo_SeriesName.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SeriesName proto.InternalMessageInfo
+
+func (m *SeriesName) GetSeries() string {
+	if m != nil {
+		return m.Series
+	}
+	return ""
+}
+
+type Filterpath struct {
+	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Op                   string   `protobuf:"bytes,2,opt,name=op,proto3" json:"op,omitempty"`
+	Value                string   `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Filterpath) Reset()         { *m = Filterpath{} }
+func (m *Filterpath) String() string { return proto.CompactTextString(m) }
+func (*Filterpath) ProtoMessage()    {}
+func (*Filterpath) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a0b84a42fa06f626, []int{7}
+}
+
+func (m *Filterpath) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Filterpath.Unmarshal(m, b)
+}
+func (m *Filterpath) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Filterpath.Marshal(b, m, deterministic)
+}
+func (m *Filterpath) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Filterpath.Merge(m, src)
+}
+func (m *Filterpath) XXX_Size() int {
+	return xxx_messageInfo_Filterpath.Size(m)
+}
+func (m *Filterpath) XXX_DiscardUnknown() {
+	xxx_messageInfo_Filterpath.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Filterpath proto.InternalMessageInfo
+
+func (m *Filterpath) GetPath() string {
+	if m != nil {
+		return m.Path
+	}
+	return ""
+}
+
+func (m *Filterpath) GetOp() string {
+	if m != nil {
+		return m.Op
+	}
+	return ""
+}
+
+func (m *Filterpath) GetValue() string {
+	if m != nil {
+		return m.Value
+	}
+	return ""
+}
+
+type PageParams struct {
+	Page                 int32    `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
+	PerPage              int32    `protobuf:"varint,2,opt,name=perPage,proto3" json:"perPage,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *PageParams) Reset()         { *m = PageParams{} }
+func (m *PageParams) String() string { return proto.CompactTextString(m) }
+func (*PageParams) ProtoMessage()    {}
+func (*PageParams) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a0b84a42fa06f626, []int{8}
+}
+
+func (m *PageParams) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_PageParams.Unmarshal(m, b)
+}
+func (m *PageParams) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_PageParams.Marshal(b, m, deterministic)
+}
+func (m *PageParams) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PageParams.Merge(m, src)
+}
+func (m *PageParams) XXX_Size() int {
+	return xxx_messageInfo_PageParams.Size(m)
+}
+func (m *PageParams) XXX_DiscardUnknown() {
+	xxx_messageInfo_PageParams.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PageParams proto.InternalMessageInfo
+
+func (m *PageParams) GetPage() int32 {
+	if m != nil {
+		return m.Page
+	}
+	return 0
+}
+
+func (m *PageParams) GetPerPage() int32 {
+	if m != nil {
+		return m.PerPage
+	}
+	return 0
+}
+
+type FilterManyRequest struct {
+	FilterPath           *Filterpath `protobuf:"bytes,1,opt,name=filterPath,proto3" json:"filterPath,omitempty"`
+	PageParams           *PageParams `protobuf:"bytes,2,opt,name=pageParams,proto3" json:"pageParams,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
+}
+
+func (m *FilterManyRequest) Reset()         { *m = FilterManyRequest{} }
+func (m *FilterManyRequest) String() string { return proto.CompactTextString(m) }
+func (*FilterManyRequest) ProtoMessage()    {}
+func (*FilterManyRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a0b84a42fa06f626, []int{9}
+}
+
+func (m *FilterManyRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FilterManyRequest.Unmarshal(m, b)
+}
+func (m *FilterManyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FilterManyRequest.Marshal(b, m, deterministic)
+}
+func (m *FilterManyRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FilterManyRequest.Merge(m, src)
+}
+func (m *FilterManyRequest) XXX_Size() int {
+	return xxx_messageInfo_FilterManyRequest.Size(m)
+}
+func (m *FilterManyRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_FilterManyRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FilterManyRequest proto.InternalMessageInfo
+
+func (m *FilterManyRequest) GetFilterPath() *Filterpath {
+	if m != nil {
+		return m.FilterPath
+	}
+	return nil
+}
+
+func (m *FilterManyRequest) GetPageParams() *PageParams {
+	if m != nil {
+		return m.PageParams
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("data.DenormMask", DenormMask_name, DenormMask_value)
+	proto.RegisterEnum("data.Series_ValueType", Series_ValueType_name, Series_ValueType_value)
 	proto.RegisterType((*Void)(nil), "data.Void")
 	proto.RegisterType((*QueryRequest)(nil), "data.QueryRequest")
 	proto.RegisterType((*DeleteRequest)(nil), "data.DeleteRequest")
 	proto.RegisterType((*CountResponse)(nil), "data.CountResponse")
+	proto.RegisterType((*Series)(nil), "data.Series")
+	proto.RegisterMapType((map[string]*any.Any)(nil), "data.Series.MetaEntry")
+	proto.RegisterType((*Registrations)(nil), "data.Registrations")
+	proto.RegisterType((*SeriesName)(nil), "data.SeriesName")
+	proto.RegisterType((*Filterpath)(nil), "data.Filterpath")
+	proto.RegisterType((*PageParams)(nil), "data.PageParams")
+	proto.RegisterType((*FilterManyRequest)(nil), "data.FilterManyRequest")
 }
 
 func init() {
@@ -313,38 +667,63 @@ func init() {
 }
 
 var fileDescriptor_a0b84a42fa06f626 = []byte{
-	// 484 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x92, 0xc1, 0x6e, 0xd3, 0x4e,
-	0x10, 0xc6, 0xe3, 0xd4, 0x76, 0x93, 0x49, 0xd3, 0xbf, 0x35, 0xfd, 0x0b, 0x96, 0x1c, 0x90, 0x65,
-	0x09, 0xc9, 0x02, 0xe1, 0x40, 0x10, 0x82, 0x2b, 0x10, 0x45, 0x42, 0x28, 0x55, 0x71, 0xa1, 0x07,
-	0x2e, 0xd5, 0xc6, 0x99, 0xb8, 0xab, 0xd8, 0xde, 0xb2, 0xbb, 0xae, 0xc4, 0x83, 0xf1, 0x26, 0x3c,
-	0x10, 0xda, 0x75, 0x2b, 0x12, 0x04, 0x37, 0x6e, 0xf3, 0xfd, 0x76, 0xd6, 0x9e, 0xf9, 0xf6, 0x83,
-	0xb1, 0x26, 0x75, 0x23, 0x0a, 0xca, 0xae, 0x95, 0x34, 0x12, 0xfd, 0x35, 0x37, 0x7c, 0x32, 0xd2,
-	0xd4, 0xd4, 0x55, 0x87, 0x92, 0x10, 0xfc, 0x0b, 0x29, 0xd6, 0xc9, 0xf7, 0x3e, 0x1c, 0x7d, 0x6c,
-	0x49, 0x7d, 0xcb, 0xe9, 0x6b, 0x4b, 0xda, 0xe0, 0x3d, 0x08, 0x35, 0x29, 0x41, 0x9a, 0x79, 0xf1,
-	0x41, 0x3a, 0xcc, 0x6f, 0x15, 0x22, 0xf8, 0x1b, 0x25, 0x6b, 0xd6, 0x8f, 0xbd, 0x74, 0x98, 0xbb,
-	0x1a, 0x8f, 0xa1, 0x6f, 0x24, 0x3b, 0x70, 0xa4, 0x6f, 0x24, 0xa6, 0xf0, 0x9f, 0xa2, 0x42, 0xaa,
-	0xf5, 0x19, 0xa9, 0x33, 0x5e, 0x6c, 0xc9, 0xb0, 0x20, 0xf6, 0xd2, 0x20, 0xff, 0x1d, 0xe3, 0x0c,
-	0x46, 0x6b, 0x6a, 0xa4, 0xaa, 0xf9, 0x92, 0xeb, 0x2d, 0x0b, 0x63, 0x2f, 0x3d, 0x9e, 0x45, 0x99,
-	0x9d, 0x33, 0x9b, 0xbb, 0x03, 0xcb, 0xf3, 0xdd, 0x26, 0x7c, 0x00, 0x03, 0x2d, 0x95, 0xb9, 0xe4,
-	0xba, 0x60, 0x87, 0xb1, 0x97, 0x0e, 0xf2, 0x43, 0xab, 0xdf, 0xe8, 0x02, 0xff, 0x87, 0xa0, 0x12,
-	0xb5, 0x30, 0x6c, 0xe0, 0x7e, 0xd7, 0x09, 0xbb, 0x8a, 0xdc, 0x6c, 0x34, 0x19, 0x36, 0x74, 0xf8,
-	0x56, 0xe1, 0x43, 0x00, 0x5e, 0x96, 0x8a, 0x4a, 0x6e, 0xa4, 0x62, 0xe0, 0xc6, 0xdf, 0x21, 0x98,
-	0xc0, 0x91, 0x55, 0xef, 0x1b, 0x43, 0xea, 0x86, 0x57, 0x6c, 0xe4, 0x3a, 0xf6, 0x58, 0xf2, 0x01,
-	0xc6, 0x73, 0xaa, 0xc8, 0xd0, 0x3f, 0xf0, 0x2d, 0x79, 0x04, 0xe3, 0x77, 0xb2, 0x6d, 0x4c, 0x4e,
-	0xfa, 0x5a, 0x36, 0x9a, 0xec, 0x3e, 0x46, 0x1a, 0x5e, 0x31, 0xaf, 0xdb, 0xc7, 0x89, 0xc7, 0x4b,
-	0x80, 0x5f, 0xde, 0xe0, 0x00, 0xfc, 0x53, 0xd9, 0x50, 0xd4, 0xc3, 0x21, 0x04, 0x8b, 0x53, 0x5e,
-	0x53, 0xe4, 0xb9, 0xf2, 0x93, 0xa8, 0x29, 0xea, 0xbb, 0xf2, 0x73, 0x23, 0x4c, 0xe4, 0x23, 0x40,
-	0xb8, 0xb8, 0xe0, 0x55, 0x4b, 0xd1, 0xc0, 0x5e, 0x5b, 0x9c, 0xb7, 0x75, 0x14, 0xcd, 0x7e, 0x78,
-	0xe0, 0xcf, 0xb9, 0xe1, 0xf8, 0x1c, 0xc2, 0xf3, 0x76, 0x65, 0x1d, 0xbb, 0x9f, 0xb9, 0x8c, 0x5c,
-	0xba, 0x8c, 0xac, 0xda, 0x4d, 0xb6, 0x24, 0xad, 0x79, 0x49, 0x13, 0xe8, 0x9e, 0xc6, 0x45, 0xa6,
-	0x97, 0x7a, 0xf8, 0x1a, 0x02, 0x97, 0x1a, 0xc4, 0xee, 0x60, 0x37, 0x42, 0x93, 0xbf, 0x7d, 0x25,
-	0xe9, 0x3d, 0xf3, 0x70, 0x06, 0x81, 0xdb, 0xf5, 0x8f, 0x37, 0x4f, 0x3a, 0xb6, 0x67, 0x46, 0xd2,
-	0xc3, 0x27, 0x10, 0x76, 0x66, 0xe3, 0xc9, 0x5d, 0x44, 0x76, 0xac, 0xdf, 0x1f, 0xee, 0xed, 0xab,
-	0x2f, 0x2f, 0x4b, 0x61, 0xae, 0xda, 0x55, 0x56, 0xc8, 0x7a, 0x5a, 0x89, 0x66, 0xab, 0x6b, 0xae,
-	0xcc, 0xf4, 0x4a, 0x68, 0x23, 0x95, 0x28, 0x78, 0xf5, 0xd4, 0xb6, 0x5b, 0x41, 0xd3, 0xbb, 0x11,
-	0xa7, 0xa5, 0x5c, 0x85, 0x4e, 0xbc, 0xf8, 0x19, 0x00, 0x00, 0xff, 0xff, 0x5e, 0x0c, 0xb5, 0x62,
-	0x3d, 0x03, 0x00, 0x00,
+	// 895 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0x5f, 0x73, 0xdb, 0x44,
+	0x10, 0xb7, 0x64, 0x5b, 0xb1, 0xd7, 0x49, 0x10, 0xd7, 0x4e, 0xab, 0xfa, 0x81, 0x31, 0x9a, 0x32,
+	0x78, 0x02, 0x55, 0x8a, 0x19, 0x20, 0xd3, 0xb7, 0x94, 0xe0, 0x0e, 0x03, 0x2e, 0x41, 0x69, 0xfb,
+	0xc0, 0x4b, 0xe7, 0x62, 0xaf, 0x15, 0x4d, 0x24, 0x9d, 0xb8, 0x5b, 0x85, 0xf1, 0x23, 0x9f, 0x80,
+	0x4f, 0xc3, 0x17, 0xe0, 0x33, 0xf0, 0x81, 0x98, 0xbb, 0xf3, 0x1f, 0xa9, 0x69, 0x78, 0xea, 0xdb,
+	0xee, 0xde, 0xef, 0x74, 0xbf, 0xdd, 0xfd, 0xed, 0x0a, 0x0e, 0x14, 0xca, 0x9b, 0x74, 0x8e, 0x51,
+	0x29, 0x05, 0x09, 0xd6, 0x59, 0x70, 0xe2, 0xc3, 0x81, 0xc2, 0x22, 0xcf, 0x6c, 0x68, 0xf8, 0x28,
+	0x11, 0x22, 0xc9, 0xf0, 0xd8, 0x78, 0x97, 0xd5, 0xf2, 0x98, 0x17, 0x2b, 0x7b, 0x14, 0x7a, 0xd0,
+	0x79, 0x23, 0xd2, 0x45, 0xf8, 0xb7, 0x0b, 0xfb, 0xbf, 0x56, 0x28, 0x57, 0x31, 0xfe, 0x5e, 0xa1,
+	0x22, 0xf6, 0x00, 0x3c, 0x85, 0x32, 0x45, 0x15, 0x38, 0xa3, 0xf6, 0xb8, 0x1f, 0xaf, 0x3d, 0xc6,
+	0xa0, 0xb3, 0x94, 0x22, 0x0f, 0xdc, 0x91, 0x33, 0xee, 0xc7, 0xc6, 0x66, 0x87, 0xe0, 0x92, 0x08,
+	0xda, 0x26, 0xe2, 0x92, 0x60, 0x63, 0xf8, 0x48, 0xe2, 0x5c, 0xc8, 0xc5, 0x39, 0xca, 0x73, 0x3e,
+	0xbf, 0x46, 0x0a, 0xba, 0x23, 0x67, 0xdc, 0x8d, 0xdf, 0x0d, 0xb3, 0x09, 0x0c, 0x16, 0x58, 0x08,
+	0x99, 0xf3, 0x19, 0x57, 0xd7, 0x81, 0x37, 0x72, 0xc6, 0x87, 0x13, 0x3f, 0xd2, 0x29, 0x44, 0x67,
+	0xe6, 0x40, 0xc7, 0xe3, 0x3a, 0x88, 0x3d, 0x82, 0x9e, 0x12, 0x92, 0xde, 0x72, 0x35, 0x0f, 0xf6,
+	0x46, 0xce, 0xb8, 0x17, 0xef, 0x69, 0xff, 0x54, 0xcd, 0xd9, 0x7d, 0xe8, 0x66, 0x69, 0x9e, 0x52,
+	0xd0, 0x33, 0xcf, 0x59, 0x47, 0xa7, 0x22, 0x96, 0x4b, 0x85, 0x14, 0xf4, 0x4d, 0x78, 0xed, 0xb1,
+	0x4f, 0x00, 0x78, 0x92, 0x48, 0x4c, 0x38, 0x09, 0x19, 0x80, 0xa1, 0x5f, 0x8b, 0xb0, 0x10, 0xf6,
+	0xb5, 0xf7, 0x63, 0x41, 0x28, 0x6f, 0x78, 0x16, 0x0c, 0x0c, 0xa2, 0x11, 0x0b, 0x7f, 0x82, 0x83,
+	0x33, 0xcc, 0x90, 0xf0, 0x03, 0xd4, 0x2d, 0xfc, 0x0c, 0x0e, 0xbe, 0x17, 0x55, 0x41, 0x31, 0xaa,
+	0x52, 0x14, 0x0a, 0x75, 0x3e, 0x24, 0x88, 0x67, 0x81, 0x63, 0xf3, 0x31, 0x4e, 0xf8, 0x97, 0x0b,
+	0xde, 0xc5, 0xf6, 0xab, 0x05, 0xcf, 0xd1, 0x9c, 0xf7, 0x63, 0x63, 0xb3, 0x23, 0xe8, 0xd0, 0xaa,
+	0x44, 0xf3, 0xd2, 0xe1, 0xe4, 0x81, 0x2d, 0xa6, 0xc5, 0x47, 0x6f, 0x78, 0x56, 0xe1, 0xab, 0x55,
+	0x89, 0xb1, 0xc1, 0xe8, 0xfb, 0x55, 0x91, 0xd2, 0x9a, 0x83, 0xb1, 0xf5, 0xfd, 0x1c, 0x89, 0x07,
+	0x9d, 0x51, 0x7b, 0x3c, 0x78, 0xe7, 0xfe, 0x0c, 0x89, 0xff, 0x50, 0x90, 0x5c, 0xc5, 0x06, 0x33,
+	0x9c, 0x41, 0x7f, 0x1b, 0x62, 0x3e, 0xb4, 0xaf, 0x71, 0xb5, 0xe6, 0xa2, 0x4d, 0x76, 0x04, 0xdd,
+	0x1b, 0xfd, 0xa2, 0xe1, 0x32, 0x98, 0xdc, 0x8f, 0xac, 0x10, 0xa3, 0x8d, 0x10, 0xa3, 0xd3, 0x62,
+	0x15, 0x5b, 0xc8, 0x33, 0xf7, 0xc4, 0x09, 0xbf, 0x85, 0xfe, 0x96, 0x21, 0xeb, 0x43, 0x77, 0x9a,
+	0x09, 0x4e, 0x7e, 0x8b, 0x01, 0x78, 0x17, 0x24, 0xd3, 0x22, 0xf1, 0x1d, 0xd6, 0x83, 0xce, 0x73,
+	0x21, 0x32, 0xdf, 0xd5, 0xd6, 0x19, 0x27, 0xee, 0xb7, 0xc3, 0x3f, 0x1d, 0x38, 0x88, 0x31, 0x49,
+	0x15, 0x49, 0x4e, 0xa9, 0x28, 0x14, 0xfb, 0x12, 0xc0, 0x16, 0xfe, 0xe7, 0x54, 0x91, 0x69, 0xc5,
+	0x60, 0xb2, 0x5f, 0x4f, 0x25, 0xae, 0x9d, 0xef, 0xea, 0xec, 0xd6, 0xea, 0xac, 0x8b, 0x53, 0xf2,
+	0x04, 0x4d, 0x71, 0xba, 0xb1, 0xb1, 0x59, 0x00, 0x7b, 0xa5, 0x56, 0x6f, 0x82, 0x41, 0xc7, 0x84,
+	0x37, 0x6e, 0xf8, 0x18, 0xc0, 0x7e, 0xf9, 0xa5, 0x6e, 0x42, 0x5d, 0x06, 0xce, 0x4e, 0x06, 0xe1,
+	0x14, 0x60, 0x9a, 0x66, 0x84, 0xb2, 0xe4, 0x74, 0x65, 0x5f, 0xa0, 0xab, 0x4d, 0xfb, 0x4c, 0xec,
+	0x10, 0x5c, 0x51, 0xae, 0x65, 0xe2, 0x8a, 0x52, 0x73, 0xb3, 0x35, 0xb4, 0x3d, 0xb2, 0x4e, 0xf8,
+	0x0c, 0x40, 0xbf, 0x7a, 0xce, 0x25, 0xcf, 0xd5, 0x96, 0xa9, 0xf3, 0x7e, 0xa6, 0x6e, 0x93, 0xe9,
+	0x1f, 0xf0, 0xb1, 0xe5, 0x30, 0xe3, 0xc5, 0x76, 0xde, 0x9f, 0x02, 0x2c, 0x4d, 0xf0, 0x7c, 0x43,
+	0x68, 0xb0, 0x19, 0xc4, 0x1d, 0xe1, 0xb8, 0x86, 0xd1, 0x37, 0xca, 0x2d, 0x85, 0x75, 0x87, 0xd7,
+	0x37, 0x76, 0xd4, 0xe2, 0x1a, 0xe6, 0x68, 0x06, 0xb0, 0x1b, 0x6a, 0xdd, 0xbe, 0x97, 0xa2, 0x40,
+	0xbf, 0x65, 0x3a, 0xad, 0xab, 0xe6, 0x3b, 0xc6, 0x7c, 0x95, 0xe6, 0xe8, 0xbb, 0xc6, 0x7c, 0x5d,
+	0xa4, 0xe4, 0x77, 0x74, 0xff, 0xa7, 0x46, 0x18, 0x7e, 0x4f, 0x5f, 0x9b, 0x5e, 0x54, 0xb9, 0xef,
+	0x4f, 0xfe, 0x75, 0xac, 0x00, 0xd8, 0x57, 0xe0, 0x5d, 0x54, 0x97, 0x7a, 0xd4, 0x1f, 0x46, 0x66,
+	0xef, 0xbd, 0xdd, 0x0a, 0x6c, 0x86, 0x4a, 0xf1, 0x04, 0x87, 0x60, 0x89, 0x99, 0x5d, 0xd7, 0x1a,
+	0x3b, 0xec, 0x04, 0xba, 0x66, 0xdd, 0x31, 0x66, 0x0f, 0xea, 0xbb, 0x6f, 0x78, 0xd7, 0x57, 0xc2,
+	0xd6, 0x53, 0x87, 0x4d, 0xa0, 0x6b, 0x86, 0xf4, 0xbd, 0x37, 0xef, 0xd9, 0x58, 0x63, 0x8a, 0xc3,
+	0x16, 0xfb, 0x02, 0x3c, 0xbb, 0x25, 0xd8, 0xbd, 0xcd, 0x6e, 0xab, 0xed, 0x8c, 0x26, 0xb9, 0xc9,
+	0x3f, 0x2e, 0xf4, 0xd6, 0x62, 0x5e, 0xb1, 0x4f, 0xa1, 0x7d, 0xba, 0x58, 0xb0, 0x86, 0x74, 0x9b,
+	0x78, 0x9d, 0xfd, 0x0b, 0xa4, 0xd3, 0x2c, 0x63, 0xb7, 0xaa, 0xbf, 0xe1, 0xd3, 0x98, 0x8d, 0xb0,
+	0xc5, 0x3e, 0x87, 0xf6, 0x0b, 0xa4, 0x0d, 0x7e, 0x27, 0xdb, 0x61, 0xe3, 0x9d, 0xb0, 0xc5, 0x9e,
+	0x40, 0xdf, 0x76, 0xff, 0x97, 0x02, 0xd9, 0x2d, 0x39, 0xdc, 0x82, 0x9f, 0x80, 0x67, 0x4f, 0xd9,
+	0xc3, 0x3a, 0xb6, 0xa6, 0xb3, 0xbb, 0x18, 0x3d, 0x06, 0xef, 0x75, 0xb9, 0xe0, 0x84, 0xff, 0x9b,
+	0xea, 0x78, 0x5b, 0xc7, 0xdb, 0xd4, 0x1b, 0xc8, 0xe7, 0xdf, 0xfd, 0xf6, 0x4d, 0x92, 0xd2, 0x55,
+	0x75, 0x19, 0xcd, 0x45, 0x7e, 0x9c, 0xa5, 0xc5, 0xb5, 0xca, 0xb9, 0xa4, 0xe3, 0xab, 0x54, 0x91,
+	0x90, 0xe9, 0x9c, 0x67, 0x4f, 0x34, 0x5c, 0x3b, 0xb5, 0xff, 0x62, 0x22, 0x2e, 0x3d, 0xe3, 0x7c,
+	0xfd, 0x5f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x1a, 0x8d, 0x04, 0x42, 0x56, 0x07, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -594,5 +973,293 @@ var _Data_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
+	Metadata: "service.proto",
+}
+
+// RegistryClient is the client API for Registry service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type RegistryClient interface {
+	Add(ctx context.Context, in *Series, opts ...grpc.CallOption) (*Void, error)
+	GetAll(ctx context.Context, in *PageParams, opts ...grpc.CallOption) (*Registrations, error)
+	Get(ctx context.Context, in *SeriesName, opts ...grpc.CallOption) (*Series, error)
+	FilterOne(ctx context.Context, in *Filterpath, opts ...grpc.CallOption) (*Series, error)
+	Filter(ctx context.Context, in *FilterManyRequest, opts ...grpc.CallOption) (*Registrations, error)
+	Update(ctx context.Context, in *Series, opts ...grpc.CallOption) (*Void, error)
+	Delete(ctx context.Context, in *SeriesName, opts ...grpc.CallOption) (*Void, error)
+}
+
+type registryClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRegistryClient(cc grpc.ClientConnInterface) RegistryClient {
+	return &registryClient{cc}
+}
+
+func (c *registryClient) Add(ctx context.Context, in *Series, opts ...grpc.CallOption) (*Void, error) {
+	out := new(Void)
+	err := c.cc.Invoke(ctx, "/data.Registry/Add", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *registryClient) GetAll(ctx context.Context, in *PageParams, opts ...grpc.CallOption) (*Registrations, error) {
+	out := new(Registrations)
+	err := c.cc.Invoke(ctx, "/data.Registry/GetAll", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *registryClient) Get(ctx context.Context, in *SeriesName, opts ...grpc.CallOption) (*Series, error) {
+	out := new(Series)
+	err := c.cc.Invoke(ctx, "/data.Registry/Get", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *registryClient) FilterOne(ctx context.Context, in *Filterpath, opts ...grpc.CallOption) (*Series, error) {
+	out := new(Series)
+	err := c.cc.Invoke(ctx, "/data.Registry/FilterOne", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *registryClient) Filter(ctx context.Context, in *FilterManyRequest, opts ...grpc.CallOption) (*Registrations, error) {
+	out := new(Registrations)
+	err := c.cc.Invoke(ctx, "/data.Registry/Filter", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *registryClient) Update(ctx context.Context, in *Series, opts ...grpc.CallOption) (*Void, error) {
+	out := new(Void)
+	err := c.cc.Invoke(ctx, "/data.Registry/Update", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *registryClient) Delete(ctx context.Context, in *SeriesName, opts ...grpc.CallOption) (*Void, error) {
+	out := new(Void)
+	err := c.cc.Invoke(ctx, "/data.Registry/Delete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RegistryServer is the server API for Registry service.
+type RegistryServer interface {
+	Add(context.Context, *Series) (*Void, error)
+	GetAll(context.Context, *PageParams) (*Registrations, error)
+	Get(context.Context, *SeriesName) (*Series, error)
+	FilterOne(context.Context, *Filterpath) (*Series, error)
+	Filter(context.Context, *FilterManyRequest) (*Registrations, error)
+	Update(context.Context, *Series) (*Void, error)
+	Delete(context.Context, *SeriesName) (*Void, error)
+}
+
+// UnimplementedRegistryServer can be embedded to have forward compatible implementations.
+type UnimplementedRegistryServer struct {
+}
+
+func (*UnimplementedRegistryServer) Add(ctx context.Context, req *Series) (*Void, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Add not implemented")
+}
+func (*UnimplementedRegistryServer) GetAll(ctx context.Context, req *PageParams) (*Registrations, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAll not implemented")
+}
+func (*UnimplementedRegistryServer) Get(ctx context.Context, req *SeriesName) (*Series, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (*UnimplementedRegistryServer) FilterOne(ctx context.Context, req *Filterpath) (*Series, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FilterOne not implemented")
+}
+func (*UnimplementedRegistryServer) Filter(ctx context.Context, req *FilterManyRequest) (*Registrations, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Filter not implemented")
+}
+func (*UnimplementedRegistryServer) Update(ctx context.Context, req *Series) (*Void, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
+}
+func (*UnimplementedRegistryServer) Delete(ctx context.Context, req *SeriesName) (*Void, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+}
+
+func RegisterRegistryServer(s *grpc.Server, srv RegistryServer) {
+	s.RegisterService(&_Registry_serviceDesc, srv)
+}
+
+func _Registry_Add_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Series)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistryServer).Add(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data.Registry/Add",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistryServer).Add(ctx, req.(*Series))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Registry_GetAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PageParams)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistryServer).GetAll(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data.Registry/GetAll",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistryServer).GetAll(ctx, req.(*PageParams))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Registry_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SeriesName)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistryServer).Get(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data.Registry/Get",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistryServer).Get(ctx, req.(*SeriesName))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Registry_FilterOne_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Filterpath)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistryServer).FilterOne(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data.Registry/FilterOne",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistryServer).FilterOne(ctx, req.(*Filterpath))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Registry_Filter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FilterManyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistryServer).Filter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data.Registry/Filter",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistryServer).Filter(ctx, req.(*FilterManyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Registry_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Series)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistryServer).Update(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data.Registry/Update",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistryServer).Update(ctx, req.(*Series))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Registry_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SeriesName)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistryServer).Delete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data.Registry/Delete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistryServer).Delete(ctx, req.(*SeriesName))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _Registry_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "data.Registry",
+	HandlerType: (*RegistryServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Add",
+			Handler:    _Registry_Add_Handler,
+		},
+		{
+			MethodName: "GetAll",
+			Handler:    _Registry_GetAll_Handler,
+		},
+		{
+			MethodName: "Get",
+			Handler:    _Registry_Get_Handler,
+		},
+		{
+			MethodName: "FilterOne",
+			Handler:    _Registry_FilterOne_Handler,
+		},
+		{
+			MethodName: "Filter",
+			Handler:    _Registry_Filter_Handler,
+		},
+		{
+			MethodName: "Update",
+			Handler:    _Registry_Update_Handler,
+		},
+		{
+			MethodName: "Delete",
+			Handler:    _Registry_Delete_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "service.proto",
 }
