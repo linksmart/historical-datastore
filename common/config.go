@@ -12,6 +12,8 @@ type Config struct {
 	ServiceID string `json:"serviceID"`
 	// HDS API addr
 	HTTP HTTPConf `json:"http"`
+	// HDS GRPC API addr
+	GRPC GRPCConf `json:"grpc"`
 	//DNS service discovery
 	DnssdEnabled bool `json:"dnssdEnabled"`
 	//DNS-SD description
@@ -26,6 +28,12 @@ type Config struct {
 	ServiceCatalog ServiceCatalogConf `json:"serviceCatalog"`
 	// Auth config
 	Auth validator.Conf `json:"auth"`
+}
+
+// GRPC config
+type GRPCConf struct {
+	Enabled  bool   `json:"enabled"`
+	BindPort uint16 `json:"bindPort"`
 }
 
 // HTTP config

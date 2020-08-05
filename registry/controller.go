@@ -30,8 +30,10 @@ func (c Controller) getLastModifiedTime() (time.Time, common.Error) {
 func (c Controller) Add(ts TimeSeries) (*TimeSeries, common.Error) {
 	addedTs, err := c.s.Add(ts)
 	if err != nil {
-		if errors.Is(err, ErrConflict) || errors.Is(err, ErrBadRequest) {
-			return addedTs, err.(common.Error)
+		if errors.Is(err, ErrConflict) {
+			return nil, &common.ConflictError{S: err.Error()}
+		} else if errors.Is(err, ErrBadRequest) {
+			return nil, &common.BadRequestError{S: err.Error()}
 		} else {
 			return addedTs, &common.InternalError{S: "error storing time series registry: " + err.Error()}
 		}
@@ -40,10 +42,12 @@ func (c Controller) Add(ts TimeSeries) (*TimeSeries, common.Error) {
 }
 func (c Controller) Get(name string) (*TimeSeries, common.Error) {
 	ts, err := c.s.Get(name)
-	if errors.Is(err, ErrNotFound) {
-		return ts, err.(common.Error)
-	} else {
-		return ts, &common.InternalError{S: "error retrieving time series: " + err.Error()}
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return ts, &common.NotFoundError{S: err.Error()}
+		} else {
+			return ts, &common.InternalError{S: "error retrieving time series: " + err.Error()}
+		}
 	}
 	return ts, nil
 }
@@ -73,18 +77,25 @@ func (c Controller) Filter(path, op, value string, page, perPage int) ([]TimeSer
 
 func (c Controller) Update(name string, ts TimeSeries) (*TimeSeries, common.Error) {
 	t, err := c.s.Update(name, ts)
-	if errors.Is(err, ErrConflict) || errors.Is(err, ErrNotFound) {
-		return t, err.(common.Error)
-	} else {
-		return t, &common.InternalError{S: "error updating time series: " + err.Error()}
+	if err != nil {
+		if errors.Is(err, ErrConflict) {
+			return t, &common.ConflictError{S: err.Error()}
+		} else if errors.Is(err, ErrNotFound) {
+			return t, &common.NotFoundError{S: err.Error()}
+		} else {
+			return t, &common.InternalError{S: "error updating time series: " + err.Error()}
+		}
 	}
 	return t, nil
 }
 func (c Controller) Delete(name string) common.Error {
 	err := c.s.Delete(name)
-	if errors.Is(err, ErrNotFound) {
-		return err.(common.Error)
-	} else {
-		return &common.InternalError{S: "error deleting time series: " + err.Error()}
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return &common.NotFoundError{S: err.Error()}
+		} else {
+			return &common.InternalError{S: "error deleting time series: " + err.Error()}
+		}
 	}
+	return nil
 }

@@ -84,7 +84,6 @@ func TestMemstorageUpdate(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err.Error())
 	}
 
-	ts.Retention.Max = "20w"
 	//ts.Aggregation TODO
 
 	updatedDS, err := storage.Update(ID, *ts)

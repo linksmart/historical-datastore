@@ -167,17 +167,12 @@ func main() {
 		defer unregisterService()
 	}
 
-	serverUrl := fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
-	l, err := net.Listen("tcp", serverUrl)
-	if err != nil {
-		log.Fatalf("could not listen to :8888: %v", err)
-	}
-	log.Printf("Listening on %s", serverUrl)
 	// Start servers
-	go startHTTPServer(l, conf, regAPI, dataAPI)
+	go startHTTPServer(conf, regAPI, dataAPI)
 
-	go startGRPCServer(l, grpcDataAPI)
-
+	if conf.GRPC.Enabled {
+		go startGRPCServer(conf, grpcDataAPI)
+	}
 	// Announce service using DNS-SD
 	var bonjourS *bonjour.Server
 	if conf.DnssdEnabled {
@@ -219,15 +214,20 @@ func main() {
 	log.Println("Stopped.")
 }
 
-func startGRPCServer(l net.Listener, api *data.GrpcAPI) {
-	log.Printf("Starting GRPC server")
-	err := api.StartGrpcServer(l)
+func startGRPCServer(conf *common.Config, api *data.GrpcAPI) {
+	serverAddr := fmt.Sprintf(":%d", conf.GRPC.BindPort)
+	log.Printf("Serving GRPC on :%s", serverAddr)
+	l, err := net.Listen("tcp", serverAddr)
+	if err != nil {
+		log.Fatalf("could not listen to %s: %v", serverAddr, err)
+	}
+	err = api.StartGrpcServer(l)
 	if err != nil {
 		log.Fatalf("Stopped listening GRPC: %v", err)
 	}
 }
 
-func startHTTPServer(l net.Listener, conf *common.Config, reg *registry.API, data *data.API) {
+func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
 	router := newRouter()
 	// api root
 	router.handle(http.MethodGet, "/", indexHandler)
@@ -256,9 +256,9 @@ func startHTTPServer(l net.Listener, conf *common.Config, reg *registry.API, dat
 		router.appendChain(v.Handler)
 	}
 	// start http server
-	log.Printf("Starting HTTP server")
-	s := &http.Server{Handler: router.chained()}
-	err := s.Serve(l)
+	serverUrl := fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
+	log.Printf("Serving HTTP requests on %s", serverUrl)
+	err := http.ListenAndServe(serverUrl, router.chained())
 	if err != nil {
 		log.Fatalln(err)
 	}

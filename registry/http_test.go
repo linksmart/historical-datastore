@@ -310,7 +310,7 @@ func TestHttpUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	ts.Retention.Min = "3h"
+
 	b, err := json.Marshal(&ts)
 	if err != nil {
 		t.Fatalf(err.Error())

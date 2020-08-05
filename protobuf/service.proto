@@ -9,7 +9,11 @@ option go_package = "github.com/linksmart/historical-datastore/protobuf/go";
 
 //
 //Compilation:
-// Go:  protoc -I protobuf --go_out=plugins=grpc,paths=source_relative:protobuf\go  protobuf\service.proto
+
+
+// Go:
+	//go get github.com/gogo/protobuf/protoc-gen-gofast
+	//protoc -I protobuf --gofast_out=Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,plugins=grpc,paths=source_relative:protobuf\go  protobuf\service.proto
 
 message Void
 {

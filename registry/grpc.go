@@ -2,9 +2,12 @@ package registry
 
 import (
 	"context"
+	"encoding/json"
 	"net"
+	"reflect"
 
-	"github.com/golang/protobuf/ptypes"
+	"github.com/containerd/typeurl"
+	"github.com/gogo/protobuf/types"
 	"github.com/linksmart/historical-datastore/common"
 	_go "github.com/linksmart/historical-datastore/protobuf/go"
 	"google.golang.org/grpc"
@@ -24,23 +27,39 @@ func marshalSeries(t TimeSeries) (_go.Series, error) {
 		Type: _go.Series_ValueType(t.Type),
 		Unit: t.Unit,
 	}
+
+	if t.Meta != nil {
+		s.Meta = make(map[string]*types.Any)
+		for k, v := range t.Meta {
+			bytes, err := json.Marshal(v)
+			if err != nil {
+				return _go.Series{}, err
+			}
+			s.Meta[k] = &types.Any{
+				TypeUrl: reflect.TypeOf(v).Name(),
+				Value:   bytes,
+			}
+
+		}
+	}
 	return s, nil
 
 }
-func UnmarshalSeries(series _go.Series) (TimeSeries, error) {
+func UnmarshalSeries(s _go.Series) (TimeSeries, error) {
 	ts := TimeSeries{
-		Name: series.Name,
-		Type: ValueType(series.Type),
-		Unit: series.Unit,
+		Name: s.Name,
+		Type: ValueType(s.Type),
+		Unit: s.Unit,
 	}
-
-	for k, v := range series.Meta {
-		var dst ptypes.DynamicAny
-		err := ptypes.UnmarshalAny(v, &dst)
-		if err != nil {
-			return ts, err
+	if s.Meta != nil {
+		ts.Meta = make(map[string]interface{})
+		for k, v := range s.Meta {
+			var err error
+			ts.Meta[k], err = typeurl.UnmarshalAny(v)
+			if err != nil {
+				return ts, err
+			}
 		}
-		ts.Meta[k] = dst.Message
 	}
 	return ts, nil
 }
@@ -56,13 +75,28 @@ func marshalSeriesList(ts []TimeSeries) (seriesList []*_go.Series, err error) {
 	return seriesList, nil
 }
 
+func unmarshalSeriesList(seriesList []*_go.Series) (ts []TimeSeries, err error) {
+	ts = make([]TimeSeries, len(seriesList))
+	for i, s := range seriesList {
+		t, err := UnmarshalSeries(*s)
+		if err != nil {
+			return nil, err
+		}
+		ts[i] = t
+	}
+	return ts, nil
+}
+
 func (a GrpcAPI) Add(ctx context.Context, series *_go.Series) (*_go.Void, error) {
 	ts, err := UnmarshalSeries(*series)
 	if err != nil {
 		return &_go.Void{}, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 	_, addErr := a.c.Add(ts)
-	return &_go.Void{}, status.Errorf(addErr.GrpcStatus(), addErr.Error())
+	if addErr != nil {
+		return &_go.Void{}, status.Errorf(addErr.GrpcStatus(), addErr.Error())
+	}
+	return &_go.Void{}, nil
 }
 
 func (a GrpcAPI) GetAll(ctx context.Context, req *_go.PageParams) (*_go.Registrations, error) {
@@ -148,12 +182,18 @@ func (a GrpcAPI) Update(ctx context.Context, series *_go.Series) (*_go.Void, err
 		return &_go.Void{}, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 	_, updatErr := a.c.Update(series.Name, ts)
-	return &_go.Void{}, status.Errorf(updatErr.GrpcStatus(), updatErr.Error())
+	if updatErr != nil {
+		return &_go.Void{}, status.Errorf(updatErr.GrpcStatus(), updatErr.Error())
+	}
+	return &_go.Void{}, nil
 }
 
 func (a GrpcAPI) Delete(ctx context.Context, name *_go.SeriesName) (*_go.Void, error) {
 	deleteErr := a.c.Delete(name.Series)
-	return &_go.Void{}, status.Errorf(deleteErr.GrpcStatus(), deleteErr.Error())
+	if deleteErr != nil {
+		return &_go.Void{}, status.Errorf(deleteErr.GrpcStatus(), deleteErr.Error())
+	}
+	return &_go.Void{}, nil
 }
 
 // NewAPI returns the configured Data API

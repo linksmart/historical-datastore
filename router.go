@@ -30,7 +30,6 @@ func newRouter() *router {
 
 	// default handler(s)
 	r.handle(http.MethodGet, "/health", healthHandler)
-
 	// middleware chain for handler, used when calling chained()
 	r.Chain = alice.New(
 		context.ClearHandler,
