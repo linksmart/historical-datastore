@@ -45,10 +45,11 @@ func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage
 	const bufSize = 1024 * 1024
 	lis := bufconn.Listen(bufSize)
 	//start the server
-	api := NewGrpcAPI(regStorage, dataStorage, false)
+	srv := grpc.NewServer()
+	RegisterGRPCAPI(srv, regStorage, dataStorage, false)
 
 	go func() {
-		if err := api.StartGrpcServer(lis); err != nil {
+		if err := srv.Serve(lis); err != nil {
 			log.Fatalf("Server exited with error: %v", err)
 		}
 	}()
@@ -69,7 +70,7 @@ func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage
 
 	t.Cleanup(func() {
 		conn.Close()
-		api.StopGrpcServer()
+		srv.Stop()
 	})
 	return &GrpcClient{Client: client}
 }

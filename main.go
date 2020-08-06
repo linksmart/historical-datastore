@@ -22,6 +22,7 @@ import (
 	"github.com/linksmart/historical-datastore/registry"
 	"github.com/oleksandr/bonjour"
 	uuid "github.com/satori/go.uuid"
+	"google.golang.org/grpc"
 )
 
 const LINKSMART = `
@@ -141,7 +142,6 @@ func main() {
 	// Setup APIs
 	regAPI := registry.NewAPI(regStorage)
 	dataAPI := data.NewAPI(regStorage, dataStorage, conf.Data.AutoRegistration)
-	grpcDataAPI := data.NewGrpcAPI(regStorage, dataStorage, conf.Data.AutoRegistration)
 	//aggrAPI := aggregation.NewAPI(regStorage, aggrStorage)
 
 	if *demomode {
@@ -171,7 +171,10 @@ func main() {
 	go startHTTPServer(conf, regAPI, dataAPI)
 
 	if conf.GRPC.Enabled {
-		go startGRPCServer(conf, grpcDataAPI)
+		srv := grpc.NewServer()
+		data.RegisterGRPCAPI(srv, regStorage, dataStorage, conf.Data.AutoRegistration)
+		registry.RegisterGRPCAPI(srv, regStorage)
+		go startGRPCServer(conf, srv)
 	}
 	// Announce service using DNS-SD
 	var bonjourS *bonjour.Server
@@ -214,14 +217,14 @@ func main() {
 	log.Println("Stopped.")
 }
 
-func startGRPCServer(conf *common.Config, api *data.GrpcAPI) {
+func startGRPCServer(conf *common.Config, srv *grpc.Server) {
 	serverAddr := fmt.Sprintf(":%d", conf.GRPC.BindPort)
 	log.Printf("Serving GRPC on :%s", serverAddr)
 	l, err := net.Listen("tcp", serverAddr)
 	if err != nil {
 		log.Fatalf("could not listen to %s: %v", serverAddr, err)
 	}
-	err = api.StartGrpcServer(l)
+	err = srv.Serve(l)
 	if err != nil {
 		log.Fatalf("Stopped listening GRPC: %v", err)
 	}

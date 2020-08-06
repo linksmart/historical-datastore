@@ -3,7 +3,6 @@ package registry
 import (
 	"context"
 	"encoding/json"
-	"net"
 
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/linksmart/historical-datastore/common"
@@ -16,11 +15,19 @@ import (
 
 // API describes the RESTful HTTP data API
 type GrpcAPI struct {
-	c      *Controller
-	server *grpc.Server
+	c *Controller
+}
+
+// NewAPI returns the configured Data API
+func RegisterGRPCAPI(srv *grpc.Server, storage Storage) {
+	grpcAPI := &GrpcAPI{&Controller{storage}} //TODO: Sharing controller between HTTP and Grpc instead of creating one for both
+	_go.RegisterRegistryServer(srv, grpcAPI)
 }
 
 func mapToProtobufStruct(m map[string]interface{}) (*structpb.Struct, error) {
+	// Note:
+	// This function first converts the map to json bytes followed by the conversion to protobuf struct.
+	// This might not be a best way to achieve it.  For now we keep this as it is mainly for encoding "meta" field.
 	b, err := json.Marshal(m)
 	if err != nil {
 		return nil, err
@@ -33,6 +40,9 @@ func mapToProtobufStruct(m map[string]interface{}) (*structpb.Struct, error) {
 	return s, nil
 }
 func protobufStructToMap(s *structpb.Struct) (map[string]interface{}, error) {
+	// Note:
+	// This function first converts the protobuf struct to json bytes followed by the conversion to map.
+	// This might not be a best way to achieve it.  For now we keep this as it is mainly for decoding the "meta" field.
 	b, err := protojson.Marshal(s)
 	if err != nil {
 		return nil, err
@@ -208,20 +218,4 @@ func (a GrpcAPI) Delete(ctx context.Context, name *_go.SeriesName) (*_go.Void, e
 		return &_go.Void{}, status.Errorf(deleteErr.GrpcStatus(), deleteErr.Error())
 	}
 	return &_go.Void{}, nil
-}
-
-// NewAPI returns the configured Data API
-func NewGrpcAPI(storage Storage) *GrpcAPI {
-	srv := grpc.NewServer()
-	grpcAPI := &GrpcAPI{&Controller{storage}, srv} //TODO: Sharing controller between HTTP and Grpc instead of creating one for both
-	_go.RegisterRegistryServer(srv, grpcAPI)
-	return grpcAPI
-}
-
-func (a GrpcAPI) StartGrpcServer(l net.Listener) error {
-	return a.server.Serve(l)
-}
-
-func (a GrpcAPI) StopGrpcServer() {
-	a.server.Stop()
 }

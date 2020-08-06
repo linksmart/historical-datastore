@@ -3,7 +3,6 @@ package data
 import (
 	"context"
 	"io"
-	"net"
 	"strings"
 	"time"
 
@@ -19,24 +18,13 @@ import (
 
 // API describes the RESTful HTTP data API
 type GrpcAPI struct {
-	c      *Controller
-	server *grpc.Server
+	c *Controller
 }
 
 // NewAPI returns the configured Data API
-func NewGrpcAPI(registry registry.Storage, storage Storage, autoRegistration bool) *GrpcAPI {
-	srv := grpc.NewServer()
-	grpcAPI := &GrpcAPI{&Controller{registry, storage, autoRegistration}, srv} //TODO: Sharing controller between HTTP and Grpc instead of creating one for both
+func RegisterGRPCAPI(srv *grpc.Server, registry registry.Storage, storage Storage, autoRegistration bool) {
+	grpcAPI := &GrpcAPI{&Controller{registry, storage, autoRegistration}} //TODO: Sharing controller between HTTP and Grpc instead of creating one for both
 	_go.RegisterDataServer(srv, grpcAPI)
-	return grpcAPI
-}
-
-func (a GrpcAPI) StartGrpcServer(l net.Listener) error {
-	return a.server.Serve(l)
-}
-
-func (a GrpcAPI) StopGrpcServer() {
-	a.server.Stop()
 }
 
 func (a GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
