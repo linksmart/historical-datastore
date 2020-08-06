@@ -5,13 +5,10 @@ go 1.14
 require (
 	github.com/ancientlore/go-avltree v1.0.1 // indirect
 	github.com/codegangsta/negroni v1.0.0
-	github.com/containerd/typeurl v1.0.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/eclipse/paho.mqtt.golang v1.2.0
-	github.com/farshidtz/senml-protobuf v0.0.0-20200511123537-7fed769c3279 // indirect
 	github.com/farshidtz/senml-protobuf/go v0.0.0-20200401104923-1a78cd1643d7
 	github.com/farshidtz/senml/v2 v2.0.1-0.20200510133550-09f0cc3f0378
-	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.1
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/gorilla/context v1.1.1

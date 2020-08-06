@@ -169,7 +169,7 @@ func (api *API) UpdateOrCreate(w http.ResponseWriter, r *http.Request) {
 
 	_, UpdErr := api.c.Update(id, ts)
 	if UpdErr != nil {
-		if errors.Is(UpdErr, ErrNotFound) {
+		if errors.As(UpdErr, &ErrNotFound) {
 			addedTS, addErr := api.c.Add(ts)
 			if addErr != nil {
 				common.HttpErrorResponse(addErr, w)

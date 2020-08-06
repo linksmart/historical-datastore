@@ -92,11 +92,21 @@ func insertDummyData(quantity int, client *GrpcClient) ([]string, error) {
 	}
 
 	var names []string
+	type Dummy struct {
+		A int     `json:"a"`
+		B string  `json:"b"`
+		C bool    `json:"c"`
+		D float64 `json:"d"`
+	}
+	dummyVal := Dummy{A: 1, B: "test", C: false, D: 78884543.06}
 	for i := 1; i <= quantity; i++ {
+
 		var ts TimeSeries
 		ts.Name = fmt.Sprintf("http://example.com/sensor%d", i)
 		ts.Meta = make(map[string]interface{})
 		ts.Meta["SerialNumber"] = randInt(10000, 99999)
+		ts.Meta["SerialNumberStr"] = fmt.Sprintf("sensor %d", randInt(10000, 99999))
+		ts.Meta["moreInfo"] = dummyVal
 		//ts.Retention = fmt.Sprintf("%d%s", randInt(1, 20), []string{"m", "h", "d", "w"}[randInt(0, 3)])
 		//ts.Aggregation TODO
 		ts.Type = []ValueType{Float, Bool, String}[randInt(0, 2)]

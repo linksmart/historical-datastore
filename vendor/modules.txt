@@ -4,9 +4,6 @@ github.com/ancientlore/go-avltree
 # github.com/codegangsta/negroni v1.0.0
 ## explicit
 github.com/codegangsta/negroni
-# github.com/containerd/typeurl v1.0.1
-## explicit
-github.com/containerd/typeurl
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 ## explicit
 github.com/dgrijalva/jwt-go
@@ -18,8 +15,6 @@ github.com/eclipse/paho.mqtt.golang/packets
 github.com/farshidtz/elog
 # github.com/farshidtz/mqtt-match v1.0.1
 github.com/farshidtz/mqtt-match
-# github.com/farshidtz/senml-protobuf v0.0.0-20200511123537-7fed769c3279
-## explicit
 # github.com/farshidtz/senml-protobuf/go v0.0.0-20200401104923-1a78cd1643d7
 ## explicit
 github.com/farshidtz/senml-protobuf/go
@@ -29,18 +24,13 @@ github.com/farshidtz/senml/v2
 github.com/farshidtz/senml/v2/codec
 # github.com/fxamacker/cbor/v2 v2.2.0
 github.com/fxamacker/cbor/v2
-# github.com/gogo/protobuf v1.3.1
-## explicit
-github.com/gogo/protobuf/proto
-github.com/gogo/protobuf/sortkeys
-github.com/gogo/protobuf/types
 # github.com/golang/protobuf v1.4.1
 ## explicit
-github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
+github.com/golang/protobuf/ptypes/struct
 github.com/golang/protobuf/ptypes/timestamp
 # github.com/golang/snappy v0.0.1
 ## explicit
@@ -81,8 +71,6 @@ github.com/oleksandr/bonjour
 ## explicit
 # github.com/onsi/gomega v1.5.0
 ## explicit
-# github.com/pkg/errors v0.9.1
-github.com/pkg/errors
 # github.com/rs/cors v1.7.0
 ## explicit
 github.com/rs/cors
@@ -211,4 +199,5 @@ google.golang.org/protobuf/runtime/protoiface
 google.golang.org/protobuf/runtime/protoimpl
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
+google.golang.org/protobuf/types/known/structpb
 google.golang.org/protobuf/types/known/timestamppb

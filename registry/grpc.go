@@ -4,21 +4,45 @@ import (
 	"context"
 	"encoding/json"
 	"net"
-	"reflect"
 
-	"github.com/containerd/typeurl"
-	"github.com/gogo/protobuf/types"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/linksmart/historical-datastore/common"
 	_go "github.com/linksmart/historical-datastore/protobuf/go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // API describes the RESTful HTTP data API
 type GrpcAPI struct {
 	c      *Controller
 	server *grpc.Server
+}
+
+func mapToProtobufStruct(m map[string]interface{}) (*structpb.Struct, error) {
+	b, err := json.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+	s := &structpb.Struct{}
+	err = protojson.Unmarshal(b, s)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+func protobufStructToMap(s *structpb.Struct) (map[string]interface{}, error) {
+	b, err := protojson.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]interface{})
+	err = json.Unmarshal(b, &m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func marshalSeries(t TimeSeries) (_go.Series, error) {
@@ -29,17 +53,10 @@ func marshalSeries(t TimeSeries) (_go.Series, error) {
 	}
 
 	if t.Meta != nil {
-		s.Meta = make(map[string]*types.Any)
-		for k, v := range t.Meta {
-			bytes, err := json.Marshal(v)
-			if err != nil {
-				return _go.Series{}, err
-			}
-			s.Meta[k] = &types.Any{
-				TypeUrl: reflect.TypeOf(v).Name(),
-				Value:   bytes,
-			}
-
+		var err error
+		s.Meta, err = mapToProtobufStruct(t.Meta)
+		if err != nil {
+			return _go.Series{}, err
 		}
 	}
 	return s, nil
@@ -52,13 +69,10 @@ func UnmarshalSeries(s _go.Series) (TimeSeries, error) {
 		Unit: s.Unit,
 	}
 	if s.Meta != nil {
-		ts.Meta = make(map[string]interface{})
-		for k, v := range s.Meta {
-			var err error
-			ts.Meta[k], err = typeurl.UnmarshalAny(v)
-			if err != nil {
-				return ts, err
-			}
+		var err error
+		ts.Meta, err = protobufStructToMap(s.Meta)
+		if err != nil {
+			return TimeSeries{}, err
 		}
 	}
 	return ts, nil
