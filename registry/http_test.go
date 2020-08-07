@@ -30,11 +30,12 @@ func setupRouter(regAPI *API) *mux.Router {
 	return r
 }
 
-func setupAPI() (*API, Storage) {
+func setupAPI() (*API, Controller) {
 	regStorage := setupMemStorage()
-	regAPI := NewAPI(regStorage)
+	controller := *NewController(regStorage)
+	regAPI := NewAPI(controller)
 
-	return regAPI, regStorage
+	return regAPI, controller
 }
 
 // Manually send an HTTP request and get the response

@@ -15,12 +15,12 @@ import (
 
 // API describes the RESTful HTTP data API
 type GrpcAPI struct {
-	c *Controller
+	c Controller
 }
 
-// NewAPI returns the configured Data API
-func RegisterGRPCAPI(srv *grpc.Server, storage Storage) {
-	grpcAPI := &GrpcAPI{&Controller{storage}} //TODO: Sharing controller between HTTP and Grpc instead of creating one for both
+// Register the Registry API to the server
+func RegisterGRPCAPI(srv *grpc.Server, c Controller) {
+	grpcAPI := &GrpcAPI{c: c}
 	_go.RegisterRegistryServer(srv, grpcAPI)
 }
 

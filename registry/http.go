@@ -31,13 +31,13 @@ var (
 
 // RESTful HTTP API
 type API struct {
-	c *Controller
+	c Controller
 }
 
 // Returns the configured TimeSeriesList API
-func NewAPI(storage Storage) *API {
+func NewAPI(c Controller) *API {
 	return &API{
-		c: NewController(storage),
+		c: c,
 	}
 }
 

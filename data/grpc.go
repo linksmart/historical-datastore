@@ -10,7 +10,6 @@ import (
 	"github.com/farshidtz/senml/v2/codec"
 	"github.com/linksmart/historical-datastore/common"
 	_go "github.com/linksmart/historical-datastore/protobuf/go"
-	"github.com/linksmart/historical-datastore/registry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -18,13 +17,17 @@ import (
 
 // API describes the RESTful HTTP data API
 type GrpcAPI struct {
-	c *Controller
+	c Controller
 }
 
-// NewAPI returns the configured Data API
-func RegisterGRPCAPI(srv *grpc.Server, registry registry.Storage, storage Storage, autoRegistration bool) {
-	grpcAPI := &GrpcAPI{&Controller{registry, storage, autoRegistration}} //TODO: Sharing controller between HTTP and Grpc instead of creating one for both
+// Register the Data API to the server
+func RegisterGRPCAPI(srv *grpc.Server, c Controller) {
+	grpcAPI := &GrpcAPI{c: c}
 	_go.RegisterDataServer(srv, grpcAPI)
+}
+
+func (a GrpcAPI) Subscribe(request *_go.SubscribeRequest, server _go.Data_SubscribeServer) error {
+	panic("not implemented")
 }
 
 func (a GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
@@ -41,7 +44,7 @@ func (a GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
 		}
 		senmlPack := codec.ImportProtobufMessage(*message)
 
-		submitErr := a.c.submit(stream.Context(), senmlPack, nil)
+		submitErr := a.c.Submit(stream.Context(), senmlPack, nil)
 		if submitErr != nil {
 			return status.Errorf(submitErr.GrpcStatus(), "Error submitting:"+err.Error())
 		}

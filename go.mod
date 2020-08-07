@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/ancientlore/go-avltree v1.0.1 // indirect
 	github.com/codegangsta/negroni v1.0.0
+	github.com/cskr/pubsub v1.0.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/eclipse/paho.mqtt.golang v1.2.0
 	github.com/farshidtz/senml-protobuf/go v0.0.0-20200401104923-1a78cd1643d7

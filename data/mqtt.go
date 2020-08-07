@@ -26,7 +26,7 @@ const (
 
 type MQTTConnector struct {
 	sync.Mutex
-	registry registry.Storage
+	registry registry.Controller
 	storage  Storage
 	clientID string
 	managers map[string]*Manager
@@ -63,7 +63,7 @@ func NewMQTTConnector(storage Storage, clientID string) (*MQTTConnector, error) 
 	return c, nil
 }
 
-func (c *MQTTConnector) Start(reg registry.Storage) error {
+func (c *MQTTConnector) Start(reg registry.Controller) error {
 	c.registry = reg
 
 	perPage := 100

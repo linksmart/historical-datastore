@@ -56,12 +56,12 @@ func TestLevelDBAdd(t *testing.T) {
 	//ts.Aggregation TODO
 	ts.Type = String
 
-	addedTS, err := storage.Add(ts)
+	addedTS, err := storage.add(ts)
 	if err != nil {
 		t.Fatalf("Received unexpected error on add: %v", err.Error())
 	}
 
-	getTS, err := storage.Get(addedTS.Name)
+	getTS, err := storage.get(addedTS.Name)
 	if err != nil {
 		t.Fatalf("Received unexpected error on get: %v", err.Error())
 	}
@@ -85,19 +85,19 @@ func TestLevelDBUpdate(t *testing.T) {
 	}
 	defer clean(dbName)
 	defer closeDB()
-
-	IDs, err := generateDummyData(1, storage)
+	controller := *NewController(storage)
+	IDs, err := generateDummyData(1, controller)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	ID := IDs[0]
 
-	ts, err := storage.Get(ID)
+	ts, err := storage.get(ID)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err.Error())
 	}
 
-	updatedTS, err := storage.Update(ID, *ts)
+	updatedTS, err := storage.update(ID, *ts)
 	if err != nil {
 		t.Fatalf("Unexpected error on update: %v", err.Error())
 	}
@@ -118,18 +118,20 @@ func TestLevelDBDelete(t *testing.T) {
 	defer clean(dbName)
 	defer closeDB()
 
-	IDs, err := generateDummyData(1, storage)
+	controller := *NewController(storage)
+	IDs, err := generateDummyData(1, controller)
+
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	ID := IDs[0]
 
-	err = storage.Delete(ID)
+	err = storage.delete(ID)
 	if err != nil {
 		t.Errorf("Unexpected error on delete: %v\n", err.Error())
 	}
 
-	_, err = storage.Get(ID)
+	_, err = storage.get(ID)
 	if err == nil {
 		t.Error("The previous call hasn't deleted the time series!")
 	}
@@ -146,9 +148,10 @@ func TestLevelDBGetMany(t *testing.T) {
 		defer clean(dbName)
 		defer closeDB()
 
-		generateDummyData(TOTAL, storage)
+		controller := *NewController(storage)
+		generateDummyData(TOTAL, controller)
 
-		_, total, _ := storage.GetMany(1, perPage)
+		_, total, _ := storage.getMany(1, perPage)
 		if total != TOTAL {
 			t.Errorf("Returned total is %d instead of %d", total, TOTAL)
 		}
@@ -161,7 +164,7 @@ func TestLevelDBGetMany(t *testing.T) {
 				inThisPage = int(math.Mod(float64(TOTAL), float64(perPage)))
 			}
 
-			TS, _, _ := storage.GetMany(page, perPage)
+			TS, _, _ := storage.getMany(page, perPage)
 			if len(TS) != inThisPage {
 				t.Errorf("Wrong number of entries per page. Returned %d instead of %d", len(TS), inThisPage)
 			}
@@ -181,6 +184,7 @@ func TestLevelDBGetCount(t *testing.T) {
 	defer clean(dbName)
 	defer closeDB()
 
+	controller := *NewController(storage)
 	// Get the current total
 	c1, err := storage.getTotal()
 	if err != nil {
@@ -188,8 +192,9 @@ func TestLevelDBGetCount(t *testing.T) {
 	}
 
 	// Add few time series
+
 	const total = 5
-	generateDummyData(total, storage)
+	generateDummyData(total, controller)
 
 	c2, err := storage.getTotal()
 	if err != nil {
@@ -207,15 +212,15 @@ func TestLevelDBPathFilterOne(t *testing.T) {
 	}
 	defer clean(dbName)
 	defer closeDB()
-
-	IDs, err := generateDummyData(10, storage)
+	controller := *NewController(storage)
+	IDs, err := generateDummyData(10, controller)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 	ID := IDs[0]
 
-	targetTS, _ := storage.Get(ID)
-	matchedTS, err := storage.FilterOne("name", "equals", targetTS.Name)
+	targetTS, _ := storage.get(ID)
+	matchedTS, err := storage.filterOne("name", "equals", targetTS.Name)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -237,7 +242,9 @@ func TestLevelDBPathFilter(t *testing.T) {
 	defer clean(dbName)
 	defer closeDB()
 
-	IDs, err := generateDummyData(10, storage)
+	controller := *NewController(storage)
+	IDs, err := generateDummyData(10, controller)
+
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -248,13 +255,13 @@ func TestLevelDBPathFilter(t *testing.T) {
 		t.Fatalf("Need more dummies!")
 	}
 	for i := 0; i < expected; i++ {
-		ts, _ := storage.Get(IDs[i])
+		ts, _ := storage.get(IDs[i])
 		ts.Meta["newkey"] = "a/b"
-		storage.Update(ts.Name, *ts)
+		storage.update(ts.Name, *ts)
 	}
 
 	// QueryPage for format with prefix "newtype"
-	_, total, err := storage.Filter("meta.newkey", "prefix", "a", 1, 100)
+	_, total, err := storage.filter("meta.newkey", "prefix", "a", 1, 100)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

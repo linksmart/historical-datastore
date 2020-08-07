@@ -16,7 +16,6 @@ import (
 	"github.com/farshidtz/senml/v2/codec"
 	"github.com/gorilla/mux"
 	"github.com/linksmart/historical-datastore/common"
-	"github.com/linksmart/historical-datastore/registry"
 )
 
 const (
@@ -37,12 +36,12 @@ const (
 
 // API describes the RESTful HTTP data API
 type API struct {
-	c *Controller
+	c Controller
 }
 
 // NewAPI returns the configured Data API
-func NewAPI(registry registry.Storage, storage Storage, autoRegistration bool) *API {
-	return &API{NewController(registry, storage, autoRegistration)}
+func NewAPI(c Controller) *API {
+	return &API{c: c}
 }
 
 // QueryPage is a handler for querying data
@@ -137,7 +136,7 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	// Parse id(s) and get time series from registry
 	ids := strings.Split(params["id"], common.IDSeparator)
-	submitErr := api.c.submit(r.Context(), senmlPack, ids)
+	submitErr := api.c.Submit(r.Context(), senmlPack, ids)
 	if submitErr != nil {
 		common.HttpErrorResponse(submitErr, w)
 	} else {
@@ -182,7 +181,7 @@ func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	submitErr := api.c.submit(r.Context(), senmlPack, nil)
+	submitErr := api.c.Submit(r.Context(), senmlPack, nil)
 	if submitErr != nil {
 		common.HttpErrorResponse(submitErr, w)
 	} else {

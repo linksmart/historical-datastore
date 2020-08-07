@@ -35,7 +35,7 @@ func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 	return ms
 }
 
-func (ms *MemoryStorage) Add(ts TimeSeries) (*TimeSeries, error) {
+func (ms *MemoryStorage) add(ts TimeSeries) (*TimeSeries, error) {
 	err := validateCreation(ts, ms.conf)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrBadRequest, err)
@@ -61,7 +61,7 @@ func (ms *MemoryStorage) Add(ts TimeSeries) (*TimeSeries, error) {
 	return ms.data[ts.Name], nil
 }
 
-func (ms *MemoryStorage) Update(id string, ts TimeSeries) (*TimeSeries, error) {
+func (ms *MemoryStorage) update(id string, ts TimeSeries) (*TimeSeries, error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
@@ -96,7 +96,7 @@ func (ms *MemoryStorage) Update(id string, ts TimeSeries) (*TimeSeries, error) {
 	return ms.data[id], nil
 }
 
-func (ms *MemoryStorage) Delete(name string) error {
+func (ms *MemoryStorage) delete(name string) error {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
@@ -118,7 +118,7 @@ func (ms *MemoryStorage) Delete(name string) error {
 	return nil
 }
 
-func (ms *MemoryStorage) Get(id string) (*TimeSeries, error) {
+func (ms *MemoryStorage) get(id string) (*TimeSeries, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
@@ -130,7 +130,7 @@ func (ms *MemoryStorage) Get(id string) (*TimeSeries, error) {
 	return ts, nil
 }
 
-func (ms *MemoryStorage) GetMany(page, perPage int) ([]TimeSeries, int, error) {
+func (ms *MemoryStorage) getMany(page, perPage int) ([]TimeSeries, int, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
@@ -173,7 +173,7 @@ func (ms *MemoryStorage) getLastModifiedTime() (time.Time, error) {
 
 // Path filtering
 // Filter one registration
-func (ms *MemoryStorage) FilterOne(path, op, value string) (*TimeSeries, error) {
+func (ms *MemoryStorage) filterOne(path, op, value string) (*TimeSeries, error) {
 	pathTknz := strings.Split(path, ".")
 
 	ms.mutex.RLock()
@@ -194,7 +194,7 @@ func (ms *MemoryStorage) FilterOne(path, op, value string) (*TimeSeries, error) 
 }
 
 // Filter multiple registrations
-func (ms *MemoryStorage) Filter(path, op, value string, page, perPage int) ([]TimeSeries, int, error) {
+func (ms *MemoryStorage) filter(path, op, value string, page, perPage int) ([]TimeSeries, int, error) {
 	matchedIDs := []string{}
 	pathTknz := strings.Split(path, ".")
 

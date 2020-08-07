@@ -35,24 +35,25 @@ func deleteFile(path string) {
 	fmt.Println("done deleting file")
 }
 
-func setupTest(funcName string) (filename string, disconnectFunc func() error, dataStorage Storage, regStorage registry.Storage, err error) {
+func setupTest(funcName string) (filename string, disconnectFunc func() error, dataStorage Storage, regController registry.Controller, err error) {
 	fileName := os.TempDir() + "/" + funcName
 
 	deleteFile(fileName)
 	dataConf := common.DataConf{Backend: common.DataBackendConf{Type: SQLITE, DSN: fileName}}
 	dataStorage, disconnectFunc, err = NewSqlStorage(dataConf)
 	if err != nil {
-		return "", nil, nil, nil, err
+		return "", nil, nil, registry.Controller{}, err
 	}
 	//create a registry storage
-	regStorage = registry.NewMemoryStorage(common.RegConf{}, dataStorage)
+	regStorage := registry.NewMemoryStorage(common.RegConf{}, dataStorage)
+	regController = *registry.NewController(regStorage)
 	return
 }
 
 func TestStorage_Submit(t *testing.T) {
 	//Setup for the testing
 	funcName := "TestStorage_Submit"
-	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
 	if err != nil {
 		t.Fatalf("Error setting up benchmark:%s", err)
 	}
@@ -64,7 +65,7 @@ func TestStorage_Submit(t *testing.T) {
 		}
 	}()
 
-	testFuncs := map[string]func(t *testing.T, storage Storage, regstorage registry.Storage){
+	testFuncs := map[string]func(t *testing.T, storage Storage, regController registry.Controller){
 		"InsertValues":    testInsertVals,
 		"InsertStrings":   testInsertStrings,
 		"InsertBools":     testInsertBools,
@@ -75,12 +76,12 @@ func TestStorage_Submit(t *testing.T) {
 	for k, testFunc := range testFuncs {
 		t.Run(k, func(t *testing.T) {
 			fmt.Printf("\n%s:", k)
-			testFunc(t, dataStorage, regStorage)
+			testFunc(t, dataStorage, regController)
 		})
 	}
 }
 
-func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Storage) {
+func testInsertMultiType(t *testing.T, storage Storage, regController registry.Controller) {
 	totRec := 101
 	//Float Type
 	seriesMap := map[string]*registry.TimeSeries{
@@ -93,7 +94,7 @@ func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Stor
 	sentDataMap := make(map[string]senml.Pack)
 	seriesArr := make([]*registry.TimeSeries, 0, len(seriesMap))
 	for _, series := range seriesMap {
-		_, err := regstorage.Add(*series)
+		_, err := regController.Add(*series)
 		if err != nil {
 			t.Fatal("Insertion failed:", err)
 		}
@@ -103,7 +104,7 @@ func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Stor
 
 	defer func() {
 		for name, _ := range seriesMap {
-			err := regstorage.Delete(name)
+			err := regController.Delete(name)
 			if err != nil {
 				t.Fatal("deletion failed:", err)
 			}
@@ -146,14 +147,15 @@ func testInsertMultiType(t *testing.T, storage Storage, regstorage registry.Stor
 
 }
 
-func testInsertData(t *testing.T, storage Storage, regstorage registry.Storage) {
+func testInsertData(t *testing.T, storage Storage, regController registry.Controller) {
 	ts := registry.TimeSeries{Name: "Value/Camera", Type: registry.Data}
-	_, err := regstorage.Add(ts)
+	var err error
+	_, err = regController.Add(ts)
 	if err != nil {
 		t.Fatal("Insertion failed:", err)
 	}
 	defer func() {
-		err = regstorage.Delete(ts.Name)
+		err = regController.Delete(ts.Name)
 		if err != nil {
 			t.Fatal("deletion failed:", err)
 		}
@@ -190,14 +192,15 @@ func testInsertData(t *testing.T, storage Storage, regstorage registry.Storage) 
 	}
 }
 
-func testInsertBools(t *testing.T, storage Storage, regstorage registry.Storage) {
+func testInsertBools(t *testing.T, storage Storage, regController registry.Controller) {
 	ts := registry.TimeSeries{Name: "Value/Switch", Type: registry.Float, Unit: "Cel"}
-	_, err := regstorage.Add(ts)
+	var err error
+	_, err = regController.Add(ts)
 	if err != nil {
 		t.Fatal("Insertion failed:", err)
 	}
 	defer func() {
-		err = regstorage.Delete(ts.Name)
+		err = regController.Delete(ts.Name)
 		if err != nil {
 			t.Fatal("deletion failed:", err)
 		}
@@ -235,14 +238,15 @@ func testInsertBools(t *testing.T, storage Storage, regstorage registry.Storage)
 	}
 }
 
-func testInsertStrings(t *testing.T, storage Storage, regstorage registry.Storage) {
+func testInsertStrings(t *testing.T, storage Storage, regController registry.Controller) {
 	ts := registry.TimeSeries{Name: "Value/Room", Type: registry.String}
-	_, err := regstorage.Add(ts)
+	var err error
+	_, err = regController.Add(ts)
 	if err != nil {
 		t.Fatal("Insertion failed:", err)
 	}
 	defer func() {
-		err = regstorage.Delete(ts.Name)
+		err = regController.Delete(ts.Name)
 		if err != nil {
 			t.Fatal("deletion failed:", err)
 		}
@@ -279,14 +283,15 @@ func testInsertStrings(t *testing.T, storage Storage, regstorage registry.Storag
 	}
 }
 
-func testInsertVals(t *testing.T, storage Storage, regstorage registry.Storage) {
+func testInsertVals(t *testing.T, storage Storage, regController registry.Controller) {
 	ts := registry.TimeSeries{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
-	_, err := regstorage.Add(ts)
+	var err error
+	_, err = regController.Add(ts)
 	if err != nil {
 		t.Fatal("Insertion failed:", err)
 	}
 	defer func() {
-		err = regstorage.Delete(ts.Name)
+		err = regController.Delete(ts.Name)
 		if err != nil {
 			t.Fatal("deletion failed:", err)
 		}
@@ -327,7 +332,7 @@ func testInsertVals(t *testing.T, storage Storage, regstorage registry.Storage) 
 func TestStorage_Aggregation(t *testing.T) {
 	//Setup for the testing
 	funcName := "TestStorage_Aggregation"
-	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
 	if err != nil {
 		t.Fatalf("Error setting up benchmark:%s", err)
 	}
@@ -339,7 +344,7 @@ func TestStorage_Aggregation(t *testing.T) {
 		}
 	}()
 
-	testFuncs := map[string]func(t *testing.T, storage Storage, regStorage registry.Storage, aggr string){
+	testFuncs := map[string]func(t *testing.T, storage Storage, regController registry.Controller, aggr string){
 		"aggrSingleSeries":   testAggSingleSeries,
 		"aggrMultipleSeries": testAggMultipleSeries,
 	}
@@ -351,7 +356,7 @@ func TestStorage_Aggregation(t *testing.T) {
 			testName := k + "_" + a
 			t.Run(testName, func(t *testing.T) {
 				fmt.Printf("\n%s", testName)
-				testFunc(t, dataStorage, regStorage, a)
+				testFunc(t, dataStorage, regController, a)
 			})
 		}
 	}
@@ -374,7 +379,7 @@ func getAggrFunction(aggr string) aggrFunction {
 	}
 }
 
-func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.Storage, aggr string) {
+func testAggMultipleSeries(t *testing.T, storage Storage, regController registry.Controller, aggr string) {
 
 	seriesMap := map[string]*registry.TimeSeries{
 		"Bedroom/Temperature": {Name: "Bedroom/Temperature", Type: registry.Float, Unit: "Cel"},
@@ -385,7 +390,7 @@ func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.St
 
 	seriesArr := make([]*registry.TimeSeries, 0, len(seriesMap))
 	for _, series := range seriesMap {
-		_, err := regStorage.Add(*series)
+		_, err := regController.Add(*series)
 		if err != nil {
 			t.Fatal("Insertion failed:", err)
 		}
@@ -394,7 +399,7 @@ func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.St
 
 	defer func() {
 		for name, _ := range seriesMap {
-			err := regStorage.Delete(name)
+			err := regController.Delete(name)
 			if err != nil {
 				t.Fatal("deletion failed:", err)
 			}
@@ -451,14 +456,15 @@ func testAggMultipleSeries(t *testing.T, storage Storage, regStorage registry.St
 	}
 }
 
-func testAggSingleSeries(t *testing.T, storage Storage, regStorage registry.Storage, aggr string) {
+func testAggSingleSeries(t *testing.T, storage Storage, regController registry.Controller, aggr string) {
 	ts := registry.TimeSeries{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
-	_, err := regStorage.Add(ts)
+	var err error
+	_, err = regController.Add(ts)
 	if err != nil {
 		t.Fatal("Insertion failed:", err)
 	}
 	defer func() {
-		err = regStorage.Delete(ts.Name)
+		err = regController.Delete(ts.Name)
 		if err != nil {
 			t.Fatal("deletion failed:", err)
 		}
@@ -508,7 +514,7 @@ func testAggSingleSeries(t *testing.T, storage Storage, regStorage registry.Stor
 func TestStorage_Delete(t *testing.T) {
 	//Setup for the testing
 	funcName := "TestStorage_Delete"
-	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
 	if err != nil {
 		t.Fatalf("Error setting up benchmark:%s", err)
 	}
@@ -520,7 +526,7 @@ func TestStorage_Delete(t *testing.T) {
 		}
 	}()
 
-	testFuncs := map[string]func(t *testing.T, storage Storage, regStorage registry.Storage){
+	testFuncs := map[string]func(t *testing.T, storage Storage, regController registry.Controller){
 		"DeleteValues":    testDeleteVals,
 		"DeleteMultiType": testDeleteMultiType,
 	}
@@ -528,13 +534,13 @@ func TestStorage_Delete(t *testing.T) {
 	for k, testFunc := range testFuncs {
 		t.Run(k, func(t *testing.T) {
 			fmt.Printf("\n%s:", k)
-			testFunc(t, dataStorage, regStorage)
+			testFunc(t, dataStorage, regController)
 		})
 	}
 
 }
 
-func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Storage) {
+func testDeleteMultiType(t *testing.T, storage Storage, regController registry.Controller) {
 	totRec := 101
 	//Float Type
 	seriesMap := map[string]*registry.TimeSeries{
@@ -547,7 +553,7 @@ func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Stor
 	sentDataMap := make(map[string]senml.Pack)
 	seriesArr := make([]*registry.TimeSeries, 0, len(seriesMap))
 	for _, series := range seriesMap {
-		_, err := regStorage.Add(*series)
+		_, err := regController.Add(*series)
 		if err != nil {
 			t.Fatal("Insertion failed:", err)
 		}
@@ -557,7 +563,7 @@ func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Stor
 
 	defer func() {
 		for name, _ := range seriesMap {
-			err := regStorage.Delete(name)
+			err := regController.Delete(name)
 			if err != nil {
 				t.Fatal("deletion failed:", err)
 			}
@@ -609,14 +615,15 @@ func testDeleteMultiType(t *testing.T, storage Storage, regStorage registry.Stor
 	}
 }
 
-func testDeleteVals(t *testing.T, storage Storage, regStorage registry.Storage) {
+func testDeleteVals(t *testing.T, storage Storage, regController registry.Controller) {
 	ts := registry.TimeSeries{Name: "Value/temperature", Type: registry.Float, Unit: "Cel"}
-	_, err := regStorage.Add(ts)
+	var err error
+	_, err = regController.Add(ts)
 	if err != nil {
 		t.Fatal("Insertion failed:", err)
 	}
 	defer func() {
-		err = regStorage.Delete(ts.Name)
+		err := regController.Delete(ts.Name)
 		if err != nil {
 			t.Fatal("deletion failed:", err)
 		}
@@ -664,7 +671,7 @@ func BenchmarkCreation_OneSeries(b *testing.B) {
 	//Setup for the testing
 	funcName := "BenchmarkCreation_OneSeries"
 
-	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
 	if err != nil {
 		b.Fatalf("Error setting up benchmark:%s", err)
 	}
@@ -678,9 +685,9 @@ func BenchmarkCreation_OneSeries(b *testing.B) {
 
 	series := registry.TimeSeries{Name: funcName, Type: registry.Float}
 
-	_, err = regStorage.Add(series)
-	if err != nil {
-		b.Fatal(err)
+	_, addErr := regController.Add(series)
+	if addErr != nil {
+		b.Fatal(addErr)
 	}
 
 	// send some data
@@ -706,7 +713,7 @@ func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 	b.StopTimer()
 	//Setup for the testing
 	funcName := "BenchmarkCreation_OneSeries"
-	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
 	if err != nil {
 		b.Fatalf("Error setting up benchmark:%s", err)
 	}
@@ -720,7 +727,7 @@ func BenchmarkCreation_OneSeriesTestGroup(b *testing.B) {
 
 	//Actual benchmarking
 	series := registry.TimeSeries{Name: funcName, Type: registry.Float}
-	_, err = regStorage.Add(series)
+	_, err = regController.Add(series)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -819,7 +826,7 @@ func BenchmarkCreation_MultiSeries(b *testing.B) {
 	//Setup for the testing
 	b.StopTimer()
 	funcName := "BenchmarkCreation_MultiSeries"
-	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
 	if err != nil {
 		b.Fatalf("Error setting up benchmark:%s", err)
 	}
@@ -844,7 +851,7 @@ func BenchmarkCreation_MultiSeries(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		series.Name = strconv.Itoa(i)
 		records[0].BaseName = series.Name
-		_, err := regStorage.Add(series)
+		_, err := regController.Add(series)
 		if err != nil {
 			b.Fatal("Error adding series:", err)
 		}
@@ -864,7 +871,7 @@ func BenchmarkCreation_MultiSeries(b *testing.B) {
 func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 	//Setup for the testing
 	funcName := "BenchmarkCreation_MultiSeriesTestGroup"
-	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
 	if err != nil {
 		b.Fatalf("Error setting up benchmark:%s", err)
 	}
@@ -885,7 +892,7 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 	//fmt.Printf("%s:Count = %d\n", fileName, b.N)
 	for i := 0; i < TOTALSERIES; i++ {
 		series := registry.TimeSeries{Name: strconv.Itoa(i), Type: registry.Float}
-		_, err := regStorage.Add(series)
+		_, err := regController.Add(series)
 		if err != nil {
 			b.Fatal("Error adding series:", err)
 		}
@@ -902,7 +909,7 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 		b.Fatal("Insetion failed", err)
 	}
 
-	benchmarks := map[string]func(b *testing.B, storage Storage, regStorage registry.Storage){
+	benchmarks := map[string]func(b *testing.B, storage Storage, regController registry.Controller){
 		"CreateNewSeries": benchmarkCreateNewSeries,
 		"DeleteSeries":    benchmarkDeleteSeries,
 		"Getseries":       benchmarkQuerySeries,
@@ -913,7 +920,7 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 
 		ok := b.Run(k, func(b *testing.B) {
 			fmt.Printf("\nStarting %s:Count = %d\n", k, b.N)
-			bm(b, dataStorage, regStorage)
+			bm(b, dataStorage, regController)
 			fmt.Printf("\nDone %s:Count = %d\n", k, b.N)
 		})
 		if !ok {
@@ -924,7 +931,7 @@ func BenchmarkCreation_MultiSeriesTestGroup(b *testing.B) {
 
 }
 
-func benchmarkCreateNewSeries(b *testing.B, storage Storage, regStorage registry.Storage) {
+func benchmarkCreateNewSeries(b *testing.B, storage Storage, regController registry.Controller) {
 	records := Same_name_same_types(1, registry.TimeSeries{Name: "benchmarkCreateNewSeries", Type: registry.Float, Unit: ""}, true)
 
 	recordMap := make(map[string]senml.Pack, b.N)
@@ -932,7 +939,7 @@ func benchmarkCreateNewSeries(b *testing.B, storage Storage, regStorage registry
 	b.StopTimer()
 	for i := 0; i < b.N; i++ {
 		series := registry.TimeSeries{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: registry.Float}
-		_, err := regStorage.Add(series)
+		_, err := regController.Add(series)
 		if err != nil {
 			b.Fatal("Error adding series:", err)
 		}
@@ -951,7 +958,7 @@ func benchmarkCreateNewSeries(b *testing.B, storage Storage, regStorage registry
 
 }
 
-func benchmarkDeleteSeries(b *testing.B, storage Storage, regStorage registry.Storage) {
+func benchmarkDeleteSeries(b *testing.B, storage Storage, regController registry.Controller) {
 	b.StopTimer()
 	totRec := 1
 	records := Same_name_same_types(totRec, registry.TimeSeries{Name: "benchmarkDeleteSeries", Type: registry.Float, Unit: ""}, true)
@@ -960,7 +967,7 @@ func benchmarkDeleteSeries(b *testing.B, storage Storage, regStorage registry.St
 	seriesMap := make(map[string]*registry.TimeSeries, b.N)
 	for i := 0; i < b.N; i++ {
 		series := registry.TimeSeries{Name: "new" + strconv.Itoa(b.N) + strconv.Itoa(i), Type: registry.Float}
-		_, err := regStorage.Add(series)
+		_, err := regController.Add(series)
 		if err != nil {
 			b.Fatal("Error adding series:", err)
 		}
@@ -986,7 +993,7 @@ func benchmarkDeleteSeries(b *testing.B, storage Storage, regStorage registry.St
 	}
 }
 
-func benchmarkQuerySeries(b *testing.B, storage Storage, _ registry.Storage) {
+func benchmarkQuerySeries(b *testing.B, storage Storage, _ registry.Controller) {
 	ctx := context.Background()
 	for i := 0; i < b.N; i++ {
 		_, _, err := storage.QueryPage(ctx, Query{}, &registry.TimeSeries{Name: strconv.Itoa(i % TOTALSERIES)})

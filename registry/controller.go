@@ -28,7 +28,7 @@ func (c Controller) getLastModifiedTime() (time.Time, common.Error) {
 }
 
 func (c Controller) Add(ts TimeSeries) (*TimeSeries, common.Error) {
-	addedTs, err := c.s.Add(ts)
+	addedTs, err := c.s.add(ts)
 	if err != nil {
 		if errors.Is(err, ErrConflict) {
 			return nil, &common.ConflictError{S: err.Error()}
@@ -41,7 +41,7 @@ func (c Controller) Add(ts TimeSeries) (*TimeSeries, common.Error) {
 	return addedTs, nil
 }
 func (c Controller) Get(name string) (*TimeSeries, common.Error) {
-	ts, err := c.s.Get(name)
+	ts, err := c.s.get(name)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return ts, &common.NotFoundError{S: err.Error()}
@@ -54,21 +54,21 @@ func (c Controller) Get(name string) (*TimeSeries, common.Error) {
 
 // Utility functions
 func (c Controller) GetMany(page, perPage int) ([]TimeSeries, int, common.Error) {
-	ts, total, err := c.s.GetMany(page, perPage)
+	ts, total, err := c.s.getMany(page, perPage)
 	if err != nil {
 		return ts, total, &common.InternalError{S: err.Error()}
 	}
 	return ts, total, nil
 }
 func (c Controller) FilterOne(path, op, value string) (*TimeSeries, common.Error) {
-	ts, err := c.s.FilterOne(path, op, value)
+	ts, err := c.s.filterOne(path, op, value)
 	if err != nil {
 		return ts, &common.InternalError{S: "Error processing the filter request:" + err.Error()}
 	}
 	return ts, nil
 }
 func (c Controller) Filter(path, op, value string, page, perPage int) ([]TimeSeries, int, common.Error) {
-	ts, count, err := c.s.Filter(path, op, value, page, perPage)
+	ts, count, err := c.s.filter(path, op, value, page, perPage)
 	if err != nil {
 		return ts, count, &common.InternalError{S: "Error processing the filter request:" + err.Error()}
 	}
@@ -76,7 +76,7 @@ func (c Controller) Filter(path, op, value string, page, perPage int) ([]TimeSer
 }
 
 func (c Controller) Update(name string, ts TimeSeries) (*TimeSeries, common.Error) {
-	t, err := c.s.Update(name, ts)
+	t, err := c.s.update(name, ts)
 	if err != nil {
 		if errors.Is(err, ErrConflict) {
 			return t, &common.ConflictError{S: err.Error()}
@@ -89,7 +89,7 @@ func (c Controller) Update(name string, ts TimeSeries) (*TimeSeries, common.Erro
 	return t, nil
 }
 func (c Controller) Delete(name string) common.Error {
-	err := c.s.Delete(name)
+	err := c.s.delete(name)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return &common.NotFoundError{S: err.Error()}

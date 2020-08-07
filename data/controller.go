@@ -15,18 +15,18 @@ import (
 )
 
 type Controller struct {
-	registry         registry.Storage
+	registry         registry.Controller
 	storage          Storage
 	autoRegistration bool
 }
 
 // NewAPI returns the configured Data API
-func NewController(registry registry.Storage, storage Storage, autoRegistration bool) *Controller {
+func NewController(registry registry.Controller, storage Storage, autoRegistration bool) *Controller {
 	return &Controller{registry, storage, autoRegistration}
 }
 
 //TODO: Return right code in return so that right code is returned by callers. e.g. Grpc code or http error responses.
-func (c Controller) submit(ctx context.Context, senmlPack senml.Pack, ids []string) common.Error {
+func (c Controller) Submit(ctx context.Context, senmlPack senml.Pack, ids []string) common.Error {
 	const Y3K = 32503680000 //Year 3000 BC, beyond which the time values are not taken
 	//series := make(map[string]*registry.TimeSeries)
 	nameTS := make(map[string]*registry.TimeSeries)

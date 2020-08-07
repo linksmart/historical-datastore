@@ -41,6 +41,10 @@ message QueryRequest
 	string aggrInterval = 11;
 }
 
+message SubscribeRequest
+{
+	repeated string series = 1;
+}
 message DeleteRequest
 {
 	repeated string series = 1;
@@ -53,6 +57,7 @@ message CountResponse {
 service Data {
     rpc Submit(stream senml_protobuf.Message) returns(Void){}
     rpc Query(QueryRequest) returns(stream senml_protobuf.Message){}
+	rpc Subscribe(SubscribeRequest) returns (stream senml_protobuf.Message){}
 	rpc Count(QueryRequest) returns(CountResponse){}
 	rpc Delete(DeleteRequest) returns(Void){}
 }

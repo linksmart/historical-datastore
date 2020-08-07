@@ -16,12 +16,12 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func setupGrpcAPI(t *testing.T, regStorage Storage) (grpcClient *GrpcClient) {
+func setupGrpcAPI(t *testing.T, regController Controller) (grpcClient *GrpcClient) {
 	const bufSize = 1024 * 1024
 	lis := bufconn.Listen(bufSize)
 	//start the server
 	srv := grpc.NewServer()
-	RegisterGRPCAPI(srv, regStorage)
+	RegisterGRPCAPI(srv, regController)
 
 	go func() {
 		if err := srv.Serve(lis); err != nil {
@@ -56,7 +56,8 @@ func TestGrpcAPI_Add(t *testing.T) {
 	}
 	defer clean(dbName)
 	defer closeDB()
-	client := setupGrpcAPI(t, storage)
+	controller := *NewController(storage)
+	client := setupGrpcAPI(t, controller)
 
 	var ts TimeSeries
 	ts.Name = "any_url"
@@ -129,7 +130,8 @@ func TestGrpcAPI_Update(t *testing.T) {
 	}
 	defer clean(dbName)
 	defer closeDB()
-	client := setupGrpcAPI(t, storage)
+	controller := *NewController(storage)
+	client := setupGrpcAPI(t, controller)
 
 	IDs, err := insertDummyData(1, client)
 	if err != nil {
@@ -167,7 +169,8 @@ func TestGrpcAPI_Delete(t *testing.T) {
 	defer clean(dbName)
 	defer closeDB()
 
-	client := setupGrpcAPI(t, storage)
+	controller := *NewController(storage)
+	client := setupGrpcAPI(t, controller)
 
 	IDs, err := insertDummyData(1, client)
 	if err != nil {
@@ -197,7 +200,8 @@ func TestGrpcAPI_GetMany(t *testing.T) {
 		defer clean(dbName)
 		defer closeDB()
 
-		client := setupGrpcAPI(t, storage)
+		controller := *NewController(storage)
+		client := setupGrpcAPI(t, controller)
 
 		insertDummyData(TOTAL, client)
 
@@ -234,7 +238,8 @@ func TestGrpcAPI_FilterOne(t *testing.T) {
 	defer clean(dbName)
 	defer closeDB()
 
-	client := setupGrpcAPI(t, storage)
+	controller := *NewController(storage)
+	client := setupGrpcAPI(t, controller)
 
 	IDs, err := insertDummyData(10, client)
 	if err != nil {
@@ -243,7 +248,7 @@ func TestGrpcAPI_FilterOne(t *testing.T) {
 	ID := IDs[0]
 
 	targetTS, _ := client.Get(ID)
-	matchedTS, err := storage.FilterOne("name", "equals", targetTS.Name)
+	matchedTS, err := client.FilterOne("name", "equals", targetTS.Name)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -265,7 +270,8 @@ func TestGrpcAPI_Filter(t *testing.T) {
 	defer clean(dbName)
 	defer closeDB()
 
-	client := setupGrpcAPI(t, storage)
+	controller := *NewController(storage)
+	client := setupGrpcAPI(t, controller)
 
 	IDs, err := insertDummyData(10, client)
 	if err != nil {
@@ -278,7 +284,7 @@ func TestGrpcAPI_Filter(t *testing.T) {
 		t.Fatalf("Need more dummies!")
 	}
 	for i := 0; i < expected; i++ {
-		ts, err := storage.Get(IDs[i])
+		ts, err := client.Get(IDs[i])
 		if err != nil {
 			t.Errorf("error getting the series:%v", err)
 			return

@@ -140,19 +140,21 @@ func main() {
 	}
 
 	// Setup APIs
-	regAPI := registry.NewAPI(regStorage)
-	dataAPI := data.NewAPI(regStorage, dataStorage, conf.Data.AutoRegistration)
+	regController := registry.NewController(regStorage)
+	dataController := data.NewController(*regController, dataStorage, conf.Data.AutoRegistration)
+	regAPI := registry.NewAPI(*regController)
+	dataAPI := data.NewAPI(*dataController)
 	//aggrAPI := aggregation.NewAPI(regStorage, aggrStorage)
 
 	if *demomode {
-		err = demo.StartDummyStreamer(regStorage, dataStorage)
+		err = demo.StartDummyStreamer(*regController, *dataController)
 		if err != nil {
 			log.Panic("Failed to start the dummy streamer", err)
 		}
 	}
 	// Start MQTT connector
 	// TODO: disconnect on shutdown
-	err = mqttConn.Start(regStorage)
+	err = mqttConn.Start(*regController)
 	if err != nil {
 		log.Panicf("Error starting MQTT Connector: %s", err)
 	}
@@ -172,8 +174,8 @@ func main() {
 
 	if conf.GRPC.Enabled {
 		srv := grpc.NewServer()
-		data.RegisterGRPCAPI(srv, regStorage, dataStorage, conf.Data.AutoRegistration)
-		registry.RegisterGRPCAPI(srv, regStorage)
+		data.RegisterGRPCAPI(srv, *dataController)
+		registry.RegisterGRPCAPI(srv, *regController)
 		go startGRPCServer(conf, srv)
 	}
 	// Announce service using DNS-SD

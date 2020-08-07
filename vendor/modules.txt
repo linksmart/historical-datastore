@@ -4,6 +4,9 @@ github.com/ancientlore/go-avltree
 # github.com/codegangsta/negroni v1.0.0
 ## explicit
 github.com/codegangsta/negroni
+# github.com/cskr/pubsub v1.0.2
+## explicit
+github.com/cskr/pubsub
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 ## explicit
 github.com/dgrijalva/jwt-go

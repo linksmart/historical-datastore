@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage) (grpcClient *GrpcClient) {
+func setupGrpcAPI(t *testing.T, dataStorage Storage, regController registry.Controller) (grpcClient *GrpcClient) {
 	// Create three dummy time series with different types
 	tss := []registry.TimeSeries{
 		{
@@ -35,7 +35,7 @@ func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage
 		},
 	}
 	for _, ts := range tss {
-		_, err := regStorage.Add(ts)
+		_, err := regController.Add(ts)
 		if err != nil {
 			fmt.Println("Error creating dummy TS:", err)
 			break
@@ -46,7 +46,8 @@ func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage
 	lis := bufconn.Listen(bufSize)
 	//start the server
 	srv := grpc.NewServer()
-	RegisterGRPCAPI(srv, regStorage, dataStorage, false)
+	controller := NewController(regController, dataStorage, false)
+	RegisterGRPCAPI(srv, *controller)
 
 	go func() {
 		if err := srv.Serve(lis); err != nil {
@@ -77,7 +78,7 @@ func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage
 
 func TestGrpcSubmit(t *testing.T) {
 	funcName := "TestGrpcSubmit"
-	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
 	if err != nil {
 		t.Fatalf("Error setting up benchmark:%s", err)
 	}
@@ -88,7 +89,7 @@ func TestGrpcSubmit(t *testing.T) {
 			log.Fatal(err)
 		}
 	}()
-	client := setupGrpcAPI(t, dataStorage, regStorage)
+	client := setupGrpcAPI(t, dataStorage, regController)
 
 	v1 := 42.0
 	r1 := senml.Record{
@@ -144,7 +145,7 @@ func TestGrpcSubmit(t *testing.T) {
 
 func TestGrpcDelete(t *testing.T) {
 	funcName := "TestGrpcDelete"
-	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
 	if err != nil {
 		t.Fatalf("Error setting up benchmark:%s", err)
 	}
@@ -155,7 +156,7 @@ func TestGrpcDelete(t *testing.T) {
 			log.Fatal(err)
 		}
 	}()
-	client := setupGrpcAPI(t, dataStorage, regStorage)
+	client := setupGrpcAPI(t, dataStorage, regController)
 
 	v1 := 42.0
 	r1 := senml.Record{
