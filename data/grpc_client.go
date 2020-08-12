@@ -17,6 +17,11 @@ type GrpcClient struct {
 	Client _go.DataClient
 }
 
+type ResponsePack struct {
+	p   senml.Pack
+	err error
+}
+
 func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
 	conn, err := grpc.Dial(serverEndpoint, grpc.WithInsecure())
 	if err != nil {
@@ -105,4 +110,30 @@ func (c *GrpcClient) Delete(seriesNames []string, from time.Time, to time.Time) 
 		return fmt.Errorf("error deleting: %v", err)
 	}
 	return nil
+}
+
+func (c *GrpcClient) Subscribe(ctx context.Context, seriesNames ...string) (chan ResponsePack, error) {
+	request := _go.SubscribeRequest{
+		Series: seriesNames,
+	}
+	stream, err := c.Client.Subscribe(ctx, &request)
+	if err != nil {
+		return nil, fmt.Errorf("error deleting: %v", err)
+	}
+	ch := make(chan ResponsePack)
+	go func() {
+		defer close(ch)
+		for {
+			message, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				ch <- ResponsePack{p: nil, err: err}
+				return
+			}
+			ch <- ResponsePack{p: codec.ImportProtobufMessage(*message), err: nil}
+		}
+	}()
+	return ch, err
 }

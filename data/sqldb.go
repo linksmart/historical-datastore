@@ -470,7 +470,9 @@ func (s *SqlStorage) streamSingleSeries(ctx context.Context, q Query, sendFunc s
 			if recordCount == q.PerPage {
 				//prepare for the next round by resetting the slice
 				recordCount = 0
-				sendFunc(records)
+				if err = sendFunc(records); err != nil {
+					return err
+				}
 				records = records[:0]
 				baseRecord = nil
 			}
@@ -489,7 +491,9 @@ func (s *SqlStorage) streamSingleSeries(ctx context.Context, q Query, sendFunc s
 			if recordCount == q.PerPage {
 				//prepare for the next round by resetting the slice
 				recordCount = 0
-				sendFunc(records)
+				if err = sendFunc(records); err != nil {
+					return err
+				}
 				records = records[:0]
 				baseRecord = nil
 			}
@@ -508,7 +512,9 @@ func (s *SqlStorage) streamSingleSeries(ctx context.Context, q Query, sendFunc s
 			if recordCount == q.PerPage {
 				//prepare for the next round by resetting the slice
 				recordCount = 0
-				sendFunc(records)
+				if err = sendFunc(records); err != nil {
+					return err
+				}
 				records = records[:0]
 				baseRecord = nil
 			}
@@ -527,14 +533,18 @@ func (s *SqlStorage) streamSingleSeries(ctx context.Context, q Query, sendFunc s
 			if recordCount == q.PerPage {
 				//prepare for the next round by resetting the slice
 				recordCount = 0
-				sendFunc(records)
+				if err = sendFunc(records); err != nil {
+					return err
+				}
 				records = records[:0]
 				baseRecord = nil
 			}
 		}
 	}
 	if recordCount != 0 { //send the last page
-		sendFunc(records)
+		if err = sendFunc(records); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -615,14 +625,18 @@ func (s *SqlStorage) streamMultipleSeries(ctx context.Context, q Query, sendFunc
 		if recordCount == q.PerPage {
 			//prepare for the next round by resetting the slice
 			recordCount = 0
-			sendFunc(records)
+			if err = sendFunc(records); err != nil {
+				return err
+			}
 			records = records[:0]
 			baseRecord = nil
 		}
 
 	}
 	if recordCount != 0 { //send the last page
-		sendFunc(records)
+		if err = sendFunc(records); err != nil {
+			return err
+		}
 	}
 	return nil
 }

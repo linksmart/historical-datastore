@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"io"
+	"log"
 	"strings"
 	"time"
 
@@ -24,10 +25,6 @@ type GrpcAPI struct {
 func RegisterGRPCAPI(srv *grpc.Server, c Controller) {
 	grpcAPI := &GrpcAPI{c: c}
 	_go.RegisterDataServer(srv, grpcAPI)
-}
-
-func (a GrpcAPI) Subscribe(request *_go.SubscribeRequest, server _go.Data_SubscribeServer) error {
-	panic("not implemented")
 }
 
 func (a GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
@@ -81,8 +78,8 @@ func (a GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) (
 			return status.Errorf(codes.InvalidArgument, "Error parsing aggregation interval %s:%s ", request.AggrInterval, err.Error())
 		}
 	}
+	ctx := stream.Context()
 	var sendFunc sendFunction = func(pack senml.Pack) error {
-		ctx := stream.Context()
 		if ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded {
 			return ctx.Err()
 		}
@@ -148,4 +145,32 @@ func (a GrpcAPI) Delete(ctx context.Context, request *_go.DeleteRequest) (*_go.V
 		return nil, status.Errorf(deleteErr.GrpcStatus(), "Error deleting: "+deleteErr.Error())
 	}
 	return &_go.Void{}, nil
+}
+
+func (a GrpcAPI) Subscribe(request *_go.SubscribeRequest, stream _go.Data_SubscribeServer) error {
+	names := request.Series
+	ch, err := a.c.Subscribe(names...)
+	if err != nil {
+		return status.Errorf(err.GrpcStatus(), "Error subscribing: %v", err)
+	}
+	defer a.c.Unsubscribe(ch, names...)
+
+	ctx := stream.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case res := <-ch:
+			if p, ok := res.(senml.Pack); ok {
+				message := codec.ExportProtobufMessage(p)
+				if err := stream.Send(&message); err != nil {
+					return err
+				}
+			} else {
+				log.Print("channel closed")
+				return nil
+			}
+		}
+	}
+
 }
