@@ -3,12 +3,15 @@ syntax = "proto3";
 package data;
 
 import  "senml.proto";
-
+import "google/protobuf/struct.proto";
 option go_package = "github.com/linksmart/historical-datastore/protobuf/go";
 
 //
 //Compilation:
-// Go:  protoc -I protobuf --go_out=plugins=grpc,paths=source_relative:protobuf\go  protobuf\service.proto
+
+
+// Go:
+	//protoc -I protobuf --go_out=plugins=grpc,paths=source_relative:protobuf\go  protobuf\service.proto
 
 message Void
 {
@@ -38,6 +41,10 @@ message QueryRequest
 	string aggrInterval = 11;
 }
 
+message SubscribeRequest
+{
+	repeated string series = 1;
+}
 message DeleteRequest
 {
 	repeated string series = 1;
@@ -48,8 +55,61 @@ message CountResponse {
 	int32 total = 1;
 }
 service Data {
-    rpc Submit(senml_protobuf.Message) returns(Void){}
+    rpc Submit(stream senml_protobuf.Message) returns(Void){}
     rpc Query(QueryRequest) returns(stream senml_protobuf.Message){}
+	rpc Subscribe(SubscribeRequest) returns (stream senml_protobuf.Message){}
 	rpc Count(QueryRequest) returns(CountResponse){}
 	rpc Delete(DeleteRequest) returns(Void){}
+}
+
+message Series {
+	string name = 1;
+	enum ValueType {
+		Float = 0;
+		String = 1;
+		Bool = 2;
+		Data = 3;
+	}
+	ValueType type = 2;
+	string unit =3;
+	google.protobuf.Struct meta = 4;
+
+}
+message Registrations{
+	repeated Series seriesList = 1;
+	int32 total =2;
+	int32 page = 3;
+	int32 perPage =4;
+}
+
+message SeriesName
+{
+	string series = 1;
+}
+message Filterpath
+{
+	string path = 1;
+	string op = 2;
+	string value = 3;
+}
+message PageParams
+{
+	int32 page = 1;
+	int32 perPage = 2;
+}
+
+message FilterManyRequest
+{
+	Filterpath filterPath = 1;
+	PageParams pageParams = 2;
+}
+
+service Registry {
+	rpc Add(Series) returns(Void){}
+	rpc GetAll(PageParams) returns(Registrations){}
+	rpc Get(SeriesName) returns(Series){}
+	rpc FilterOne(Filterpath) returns(Series){}
+	rpc Filter(FilterManyRequest) returns(Registrations){}
+	rpc Update(Series) returns(Void){}
+	rpc Delete(SeriesName) returns(Void){}
 }

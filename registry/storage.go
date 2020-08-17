@@ -15,14 +15,14 @@ const (
 // Storage is an interface of a Registry storage backend
 type Storage interface {
 	// CRUD
-	Add(ts TimeSeries) (*TimeSeries, error)
-	Update(name string, ts TimeSeries) (*TimeSeries, error)
-	Get(name string) (*TimeSeries, error)
-	Delete(name string) error
+	add(ts TimeSeries) (*TimeSeries, error)
+	update(name string, ts TimeSeries) (*TimeSeries, error)
+	get(name string) (*TimeSeries, error)
+	delete(name string) error
 	// Utility functions
-	GetMany(page, perPage int) ([]TimeSeries, int, error)
-	FilterOne(path, op, value string) (*TimeSeries, error)
-	Filter(path, op, value string, page, perPage int) ([]TimeSeries, int, error)
+	getMany(page, perPage int) ([]TimeSeries, int, error)
+	filterOne(path, op, value string) (*TimeSeries, error)
+	filter(path, op, value string, page, perPage int) ([]TimeSeries, int, error)
 	// needed internally
 	getTotal() (int, error)
 	getLastModifiedTime() (time.Time, error)

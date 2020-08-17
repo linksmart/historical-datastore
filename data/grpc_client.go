@@ -17,6 +17,11 @@ type GrpcClient struct {
 	Client _go.DataClient
 }
 
+type ResponsePack struct {
+	p   senml.Pack
+	err error
+}
+
 func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
 	conn, err := grpc.Dial(serverEndpoint, grpc.WithInsecure())
 	if err != nil {
@@ -28,8 +33,22 @@ func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
 
 func (c *GrpcClient) Submit(pack senml.Pack) error {
 	message := codec.ExportProtobufMessage(pack)
-	_, err := c.Client.Submit(context.Background(), &message)
-	return err
+	stream, err := c.Client.Submit(context.Background())
+	if err != nil {
+		return err
+	}
+	err = stream.Send(&message)
+	if err == io.EOF {
+		return fmt.Errorf("unexpected EOF")
+	}
+	if err != nil {
+		return err
+	}
+	_, err = stream.CloseAndRecv()
+	if err != nil {
+		return fmt.Errorf("error receving response: %w", err)
+	}
+	return nil
 }
 
 // TODO facilitate aborting of the query (using channels)
@@ -64,7 +83,7 @@ func (c *GrpcClient) Query(seriesNames []string, q Query) (senml.Pack, error) {
 
 func (c *GrpcClient) Count(series []string, q Query) (total int, err error) {
 	request := _go.QueryRequest{
-		Series:         series,
+		Series:          series,
 		From:            q.From.Format(time.RFC3339),
 		To:              q.To.Format(time.RFC3339),
 		RecordPerPacket: int32(q.PerPage),
@@ -91,4 +110,30 @@ func (c *GrpcClient) Delete(seriesNames []string, from time.Time, to time.Time) 
 		return fmt.Errorf("error deleting: %v", err)
 	}
 	return nil
+}
+
+func (c *GrpcClient) Subscribe(ctx context.Context, seriesNames ...string) (chan ResponsePack, error) {
+	request := _go.SubscribeRequest{
+		Series: seriesNames,
+	}
+	stream, err := c.Client.Subscribe(ctx, &request)
+	if err != nil {
+		return nil, fmt.Errorf("error deleting: %v", err)
+	}
+	ch := make(chan ResponsePack)
+	go func() {
+		defer close(ch)
+		for {
+			message, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				ch <- ResponsePack{p: nil, err: err}
+				return
+			}
+			ch <- ResponsePack{p: codec.ImportProtobufMessage(*message), err: nil}
+		}
+	}()
+	return ch, err
 }

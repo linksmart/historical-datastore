@@ -2,16 +2,15 @@ package data
 
 import (
 	"context"
-	"net"
+	"io"
+	"log"
 	"strings"
 	"time"
 
-	senml_protobuf "github.com/farshidtz/senml-protobuf/go"
 	"github.com/farshidtz/senml/v2"
 	"github.com/farshidtz/senml/v2/codec"
 	"github.com/linksmart/historical-datastore/common"
 	_go "github.com/linksmart/historical-datastore/protobuf/go"
-	"github.com/linksmart/historical-datastore/registry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,40 +18,38 @@ import (
 
 // API describes the RESTful HTTP data API
 type GrpcAPI struct {
-	c      *Controller
-	server *grpc.Server
+	c Controller
 }
 
-// NewAPI returns the configured Data API
-func NewGrpcAPI(registry registry.Storage, storage Storage, autoRegistration bool) *GrpcAPI {
-	srv := grpc.NewServer()
-	grpcAPI := &GrpcAPI{&Controller{registry, storage, autoRegistration}, srv} //TODO: Sharing controller between HTTP and Grpc instead of creating one for both
+// Register the Data API to the server
+func RegisterGRPCAPI(srv *grpc.Server, c Controller) {
+	grpcAPI := &GrpcAPI{c: c}
 	_go.RegisterDataServer(srv, grpcAPI)
-	return grpcAPI
 }
 
-func (a *GrpcAPI) StartGrpcServer(l net.Listener) error {
-	return a.server.Serve(l)
-}
+func (a GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
+	for {
+		message, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&_go.Void{})
+		}
+		if err != nil {
+			return err
+		}
+		if message == nil {
+			return status.Errorf(codes.InvalidArgument, "empty message received")
+		}
+		senmlPack := codec.ImportProtobufMessage(*message)
 
-func (a *GrpcAPI) StopGrpcServer() {
-	a.server.Stop()
-}
-
-func (a *GrpcAPI) Submit(ctx context.Context, message *senml_protobuf.Message) (*_go.Void, error) {
-	if message == nil {
-		return nil, status.Errorf(codes.InvalidArgument, "empty message received")
+		submitErr := a.c.Submit(stream.Context(), senmlPack, nil)
+		if submitErr != nil {
+			return status.Errorf(submitErr.GrpcStatus(), "Error submitting:"+err.Error())
+		}
 	}
-	senmlPack := codec.ImportProtobufMessage(*message)
-
-	err := a.c.submit(ctx, senmlPack, nil)
-	if err != nil {
-		return nil, status.Errorf(err.GrpcStatus(), "Error submitting:"+err.Error())
-	}
-	return &_go.Void{}, nil
+	return nil
 }
 
-func (a *GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) (err error) {
+func (a GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) (err error) {
 	var q Query
 	q.From, err = parseFromValue(request.From)
 	if err != nil {
@@ -81,8 +78,8 @@ func (a *GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) 
 			return status.Errorf(codes.InvalidArgument, "Error parsing aggregation interval %s:%s ", request.AggrInterval, err.Error())
 		}
 	}
+	ctx := stream.Context()
 	var sendFunc sendFunction = func(pack senml.Pack) error {
-		ctx := stream.Context()
 		if ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded {
 			return ctx.Err()
 		}
@@ -98,7 +95,7 @@ func (a *GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) 
 	return nil
 }
 
-func (a *GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.CountResponse, error) {
+func (a GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.CountResponse, error) {
 	var q Query
 	var err error
 	q.From, err = parseFromValue(request.From)
@@ -132,7 +129,7 @@ func (a *GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.Co
 	return &response, nil
 }
 
-func (a *GrpcAPI) Delete(ctx context.Context, request *_go.DeleteRequest) (*_go.Void, error) {
+func (a GrpcAPI) Delete(ctx context.Context, request *_go.DeleteRequest) (*_go.Void, error) {
 	from, err := parseFromValue(request.From)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Error parsing from value: "+err.Error())
@@ -148,4 +145,32 @@ func (a *GrpcAPI) Delete(ctx context.Context, request *_go.DeleteRequest) (*_go.
 		return nil, status.Errorf(deleteErr.GrpcStatus(), "Error deleting: "+deleteErr.Error())
 	}
 	return &_go.Void{}, nil
+}
+
+func (a GrpcAPI) Subscribe(request *_go.SubscribeRequest, stream _go.Data_SubscribeServer) error {
+	names := request.Series
+	ch, err := a.c.Subscribe(names...)
+	if err != nil {
+		return status.Errorf(err.GrpcStatus(), "Error subscribing: %v", err)
+	}
+	defer a.c.Unsubscribe(ch, names...)
+
+	ctx := stream.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case res := <-ch:
+			if p, ok := res.(senml.Pack); ok {
+				message := codec.ExportProtobufMessage(p)
+				if err := stream.Send(&message); err != nil {
+					return err
+				}
+			} else {
+				log.Print("channel closed")
+				return nil
+			}
+		}
+	}
+
 }

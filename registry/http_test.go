@@ -30,11 +30,12 @@ func setupRouter(regAPI *API) *mux.Router {
 	return r
 }
 
-func setupAPI() (*API, Storage) {
+func setupAPI() (*API, Controller) {
 	regStorage := setupMemStorage()
-	regAPI := NewAPI(regStorage)
+	controller := *NewController(regStorage)
+	regAPI := NewAPI(controller)
 
-	return regAPI, regStorage
+	return regAPI, controller
 }
 
 // Manually send an HTTP request and get the response
@@ -310,7 +311,7 @@ func TestHttpUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	ts.Retention.Min = "3h"
+
 	b, err := json.Marshal(&ts)
 	if err != nil {
 		t.Fatalf(err.Error())

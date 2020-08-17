@@ -14,7 +14,7 @@ import (
 )
 
 // Generate dummy time series
-func generateDummyData(quantity int, storage Storage) ([]string, error) {
+func generateDummyData(quantity int, controller Controller) ([]string, error) {
 	rand.Seed(time.Now().UTC().UnixNano())
 	randInt := func(min int, max int) int {
 		return min + rand.Intn(max-min)
@@ -30,7 +30,7 @@ func generateDummyData(quantity int, storage Storage) ([]string, error) {
 		//ts.Aggregation TODO
 		ts.Type = []ValueType{Float, Bool, String}[randInt(0, 2)]
 
-		newTS, err := storage.Add(ts)
+		newTS, err := controller.Add(ts)
 		if err != nil {
 			return nil, fmt.Errorf("error adding dummy: %s", err)
 		}
@@ -51,12 +51,12 @@ func TestMemstorageAdd(t *testing.T) {
 	ts.Type = String
 
 	storage := setupMemStorage()
-	addedTS, err := storage.Add(ts)
+	addedTS, err := storage.add(ts)
 	if err != nil {
 		t.Fatalf("Received unexpected error on add: %v", err.Error())
 	}
 
-	getTS, err := storage.Get(addedTS.Name)
+	getTS, err := storage.get(addedTS.Name)
 	if err != nil {
 		t.Errorf("Received unexpected error on get: %v", err.Error())
 	}
@@ -73,21 +73,21 @@ func TestMemstorageGet(t *testing.T) {
 
 func TestMemstorageUpdate(t *testing.T) {
 	storage := setupMemStorage()
-	IDs, err := generateDummyData(1, storage)
+	controller := *NewController(storage)
+	IDs, err := generateDummyData(1, controller)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	ID := IDs[0]
 
-	ts, err := storage.Get(ID)
+	ts, err := storage.get(ID)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err.Error())
 	}
 
-	ts.Retention.Max = "20w"
 	//ts.Aggregation TODO
 
-	updatedDS, err := storage.Update(ID, *ts)
+	updatedDS, err := storage.update(ID, *ts)
 	if err != nil {
 		t.Fatalf("Unexpected error on update: %v", err.Error())
 	}
@@ -100,19 +100,19 @@ func TestMemstorageUpdate(t *testing.T) {
 
 func TestMemstorageDelete(t *testing.T) {
 	storage := setupMemStorage()
-
-	IDs, err := generateDummyData(1, storage)
+	controller := *NewController(storage)
+	IDs, err := generateDummyData(1, controller)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	ID := IDs[0]
 
-	err = storage.Delete(ID)
+	err = storage.delete(ID)
 	if err != nil {
 		t.Errorf("Unexpected error on delete: %v", err.Error())
 	}
 
-	err = storage.Delete(ID)
+	err = storage.delete(ID)
 	if err == nil {
 		t.Errorf("The previous call hasn't deleted the time series")
 	}
@@ -122,11 +122,12 @@ func TestMemstorageGetMany(t *testing.T) {
 	// Check based on different inputs
 	subTest := func(TOTAL int, perPage int) {
 		storage := setupMemStorage()
-		_, err := generateDummyData(TOTAL, storage)
+		controller := *NewController(storage)
+		_, err := generateDummyData(TOTAL, controller)
 		if err != nil {
 			t.Errorf("Unexpected error on generateDummyData: %v", err.Error())
 		}
-		_, total, _ := storage.GetMany(1, perPage)
+		_, total, _ := storage.getMany(1, perPage)
 		if total != TOTAL {
 			t.Errorf("Returned total is %d instead of %d", total, TOTAL)
 		}
@@ -139,7 +140,7 @@ func TestMemstorageGetMany(t *testing.T) {
 				inThisPage = int(math.Mod(float64(TOTAL), float64(perPage)))
 			}
 
-			DSs, _, _ := storage.GetMany(page, perPage)
+			DSs, _, _ := storage.getMany(page, perPage)
 			if len(DSs) != inThisPage {
 				t.Errorf("Wrong number of entries per page. Returned %d instead of %d", len(DSs), inThisPage)
 			}
@@ -154,7 +155,8 @@ func TestMemstorageGetMany(t *testing.T) {
 func TestMemstorageGetCount(t *testing.T) {
 	storage := setupMemStorage()
 	const total = 5
-	_, err := generateDummyData(total, storage)
+	controller := *NewController(storage)
+	_, err := generateDummyData(total, controller)
 	if err != nil {
 		t.Errorf("error generating dummy data")
 	}
@@ -166,15 +168,15 @@ func TestMemstorageGetCount(t *testing.T) {
 
 func TestMemstoragePathFilterOne(t *testing.T) {
 	storage := setupMemStorage()
-
-	IDs, err := generateDummyData(10, storage)
+	controller := *NewController(storage)
+	IDs, err := generateDummyData(10, controller)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	ID := IDs[0]
 
-	targetTS, _ := storage.Get(ID)
-	matchedTS, err := storage.FilterOne("name", "equals", targetTS.Name)
+	targetTS, _ := storage.get(ID)
+	matchedTS, err := storage.filterOne("name", "equals", targetTS.Name)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -188,8 +190,8 @@ func TestMemstoragePathFilterOne(t *testing.T) {
 func TestMemstoragePathFilter(t *testing.T) {
 	//t.Skip("Skip until there are more meta to add")
 	storage := setupMemStorage()
-
-	IDs, err := generateDummyData(10, storage)
+	controller := *NewController(storage)
+	IDs, err := generateDummyData(10, controller)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -200,16 +202,16 @@ func TestMemstoragePathFilter(t *testing.T) {
 		t.Fatalf("Need more dummies!")
 	}
 	for i := 0; i < expected; i++ {
-		ts, _ := storage.Get(IDs[i])
+		ts, _ := storage.get(IDs[i])
 		ts.Meta["newkey"] = "a/b"
-		_, err := storage.Update(ts.Name, *ts)
+		_, err := storage.update(ts.Name, *ts)
 		if err != nil {
 			t.Errorf("Error updating")
 		}
 	}
 
 	// QueryPage for format with prefix "newtype"
-	_, total, err := storage.Filter("meta.newkey", "prefix", "a", 1, 100)
+	_, total, err := storage.filter("meta.newkey", "prefix", "a", 1, 100)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

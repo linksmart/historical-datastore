@@ -26,7 +26,7 @@ const (
 
 type MQTTConnector struct {
 	sync.Mutex
-	registry registry.Storage
+	registry registry.Controller
 	storage  Storage
 	clientID string
 	managers map[string]*Manager
@@ -63,7 +63,7 @@ func NewMQTTConnector(storage Storage, clientID string) (*MQTTConnector, error) 
 	return c, nil
 }
 
-func (c *MQTTConnector) Start(reg registry.Storage) error {
+func (c *MQTTConnector) Start(reg registry.Controller) error {
 	c.registry = reg
 
 	perPage := 100
@@ -289,7 +289,7 @@ func (s *Subscription) onMessage(client paho.Client, msg paho.Message) {
 
 	if len(data) > 0 {
 		// Add data to the storage
-		err = s.connector.storage.Submit(context.Background(),data, series)
+		err = s.connector.storage.Submit(context.Background(), data, series)
 		if err != nil {
 			logMQTTError(http.StatusInternalServerError, "Error writing data to the database: %v", err)
 			return
@@ -320,10 +320,6 @@ func (c *MQTTConnector) CreateHandler(ts registry.TimeSeries) error {
 func (c *MQTTConnector) UpdateHandler(oldTs registry.TimeSeries, newTS registry.TimeSeries) error {
 	c.Lock()
 	defer c.Unlock()
-
-	if oldTs.Retention != newTS.Retention {
-		c.flushCache()
-	}
 
 	if oldTs.Source.MQTTSource != newTS.Source.MQTTSource {
 		// Remove old subscription

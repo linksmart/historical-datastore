@@ -73,7 +73,7 @@ func (s *LevelDBStorage) close() error {
 	return s.db.Close()
 }
 
-func (s *LevelDBStorage) Add(ts TimeSeries) (*TimeSeries, error) {
+func (s *LevelDBStorage) add(ts TimeSeries) (*TimeSeries, error) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 	err := validateCreation(ts, s.conf)
@@ -114,10 +114,10 @@ func (s *LevelDBStorage) Add(ts TimeSeries) (*TimeSeries, error) {
 	return &ts, nil
 }
 
-func (s *LevelDBStorage) Update(name string, ts TimeSeries) (*TimeSeries, error) {
+func (s *LevelDBStorage) update(name string, ts TimeSeries) (*TimeSeries, error) {
 	s.wg.Add(1)
 	defer s.wg.Done()
-	oldTS, err := s.Get(name) // for comparison
+	oldTS, err := s.get(name) // for comparison
 	if err == leveldb.ErrNotFound {
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, err)
 	} else if err != nil {
@@ -132,8 +132,6 @@ func (s *LevelDBStorage) Update(name string, ts TimeSeries) (*TimeSeries, error)
 	tempTS := oldTS
 
 	// Modify writable elements
-	tempTS.Function = ts.Function
-	tempTS.Retention = ts.Retention
 	tempTS.Source = ts.Source
 	tempTS.Meta = ts.Meta
 	tempTS.Unit = ts.Unit
@@ -160,10 +158,10 @@ func (s *LevelDBStorage) Update(name string, ts TimeSeries) (*TimeSeries, error)
 	return tempTS, nil
 }
 
-func (s *LevelDBStorage) Delete(name string) error {
+func (s *LevelDBStorage) delete(name string) error {
 	s.wg.Add(1)
 	defer s.wg.Done()
-	ts, err := s.Get(name) // for notification
+	ts, err := s.get(name) // for notification
 	if err != nil {
 		return err
 	}
@@ -185,7 +183,7 @@ func (s *LevelDBStorage) Delete(name string) error {
 	return nil
 }
 
-func (s *LevelDBStorage) Get(id string) (*TimeSeries, error) {
+func (s *LevelDBStorage) get(id string) (*TimeSeries, error) {
 	// QueryPage from database
 	tsBytes, err := s.db.Get([]byte(id), nil)
 	if err == leveldb.ErrNotFound {
@@ -203,7 +201,7 @@ func (s *LevelDBStorage) Get(id string) (*TimeSeries, error) {
 	return &ts, nil
 }
 
-func (s *LevelDBStorage) GetMany(page, perPage int) ([]TimeSeries, int, error) {
+func (s *LevelDBStorage) getMany(page, perPage int) ([]TimeSeries, int, error) {
 
 	total, err := s.getTotal()
 	if err != nil {
@@ -292,7 +290,7 @@ func (s *LevelDBStorage) getLastModifiedTime() (time.Time, error) {
 
 // Path filtering
 // Filter one registration
-func (s *LevelDBStorage) FilterOne(path, op, value string) (*TimeSeries, error) {
+func (s *LevelDBStorage) filterOne(path, op, value string) (*TimeSeries, error) {
 	pathTknz := strings.Split(path, ".")
 
 	// return the first one found
@@ -331,7 +329,7 @@ func (s *LevelDBStorage) FilterOne(path, op, value string) (*TimeSeries, error) 
 }
 
 // Filter multiple registrations
-func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]TimeSeries, int, error) {
+func (s *LevelDBStorage) filter(path, op, value string, page, perPage int) ([]TimeSeries, int, error) {
 	//TODO: Filter based on path (i.e. path in name)
 	matchedIDs := []string{}
 	pathTknz := strings.Split(path, ".")
@@ -377,7 +375,7 @@ func (s *LevelDBStorage) Filter(path, op, value string, page, perPage int) ([]Ti
 
 	timeSeries := make([]TimeSeries, len(slice))
 	for i, id := range slice {
-		ts, err := s.Get(id)
+		ts, err := s.get(id)
 		if err != nil {
 			return nil, len(matchedIDs), err
 		}

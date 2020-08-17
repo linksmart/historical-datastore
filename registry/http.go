@@ -31,13 +31,13 @@ var (
 
 // RESTful HTTP API
 type API struct {
-	storage Storage
+	c Controller
 }
 
 // Returns the configured TimeSeriesList API
-func NewAPI(storage Storage) *API {
+func NewAPI(c Controller) *API {
 	return &API{
-		storage,
+		c: c,
 	}
 }
 
@@ -47,9 +47,9 @@ func NewAPI(storage Storage) *API {
 func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	//TODO: add nextLink
-	lastModified, err := api.storage.getLastModifiedTime()
-	if err != nil {
-		log.Printf("Error retrieving last modified date: %v", err)
+	lastModified, lmErr := api.c.getLastModifiedTime()
+	if lmErr != nil {
+		log.Printf("Error retrieving last modified date: %v", lmErr)
 		lastModified = time.Now()
 	}
 
@@ -72,9 +72,9 @@ func (api *API) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	series, total, err := api.storage.GetMany(page, perPage)
-	if err != nil {
-		common.HttpErrorResponse(&common.InternalError{S: err.Error()}, w)
+	series, total, getErr := api.c.GetMany(page, perPage)
+	if getErr != nil {
+		common.HttpErrorResponse(getErr, w)
 		return
 	}
 
@@ -112,15 +112,9 @@ func (api *API) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addedTS, err := api.storage.Add(ts)
-	if err != nil {
-		if errors.Is(err, ErrConflict) {
-			common.HttpErrorResponse(&common.ConflictError{S: err.Error()}, w)
-		} else if errors.Is(err, ErrBadRequest) {
-			common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
-		} else {
-			common.HttpErrorResponse(&common.InternalError{S: "Error storing time series: " + err.Error()}, w)
-		}
+	addedTS, addErr := api.c.Add(ts)
+	if addErr != nil {
+		common.HttpErrorResponse(addErr, w)
 		return
 	}
 
@@ -139,13 +133,9 @@ func (api *API) Retrieve(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
-	ts, err := api.storage.Get(id)
+	ts, err := api.c.Get(id)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			common.HttpErrorResponse(&common.NotFoundError{S: err.Error()}, w)
-		} else {
-			common.HttpErrorResponse(&common.InternalError{S: "Error retrieving time series: " + err.Error()}, w)
-		}
+		common.HttpErrorResponse(err, w)
 		return
 	}
 
@@ -177,20 +167,12 @@ func (api *API) UpdateOrCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = api.storage.Update(id, ts)
-	if err != nil {
-		if errors.Is(err, ErrConflict) {
-			common.HttpErrorResponse(&common.ConflictError{S: err.Error()}, w)
-		} else if errors.Is(err, ErrNotFound) {
-			addedTS, err := api.storage.Add(ts)
-			if err != nil {
-				if errors.Is(err, ErrConflict) {
-					common.HttpErrorResponse(&common.ConflictError{S: err.Error()}, w)
-				} else if errors.Is(err, ErrBadRequest) {
-					common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
-				} else {
-					common.HttpErrorResponse(&common.InternalError{S: "Error storing time series: " + err.Error()}, w)
-				}
+	_, UpdErr := api.c.Update(id, ts)
+	if UpdErr != nil {
+		if errors.As(UpdErr, &ErrNotFound) {
+			addedTS, addErr := api.c.Add(ts)
+			if addErr != nil {
+				common.HttpErrorResponse(addErr, w)
 				return
 			}
 			//b, _ := json.Marshal(&addedTS)
@@ -201,7 +183,7 @@ func (api *API) UpdateOrCreate(w http.ResponseWriter, r *http.Request) {
 
 			return
 		} else {
-			common.HttpErrorResponse(&common.InternalError{S: "Error updating time series: " + err.Error()}, w)
+			common.HttpErrorResponse(UpdErr, w)
 		}
 		return
 	}
@@ -216,13 +198,9 @@ func (api *API) Delete(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
-	err := api.storage.Delete(id)
+	err := api.c.Delete(id)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			common.HttpErrorResponse(&common.NotFoundError{S: err.Error()}, w)
-		} else {
-			common.HttpErrorResponse(&common.InternalError{S: "Error deleting time series: " + err.Error()}, w)
-		}
+		common.HttpErrorResponse(err, w)
 		return
 	}
 
@@ -249,9 +227,9 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 	var body []byte
 	switch ftype {
 	case FTypeOne:
-		timeSeries, err := api.storage.FilterOne(fpath, fop, fvalue)
-		if err != nil {
-			common.HttpErrorResponse(&common.InternalError{S: "Error processing the filter request:" + err.Error()}, w)
+		timeSeries, filterErr := api.c.FilterOne(fpath, fop, fvalue)
+		if filterErr != nil {
+			common.HttpErrorResponse(filterErr, w)
 			return
 		}
 		// Respond with a catalog
@@ -269,7 +247,7 @@ func (api *API) Filter(w http.ResponseWriter, r *http.Request) {
 		body, _ = json.Marshal(&registry)
 
 	case FTypeMany:
-		timeSeries, total, err := api.storage.Filter(fpath, fop, fvalue, page, perPage)
+		timeSeries, total, err := api.c.Filter(fpath, fop, fvalue, page, perPage)
 		if err != nil {
 			common.HttpErrorResponse(&common.InternalError{S: "Error processing the filter request:" + err.Error()}, w)
 			return

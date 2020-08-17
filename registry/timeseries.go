@@ -22,9 +22,6 @@ type TimeSeries struct {
 	//Source of the time series
 	Source Source `json:"source,omitempty"`
 
-	//Function to be performed on the time series
-	Function string `json:"function,omitempty"`
-
 	//Type of the data (eg: string, float, bool, data)
 	Type ValueType `json:"dataType"`
 
@@ -34,15 +31,6 @@ type TimeSeries struct {
 	// Meta is a hash-map with optional meta-information
 	Meta map[string]interface{} `json:"meta"`
 
-	// Retention
-	Retention struct {
-		//minimum requirement for the retention
-		Min string `json:"min,omitempty"`
-		//maximum requirement for the retention. This is useful for enforcing the data privacy
-		Max string `json:"max,omitempty"`
-	} `json:"retain,omitempty"`
-
-	Parent            string `json:"parent,omitempty"`
 	keepSensitiveInfo bool
 }
 

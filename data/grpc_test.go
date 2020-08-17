@@ -11,11 +11,12 @@ import (
 	"github.com/farshidtz/senml/v2"
 	_go "github.com/linksmart/historical-datastore/protobuf/go"
 	"github.com/linksmart/historical-datastore/registry"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage) (grpcClient *GrpcClient) {
+func setupGrpcAPI(t *testing.T, dataStorage Storage, regController registry.Controller) (grpcClient *GrpcClient) {
 	// Create three dummy time series with different types
 	tss := []registry.TimeSeries{
 		{
@@ -35,7 +36,7 @@ func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage
 		},
 	}
 	for _, ts := range tss {
-		_, err := regStorage.Add(ts)
+		_, err := regController.Add(ts)
 		if err != nil {
 			fmt.Println("Error creating dummy TS:", err)
 			break
@@ -45,10 +46,12 @@ func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage
 	const bufSize = 1024 * 1024
 	lis := bufconn.Listen(bufSize)
 	//start the server
-	api := NewGrpcAPI(regStorage, dataStorage, false)
+	srv := grpc.NewServer()
+	controller := NewController(regController, dataStorage, false)
+	RegisterGRPCAPI(srv, *controller)
 
 	go func() {
-		if err := api.StartGrpcServer(lis); err != nil {
+		if err := srv.Serve(lis); err != nil {
 			log.Fatalf("Server exited with error: %v", err)
 		}
 	}()
@@ -69,14 +72,14 @@ func setupGrpcAPI(t *testing.T, dataStorage Storage, regStorage registry.Storage
 
 	t.Cleanup(func() {
 		conn.Close()
-		api.StopGrpcServer()
+		srv.Stop()
 	})
 	return &GrpcClient{Client: client}
 }
 
 func TestGrpcSubmit(t *testing.T) {
 	funcName := "TestGrpcSubmit"
-	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
 	if err != nil {
 		t.Fatalf("Error setting up benchmark:%s", err)
 	}
@@ -87,7 +90,7 @@ func TestGrpcSubmit(t *testing.T) {
 			log.Fatal(err)
 		}
 	}()
-	client := setupGrpcAPI(t, dataStorage, regStorage)
+	client := setupGrpcAPI(t, dataStorage, regController)
 
 	v1 := 42.0
 	r1 := senml.Record{
@@ -142,8 +145,8 @@ func TestGrpcSubmit(t *testing.T) {
 }
 
 func TestGrpcDelete(t *testing.T) {
-	funcName := "TestGrpcSubmit"
-	fileName, disconnectFunc, dataStorage, regStorage, err := setupTest(funcName)
+	funcName := "TestGrpcDelete"
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
 	if err != nil {
 		t.Fatalf("Error setting up benchmark:%s", err)
 	}
@@ -154,7 +157,7 @@ func TestGrpcDelete(t *testing.T) {
 			log.Fatal(err)
 		}
 	}()
-	client := setupGrpcAPI(t, dataStorage, regStorage)
+	client := setupGrpcAPI(t, dataStorage, regController)
 
 	v1 := 42.0
 	r1 := senml.Record{
@@ -220,4 +223,91 @@ func TestGrpcDelete(t *testing.T) {
 	if CompareSenml(records, pack) == false {
 		t.Error("Sent records and received record did not match!!")
 	}
+}
+
+func TestGrpcSubscribe(t *testing.T) {
+	funcName := "TestGrpcSubscribe"
+	fileName, disconnectFunc, dataStorage, regController, err := setupTest(funcName)
+	if err != nil {
+		t.Fatalf("Error setting up benchmark:%s", err)
+	}
+	defer deleteFile(fileName)
+	defer func() {
+		err := disconnectFunc()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+	client := setupGrpcAPI(t, dataStorage, regController)
+
+	v1 := 42.0
+	r1 := senml.Record{
+		Name:  "example.com/sensor1",
+		Unit:  "degC",
+		Value: &v1,
+		Time:  1543059346.0,
+	}
+	v2 := true
+	r2 := senml.Record{
+		Name:      "example.com/sensor2",
+		Unit:      "flag",
+		BoolValue: &v2,
+		Time:      1543059346.0,
+	}
+	v3 := "test string"
+	r3 := senml.Record{
+		Name:        "example.com/sensor3",
+		Unit:        "char",
+		StringValue: v3,
+		Time:        1543059346.0,
+	}
+	r1.BaseName = "http://"
+	submittedRecords := senml.Pack{r1, r2, r3}
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
+	defer cancelFunc()
+
+	g, ctx := errgroup.WithContext(ctx)
+	seriesNames := []string{"http://example.com/sensor1", "http://example.com/sensor2", "http://example.com/sensor3"}
+	ch, err := client.Subscribe(ctx, seriesNames...)
+	if err != nil {
+		t.Errorf("Subscription failed: %v", err)
+		return
+	}
+
+	//receive subscribed messages
+	g.Go(func() error {
+		pack := make([]senml.Record, 0, 3)
+		for response := range ch {
+			if response.err != nil {
+				return fmt.Errorf("error while recieving stream: %v", response.err)
+			}
+			pack = append(pack, response.p...)
+			if len(pack) == 3 {
+				break
+			}
+		}
+		if len(pack) != len(submittedRecords) {
+			return fmt.Errorf("sent records count (%d) and received record count (%d) did not match", len(submittedRecords), len(pack))
+		}
+		submittedRecords.Normalize()
+		if CompareSenml(submittedRecords, pack) == false {
+			return fmt.Errorf("sent records and received record did not match")
+		}
+		return nil
+	})
+
+	//Submit the data
+	g.Go(func() error {
+		err = client.Submit(submittedRecords)
+		if err != nil {
+			return fmt.Errorf("submit failed: %v", err)
+		}
+		return nil
+	})
+
+	// Wait for all subscribe functions
+	if err := g.Wait(); err != nil {
+		t.Error(err)
+	}
+
 }

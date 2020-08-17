@@ -80,6 +80,7 @@ func TestConcurrentUpdates(t *testing.T) {
 		addedTS, err := registryClient.Get(ts.Name)
 		if err != nil {
 			t.Error(err, ts.Name)
+			return
 		}
 		entries = append(entries, addedTS)
 	}
@@ -104,7 +105,6 @@ func TestConcurrentUpdates(t *testing.T) {
 		wg.Add(1)
 		go func(thisTS *registry.TimeSeries) {
 			defer wg.Done()
-			thisTS.Retention.Min = ""
 			err := registryClient.Update(thisTS.Name, thisTS)
 			if err != nil {
 				t.Fatal(err)

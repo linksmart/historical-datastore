@@ -22,6 +22,7 @@ import (
 	"github.com/linksmart/historical-datastore/registry"
 	"github.com/oleksandr/bonjour"
 	uuid "github.com/satori/go.uuid"
+	"google.golang.org/grpc"
 )
 
 const LINKSMART = `
@@ -139,20 +140,21 @@ func main() {
 	}
 
 	// Setup APIs
-	regAPI := registry.NewAPI(regStorage)
-	dataAPI := data.NewAPI(regStorage, dataStorage, conf.Data.AutoRegistration)
-	grpcDataAPI := data.NewGrpcAPI(regStorage, dataStorage, conf.Data.AutoRegistration)
+	regController := registry.NewController(regStorage)
+	dataController := data.NewController(*regController, dataStorage, conf.Data.AutoRegistration)
+	regAPI := registry.NewAPI(*regController)
+	dataAPI := data.NewAPI(*dataController)
 	//aggrAPI := aggregation.NewAPI(regStorage, aggrStorage)
 
 	if *demomode {
-		err = demo.StartDummyStreamer(regStorage, dataStorage)
+		err = demo.StartDummyStreamer(*regController, *dataController)
 		if err != nil {
 			log.Panic("Failed to start the dummy streamer", err)
 		}
 	}
 	// Start MQTT connector
 	// TODO: disconnect on shutdown
-	err = mqttConn.Start(regStorage)
+	err = mqttConn.Start(*regController)
 	if err != nil {
 		log.Panicf("Error starting MQTT Connector: %s", err)
 	}
@@ -170,7 +172,12 @@ func main() {
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI)
 
-	go startGRPCServer(conf, grpcDataAPI)
+	if conf.GRPC.Enabled {
+		srv := grpc.NewServer()
+		data.RegisterGRPCAPI(srv, *dataController)
+		registry.RegisterGRPCAPI(srv, *regController)
+		go startGRPCServer(conf, srv)
+	}
 	// Announce service using DNS-SD
 	var bonjourS *bonjour.Server
 	if conf.DnssdEnabled {
@@ -212,13 +219,14 @@ func main() {
 	log.Println("Stopped.")
 }
 
-func startGRPCServer(conf *common.Config, api *data.GrpcAPI) {
-	log.Println("Serving GRPC on :8888")
-	l, err := net.Listen("tcp", ":8888")
+func startGRPCServer(conf *common.Config, srv *grpc.Server) {
+	serverAddr := fmt.Sprintf(":%d", conf.GRPC.BindPort)
+	log.Printf("Serving GRPC on :%s", serverAddr)
+	l, err := net.Listen("tcp", serverAddr)
 	if err != nil {
-		log.Fatalf("could not listen to :8888: %v", err)
+		log.Fatalf("could not listen to %s: %v", serverAddr, err)
 	}
-	err = api.StartGrpcServer(l)
+	err = srv.Serve(l)
 	if err != nil {
 		log.Fatalf("Stopped listening GRPC: %v", err)
 	}
@@ -254,7 +262,7 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
 	}
 	// start http server
 	serverUrl := fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
-	log.Printf("Listening on %s", serverUrl)
+	log.Printf("Serving HTTP requests on %s", serverUrl)
 	err := http.ListenAndServe(serverUrl, router.chained())
 	if err != nil {
 		log.Fatalln(err)

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cskr/pubsub"
 	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/registry"
@@ -15,18 +16,20 @@ import (
 )
 
 type Controller struct {
-	registry         registry.Storage
+	registry         registry.Controller
 	storage          Storage
 	autoRegistration bool
+	pubSub           *pubsub.PubSub
 }
 
 // NewAPI returns the configured Data API
-func NewController(registry registry.Storage, storage Storage, autoRegistration bool) *Controller {
-	return &Controller{registry, storage, autoRegistration}
+func NewController(registry registry.Controller, storage Storage, autoRegistration bool) *Controller {
+	pubSubClient := pubsub.New(0)
+	return &Controller{registry: registry, storage: storage, autoRegistration: autoRegistration, pubSub: pubSubClient}
 }
 
 //TODO: Return right code in return so that right code is returned by callers. e.g. Grpc code or http error responses.
-func (c Controller) submit(ctx context.Context, senmlPack senml.Pack, ids []string) common.Error {
+func (c Controller) Submit(ctx context.Context, senmlPack senml.Pack, ids []string) common.Error {
 	const Y3K = 32503680000 //Year 3000 BC, beyond which the time values are not taken
 	//series := make(map[string]*registry.TimeSeries)
 	nameTS := make(map[string]*registry.TimeSeries)
@@ -110,6 +113,11 @@ func (c Controller) submit(ctx context.Context, senmlPack senml.Pack, ids []stri
 	err := c.storage.Submit(ctx, data, nameTS)
 	if err != nil {
 		return &common.InternalError{S: "error writing data to the database: " + err.Error()}
+	}
+
+	//notify subsribers
+	for name, pack := range data {
+		c.pubSub.Pub(pack, name)
 	}
 	return nil
 }
@@ -195,6 +203,19 @@ func (c Controller) queryStreamOrPage(ctx context.Context, q Query, seriesNames 
 	return pack, total, nil
 }
 
+func (c Controller) Subscribe(seriesNames ...string) (chan interface{}, common.Error) {
+	for _, seriesName := range seriesNames {
+		_, err := c.registry.Get(seriesName)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return c.pubSub.Sub(seriesNames...), nil
+}
+
+func (c Controller) Unsubscribe(channel chan interface{}, names ...string) {
+	c.pubSub.Unsub(channel, names...)
+}
 func parseDenormParams(denormString string) (denormMask DenormMask, err error) {
 
 	if denormString != "" {

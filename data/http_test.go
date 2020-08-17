@@ -23,7 +23,7 @@ import (
 
 func setupHTTPAPI() (*mux.Router, []string) {
 	regStorage := registry.NewMemoryStorage(common.RegConf{})
-
+	regController := registry.NewController(regStorage)
 	// Create three dummy TimeSeries with different types
 	var testIDs []string
 	dss := []registry.TimeSeries{
@@ -44,7 +44,7 @@ func setupHTTPAPI() (*mux.Router, []string) {
 		},
 	}
 	for _, ts := range dss {
-		created, err := regStorage.Add(ts)
+		created, err := regController.Add(ts)
 		if err != nil {
 			fmt.Println("Error creating dummy TS:", err)
 			break
@@ -52,7 +52,8 @@ func setupHTTPAPI() (*mux.Router, []string) {
 		testIDs = append(testIDs, created.Name)
 	}
 
-	api := NewAPI(regStorage, &dummyDataStorage{}, false)
+	controller := NewController(*regController, &dummyDataStorage{}, false)
+	api := NewAPI(*controller)
 
 	r := mux.NewRouter().StrictSlash(true).SkipClean(true)
 	r.Methods("POST").Path("/data/{id:.+}").HandlerFunc(api.Submit)
