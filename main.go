@@ -220,8 +220,8 @@ func main() {
 }
 
 func startGRPCServer(conf *common.Config, srv *grpc.Server) {
-	serverAddr := fmt.Sprintf(":%d", conf.GRPC.BindPort)
-	log.Printf("Serving GRPC on :%s", serverAddr)
+	serverAddr := fmt.Sprintf("%s:%d", conf.GRPC.BindAddr, conf.GRPC.BindPort)
+	log.Printf("Serving GRPC on %s", serverAddr)
 	l, err := net.Listen("tcp", serverAddr)
 	if err != nil {
 		log.Fatalf("could not listen to %s: %v", serverAddr, err)

@@ -33,6 +33,7 @@ type Config struct {
 // GRPC config
 type GRPCConf struct {
 	Enabled  bool   `json:"enabled"`
+	BindAddr string `json:"bindAddr"`
 	BindPort uint16 `json:"bindPort"`
 }
 

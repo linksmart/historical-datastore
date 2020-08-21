@@ -9,6 +9,7 @@
   },
   "grpc": {
     "enabled": true,
+    "bindAddr": "0.0.0.0",
     "bindPort": 8088
   },
   "registry": {
