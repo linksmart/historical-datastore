@@ -105,7 +105,12 @@ message FilterManyRequest
 }
 
 service Registry {
-	rpc Add(Series) returns(Void){}
+	rpc Add(Series) returns(Void){
+		option (google.api.http) = {
+		  post: "/v1/echo"
+		  body: "*"
+		};
+	}
 	rpc GetAll(PageParams) returns(Registrations){}
 	rpc Get(SeriesName) returns(Series){}
 	rpc FilterOne(Filterpath) returns(Series){}

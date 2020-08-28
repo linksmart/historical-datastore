@@ -3,6 +3,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"log"
@@ -168,16 +169,19 @@ func main() {
 		// Unregister from the Service Catalog
 		defer unregisterService()
 	}
-
-	// Start servers
-	go startHTTPServer(conf, regAPI, dataAPI)
-
+	var grpcHndler *grpcHandler
 	if conf.GRPC.Enabled {
-		srv := grpc.NewServer()
-		data.RegisterGRPCAPI(srv, *dataController)
-		registry.RegisterGRPCAPI(srv, *regController)
-		go startGRPCServer(conf, srv)
+		grpcServer := grpc.NewServer()
+		data.RegisterGRPCAPI(grpcServer, *dataController)
+		registry.RegisterGRPCAPI(grpcServer, *regController)
+		//go startGRPCServer(conf, grpcServer)
+		grpcHndler = &grpcHandler{
+			grpcSrv: grpcServer,
+		}
 	}
+	// Start servers
+	go startHTTPServer(conf, regAPI, dataAPI, grpcHndler)
+
 	// Announce service using DNS-SD
 	var bonjourS *bonjour.Server
 	if conf.DnssdEnabled {
@@ -219,8 +223,8 @@ func main() {
 	log.Println("Stopped.")
 }
 
-func startGRPCServer(conf *common.Config, srv *grpc.Server) {
-	serverAddr := fmt.Sprintf("%s:%d", conf.GRPC.BindAddr, conf.GRPC.BindPort)
+func startGRPCServer(conf *common.Config, srv *grpc.Server, l net.Listener) {
+	serverAddr := fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
 	log.Printf("Serving GRPC on %s", serverAddr)
 	l, err := net.Listen("tcp", serverAddr)
 	if err != nil {
@@ -232,7 +236,7 @@ func startGRPCServer(conf *common.Config, srv *grpc.Server) {
 	}
 }
 
-func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
+func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API, grpcHndlr *grpcHandler) {
 	router := newRouter()
 	// api root
 	router.handle(http.MethodGet, "/", indexHandler)
@@ -260,10 +264,26 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
 
 		router.appendChain(v.Handler)
 	}
-	// start http server
+
+	tlsConfig := &tls.Config{}
+	if grpcHndlr != nil {
+		router.appendChain(grpcHndlr.grpcHandler)
+		tlsConfig.NextProtos = []string{"h2"}
+	} else {
+		tlsConfig.NextProtos = []string{"http/1.1"}
+	}
+
 	serverUrl := fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
+	srv := &http.Server{
+		Addr:      serverUrl,
+		Handler:   router.chained(),
+		TLSConfig: tlsConfig,
+	}
+
+	// start http server
+
 	log.Printf("Serving HTTP requests on %s", serverUrl)
-	err := http.ListenAndServe(serverUrl, router.chained())
+	err := srv.ListenAndServe()
 	if err != nil {
 		log.Fatalln(err)
 	}

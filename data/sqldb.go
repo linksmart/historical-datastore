@@ -47,7 +47,11 @@ func (s *SqlStorage) Submit(ctx context.Context, data map[string]senml.Pack, ser
 
 	if err != nil {
 		rollbackErr := tx.Rollback()
-		return fmt.Errorf("error inserting: %v \nerror during rollback: %v", err, rollbackErr)
+		rollbackErrStr := ""
+		if rollbackErr != nil {
+			rollbackErrStr = fmt.Sprintf("\n error during rollback: %v", rollbackErr)
+		}
+		return fmt.Errorf("error inserting: %w%s", err, rollbackErrStr)
 
 	}
 
