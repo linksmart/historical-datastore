@@ -24,6 +24,7 @@ import (
 	"github.com/oleksandr/bonjour"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const LINKSMART = `
@@ -171,7 +172,12 @@ func main() {
 	}
 	var grpcHndler *grpcHandler
 	if conf.GRPC.Enabled {
-		grpcServer := grpc.NewServer()
+		creds, err := credentials.NewClientTLSFromFile("keys/hds.crt", "")
+		if err != nil {
+			log.Panicf("Error loading tls: %s", err)
+		}
+		grpcServer := grpc.NewServer(grpc.Creds(creds))
+
 		data.RegisterGRPCAPI(grpcServer, *dataController)
 		registry.RegisterGRPCAPI(grpcServer, *regController)
 		//go startGRPCServer(conf, grpcServer)
@@ -269,8 +275,7 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API, grp
 	if grpcHndlr != nil {
 		router.appendChain(grpcHndlr.grpcHandler)
 		tlsConfig.NextProtos = []string{"h2"}
-	} else {
-		tlsConfig.NextProtos = []string{"http/1.1"}
+
 	}
 
 	serverUrl := fmt.Sprintf("%s:%d", conf.HTTP.BindAddr, conf.HTTP.BindPort)
@@ -283,7 +288,7 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API, grp
 	// start http server
 
 	log.Printf("Serving HTTP requests on %s", serverUrl)
-	err := srv.ListenAndServe()
+	err := srv.ListenAndServeTLS("keys/hds.crt", "keys/hds.key")
 	if err != nil {
 		log.Fatalln(err)
 	}
