@@ -378,11 +378,11 @@ paths:
             default: "desc"
         - name: denormalize
           in: query
-          description: Comma separated list of fields (or their labels) to be denormalized in the response senml pack
+          description: Comma separated list of fields (or their labels) to be denormalized in the response senml pack. Values can be among "name" or simply "n","time" or "t", "unit" or "u", "value" or "v", "sum" or "s"
           required: false
           schema:
             type: string
-            enum: ["name","n","time","t", "unit","u", "value","v", "sum","s"]
+            example: n,u
         - name: count
           in: query
           description: Include the total number of entries inside the response. This is useful for pagination such that the client can calculate total pages after the first query. Please use this only in the first query as counting adds additional computation.
