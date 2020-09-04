@@ -18,8 +18,8 @@ type GrpcClient struct {
 }
 
 type ResponsePack struct {
-	p   senml.Pack
-	err error
+	Pack senml.Pack
+	Err  error
 }
 
 func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
@@ -129,10 +129,10 @@ func (c *GrpcClient) Subscribe(ctx context.Context, seriesNames ...string) (chan
 				if err == io.EOF {
 					break
 				}
-				ch <- ResponsePack{p: nil, err: err}
+				ch <- ResponsePack{Pack: nil, Err: err}
 				return
 			}
-			ch <- ResponsePack{p: codec.ImportProtobufMessage(*message), err: nil}
+			ch <- ResponsePack{Pack: codec.ImportProtobufMessage(*message), Err: nil}
 		}
 	}()
 	return ch, err

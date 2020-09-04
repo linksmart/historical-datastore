@@ -278,10 +278,10 @@ func TestGrpcSubscribe(t *testing.T) {
 	g.Go(func() error {
 		pack := make([]senml.Record, 0, 3)
 		for response := range ch {
-			if response.err != nil {
-				return fmt.Errorf("error while recieving stream: %v", response.err)
+			if response.Err != nil {
+				return fmt.Errorf("error while recieving stream: %v", response.Err)
 			}
-			pack = append(pack, response.p...)
+			pack = append(pack, response.Pack...)
 			if len(pack) == 3 {
 				break
 			}
