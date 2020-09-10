@@ -162,7 +162,7 @@ func (s *SqlStorage) Delete(ctx context.Context, series []*registry.TimeSeries, 
 	}()
 
 	for _, ts := range series {
-		stmt.WriteString(fmt.Sprintf("%s DELETE FROM [%s] WHERE time BETWEEN %f and %f", seperator, ts.Name, toSenmlTime(from), toSenmlTime(to)))
+		stmt.WriteString(fmt.Sprintf("%s DELETE FROM [%s] WHERE time BETWEEN %f and %f", seperator, ts.Name, ToSenmlTime(from), ToSenmlTime(to)))
 		seperator = ";"
 	}
 
@@ -224,14 +224,14 @@ func floatTimeToInt64(senmlTime float64) int64 {
 	return int64(senmlTime * (1e9)) //time.Unix(int64(sec), int64(frac*(1e9))).UnixNano()
 }
 
-func toSenmlTime(t time.Time) float64 {
+func ToSenmlTime(t time.Time) float64 {
 	if t.IsZero() {
 		return 0
 	}
 	return int64ToFloatTime(t.UnixNano())
 }
 
-func fromSenmlTime(t float64) time.Time {
+func FromSenmlTime(t float64) time.Time {
 	return time.Unix(0, floatTimeToInt64(t))
 }
 
@@ -643,8 +643,8 @@ func (s *SqlStorage) streamMultipleSeries(ctx context.Context, q Query, sendFunc
 
 // Gets the recursive query making the table containing ranges
 func makeQuery(q Query, count bool, stream bool, series ...*registry.TimeSeries) (stmt string, err error) {
-	fromTime := toSenmlTime(q.From)
-	toTime := toSenmlTime(q.To)
+	fromTime := ToSenmlTime(q.From)
+	toTime := ToSenmlTime(q.To)
 	//query the entries
 	order := common.Desc
 	if q.SortAsc {

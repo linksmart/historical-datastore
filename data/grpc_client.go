@@ -137,3 +137,59 @@ func (c *GrpcClient) Subscribe(ctx context.Context, seriesNames ...string) (chan
 	}()
 	return ch, err
 }
+
+func (c *GrpcClient) QueryStream(ctx context.Context, seriesNames []string, q Query) (chan ResponsePack, error) {
+	request := _go.QueryRequest{
+		Series:          seriesNames,
+		From:            q.From.Format(time.RFC3339),
+		To:              q.To.Format(time.RFC3339),
+		RecordPerPacket: int32(q.PerPage),
+		DenormaMask:     _go.DenormMask(q.Denormalize),
+		SortAsc:         q.SortAsc,
+		Limit:           int32(q.Limit),
+		Offset:          int32(q.Offset),
+	}
+	stream, err := c.Client.Query(ctx, &request)
+
+	ch := make(chan ResponsePack)
+	go func() {
+		defer close(ch)
+		for {
+			message, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				ch <- ResponsePack{Pack: nil, Err: err}
+				return
+			}
+			ch <- ResponsePack{Pack: codec.ImportProtobufMessage(*message), Err: nil}
+		}
+	}()
+	return ch, err
+}
+
+func (c *GrpcClient) CreateSubmitStream(ctx context.Context) (stream _go.Data_SubmitClient, err error) {
+	stream, err = c.Client.Submit(ctx)
+	return stream, err
+}
+
+func (c *GrpcClient) SubmitToStream(stream _go.Data_SubmitClient, pack senml.Pack) error {
+	message := codec.ExportProtobufMessage(pack)
+	err := stream.Send(&message)
+	if err == io.EOF {
+		return fmt.Errorf("unexpected EOF")
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *GrpcClient) CloseSubmitStream(stream _go.Data_SubmitClient) error {
+	_, err := stream.CloseAndRecv()
+	if err != nil {
+		return fmt.Errorf("error receving response: %w", err)
+	}
+	return nil
+}

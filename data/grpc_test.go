@@ -206,7 +206,7 @@ func TestGrpcDelete(t *testing.T) {
 		t.Errorf("Returned total is not the expected value:%d", len(records))
 	}
 
-	err = client.Delete(seriesNames, fromSenmlTime(deleteTime-1.0), fromSenmlTime(deleteTime+1))
+	err = client.Delete(seriesNames, FromSenmlTime(deleteTime-1.0), FromSenmlTime(deleteTime+1))
 	if err != nil {
 		t.Errorf("Deletion failed")
 	}

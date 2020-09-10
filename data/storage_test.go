@@ -419,8 +419,8 @@ func testAggMultipleSeries(t *testing.T, storage Storage, regController registry
 	//get these data
 
 	gotRecords, total, err := storage.QueryPage(ctx, Query{Count: true,
-		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
-		From:       fromSenmlTime(sentData[0].Time),
+		To:         FromSenmlTime(sentData[len(sentData)-1].Time),
+		From:       FromSenmlTime(sentData[0].Time),
 		Page:       1,
 		PerPage:    expectedLen,
 		SortAsc:    true,
@@ -485,8 +485,8 @@ func testAggSingleSeries(t *testing.T, storage Storage, regController registry.C
 	//get these data
 
 	gotRecords, total, err := storage.QueryPage(ctx, Query{Count: true,
-		To:         fromSenmlTime(sentData[len(sentData)-1].Time),
-		From:       fromSenmlTime(sentData[0].Time),
+		To:         FromSenmlTime(sentData[len(sentData)-1].Time),
+		From:       FromSenmlTime(sentData[0].Time),
 		Page:       1,
 		PerPage:    expectedLen,
 		SortAsc:    true,
@@ -576,7 +576,7 @@ func testDeleteMultiType(t *testing.T, storage Storage, regController registry.C
 	}
 
 	delCount := 50
-	toTime := fromSenmlTime(sentDataMap["Value/Temperature"][delCount].Time)
+	toTime := FromSenmlTime(sentDataMap["Value/Temperature"][delCount].Time)
 	//get these data
 	err = storage.Delete(ctx, seriesArr, time.Time{}, toTime)
 	if err != nil {
@@ -641,7 +641,7 @@ func testDeleteVals(t *testing.T, storage Storage, regController registry.Contro
 	}
 
 	delCount := 50
-	toTime := fromSenmlTime(sentData[delCount].Time)
+	toTime := FromSenmlTime(sentData[delCount].Time)
 
 	err = storage.Delete(ctx, []*registry.TimeSeries{&ts}, time.Time{}, toTime)
 	if err != nil {
