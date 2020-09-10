@@ -75,6 +75,12 @@ func main() {
 		log.Panicf("Config File: %s\n", err)
 	}
 
+	fmt.Println(os.Getenv("HDS_REGISTRY_BACKEND_DSN"))
+	if os.Getenv("HDS_DEBUG") == "1" {
+		log.Println("===========================")
+		log.Println(conf.String())
+		log.Println("===========================")
+	}
 	if *demomode {
 
 		log.Println("===========================")
@@ -84,10 +90,10 @@ func main() {
 		if !*persistentDemo {
 			conf.Data.Backend.DSN = os.TempDir() + string(os.PathSeparator) + "hds_demo_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 			//use memory in demo mode for registry
-			conf.Reg.Backend.Type = registry.MEMORY
+			conf.Registry.Backend.Type = registry.MEMORY
 			defer os.Remove(conf.Data.Backend.DSN) //remove the temporary file if created on exit
 		} else {
-			log.Printf("Storing registry data in %s.", conf.Reg.Backend.DSN)
+			log.Printf("Storing registry data in %s.", conf.Registry.Backend.DSN)
 		}
 		log.Printf("Storing senml data in %s.", conf.Data.Backend.DSN)
 
@@ -129,11 +135,11 @@ func main() {
 		log.Panicf("Error creating MQTT Connector: %s", err)
 	}
 
-	switch conf.Reg.Backend.Type {
+	switch conf.Registry.Backend.Type {
 	case registry.MEMORY:
-		regStorage = registry.NewMemoryStorage(conf.Reg, dataStorage, mqttConn)
+		regStorage = registry.NewMemoryStorage(conf.Registry, dataStorage, mqttConn)
 	case registry.LEVELDB:
-		regStorage, closeReg, err = registry.NewLevelDBStorage(conf.Reg, nil, dataStorage, mqttConn)
+		regStorage, closeReg, err = registry.NewLevelDBStorage(conf.Registry, nil, dataStorage, mqttConn)
 		if err != nil {
 			log.Panicf("Failed to start LevelDB: %s\n", err)
 		}

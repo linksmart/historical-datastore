@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
-	"strings"
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/linksmart/historical-datastore/common"
@@ -47,20 +46,13 @@ func loadConfig(confPath *string, ignoreEnv bool) (*common.Config, error) {
 
 	// VALIDATE REGISTRY API CONFIG
 	// Check if backend is supported
-	if !registry.SupportedBackends(conf.Reg.Backend.Type) {
-		return nil, fmt.Errorf("backend type is not supported: %s", conf.Reg.Backend.Type)
+	if !registry.SupportedBackends(conf.Registry.Backend.Type) {
+		return nil, fmt.Errorf("backend type is not supported: %s", conf.Registry.Backend.Type)
 	}
 	// Check DSN
-	_, err = url.Parse(conf.Reg.Backend.DSN)
+	_, err = url.Parse(conf.Registry.Backend.DSN)
 	if err != nil {
 		return nil, err
-	}
-	// Check retention periods
-	for _, rp := range conf.Reg.RetentionPeriods {
-		if !common.SupportedPeriod(rp) {
-			return nil, fmt.Errorf("registry retentionPeriod is not valid: %s. Supported period suffixes are: %s",
-				rp, strings.Join(common.SupportedPeriods(), ", "))
-		}
 	}
 
 	// VALIDATE DATA API CONFIG

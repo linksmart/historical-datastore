@@ -3,6 +3,8 @@
 package common
 
 import (
+	json "encoding/json"
+
 	"github.com/linksmart/go-sec/auth/obtainer"
 	"github.com/linksmart/go-sec/auth/validator"
 )
@@ -19,11 +21,9 @@ type Config struct {
 	//DNS-SD description
 	Description string `json:"description"`
 	// Registry API Config
-	Reg RegConf `json:"registry"`
+	Registry RegConf `json:"registry"`
 	// Data API Config
 	Data DataConf `json:"data"`
-	// Aggregation API Config
-	Aggr AggrConf `json:"aggregation"`
 	// LinkSmart Service Catalog registration config
 	ServiceCatalog ServiceCatalogConf `json:"serviceCatalog"`
 	// Auth config
@@ -53,16 +53,7 @@ type WebConfig struct {
 
 // Registry config
 type RegConf struct {
-	Backend          RegBackendConf `json:"backend"`
-	RetentionPeriods []string       `json:"retentionPeriods"`
-}
-
-func (c RegConf) ConfiguredRetention(period string) bool {
-	if period == "" {
-		// empty means no retention
-		return true
-	}
-	return stringInSlice(period, c.RetentionPeriods)
+	Backend RegBackendConf `json:"backend"`
 }
 
 // Registry backend config
@@ -85,9 +76,6 @@ type DataBackendConf struct {
 	DSN  string `json:"dsn"`
 }
 
-// Aggregation config
-type AggrConf struct{}
-
 // LinkSmart Service Catalog registration config
 type ServiceCatalogConf struct {
 	Enabled  bool          `json:"enabled"`
@@ -95,4 +83,12 @@ type ServiceCatalogConf struct {
 	Endpoint string        `json:"endpoint"`
 	TTL      uint          `json:"ttl"`
 	Auth     obtainer.Conf `json:"auth"`
+}
+
+func (c Config) String() string {
+	c.ServiceCatalog.Auth.Password = "******"
+	c.ServiceCatalog.Auth.Username = "******"
+	c.ServiceCatalog.Auth.ClientID = "******"
+	retByte, _ := json.MarshalIndent(c, "", "   ")
+	return string(retByte)
 }
