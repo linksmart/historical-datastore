@@ -38,7 +38,7 @@ func (c Controller) Submit(ctx context.Context, senmlPack senml.Pack, ids []stri
 		for _, id := range ids {
 			ts, err := c.registry.Get(id)
 			if err != nil {
-				return &common.NotFoundError{S: fmt.Sprintf("Error retrieving time series %v from the registry: %v", id, err)}
+				return err
 			}
 			nameTS[ts.Name] = ts
 		}
@@ -135,7 +135,7 @@ func (c Controller) Delete(ctx context.Context, seriesNames []string, from time.
 	for _, seriesName := range seriesNames {
 		ts, err := c.registry.Get(seriesName)
 		if err != nil {
-			return &common.InternalError{S: fmt.Sprintf("Error retrieving time series %v from the registry: %v", seriesName, err)}
+			return err
 		}
 		series = append(series, ts)
 	}
@@ -154,7 +154,7 @@ func (c Controller) Count(ctx context.Context, q Query, seriesNames []string) (t
 	for _, seriesName := range seriesNames {
 		ts, err := c.registry.Get(seriesName)
 		if err != nil {
-			return 0, &common.InternalError{S: fmt.Sprintf("Error retrieving time series %v from the registry: %v", seriesName, err)}
+			return 0, err
 		}
 		series = append(series, ts)
 	}
@@ -178,7 +178,7 @@ func (c Controller) queryStreamOrPage(ctx context.Context, q Query, seriesNames 
 	for _, seriesName := range seriesNames {
 		ts, err := c.registry.Get(seriesName)
 		if err != nil {
-			return nil, nil, &common.InternalError{S: fmt.Sprintf("Error retrieving time series %v from the registry: %v", seriesName, err)}
+			return nil, nil, err
 		}
 		series = append(series, ts)
 	}

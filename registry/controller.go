@@ -2,6 +2,7 @@ package registry
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/linksmart/historical-datastore/common"
@@ -44,9 +45,9 @@ func (c Controller) Get(name string) (*TimeSeries, common.Error) {
 	ts, err := c.s.get(name)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return ts, &common.NotFoundError{S: err.Error()}
+			return ts, &common.NotFoundError{S: fmt.Sprintf("error retrieving series '%s' from registry: %s", name, err.Error())}
 		} else {
-			return ts, &common.InternalError{S: "error retrieving time series: " + err.Error()}
+			return ts, &common.InternalError{S: fmt.Sprintf("error retrieving series '%s' from registry: %s", name, err.Error())}
 		}
 	}
 	return ts, nil
@@ -79,11 +80,11 @@ func (c Controller) Update(name string, ts TimeSeries) (*TimeSeries, common.Erro
 	t, err := c.s.update(name, ts)
 	if err != nil {
 		if errors.Is(err, ErrConflict) {
-			return t, &common.ConflictError{S: err.Error()}
+			return t, &common.ConflictError{S: fmt.Sprintf("error updating series '%s': %s", name, err.Error())}
 		} else if errors.Is(err, ErrNotFound) {
-			return t, &common.NotFoundError{S: err.Error()}
+			return t, &common.NotFoundError{S: fmt.Sprintf("error updating series '%s': %s", name, err.Error())}
 		} else {
-			return t, &common.InternalError{S: "error updating time series: " + err.Error()}
+			return t, &common.InternalError{S: fmt.Sprintf("error updating series '%s' : %s", name, err.Error())}
 		}
 	}
 	return t, nil
@@ -92,9 +93,9 @@ func (c Controller) Delete(name string) common.Error {
 	err := c.s.delete(name)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return &common.NotFoundError{S: err.Error()}
+			return &common.NotFoundError{S: fmt.Sprintf("error deleting series '%s' from registry: %s", name, err.Error())}
 		} else {
-			return &common.InternalError{S: "error deleting time series: " + err.Error()}
+			return &common.InternalError{S: fmt.Sprintf("error deleting series '%s' from registry: %s", name, err.Error())}
 		}
 	}
 	return nil
