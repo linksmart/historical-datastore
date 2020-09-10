@@ -16,13 +16,12 @@
     "backend": {
       "type": "leveldb",
       "dsn": "./hds/registry"
-    },
-    "retentionPeriods": ["1h", "1w"]
+    }
   },
   "data": {
     "backend": {
       "type": "sqlite",
-      "dsn": "./hds/data.db"
+      "dsn": "./hds/data.db?cache=shared"
     },
     "autoRegistration": false
   },
