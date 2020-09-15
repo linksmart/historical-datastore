@@ -31,9 +31,9 @@ func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
 	return &GrpcClient{Client: client}, nil
 }
 
-func (c *GrpcClient) Submit(pack senml.Pack) error {
+func (c *GrpcClient) Submit(ctx context.Context, pack senml.Pack) error {
 	message := codec.ExportProtobufMessage(pack)
-	stream, err := c.Client.Submit(context.Background())
+	stream, err := c.Client.Submit(ctx)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (c *GrpcClient) Submit(pack senml.Pack) error {
 }
 
 // TODO facilitate aborting of the query (using channels)
-func (c *GrpcClient) Query(seriesNames []string, q Query) (senml.Pack, error) {
+func (c *GrpcClient) Query(ctx context.Context, seriesNames []string, q Query) (senml.Pack, error) {
 	request := _go.QueryRequest{
 		Series:          seriesNames,
 		From:            q.From.Format(time.RFC3339),
@@ -63,8 +63,10 @@ func (c *GrpcClient) Query(seriesNames []string, q Query) (senml.Pack, error) {
 		Limit:           int32(q.Limit),
 		Offset:          int32(q.Offset),
 	}
-	stream, err := c.Client.Query(context.Background(), &request)
-
+	stream, err := c.Client.Query(ctx, &request)
+	if err != nil {
+		return nil, fmt.Errorf("error querying: %v", err)
+	}
 	records := make(senml.Pack, 0, q.PerPage)
 	for {
 		message, err := stream.Recv()
@@ -81,7 +83,7 @@ func (c *GrpcClient) Query(seriesNames []string, q Query) (senml.Pack, error) {
 	return records, err
 }
 
-func (c *GrpcClient) Count(series []string, q Query) (total int, err error) {
+func (c *GrpcClient) Count(ctx context.Context, series []string, q Query) (total int, err error) {
 	request := _go.QueryRequest{
 		Series:          series,
 		From:            q.From.Format(time.RFC3339),
@@ -92,7 +94,7 @@ func (c *GrpcClient) Count(series []string, q Query) (total int, err error) {
 		Limit:           int32(q.Limit),
 		Offset:          int32(q.Offset),
 	}
-	totalResponse, err := c.Client.Count(context.Background(), &request)
+	totalResponse, err := c.Client.Count(ctx, &request)
 	if err != nil {
 		return 0, fmt.Errorf("error retrieving the count: %v", err)
 	}
@@ -118,7 +120,7 @@ func (c *GrpcClient) Subscribe(ctx context.Context, seriesNames ...string) (chan
 	}
 	stream, err := c.Client.Subscribe(ctx, &request)
 	if err != nil {
-		return nil, fmt.Errorf("error deleting: %v", err)
+		return nil, fmt.Errorf("error subscribing: %v", err)
 	}
 	ch := make(chan ResponsePack)
 	go func() {
@@ -150,7 +152,9 @@ func (c *GrpcClient) QueryStream(ctx context.Context, seriesNames []string, q Qu
 		Offset:          int32(q.Offset),
 	}
 	stream, err := c.Client.Query(ctx, &request)
-
+	if err != nil {
+		return nil, fmt.Errorf("error querying stream: %v", err)
+	}
 	ch := make(chan ResponsePack)
 	go func() {
 		defer close(ch)

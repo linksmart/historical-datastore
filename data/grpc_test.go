@@ -115,7 +115,7 @@ func TestGrpcSubmit(t *testing.T) {
 	}
 	r1.BaseName = "http://"
 	records := senml.Pack{r1, r2, r3}
-	err = client.Submit(records)
+	err = client.Submit(context.Background(), records)
 	if err != nil {
 		t.Fatalf("Submit failed:%v", err)
 	}
@@ -123,7 +123,7 @@ func TestGrpcSubmit(t *testing.T) {
 	//validate submission by checking the count
 	q := Query{To: time.Now(), Denormalize: DenormMaskName | DenormMaskUnit}
 	seriesNames := []string{"http://example.com/sensor1", "http://example.com/sensor2", "http://example.com/sensor3"}
-	total, err := client.Count(seriesNames, q)
+	total, err := client.Count(context.Background(), seriesNames, q)
 	if err != nil {
 		t.Errorf("Fetching count failed:%v", err)
 	}
@@ -132,7 +132,7 @@ func TestGrpcSubmit(t *testing.T) {
 	}
 
 	//Query the values
-	pack, err := client.Query(seriesNames, q)
+	pack, err := client.Query(context.Background(), seriesNames, q)
 	if err != nil {
 		t.Errorf("Query failed:%v", err)
 	}
@@ -190,7 +190,7 @@ func TestGrpcDelete(t *testing.T) {
 	}
 	r1.BaseName = "http://"
 	records := senml.Pack{r1, r2, r3, r4}
-	err = client.Submit(records)
+	err = client.Submit(context.Background(), records)
 	if err != nil {
 		t.Fatalf("Submit failed:%v", err)
 	}
@@ -198,7 +198,7 @@ func TestGrpcDelete(t *testing.T) {
 	//validate submission by checking the count
 	q := Query{To: time.Now(), Denormalize: DenormMaskName | DenormMaskUnit}
 	seriesNames := []string{"http://example.com/sensor1", "http://example.com/sensor2", "http://example.com/sensor3"}
-	total, err := client.Count(seriesNames, q)
+	total, err := client.Count(context.Background(), seriesNames, q)
 	if err != nil {
 		t.Errorf("Fetching count failed:%v", err)
 	}
@@ -212,7 +212,7 @@ func TestGrpcDelete(t *testing.T) {
 	}
 
 	//Query the values
-	pack, err := client.Query(seriesNames, q)
+	pack, err := client.Query(context.Background(), seriesNames, q)
 	if err != nil {
 		t.Errorf("Query failed:%v", err)
 	}
@@ -298,7 +298,7 @@ func TestGrpcSubscribe(t *testing.T) {
 
 	//Submit the data
 	g.Go(func() error {
-		err = client.Submit(submittedRecords)
+		err = client.Submit(context.Background(), submittedRecords)
 		if err != nil {
 			return fmt.Errorf("submit failed: %v", err)
 		}

@@ -64,6 +64,9 @@ func (a GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) (
 	q.Denormalize = DenormMask(request.DenormaMask)
 	q.SortAsc = request.SortAsc
 	q.PerPage = int(request.RecordPerPacket)
+	if q.PerPage > MaxPerPage || q.PerPage == 0 {
+		q.PerPage = MaxPerPage
+	}
 	q.Limit = int(request.Limit)
 	q.Offset = int(request.Offset)
 
