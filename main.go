@@ -1,10 +1,28 @@
 // Copyright 2016 Fraunhofer Institute for Applied Information Technology FIT
-
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package main
 
 import (
+	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -19,10 +37,12 @@ import (
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/demo"
+	"github.com/linksmart/historical-datastore/pki"
 	"github.com/linksmart/historical-datastore/registry"
 	"github.com/oleksandr/bonjour"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const LINKSMART = `
@@ -178,11 +198,85 @@ func main() {
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI)
 
+	caKeyFile := "../bin/keys/server/cakey.pem"
+	caFile := "../bin/keys/server/ca.pem"
+	serverCertFile := "../bin/keys/server/serverCert.pem"
+	serverPrivatekey := "../bin/keys/server/serverKey.pem"
+	var ca *pki.CertificateAuthority
+	init := false
+	getCert := false
+	getCert2 := true
+	if init {
+		ca, err := pki.NewCA()
+		if err != nil {
+			log.Panicf("unable to create cert authority: %v", err)
+		}
+		caPEM, privKeyPEM := ca.GetPEMS()
+		err = ioutil.WriteFile(caFile, caPEM, 0600)
+		if err != nil {
+			log.Panicf("unable to write ca file: %v", err)
+		}
+		err = ioutil.WriteFile(caKeyFile, privKeyPEM, 0600)
+		if err != nil {
+			log.Panicf("unable to write ca key: %v", err)
+		}
+
+		//generate server certificarte
+		serverPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
+		if err != nil {
+			log.Panicf("unable to generate private server key: %v", err)
+		}
+
+		privKeyBuff := new(bytes.Buffer)
+		pem.Encode(privKeyBuff, &pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(serverPrivKey),
+		})
+		err = ioutil.WriteFile(serverPrivatekey, privKeyBuff.Bytes(), 0600)
+		serverCert, err := ca.CreateCertificate(x509.MarshalPKCS1PublicKey(&serverPrivKey.PublicKey))
+		if err != nil {
+			log.Panicf("unable to write server certificate: %v", err)
+		}
+		err = ioutil.WriteFile(serverCertFile, serverCert, 0600)
+
+		return
+	}
+
+	ca, err = pki.NewCAFromFile(caFile, caKeyFile)
+	if err != nil {
+		log.Panicf("unable to load ca: %v", err)
+	}
+	if getCert {
+		clientCertFile := "../bin/keys/client/clientCert2_one.pem"
+		clientCert2File := "../bin/keys/client/clientCert2_two.pem"
+		clientPrivKeyFile := "../bin/keys/client/clientKey.pem"
+		//generate server certificarte
+		clientPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
+		if err != nil {
+			log.Panicf("unable to generate private server key: %v", err)
+		}
+
+		privKeyBuff := new(bytes.Buffer)
+		pem.Encode(privKeyBuff, &pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(clientPrivKey),
+		})
+		err = ioutil.WriteFile(clientPrivKeyFile, privKeyBuff.Bytes(), 0600)
+		clientCert, err := ca.CreateCertificate(x509.MarshalPKCS1PublicKey(&clientPrivKey.PublicKey))
+		if err != nil {
+			log.Panicf("unable to write server certificate: %v", err)
+		}
+		err = ioutil.WriteFile(clientCertFile, clientCert, 0600)
+		clientCert2, err := ca.CreateCertificate(x509.MarshalPKCS1PublicKey(&clientPrivKey.PublicKey))
+		if err != nil {
+			log.Panicf("unable to write server certificate: %v", err)
+		}
+		err = ioutil.WriteFile(clientCert2File, clientCert2, 0600)
+		return
+	}
+
 	if conf.GRPC.Enabled {
-		srv := grpc.NewServer()
-		data.RegisterGRPCAPI(srv, *dataController)
-		registry.RegisterGRPCAPI(srv, *regController)
-		go startGRPCServer(conf, srv)
+		go startGRPCServer(conf, dataController, regController)
 	}
 	// Announce service using DNS-SD
 	var bonjourS *bonjour.Server
@@ -225,14 +319,47 @@ func main() {
 	log.Println("Stopped.")
 }
 
-func startGRPCServer(conf *common.Config, srv *grpc.Server) {
+func startGRPCServer(conf *common.Config, dataController *data.Controller, regController *registry.Controller) {
 	serverAddr := fmt.Sprintf("%s:%d", conf.GRPC.BindAddr, conf.GRPC.BindPort)
 	log.Printf("Serving GRPC on %s", serverAddr)
+	serverCertFile := "../bin/keys/server/serverCert.pem"
+	serverPrivatekey := "../bin/keys/server/serverKey.pem"
+	caFile := "../bin/keys/server/ca.pem"
+	// Load the certificates from disk
+	certificate, err := tls.LoadX509KeyPair(serverCertFile, serverPrivatekey)
+	if err != nil {
+		log.Fatalf("could not load server key pair: %s", err)
+	}
+
+	// Create a certificate pool from the certificate authority
+	certPool := x509.NewCertPool()
+	ca, err := ioutil.ReadFile(caFile)
+	if err != nil {
+		log.Fatalf("could not read ca certificate: %s", err)
+	}
+
+	// Append the client certificates from the CA
+	if ok := certPool.AppendCertsFromPEM(ca); !ok {
+		log.Fatalf("failed to append client certs")
+	}
 	l, err := net.Listen("tcp", serverAddr)
 	if err != nil {
 		log.Fatalf("could not listen to %s: %v", serverAddr, err)
 	}
+	// Create the TLS credentials
+	creds := credentials.NewTLS(&tls.Config{
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		Certificates: []tls.Certificate{certificate},
+		ClientCAs:    certPool,
+	})
+
+	srv := grpc.NewServer(grpc.Creds(creds))
+
+	data.RegisterGRPCAPI(srv, *dataController)
+	registry.RegisterGRPCAPI(srv, *regController)
+
 	err = srv.Serve(l)
+
 	if err != nil {
 		log.Fatalf("Stopped listening GRPC: %v", err)
 	}
