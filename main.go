@@ -14,13 +14,11 @@
 package main
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/pem"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -285,22 +283,20 @@ func setupServerCert(pkiConf common.PKI, ca *pki.CertificateAuthority) error {
 		if err != nil {
 			return fmt.Errorf("Error reading server private key file")
 		}
-		privKey, err = x509.ParsePKCS1PrivateKey(privKeyBytes)
+		privKey, err = pki.PemToPrivateKey(privKeyBytes)
 		if err != nil {
-			return fmt.Errorf("Error parsing server private key")
+			return fmt.Errorf("Error parsing server private key: %v", err)
 		}
 	} else {
 		//generate server private key
-		privKey, err := rsa.GenerateKey(rand.Reader, 2024)
+		privKey, err = rsa.GenerateKey(rand.Reader, 2024)
 		if err != nil {
 			return fmt.Errorf("unable to generate private server key: %v", err)
 		}
-		privKeyBuff := new(bytes.Buffer)
-		pem.Encode(privKeyBuff, &pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(privKey),
-		})
-		privKeyBytes = privKeyBuff.Bytes()
+		privKeyBytes, err = pki.PrivateKeyToPEM(privKey)
+		if err != nil {
+			return fmt.Errorf("error reading private key %v", err)
+		}
 		err = ioutil.WriteFile(pkiConf.ServerKey, privKeyBytes, 0600)
 		if err != nil {
 			return fmt.Errorf("error writing private key %v", err)
@@ -327,14 +323,14 @@ func setupServerCert(pkiConf common.PKI, ca *pki.CertificateAuthority) error {
 	}
 	csr.IPAddresses = ips
 
-	if err != nil {
-		return fmt.Errorf("unable to write server certificate: %v", err)
-	}
-	csr.PublicKey = privKey.PublicKey
+	csr.PublicKey = &privKey.PublicKey
 
 	serverCert, err := ca.CreateCertificate(csr, true)
 	err = ioutil.WriteFile(pkiConf.ServerCert, serverCert, 0600)
-
+	if err != nil {
+		return fmt.Errorf("unable to write server certificate: %v", err)
+	}
+	return nil
 }
 
 func setupCA(pkiConf *common.PKI) (ca *pki.CertificateAuthority, err error) {
@@ -356,14 +352,17 @@ func setupCA(pkiConf *common.PKI) (ca *pki.CertificateAuthority, err error) {
 		if err != nil {
 			return nil, err
 		}
-		cert, key := ca.GetPEMS()
+		cert, key, err := ca.GetPEMS()
+		if err != nil {
+			return nil, fmt.Errorf("Error while encoding CA certificate to PEM: %v", err)
+		}
 		err = ioutil.WriteFile(pkiConf.CaCert, cert, 0600)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error writing the CA Certificate file: %v", err)
 		}
 		err = ioutil.WriteFile(pkiConf.CaKey, key, 0600)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error writing the CA key file: %v", err)
 		}
 	} else {
 		log.Printf("reusing the existing CA: %s", pkiConf.CaCert)

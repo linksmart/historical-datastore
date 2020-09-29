@@ -89,13 +89,12 @@ type ServiceCatalogConf struct {
 
 // Certificate authority and Certificate and
 type PKI struct {
-	CaCert     string `json:"caFile"`
-	ServerCert string `json:"cert"`
+	CaCert     string `json:"caCert"`
+	CaKey      string `json:"caKey"`
+	ServerCert string `json:"serverCert"`
 	ServerKey  string `json:"serverKey"`
-
-	CaKey string `json:"caKey"`
 	// Data needed for CA or server certificate
-	CertData CertData `json:"subject"`
+	CertData CertData `json:"certData"`
 }
 
 type CertData struct {
@@ -105,8 +104,9 @@ type CertData struct {
 	Organization       string `json:"organization"`
 	OrganizationalUnit string `json:"organizationalUnit"`
 	CommonName         string `json:"commonName"`
-	DNSNames           string `json:"dnsNames"`
-	IPAddresses        string `json:"ipAddresses"`
+	//DNSNames are Subject Alternative Names (SAN)
+	DNSNames    string `json:"dnsNames"`
+	IPAddresses string `json:"ipAddresses"`
 }
 
 func (c Config) String() string {

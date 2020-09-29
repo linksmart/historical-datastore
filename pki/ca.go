@@ -70,21 +70,16 @@ func NewCAFromFile(caFile, caKeyFile string) (ca *CertificateAuthority, err erro
 	}
 
 	ca = new(CertificateAuthority)
-	block, _ := pem.Decode(caPrivKeyPEM)
-	if block == nil {
-		return nil, fmt.Errorf("unabled to decode CA private key")
-	}
-	ca.PrivKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+	ca.PrivKey, err = PemToPrivateKey(caPrivKeyPEM)
 	if err != nil {
 		return nil, err
 	}
-	block, _ = pem.Decode(caPEM)
-	if block == nil {
-		return nil, fmt.Errorf("unabled to decode PEM for CA certificate")
-	}
-	ca.Cert, err = x509.ParseCertificate(block.Bytes)
 
-	return ca, nil
+	ca.Cert, err = PEMToCertificate(caPEM)
+	if err != nil {
+		return nil, err
+	}
+	return ca, err
 }
 
 //generate certificate for a given
@@ -108,50 +103,70 @@ func (ca CertificateAuthority) CreateCertificate(csr *x509.CertificateRequest, s
 		ExtKeyUsage:        []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	}
 
-	/*
-		cert := &x509.Certificate{
-			SerialNumber: sNum,
-			Subject: pkix.Name{
-				Organization:  []string{"BIMERR EU Project"},
-				Country:       []string{"DE"},
-				Province:      []string{""},
-				Locality:      []string{"Sankt Augustin"},
-				StreetAddress: []string{"Schloss Birlinghoven 1"},
-				PostalCode:    []string{"53757"},
-			},
-			IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
-			DNSNames:     []string{"localhost"},
-			NotBefore:    time.Now(),
-			NotAfter:     time.Now().AddDate(10, 0, 0),
-			SubjectKeyId: []byte{1, 2, 3, 4, 6},
-			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-			KeyUsage:     x509.KeyUsageDigitalSignature,
-		}
-	*/
+	if server {
+		template.ExtKeyUsage = append(template.ExtKeyUsage, x509.ExtKeyUsageServerAuth)
+	}
+
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, ca.Cert, csr.PublicKey, ca.PrivKey)
 	if err != nil {
 		return nil, err
 	}
-	certPEM := new(bytes.Buffer)
-	pem.Encode(certPEM, &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certBytes,
-	})
-	return certPEM.Bytes(), nil
+
+	return certificateASNToPEM(certBytes)
 }
 
-func (ca CertificateAuthority) GetPEMS() (caPEM, caPrivKeyPEM []byte) {
-	// pem encode
-	caPEMBuff := new(bytes.Buffer)
-	pem.Encode(caPEMBuff, &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: ca.Cert.Raw,
-	})
+func (ca CertificateAuthority) GetPEMS() (caPEM, caPrivKeyPEM []byte, err error) {
+	caPEM, err = CertificateToPEM(*ca.Cert)
+	if err != nil {
+		return nil, nil, err
+	}
+	caPrivKeyPEM, err = PrivateKeyToPEM(ca.PrivKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return caPEM, caPrivKeyPEM, nil
+}
 
-	caPrivKeyPEMBuff := new(bytes.Buffer)
-	pem.Encode(caPrivKeyPEMBuff, &pem.Block{
+func PemToPrivateKey(caPrivKeyPEM []byte) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode(caPrivKeyPEM)
+	if block == nil {
+		return nil, fmt.Errorf("unabled to decode CA private key")
+	}
+	return x509.ParsePKCS1PrivateKey(block.Bytes)
+}
+
+func PrivateKeyToPEM(privKey *rsa.PrivateKey) ([]byte, error) {
+	privKeyBuff := new(bytes.Buffer)
+	err := pem.Encode(privKeyBuff, &pem.Block{
 		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(ca.PrivKey),
+		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
 	})
-	return caPEMBuff.Bytes(), caPrivKeyPEMBuff.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return privKeyBuff.Bytes(), nil
+}
+
+func PEMToCertificate(certPEM []byte) (*x509.Certificate, error) {
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return nil, fmt.Errorf("unabled to decode PEM for CA certificate")
+	}
+	return x509.ParseCertificate(block.Bytes)
+}
+
+func CertificateToPEM(certificate x509.Certificate) ([]byte, error) {
+	return certificateASNToPEM(certificate.Raw)
+}
+
+func certificateASNToPEM(certificateASN []byte) ([]byte, error) {
+	caPEMBuff := new(bytes.Buffer)
+	err := pem.Encode(caPEMBuff, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certificateASN,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return caPEMBuff.Bytes(), nil
 }
