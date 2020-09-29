@@ -60,7 +60,7 @@ func CSRASN1ToPEM(csrAsn1 []byte) ([]byte, error) {
 	pemBuff := new(bytes.Buffer)
 	err := pem.Encode(pemBuff, &pem.Block{
 		Type:  "CERTIFICATE REQUEST",
-		Bytes: csrAsn1.Raw,
+		Bytes: csrAsn1,
 	})
 	if err != nil {
 		return nil, err
