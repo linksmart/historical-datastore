@@ -2,12 +2,10 @@
 package pki
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -112,7 +110,7 @@ func (ca CertificateAuthority) CreateCertificate(csr *x509.CertificateRequest, s
 		return nil, err
 	}
 
-	return certificateASNToPEM(certBytes)
+	return CertificateASN1ToPEM(certBytes)
 }
 
 func (ca CertificateAuthority) GetPEMS() (caPEM, caPrivKeyPEM []byte, err error) {
@@ -125,48 +123,4 @@ func (ca CertificateAuthority) GetPEMS() (caPEM, caPrivKeyPEM []byte, err error)
 		return nil, nil, err
 	}
 	return caPEM, caPrivKeyPEM, nil
-}
-
-func PemToPrivateKey(caPrivKeyPEM []byte) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode(caPrivKeyPEM)
-	if block == nil {
-		return nil, fmt.Errorf("unabled to decode CA private key")
-	}
-	return x509.ParsePKCS1PrivateKey(block.Bytes)
-}
-
-func PrivateKeyToPEM(privKey *rsa.PrivateKey) ([]byte, error) {
-	privKeyBuff := new(bytes.Buffer)
-	err := pem.Encode(privKeyBuff, &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return privKeyBuff.Bytes(), nil
-}
-
-func PEMToCertificate(certPEM []byte) (*x509.Certificate, error) {
-	block, _ := pem.Decode(certPEM)
-	if block == nil {
-		return nil, fmt.Errorf("unabled to decode PEM for CA certificate")
-	}
-	return x509.ParseCertificate(block.Bytes)
-}
-
-func CertificateToPEM(certificate x509.Certificate) ([]byte, error) {
-	return certificateASNToPEM(certificate.Raw)
-}
-
-func certificateASNToPEM(certificateASN []byte) ([]byte, error) {
-	caPEMBuff := new(bytes.Buffer)
-	err := pem.Encode(caPEMBuff, &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certificateASN,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return caPEMBuff.Bytes(), nil
 }

@@ -8,6 +8,8 @@ services:
         version: $VERSION
         buildnum: $BUILDNUM
     image: linksmart/hds
+    environment:
+      - HDS_GRPC_ENABLED=false
   tester:
     build:
       context: .

@@ -1,7 +1,6 @@
 package pki
 
 import (
-	"crypto/x509"
 	"io/ioutil"
 	"net/http"
 
@@ -31,7 +30,7 @@ func (a *API) Sign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	csr, err := x509.ParseCertificateRequest(body)
+	csr, err := PEMToCSR(body)
 	if err != nil {
 		common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
 		return
