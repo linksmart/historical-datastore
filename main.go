@@ -295,7 +295,7 @@ func setupServerCert(pkiConf common.PKI, ca *pki.CertificateAuthority) error {
 		}
 		privKeyBytes, err = pki.PrivateKeyToPEM(privKey)
 		if err != nil {
-			return fmt.Errorf("error reading private key %v", err)
+			return fmt.Errorf("error converting private key to PEM %v", err)
 		}
 		err = ioutil.WriteFile(pkiConf.ServerKey, privKeyBytes, 0600)
 		if err != nil {
@@ -439,7 +439,7 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API, pki
 
 	// pki API
 	if pki != nil {
-		router.handle(http.MethodPost, "pki", pki.Sign)
+		router.handle(http.MethodPost, "/pki", pki.Sign)
 	}
 
 	// Append auth handler if enabled

@@ -66,9 +66,6 @@ func loadConfig(confPath *string, ignoreEnv bool) (*common.Config, error) {
 		return nil, err
 	}
 
-	// VALIDATE AGGREGATION API CONFIG
-	//
-	//
 
 	// VALIDATE SERVICE CATALOG CONFIG
 	if conf.ServiceCatalog.Enabled {
