@@ -97,6 +97,7 @@ func (ca CertificateAuthority) CreateCertificate(csr *x509.CertificateRequest, s
 		IPAddresses:        csr.IPAddresses,
 		EmailAddresses:     csr.EmailAddresses,
 		NotBefore:          time.Now(),
+		NotAfter:           time.Now().AddDate(10, 0, 0),
 		KeyUsage:           x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:        []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	}
