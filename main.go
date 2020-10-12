@@ -263,17 +263,13 @@ func main() {
 func setupServerCert(pkiConf common.PKI, ca *pki.CertificateAuthority) error {
 	if pkiConf.ServerKey == "" || pkiConf.ServerCert == "" || pkiConf.CaCert == "" {
 		log.Printf("In order to run GRPC server, ServerKey file, Server Cert file and CA Cert file must be set in conf.pki setting")
-		return fmt.Errorf("Certificate and key files are not set")
+		return fmt.Errorf("certificate and key files are not set")
 	}
 	if fileExists(pkiConf.ServerKey) && fileExists(pkiConf.ServerCert) && fileExists(pkiConf.CaCert) {
 		log.Print("Using the existing server certificates")
 		return nil
 	}
-	if !fileExists(pkiConf.ServerCert) && ca == nil {
-		return fmt.Errorf("Server certificate does not exist CA is not set up to sign the server")
-	}
-
-	log.Printf("The server Certificate %s does not exist. signing the server: %s", pkiConf.ServerKey, pkiConf.ServerCert)
+	log.Printf("The server Certificate does not exist. signing the server")
 
 	var privKeyBytes []byte
 	var privKey *rsa.PrivateKey
@@ -281,11 +277,11 @@ func setupServerCert(pkiConf common.PKI, ca *pki.CertificateAuthority) error {
 	if fileExists(pkiConf.ServerKey) {
 		privKeyBytes, err = ioutil.ReadFile(pkiConf.ServerKey)
 		if err != nil {
-			return fmt.Errorf("Error reading server private key file")
+			return fmt.Errorf("error reading server private key file")
 		}
 		privKey, err = pki.PemToPrivateKey(privKeyBytes)
 		if err != nil {
-			return fmt.Errorf("Error parsing server private key: %v", err)
+			return fmt.Errorf("error parsing server private key: %v", err)
 		}
 	} else {
 		//generate server private key
@@ -334,41 +330,45 @@ func setupServerCert(pkiConf common.PKI, ca *pki.CertificateAuthority) error {
 }
 
 func setupCA(pkiConf *common.PKI) (ca *pki.CertificateAuthority, err error) {
-	if !fileExists(pkiConf.CaCert) {
-		log.Printf("The CA key file %s does not exist. Creating a new self signed CA: %s", pkiConf.CaKey, pkiConf.CaCert)
-		if fileExists(pkiConf.CaKey) {
-			return nil, fmt.Errorf("CA cert key already exists. This case is not implemented")
-		}
-		s := &pkiConf.CertData
-		subject := pkix.Name{
-			Country:            []string{s.Country},
-			Province:           []string{s.Province},
-			Locality:           []string{s.Locality},
-			Organization:       []string{s.Organization},
-			OrganizationalUnit: []string{s.OrganizationalUnit},
-			CommonName:         s.CommonName,
-		}
-		ca, err = pki.NewCA(subject)
-		if err != nil {
-			return nil, err
-		}
-		cert, key, err := ca.GetPEMS()
-		if err != nil {
-			return nil, fmt.Errorf("Error while encoding CA certificate to PEM: %v", err)
-		}
-		err = ioutil.WriteFile(pkiConf.CaCert, cert, 0600)
-		if err != nil {
-			return nil, fmt.Errorf("error writing the CA Certificate file: %v", err)
-		}
-		err = ioutil.WriteFile(pkiConf.CaKey, key, 0600)
-		if err != nil {
-			return nil, fmt.Errorf("error writing the CA key file: %v", err)
-		}
-	} else {
+	if fileExists(pkiConf.CaCert) {
 		log.Printf("reusing the existing CA: %s", pkiConf.CaCert)
 		ca, err = pki.NewCAFromFile(pkiConf.CaCert, pkiConf.CaKey)
+		if err != nil {
+			return nil, fmt.Errorf("error creting new CA from File: %v", err)
+		}
+		return ca, nil
 	}
-	return ca, err
+	log.Printf("The CA key file %s does not exist. Creating a new self signed CA: %s", pkiConf.CaKey, pkiConf.CaCert)
+	if fileExists(pkiConf.CaKey) {
+		return nil, fmt.Errorf("CA cert key already exists. This case is not implemented")
+	}
+	s := &pkiConf.CertData
+	subject := pkix.Name{
+		Country:            []string{s.Country},
+		Province:           []string{s.Province},
+		Locality:           []string{s.Locality},
+		Organization:       []string{s.Organization},
+		OrganizationalUnit: []string{s.OrganizationalUnit},
+		CommonName:         s.CommonName,
+	}
+	ca, err = pki.NewCA(subject)
+	if err != nil {
+		return nil, err
+	}
+	cert, key, err := ca.GetPEMS()
+	if err != nil {
+		return nil, fmt.Errorf("Error while encoding CA certificate to PEM: %v", err)
+	}
+	err = ioutil.WriteFile(pkiConf.CaCert, cert, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("error writing the CA Certificate file: %v", err)
+	}
+	err = ioutil.WriteFile(pkiConf.CaKey, key, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("error writing the CA key file: %v", err)
+	}
+	return ca, nil
+
 }
 
 func startGRPCServer(conf *common.Config, dataController *data.Controller, regController *registry.Controller) {
@@ -388,7 +388,7 @@ func startGRPCServer(conf *common.Config, dataController *data.Controller, regCo
 	certPool := x509.NewCertPool()
 	ca, err := ioutil.ReadFile(caFile)
 	if err != nil {
-		log.Fatalf("could not read ca certificate: %s", err)
+		log.Panicf("could not read ca certificate: %s", err)
 	}
 
 	// Append the client certificates from the CA

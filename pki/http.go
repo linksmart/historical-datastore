@@ -41,5 +41,6 @@ func (a *API) Sign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+	w.Header().Add("Content-Type", "application/x-pem-file")
 	w.Write(cert)
 }
