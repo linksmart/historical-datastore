@@ -1,10 +1,27 @@
 // Copyright 2016 Fraunhofer Institute for Applied Information Technology FIT
-
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -12,6 +29,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/linksmart/go-sec/auth/keycloak/validator"
@@ -19,10 +37,12 @@ import (
 	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/demo"
+	"github.com/linksmart/historical-datastore/pki"
 	"github.com/linksmart/historical-datastore/registry"
 	"github.com/oleksandr/bonjour"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const LINKSMART = `
@@ -145,6 +165,20 @@ func main() {
 		}
 	}
 
+	//setup pki
+	var pkiAPI *pki.API
+	var ca *pki.CertificateAuthority
+	if conf.PKI.CaKey != "" { //CA is optional feature of HDS and will be setup only when ca key is given
+		ca, err = setupCA(&conf.PKI)
+		if err != nil {
+			log.Panicf("Error setting up CA: %v", err)
+		}
+
+	} else {
+		log.Print("CA key is not given. Skipping the CA setup")
+	}
+	pkiAPI = pki.NewAPI(ca)
+
 	// Setup APIs
 	regController := registry.NewController(regStorage)
 	dataController := data.NewController(*regController, dataStorage, conf.Data.AutoRegistration)
@@ -176,13 +210,14 @@ func main() {
 	}
 
 	// Start servers
-	go startHTTPServer(conf, regAPI, dataAPI)
+	go startHTTPServer(conf, regAPI, dataAPI, pkiAPI)
 
 	if conf.GRPC.Enabled {
-		srv := grpc.NewServer()
-		data.RegisterGRPCAPI(srv, *dataController)
-		registry.RegisterGRPCAPI(srv, *regController)
-		go startGRPCServer(conf, srv)
+		err = setupServerCert(conf.PKI, ca)
+		if err != nil {
+			log.Panicf("Error setting up server certificate: %s", err)
+		}
+		go startGRPCServer(conf, dataController, regController)
 	}
 	// Announce service using DNS-SD
 	var bonjourS *bonjour.Server
@@ -225,20 +260,165 @@ func main() {
 	log.Println("Stopped.")
 }
 
-func startGRPCServer(conf *common.Config, srv *grpc.Server) {
+func setupServerCert(pkiConf common.PKI, ca *pki.CertificateAuthority) error {
+	if pkiConf.ServerKey == "" || pkiConf.ServerCert == "" || pkiConf.CaCert == "" {
+		log.Printf("In order to run GRPC server, ServerKey file, Server Cert file and CA Cert file must be set in conf.pki setting")
+		return fmt.Errorf("certificate and key files are not set")
+	}
+	if fileExists(pkiConf.ServerKey) && fileExists(pkiConf.ServerCert) && fileExists(pkiConf.CaCert) {
+		log.Print("Using the existing server certificates")
+		return nil
+	}
+	log.Printf("The server Certificate does not exist. signing the server")
+
+	var privKeyBytes []byte
+	var privKey *rsa.PrivateKey
+	var err error
+	if fileExists(pkiConf.ServerKey) {
+		privKeyBytes, err = ioutil.ReadFile(pkiConf.ServerKey)
+		if err != nil {
+			return fmt.Errorf("error reading server private key file")
+		}
+		privKey, err = pki.PemToPrivateKey(privKeyBytes)
+		if err != nil {
+			return fmt.Errorf("error parsing server private key: %v", err)
+		}
+	} else {
+		//generate server private key
+		privKey, err = rsa.GenerateKey(rand.Reader, 2024)
+		if err != nil {
+			return fmt.Errorf("unable to generate private server key: %v", err)
+		}
+		privKeyBytes, err = pki.PrivateKeyToPEM(privKey)
+		if err != nil {
+			return fmt.Errorf("error converting private key to PEM %v", err)
+		}
+		err = ioutil.WriteFile(pkiConf.ServerKey, privKeyBytes, 0600)
+		if err != nil {
+			return fmt.Errorf("error writing private key %v", err)
+		}
+	}
+
+	// setup csr
+	csr := new(x509.CertificateRequest)
+	s := &pkiConf.CertData
+	csr.Subject = pkix.Name{
+		Country:            []string{s.Country},
+		Province:           []string{s.Province},
+		Locality:           []string{s.Locality},
+		Organization:       []string{s.Organization},
+		OrganizationalUnit: []string{s.OrganizationalUnit},
+		CommonName:         s.CommonName,
+	}
+	csr.DNSNames = strings.Split(pkiConf.CertData.DNSNames, ",")
+	ipAddresses := strings.Split(pkiConf.CertData.IPAddresses, ",")
+
+	var ips []net.IP
+	for _, v := range ipAddresses {
+		ips = append(ips, net.ParseIP(v))
+	}
+	csr.IPAddresses = ips
+
+	csr.PublicKey = &privKey.PublicKey
+
+	serverCert, err := ca.CreateCertificate(csr, true)
+	err = ioutil.WriteFile(pkiConf.ServerCert, serverCert, 0600)
+	if err != nil {
+		return fmt.Errorf("unable to write server certificate: %v", err)
+	}
+	return nil
+}
+
+func setupCA(pkiConf *common.PKI) (ca *pki.CertificateAuthority, err error) {
+	if fileExists(pkiConf.CaCert) {
+		log.Printf("reusing the existing CA: %s", pkiConf.CaCert)
+		ca, err = pki.NewCAFromFile(pkiConf.CaCert, pkiConf.CaKey)
+		if err != nil {
+			return nil, fmt.Errorf("error creting new CA from File: %v", err)
+		}
+		return ca, nil
+	}
+	log.Printf("The CA key file %s does not exist. Creating a new self signed CA: %s", pkiConf.CaKey, pkiConf.CaCert)
+	if fileExists(pkiConf.CaKey) {
+		return nil, fmt.Errorf("CA cert key already exists. This case is not implemented")
+	}
+	s := &pkiConf.CertData
+	subject := pkix.Name{
+		Country:            []string{s.Country},
+		Province:           []string{s.Province},
+		Locality:           []string{s.Locality},
+		Organization:       []string{s.Organization},
+		OrganizationalUnit: []string{s.OrganizationalUnit},
+		CommonName:         s.CommonName,
+	}
+	ca, err = pki.NewCA(subject)
+	if err != nil {
+		return nil, err
+	}
+	cert, key, err := ca.GetPEMS()
+	if err != nil {
+		return nil, fmt.Errorf("Error while encoding CA certificate to PEM: %v", err)
+	}
+	err = ioutil.WriteFile(pkiConf.CaCert, cert, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("error writing the CA Certificate file: %v", err)
+	}
+	err = ioutil.WriteFile(pkiConf.CaKey, key, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("error writing the CA key file: %v", err)
+	}
+	return ca, nil
+
+}
+
+func startGRPCServer(conf *common.Config, dataController *data.Controller, regController *registry.Controller) {
 	serverAddr := fmt.Sprintf("%s:%d", conf.GRPC.BindAddr, conf.GRPC.BindPort)
+
 	log.Printf("Serving GRPC on %s", serverAddr)
+	serverCertFile := conf.PKI.ServerCert
+	serverPrivatekey := conf.PKI.ServerKey
+	caFile := conf.PKI.CaCert
+	// Load the certificates from disk
+	certificate, err := tls.LoadX509KeyPair(serverCertFile, serverPrivatekey)
+	if err != nil {
+		log.Panicf("could not load server key pair: %s", err)
+	}
+
+	// Create a certificate pool from the certificate authority
+	certPool := x509.NewCertPool()
+	ca, err := ioutil.ReadFile(caFile)
+	if err != nil {
+		log.Panicf("could not read ca certificate: %s", err)
+	}
+
+	// Append the client certificates from the CA
+	if ok := certPool.AppendCertsFromPEM(ca); !ok {
+		log.Fatalf("failed to append client certs")
+	}
 	l, err := net.Listen("tcp", serverAddr)
 	if err != nil {
 		log.Fatalf("could not listen to %s: %v", serverAddr, err)
 	}
+	// Create the TLS credentials
+	creds := credentials.NewTLS(&tls.Config{
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		Certificates: []tls.Certificate{certificate},
+		ClientCAs:    certPool,
+	})
+
+	srv := grpc.NewServer(grpc.Creds(creds))
+
+	data.RegisterGRPCAPI(srv, *dataController)
+	registry.RegisterGRPCAPI(srv, *regController)
+
 	err = srv.Serve(l)
+
 	if err != nil {
 		log.Fatalf("Stopped listening GRPC: %v", err)
 	}
 }
 
-func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
+func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API, pki *pki.API) {
 	router := newRouter()
 	// api root
 	router.handle(http.MethodGet, "/", indexHandler)
@@ -256,6 +436,12 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
 	router.handle(http.MethodPost, "/data/{id:.+}", data.Submit)
 	router.handle(http.MethodGet, "/data/{id:.+}", data.Query)
 	router.handle(http.MethodDelete, "/data/{id:.+}", data.Delete)
+
+	// pki API
+	if pki != nil {
+		router.handle(http.MethodPost, "/pki", pki.Sign)
+	}
+
 	// Append auth handler if enabled
 	if conf.Auth.Enabled {
 		// Setup ticket validator
@@ -274,4 +460,9 @@ func startHTTPServer(conf *common.Config, reg *registry.API, data *data.API) {
 		log.Fatalln(err)
 	}
 
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
 }

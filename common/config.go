@@ -28,6 +28,8 @@ type Config struct {
 	ServiceCatalog ServiceCatalogConf `json:"serviceCatalog"`
 	// Auth config
 	Auth validator.Conf `json:"auth"`
+	//PKI config
+	PKI PKI `json:pki`
 }
 
 // GRPC config
@@ -83,6 +85,28 @@ type ServiceCatalogConf struct {
 	Endpoint string        `json:"endpoint"`
 	TTL      uint          `json:"ttl"`
 	Auth     obtainer.Conf `json:"auth"`
+}
+
+// Certificate authority and Certificate and
+type PKI struct {
+	CaCert     string `json:"caCert"`
+	CaKey      string `json:"caKey"`
+	ServerCert string `json:"serverCert"`
+	ServerKey  string `json:"serverKey"`
+	// Data needed for CA or server certificate
+	CertData CertData `json:"certData"`
+}
+
+type CertData struct {
+	Country            string `json:"country"`
+	Province           string `json:"province"`
+	Locality           string `json:"locality"`
+	Organization       string `json:"organization"`
+	OrganizationalUnit string `json:"organizationalUnit"`
+	CommonName         string `json:"commonName"`
+	//DNSNames are Subject Alternative Names (SAN)
+	DNSNames    string `json:"dnsNames"`
+	IPAddresses string `json:"ipAddresses"`
 }
 
 func (c Config) String() string {

@@ -9,6 +9,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -68,7 +69,9 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	curLink := common.DataAPILoc + "/" + getUrlFromQuery(q, ids...)
+	baseLink := fmt.Sprintf("%s/%s?", common.DataAPILoc, params["id"])
+	form := getFormFromQuery(q)
+	curLink := baseLink + form.Encode()
 
 	nextLink := ""
 
@@ -77,9 +80,9 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 	//If the response is already less than the number of elements supposed to be in a page,
 	//then it already means that we are in last page
 	if responseLength >= q.PerPage {
-		nextQuery := q
-		nextQuery.Page = q.Page + 1
-		nextLink = common.DataAPILoc + "/" + getUrlFromQuery(nextQuery, ids...)
+		form.Set(common.ParamPage, strconv.Itoa(q.Page+1))
+		form.Del(common.ParamCount)
+		nextLink = baseLink + form.Encode()
 	}
 
 	recordSet = RecordSet{
@@ -239,53 +242,50 @@ func getDecoderForContentType(contentType string) (decoder codec.Decoder, err er
 	return decoder, nil
 }
 
-func getUrlFromQuery(q Query, id ...string) (url string) {
-	var sort, limit, start, end, perPage, offset, denorm, groupBy string
+func getFormFromQuery(q Query) (form url.Values) {
+	form = url.Values{}
 	if q.SortAsc {
-		sort = fmt.Sprintf("&%v=%v", common.ParamSort, common.Asc)
+		form.Set(common.ParamSort, common.Asc)
 	}
 	if !q.From.IsZero() {
-		start = fmt.Sprintf("&%v=%v", common.ParamFrom, q.From.UTC().Format(time.RFC3339))
+		form.Set(common.ParamFrom, q.From.UTC().Format(time.RFC3339))
 	}
 	if !q.To.IsZero() {
-		end = fmt.Sprintf("&%v=%v", common.ParamTo, q.To.UTC().Format(time.RFC3339))
+		form.Set(common.ParamTo, q.To.UTC().Format(time.RFC3339))
 	}
 	if q.Page > 0 {
-		offset = fmt.Sprintf("&%v=%v", common.ParamPage, q.Page)
+		form.Set(common.ParamPage, strconv.Itoa(q.Page))
 	}
 	if q.PerPage > 0 {
-		perPage = fmt.Sprintf("&%v=%v", common.ParamPerPage, q.PerPage)
+		form.Set(common.ParamPerPage, strconv.Itoa(q.PerPage))
 	}
-
+	if q.Count == true {
+		form.Set(common.ParamCount, strconv.FormatBool(q.Count))
+	}
 	if q.Denormalize != 0 {
-		denorm = fmt.Sprintf("&%v=", common.ParamDenormalize)
 		if q.Denormalize&DenormMaskTime != 0 {
-			denorm += TimeFieldShort + ","
+			form.Add(common.ParamDenormalize, TimeFieldShort)
 		}
 		if q.Denormalize&DenormMaskName != 0 {
-			denorm += NameFieldShort + ","
+			form.Add(common.ParamDenormalize, NameFieldShort)
 		}
 		if q.Denormalize&DenormMaskUnit != 0 {
-			denorm += UnitFieldShort + ","
+			form.Add(common.ParamDenormalize, UnitFieldShort)
 		}
 		if q.Denormalize&DenormMaskSum != 0 {
-			denorm += SumFieldShort + ","
+			form.Add(common.ParamDenormalize, SumFieldShort)
 		}
 		if q.Denormalize&DenormMaskValue != 0 {
-			denorm += ValueFieldShort + ","
+			form.Add(common.ParamDenormalize, ValueFieldShort)
 		}
-		denorm = strings.TrimSuffix(denorm, ",")
 	}
 
 	if q.AggrFunc != "" {
-		groupBy = fmt.Sprintf("&%s=%s&%s=%s", common.ParamAggr, q.AggrFunc, common.ParamWindow, q.AggrWindow)
+		form.Set(common.ParamAggr, q.AggrFunc)
+		form.Set(common.ParamWindow, q.AggrWindow.String())
 	}
 
-	return fmt.Sprintf("%v?%s%s%s%s%s%s%s%s",
-		strings.Join(id, common.IDSeparator),
-		perPage,
-		sort, limit, start, end, offset, denorm, groupBy,
-	)
+	return form
 }
 
 // Utility functions
@@ -323,10 +323,10 @@ func ParseQueryParameters(form url.Values) (Query, common.Error) {
 	} //else sortAsc is false
 
 	//denormalization fields
-	denormStr := form.Get(common.ParamDenormalize)
-	q.Denormalize, err = parseDenormParams(denormStr)
+	denormStrings := form[common.ParamDenormalize]
+	q.Denormalize, err = parseDenormParams(denormStrings)
 	if err != nil {
-		return Query{}, &common.BadRequestError{S: fmt.Sprintf("error in param %s=%s:%v", common.ParamDenormalize, denormStr, err)}
+		return Query{}, &common.BadRequestError{S: fmt.Sprintf("error in param %s: %v", common.ParamDenormalize, err)}
 	}
 
 	//get Count
