@@ -216,26 +216,23 @@ func (c Controller) Subscribe(seriesNames ...string) (chan interface{}, common.E
 func (c Controller) Unsubscribe(channel chan interface{}, names ...string) {
 	c.pubSub.Unsub(channel, names...)
 }
-func parseDenormParams(denormString string) (denormMask DenormMask, err error) {
+func parseDenormParams(denormStrings []string) (denormMask DenormMask, err error) {
 
-	if denormString != "" {
-		denormStrings := strings.Split(denormString, ",")
-		for _, field := range denormStrings {
-			switch strings.ToLower(strings.TrimSpace(field)) {
-			case TimeField, TimeFieldShort:
-				denormMask = denormMask | DenormMaskTime
-			case NameField, NameFieldShort:
-				denormMask = denormMask | DenormMaskName
-			case UnitField, UnitFieldShort:
-				denormMask = denormMask | DenormMaskUnit
-			case ValueField, ValueFieldShort:
-				denormMask = denormMask | DenormMaskValue
-			case SumField, SumFieldShort:
-				denormMask = denormMask | DenormMaskSum
-			default:
-				return 0, fmt.Errorf("unexpected senml field: %s", field)
+	for _, field := range denormStrings {
+		switch strings.ToLower(strings.TrimSpace(field)) {
+		case TimeField, TimeFieldShort:
+			denormMask = denormMask | DenormMaskTime
+		case NameField, NameFieldShort:
+			denormMask = denormMask | DenormMaskName
+		case UnitField, UnitFieldShort:
+			denormMask = denormMask | DenormMaskUnit
+		case ValueField, ValueFieldShort:
+			denormMask = denormMask | DenormMaskValue
+		case SumField, SumFieldShort:
+			denormMask = denormMask | DenormMaskSum
+		default:
+			return 0, fmt.Errorf("unexpected senml field: %s", field)
 
-			}
 		}
 	}
 	return denormMask, nil

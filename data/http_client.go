@@ -64,9 +64,9 @@ func (c *RemoteClient) Submit(data []byte, contentType string, id ...string) err
 }
 
 func (c *RemoteClient) Query(q Query, id ...string) (*RecordSet, error) {
-	path := fmt.Sprintf("%v/%v",
-		c.serverEndpoint,
-		getUrlFromQuery(q, id...))
+	ids := strings.Join(id, ",")
+	forms := getFormFromQuery(q)
+	path := fmt.Sprintf("%v/%s?%s", c.serverEndpoint, ids, forms.Encode())
 	res, err := utils.HTTPRequest("GET",
 		path,
 		nil,
