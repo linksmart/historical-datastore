@@ -31,8 +31,14 @@ COPY sample_conf/historical-datastore.json /home/conf/
 
 ENV HDS_DATA_BACKEND_DSN=/data/data.db
 ENV HDS_REGISTRY_BACKEND_DSN=/data/registry
+ENV HDS_PKI_CACERT=/pki/caCert.pem
+ENV HDS_PKI_CAKEY=/pki/caKey.pem
+ENV HDS_PKI_SERVERCERT=/pki/serverCert.pem
+ENV HDS_PKI_SERVERKEY=/pki/serverKey.pem
 
 VOLUME /data
+VOLUME /pki
+
 EXPOSE 8085
 # HEALTHCHECK --interval=1m CMD wget localhost:8085/health -q -O - > /dev/null 2>&1
 
