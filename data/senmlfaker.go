@@ -67,11 +67,20 @@ func CompareRecords(r1 senml.Record, r2 senml.Record) (same bool) {
 }
 
 func CompareSenml(s1 senml.Pack, s2 senml.Pack) (same bool) {
-	recordLen := len(s1)
-	for i := 0; i < recordLen; i++ {
-		r1 := s1[i]
-		r2 := s2[i]
-		if CompareRecords(r1, r2) == false {
+	s1Len := len(s1)
+	s2Len := len(s2)
+	if s1Len != s2Len {
+		return false
+	}
+	for _, r1 := range s1 {
+		matched := false
+		for _, r2 := range s2 {
+			if CompareRecords(r1, r2) == false {
+				matched = true
+				break
+			}
+		}
+		if matched == false {
 			return false
 		}
 	}
