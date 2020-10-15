@@ -13,7 +13,11 @@ func PemToPrivateKey(caPrivKeyPEM []byte) (*rsa.PrivateKey, error) {
 	if block == nil {
 		return nil, fmt.Errorf("unabled to decode CA private key")
 	}
-	return x509.ParsePKCS1PrivateKey(block.Bytes)
+	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key. currently only keys following PKCA1 standard is accepted: %v", err)
+	}
+	return key, nil
 }
 
 func PrivateKeyToPEM(privKey *rsa.PrivateKey) ([]byte, error) {

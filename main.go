@@ -334,7 +334,7 @@ func setupCA(pkiConf *common.PKI) (ca *pki.CertificateAuthority, err error) {
 		log.Printf("reusing the existing CA: %s", pkiConf.CaCert)
 		ca, err = pki.NewCAFromFile(pkiConf.CaCert, pkiConf.CaKey)
 		if err != nil {
-			return nil, fmt.Errorf("error creting new CA from File: %v", err)
+			return nil, fmt.Errorf("error creating new CA from File: %v", err)
 		}
 		return ca, nil
 	}
@@ -357,7 +357,7 @@ func setupCA(pkiConf *common.PKI) (ca *pki.CertificateAuthority, err error) {
 	}
 	cert, key, err := ca.GetPEMS()
 	if err != nil {
-		return nil, fmt.Errorf("Error while encoding CA certificate to PEM: %v", err)
+		return nil, fmt.Errorf("error while encoding CA certificate to PEM: %v", err)
 	}
 	err = ioutil.WriteFile(pkiConf.CaCert, cert, 0600)
 	if err != nil {
