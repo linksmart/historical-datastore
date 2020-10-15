@@ -18,6 +18,7 @@ type Rule struct {
 	Methods   []string `json:"methods"`
 	Users     []string `json:"users"`
 	Groups    []string `json:"groups"`
+	Roles     []string `json:"roles"`
 	Clients   []string `json:"clients"`
 }
 
@@ -32,8 +33,8 @@ func (authz *Conf) Validate() error {
 		if len(rule.Methods) == 0 {
 			return errors.New("no methods in an authorization rule")
 		}
-		if len(rule.Users)+len(rule.Groups)+len(rule.Clients) == 0 {
-			return errors.New("at least one user, group, or client must be set in each authorization rule")
+		if len(rule.Users)+len(rule.Groups)+len(rule.Roles)+len(rule.Clients) == 0 {
+			return errors.New("at least one user, group, role, or client must be set in each authorization rule")
 		}
 	}
 

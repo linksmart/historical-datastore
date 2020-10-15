@@ -31,7 +31,10 @@ func (authz *Conf) Authorized(resource, method string, claims *Claims) bool {
 			// Return true if user or group matches a rule
 			if inSlice(res, rule.Resources) &&
 				inSlice(method, rule.Methods) &&
-				(inSlice(claims.Username, rule.Users) || hasIntersection(claims.Groups, rule.Groups) || inSlice(claims.ClientID, rule.Clients)) {
+				(inSlice(claims.Username, rule.Users) ||
+					hasIntersection(claims.Groups, rule.Groups) ||
+					hasIntersection(claims.Roles, rule.Roles) ||
+					inSlice(claims.ClientID, rule.Clients)) {
 				return true
 			}
 		}
