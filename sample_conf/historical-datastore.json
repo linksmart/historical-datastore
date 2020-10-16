@@ -28,19 +28,8 @@
   "serviceCatalog": {},
   "auth": {},
   "pki": {
-	"caCert":"pki/caCert.pem",
-	"caKey": "pki/caKey.pem",
-	"serverCert": "pki/serverCert.pem",
-	"serverKey": "pki/serverKey.pem",
-	"certData":{
-		"country": "DE",
-		"province": "NRW",
-		"locality": "SA",
-		"organization": "example",
-		"organizationalUnit": "EXDEP",
-		"commonName": "*.example.com",
-		"dnsNames":"example.com:8088",
-		"ipAddresses": "127.0.0.1"
-	}
+	"caCert":"",
+	"serverCert": "",
+	"serverKey": "",
   }
 }
