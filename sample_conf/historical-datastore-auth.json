@@ -30,6 +30,7 @@
     "endpoint": "http://localhost:8082",
     "ttl": 60,
     "auth": {
+      "enabled": true,
       "provider": "keycloak",
       "providerURL": "http://example.com/kc",
       "username": "",

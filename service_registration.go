@@ -40,7 +40,6 @@ func registerInServiceCatalog(conf *common.Config) (func() error, error) {
 	if cat.Auth.Enabled {
 		// Setup ticket client
 		ticket, err = obtainer.NewClient(cat.Auth.Provider, cat.Auth.ProviderURL, cat.Auth.Username, cat.Auth.Password, cat.Auth.ClientID)
-		ticket, err = obtainer.NewClient(cat.Auth.Provider, cat.Auth.ProviderURL, cat.Auth.Username, cat.Auth.Password, cat.Auth.ClientID)
 		if err != nil {
 			return nil, fmt.Errorf("error creating auth client: %s", err)
 		}
