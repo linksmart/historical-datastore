@@ -47,10 +47,20 @@
     "authorization": {
       "rules": [
         {
-          "resources": ["/data","/registry","/aggregation"],
+          "paths": ["/data","/registry","/aggregation"],
           "methods": ["GET","POST","PUT","DELETE"],
           "users": [],
-          "groups": ["rwusers"]
+          "groups": ["rwusers"],
+          "clients": [],
+          "denyPathSubstrings": []
+        },
+        {
+          "paths": ["/data","/registry"],
+          "methods": ["GET"],
+          "users": [],
+          "groups": ["anonymous"],
+          "clients": [],
+          "denyPathSubstrings": []
         }
       ]
     }

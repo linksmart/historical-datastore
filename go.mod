@@ -16,7 +16,7 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/justinas/alice v1.2.0
 	github.com/kelseyhightower/envconfig v1.3.0
-	github.com/linksmart/go-sec v1.3.4
+	github.com/linksmart/go-sec v1.4.0
 	github.com/linksmart/service-catalog/v2 v2.4.1
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/oleksandr/bonjour v0.0.0-20160508152359-5dcf00d8b228
