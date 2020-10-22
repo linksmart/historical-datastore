@@ -30,6 +30,6 @@
   "pki": {
 	"caCert":"",
 	"serverCert": "",
-	"serverKey": "",
+	"serverKey": ""
   }
 }
