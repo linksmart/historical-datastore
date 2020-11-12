@@ -276,10 +276,12 @@ func denormalizeRecord(record *senml.Record, baseRecord **senml.Record, mask Den
 }
 
 func (s *SqlStorage) querySingleSeries(ctx context.Context, q Query, series registry.TimeSeries) (pack senml.Pack, total *int, err error) {
-	total = new(int)
-	*total, err = s.Count(ctx, q, &series)
-	if err != nil {
-		return nil, nil, err
+	if q.Count {
+		total = new(int)
+		*total, err = s.Count(ctx, q, &series)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	stmt, err := makeQuery(q, false, false, &series)
 	if err != nil {
@@ -351,12 +353,13 @@ func (s *SqlStorage) querySingleSeries(ctx context.Context, q Query, series regi
 }
 
 func (s *SqlStorage) queryMultipleSeries(ctx context.Context, q Query, series []*registry.TimeSeries) (pack senml.Pack, total *int, err error) {
-	total = new(int)
-	*total, err = s.Count(ctx, q, series...)
-	if err != nil {
-		return nil, nil, err
+	if q.Count {
+		total = new(int)
+		*total, err = s.Count(ctx, q, series...)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
-
 	var stmt string
 
 	stmt, err = makeQuery(q, false, false, series...)
