@@ -2,13 +2,13 @@ package demo
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"math/rand"
 	"time"
 
 	"github.com/farshidtz/senml/v2"
+	"github.com/linksmart/historical-datastore/common"
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/registry"
 )
@@ -50,7 +50,7 @@ func createTS(regController registry.Controller, name string, datatype registry.
 	}
 	_, err = regController.Add(ts)
 	if err != nil {
-		if errors.As(err, &registry.ErrConflict) {
+		if _, ok := err.(*common.ConflictError); ok {
 			log.Printf("Reusing existing time series %s", name)
 		} else {
 			log.Printf("Error creating time series %s: %s", name, err)

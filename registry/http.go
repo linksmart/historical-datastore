@@ -4,7 +4,6 @@ package registry
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -169,7 +168,7 @@ func (api *API) UpdateOrCreate(w http.ResponseWriter, r *http.Request) {
 
 	_, UpdErr := api.c.Update(id, ts)
 	if UpdErr != nil {
-		if errors.As(UpdErr, &ErrNotFound) {
+		if _, ok := UpdErr.(*common.NotFoundError); ok {
 			addedTS, addErr := api.c.Add(ts)
 			if addErr != nil {
 				common.HttpErrorResponse(addErr, w)
