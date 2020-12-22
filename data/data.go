@@ -36,7 +36,7 @@ type RecordSet struct {
 	NextLink string `json:"nextLink,omitempty"`
 
 	//Total number of entries
-	Count *int `json:"Count,omitempty"`
+	Count *int `json:"count,omitempty"`
 }
 
 type Query struct {
