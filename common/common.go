@@ -46,6 +46,9 @@ var (
 	supportedAggregates = []string{"mean", "sum", "min", "max", "count"}
 	// supported period suffixes
 	supportedPeriods = []string{"m", "h", "d", "w"}
+
+	// enable or disable debug logging
+	DebugLogs bool
 )
 
 func SetVersion(version string) {
