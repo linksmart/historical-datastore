@@ -60,7 +60,7 @@ func loggingHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		t1 := time.Now()
 		nw := negroni.NewResponseWriter(w)
-		if common.DebugLogs {
+		if common.Debug {
 			log.Printf("\"%s %s\" %d\n", r.Method, r.URL.String(), r.ContentLength)
 		}
 		next.ServeHTTP(nw, r)

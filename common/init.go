@@ -4,10 +4,10 @@ import (
 	"os"
 )
 
-const EnvDebug = "HDS_LOG_DEBUG"
+const EnvDebug = "HDS_DEBUG"
 
 func init() {
-	DebugLogs = EvalEnv(EnvDebug)
+	Debug = EvalEnv(EnvDebug)
 }
 
 // evalEnv returns the boolean value of the env variable with the given key

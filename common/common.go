@@ -48,7 +48,7 @@ var (
 	supportedPeriods = []string{"m", "h", "d", "w"}
 
 	// enable or disable debug logging
-	DebugLogs bool
+	Debug bool
 )
 
 func SetVersion(version string) {
