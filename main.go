@@ -96,7 +96,7 @@ func main() {
 	}
 
 	fmt.Println(os.Getenv("HDS_REGISTRY_BACKEND_DSN"))
-	if os.Getenv("HDS_DEBUG") == "1" {
+	if common.Debug {
 		log.Println("===========================")
 		log.Println(conf.String())
 		log.Println("===========================")

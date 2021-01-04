@@ -5,6 +5,8 @@ package main
 import (
 	"log"
 	"os"
+
+	"github.com/linksmart/historical-datastore/common"
 )
 
 const (
@@ -17,16 +19,11 @@ func init() {
 	log.SetFlags(0)
 
 	logFlags := log.LstdFlags
-	if evalEnv(EnvDisableLogTime) {
+	if common.EvalEnv(EnvDisableLogTime) {
 		logFlags = 0
 	}
-	if evalEnv(EnvVerbose) {
+	if common.EvalEnv(EnvVerbose) {
 		logFlags = logFlags | log.Lshortfile
 	}
 	log.SetFlags(logFlags)
-}
-
-// evalEnv returns the boolean value of the env variable with the given key
-func evalEnv(key string) bool {
-	return os.Getenv(key) == "1" || os.Getenv(key) == "true" || os.Getenv(key) == "TRUE"
 }
