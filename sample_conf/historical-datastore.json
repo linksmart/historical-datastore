@@ -8,7 +8,7 @@
     "bindPort": 8085
   },
   "grpc": {
-    "enabled": true,
+    "enabled": false,
     "bindAddr": "0.0.0.0",
     "bindPort": 8088
   },
