@@ -90,11 +90,8 @@ type ServiceCatalogConf struct {
 // Certificate authority and Certificate and
 type PKI struct {
 	CaCert     string `json:"caCert"`
-	CaKey      string `json:"caKey"`
 	ServerCert string `json:"serverCert"`
 	ServerKey  string `json:"serverKey"`
-	// Data needed for CA or server certificate
-	CertData CertData `json:"certData"`
 }
 
 type CertData struct {
