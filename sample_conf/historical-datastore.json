@@ -31,5 +31,9 @@
 	"caCert":"",
 	"serverCert": "",
 	"serverKey": ""
+  },
+  "sync": {
+    "destination": "localhost:8095",
+    "syncInterval": "1m"
   }
 }
