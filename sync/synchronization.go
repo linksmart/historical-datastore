@@ -78,6 +78,12 @@ func newSynchronization(series string, srcClient *data.GrpcClient, dstClient *da
 	return s
 }
 
+// clear ensures graceful shutdown of the synchronization related to the series
+func (s Synchronization) clear() {
+	s.src.cancel()
+	s.dst.cancel()
+}
+
 func (s Synchronization) synchronize() {
 	if s.interval == 0 {
 		for {

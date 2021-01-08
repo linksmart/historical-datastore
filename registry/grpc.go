@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// API describes the RESTful HTTP data API
+// API describes the RESTful GRPC data API
 type GrpcAPI struct {
 	c Controller
 }

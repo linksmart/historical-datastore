@@ -21,6 +21,11 @@ type ResponsePack struct {
 	Err  error
 }
 
+func NewGrpcClientFromConnection(conn grpc.ClientConnInterface) *GrpcClient {
+	client := _go.NewDataClient(conn)
+	return &GrpcClient{Client: client}
+}
+
 func NewGrpcClient(serverEndpoint string, opts ...grpc.DialOption) (*GrpcClient, error) {
 	conn, err := grpc.Dial(serverEndpoint, opts...)
 	if err != nil {

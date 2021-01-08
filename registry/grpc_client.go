@@ -12,6 +12,11 @@ type GrpcClient struct {
 	Client _go.RegistryClient
 }
 
+func NewGrpcClientFromConnection(conn grpc.ClientConnInterface) *GrpcClient {
+	client := _go.NewRegistryClient(conn)
+	return &GrpcClient{Client: client}
+}
+
 func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
 	conn, err := grpc.Dial(serverEndpoint, grpc.WithInsecure())
 	if err != nil {
@@ -61,7 +66,7 @@ func (c GrpcClient) Delete(name string) error {
 	return err
 }
 
-func (c GrpcClient) GetMany(page, perPage int) ([]TimeSeries, int, error) {
+func (c GrpcClient) GetMany(page, perPage int) (seriesList []TimeSeries, total int, err error) {
 	pageParams := _go.PageParams{
 		Page:    int32(page),
 		PerPage: int32(perPage),
@@ -71,9 +76,9 @@ func (c GrpcClient) GetMany(page, perPage int) ([]TimeSeries, int, error) {
 		return nil, 0, err
 	}
 
-	ts, err := unmarshalSeriesList(registrations.SeriesList)
+	seriesList, err = unmarshalSeriesList(registrations.SeriesList)
 
-	return ts, int(registrations.Total), nil
+	return seriesList, int(registrations.Total), nil
 }
 func (c GrpcClient) FilterOne(path, op, value string) (*TimeSeries, error) {
 	filterPath := &_go.Filterpath{

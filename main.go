@@ -193,13 +193,15 @@ func main() {
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI)
 
+	creds, err := getTransportCredentials(conf.PKI)
+
 	if conf.GRPC.Enabled {
 		err = checkServerCertificate(conf.PKI)
 		if err != nil {
 			log.Printf("In order to run GRPC server, valid Server certificate key file, Server Cert file and CA Cert file must be set in conf.pki setting")
 			log.Panicf("Error setting up server certificates: %s", err)
 		}
-		go startGRPCServer(conf, dataController, regController)
+		go startGRPCServer(conf.GRPC, creds, dataController, regController)
 	}
 	// Announce service using DNS-SD
 	var bonjourS *bonjour.Server
@@ -252,42 +254,46 @@ func checkServerCertificate(pkiConf common.PKI) error {
 	return nil
 }
 
-func startGRPCServer(conf *common.Config, dataController *data.Controller, regController *registry.Controller) {
-	serverAddr := fmt.Sprintf("%s:%d", conf.GRPC.BindAddr, conf.GRPC.BindPort)
-
-	log.Printf("Serving GRPC on %s", serverAddr)
-	serverCertFile := conf.PKI.ServerCert
-	serverPrivatekey := conf.PKI.ServerKey
-	caFile := conf.PKI.CaCert
+func getTransportCredentials(pki common.PKI) (*credentials.TransportCredentials, error) {
+	serverCertFile := pki.ServerCert
+	serverPrivatekey := pki.ServerKey
+	caFile := pki.CaCert
 	// Load the certificates from disk
 	certificate, err := tls.LoadX509KeyPair(serverCertFile, serverPrivatekey)
 	if err != nil {
-		log.Panicf("could not load server key pair: %s", err)
+		return nil, fmt.Errorf("could not load server key pair: %s", err)
 	}
 
 	// Create a certificate pool from the certificate authority
 	certPool := x509.NewCertPool()
 	ca, err := ioutil.ReadFile(caFile)
 	if err != nil {
-		log.Panicf("could not read ca certificate: %s", err)
+		return nil, fmt.Errorf("could not read ca certificate: %s", err)
 	}
 
 	// Append the client certificates from the CA
 	if ok := certPool.AppendCertsFromPEM(ca); !ok {
-		log.Fatalf("failed to append client certs")
+		return nil, fmt.Errorf("failed to append client certs")
 	}
-	l, err := net.Listen("tcp", serverAddr)
-	if err != nil {
-		log.Fatalf("could not listen to %s: %v", serverAddr, err)
-	}
+
 	// Create the TLS credentials
 	creds := credentials.NewTLS(&tls.Config{
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		Certificates: []tls.Certificate{certificate},
 		ClientCAs:    certPool,
 	})
+	return &creds, nil
+}
+func startGRPCServer(grpcConf common.GRPCConf, creds *credentials.TransportCredentials, dataController *data.Controller, regController *registry.Controller) {
+	serverAddr := fmt.Sprintf("%s:%d", grpcConf.BindAddr, grpcConf.BindPort)
 
-	srv := grpc.NewServer(grpc.Creds(creds))
+	log.Printf("Serving GRPC on %s", serverAddr)
+
+	l, err := net.Listen("tcp", serverAddr)
+	if err != nil {
+		log.Panicf("could not listen to %s: %v", serverAddr, err)
+	}
+	srv := grpc.NewServer(grpc.Creds(*creds))
 
 	data.RegisterGRPCAPI(srv, *dataController)
 	registry.RegisterGRPCAPI(srv, *regController)
@@ -295,7 +301,7 @@ func startGRPCServer(conf *common.Config, dataController *data.Controller, regCo
 	err = srv.Serve(l)
 
 	if err != nil {
-		log.Fatalf("Stopped listening GRPC: %v", err)
+		log.Panicf("Stopped listening GRPC: %v", err)
 	}
 }
 

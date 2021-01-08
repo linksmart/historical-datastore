@@ -1,44 +1,91 @@
 package sync
 
 import (
+	"context"
 	"fmt"
 	"log"
-	"net/url"
+	"net"
 
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/registry"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 type Controller struct {
-	// srcClient is the connection to the source host
-	srcClient *data.GrpcClient
-	// dstClient is the connection to the destination host
-	dstClient *data.GrpcClient
-	// srcRegistry
-	srcRegistry *registry.GrpcClient
-	// dstRegistry
-	dstRegistry *registry.GrpcClient
+	// srcDataClient is the connection to the source host
+	srcDataClient *data.GrpcClient
+	// dstDataClient is the connection to the destination host
+	dstDataClient *data.GrpcClient
+	// srcRegistryClient
+	srcRegistryClient *registry.GrpcClient
+	// dstRegistryClient
+	dstRegistryClient *registry.GrpcClient
 }
 
-func NewController(primaryHDSHost string, cd *certs.CertDirectory) (*Controller, error) {
+func NewController(dataController *data.Controller, regController *registry.Controller, destHDSHost string, creds *credentials.TransportCredentials) (*Controller, error) {
 	controller := new(Controller)
-	controller.cd = cd
-	creds, err := getCreds(cd, primaryHDSHost)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize the transport credentials for %s: %v", primaryHDSHost, err)
+
+	// start a bufconn server for registry and data and connect to it
+	const bufSize = 1024 * 1024
+	lis := bufconn.Listen(bufSize)
+	// start the bufconn gRPC server
+	srv := grpc.NewServer()
+	// register APIS
+	registry.RegisterGRPCAPI(srv, *regController)
+	data.RegisterGRPCAPI(srv, *dataController)
+	go func() {
+		if err := srv.Serve(lis); err != nil {
+			log.Fatalf("Server exited with error: %v", err)
+		}
+	}()
+
+	// dial to the server
+	bufDialer := func(ctx context.Context, s string) (conn net.Conn, err error) {
+		return lis.Dial()
 	}
-	hostUrl, err := url.Parse(primaryHDSHost)
+
+	// get the connections
+	conn, err := grpc.DialContext(context.Background(), "", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse url %s: %v", primaryHDSHost, err)
+		return nil, err
 	}
-	hds, err := data.NewGrpcClient(hostUrl.Host+hostUrl.Path, grpc.WithTransportCredentials(*creds)) //
+	controller.srcDataClient = data.NewGrpcClientFromConnection(conn)
+	controller.srcRegistryClient = registry.NewGrpcClientFromConnection(conn)
+
+	//connect to the destination server
+	conn, err = grpc.Dial(destHDSHost, grpc.WithTransportCredentials(*creds))
 	if err != nil {
-		return nil, fmt.Errorf("unable to connect to %s: %v", primaryHDSHost, err)
+		return nil, err
 	}
-	log.Printf("connected to source: %s", primaryHDSHost)
-	controller.primaryHDS = hds
-	controller.mappingList = map[string]*Synchronization{}
-	controller.destConnMap = map[string]*data.GrpcClient{}
+
+	controller.dstDataClient = data.NewGrpcClientFromConnection(conn)
+	controller.dstRegistryClient = registry.NewGrpcClientFromConnection(conn)
 	return controller, nil
+}
+
+func (c Controller) StartSyncForAll() error {
+	// Get all the registry entries
+	page := 1
+	perPage := 100
+	remaining := 0
+	for do := true; do; do = remaining > 0 {
+
+		seriesList, total, err := c.srcRegistryClient.GetMany(page, perPage)
+		if err != nil {
+			return fmt.Errorf("error getting registry:%v", err)
+		}
+		// For each registry entry, check if the synchronization is enabled for that particular time series
+		remaining = total - len(seriesList)
+		for _, series := range seriesList {
+
+		}
+	}
+}
+
+func (c Controller) UpdateSync(series string) {
+	// Check if the synchronization is enabled or not.
+	// If disabled, disable the enabled thread
+	// If enabled, enable the disabled thread
 }
