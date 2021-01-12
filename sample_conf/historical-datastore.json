@@ -33,7 +33,7 @@
 	"serverKey": ""
   },
   "sync": {
-    "enabled": true,
+    "enabled": false,
     "destination": "localhost:8095",
     "syncInterval": "1m"
   }

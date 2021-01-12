@@ -73,7 +73,7 @@
     "serverKey": "pki/serverKey.pem"
   },
   "sync": {
-    "enabled": true,
+    "enabled": false,
     "destination": "localhost:8095",
     "syncInterval": "1m"
   }
