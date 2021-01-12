@@ -78,11 +78,11 @@ func newSynchronization(series string, srcClient *data.GrpcClient, dstClient *da
 }
 
 // clear ensures graceful shutdown of the synchronization related to the series
-func (s Synchronization) clear() {
+func (s *Synchronization) clear() {
 	s.cancel()
 }
 
-func (s Synchronization) synchronize() {
+func (s *Synchronization) synchronize() {
 	canceled := false
 	if s.interval == 0 {
 		for !canceled {
@@ -97,7 +97,7 @@ func (s Synchronization) synchronize() {
 	}
 }
 
-func (s Synchronization) subscribeAndPublish() {
+func (s *Synchronization) subscribeAndPublish() {
 	// get the latest measurement from source
 	var err error
 	s.src.lastTS, err = getLastTime(s.ctx, s.src.client, s.series, time.Time{}, time.Now())
@@ -121,7 +121,7 @@ func (s Synchronization) subscribeAndPublish() {
 		}
 		pack := response.Pack
 		latestInPack := getLatestInPack(pack)
-		if s.dst.lastTS.Equal(s.src.lastTS) == false {
+		if s.dst.lastTS.After(s.src.lastTS) == true {
 			log.Printf("src and destination time (%v vs %v) do not match. starting backfill until %v", s.src.lastTS, s.dst.lastTS, latestInPack)
 			go s.backfill(s.dst.lastTS, latestInPack)
 			continue
@@ -140,7 +140,7 @@ func (s Synchronization) subscribeAndPublish() {
 
 }
 
-func (s Synchronization) periodicSynchronization() {
+func (s *Synchronization) periodicSynchronization() {
 	var err error
 	s.src.lastTS, err = getLastTime(s.ctx, s.src.client, s.series, time.Time{}, time.Now())
 	if err != nil {
@@ -171,7 +171,7 @@ func getLastTime(ctx context.Context, client *data.GrpcClient, series string, fr
 	return data.FromSenmlTime(pack[0].Time), err
 }
 
-func (s Synchronization) backfill(from time.Time, to time.Time) {
+func (s *Synchronization) backfill(from time.Time, to time.Time) {
 	//backfill is supposed to run only once
 	s.backfillThread.mutex.Lock()
 	if s.backfillThread.running {
