@@ -71,5 +71,10 @@
     "caCert":"pki/caCert.pem",
     "serverCert": "pki/serverCert.pem",
     "serverKey": "pki/serverKey.pem"
-}
+  },
+  "sync": {
+    "enabled": true,
+    "destination": "localhost:8095",
+    "syncInterval": "1m"
+  }
 }

@@ -34,6 +34,7 @@ import (
 	"github.com/linksmart/historical-datastore/data"
 	"github.com/linksmart/historical-datastore/demo"
 	"github.com/linksmart/historical-datastore/registry"
+	"github.com/linksmart/historical-datastore/sync"
 	"github.com/oleksandr/bonjour"
 	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
@@ -193,13 +194,18 @@ func main() {
 	// Start servers
 	go startHTTPServer(conf, regAPI, dataAPI)
 
-	creds, err := getTransportCredentials(conf.PKI)
-
-	if conf.GRPC.Enabled {
+	if conf.GRPC.Enabled || conf.Sync.Enabled {
 		err = checkServerCertificate(conf.PKI)
 		if err != nil {
-			log.Printf("In order to run GRPC server, valid Server certificate key file, Server Cert file and CA Cert file must be set in conf.pki setting")
-			log.Panicf("Error setting up server certificates: %s", err)
+			log.Printf("In order to run GRPC server or synchronization, valid Server certificate key file, Server Cert file and CA Cert file must be set in conf.pki setting")
+			log.Panicf("Error setting up the certificates: %s", err)
+		}
+	}
+
+	if conf.GRPC.Enabled {
+		creds, err := getTransportCredentials(conf.PKI)
+		if err != nil {
+			log.Panicf("Error getting the trannsport credentials: %s", err)
 		}
 		go startGRPCServer(conf.GRPC, creds, dataController, regController)
 	}
@@ -221,13 +227,29 @@ func main() {
 		}()
 	}
 
+	// Start the synchronization
+	var syncController *sync.Controller
+	if conf.Sync.Enabled {
+		log.Println("starting synchronization")
+		syncController, err = sync.NewController(dataController, regController, conf.Sync, conf.PKI)
+		if err != nil {
+			log.Panicf("Error initializing synchronization: %s", err)
+		}
+		syncController.StartSyncForAll()
+		if err != nil {
+			log.Panicf("Error starting synchronization: %s", err)
+		}
+	}
 	// Ctrl+C / Kill handling
 	handler := make(chan os.Signal, 1)
 	signal.Notify(handler, os.Interrupt, os.Kill)
 
 	<-handler
 	log.Println("Shutting down...")
-
+	if conf.Sync.Enabled {
+		// stop the sync controller
+		syncController.StopSyncForAll()
+	}
 	// Stop bonjour registration
 	if bonjourS != nil {
 		bonjourS.Shutdown()
@@ -244,7 +266,7 @@ func main() {
 	log.Println("Stopped.")
 }
 
-func checkServerCertificate(pkiConf common.PKI) error {
+func checkServerCertificate(pkiConf common.PKIConf) error {
 	if pkiConf.ServerKey == "" || pkiConf.ServerCert == "" || pkiConf.CaCert == "" {
 		return fmt.Errorf("server certificate, key and ca files are not set")
 	}
@@ -254,7 +276,7 @@ func checkServerCertificate(pkiConf common.PKI) error {
 	return nil
 }
 
-func getTransportCredentials(pki common.PKI) (*credentials.TransportCredentials, error) {
+func getTransportCredentials(pki common.PKIConf) (*credentials.TransportCredentials, error) {
 	serverCertFile := pki.ServerCert
 	serverPrivatekey := pki.ServerKey
 	caFile := pki.CaCert
@@ -284,6 +306,7 @@ func getTransportCredentials(pki common.PKI) (*credentials.TransportCredentials,
 	})
 	return &creds, nil
 }
+
 func startGRPCServer(grpcConf common.GRPCConf, creds *credentials.TransportCredentials, dataController *data.Controller, regController *registry.Controller) {
 	serverAddr := fmt.Sprintf("%s:%d", grpcConf.BindAddr, grpcConf.BindPort)
 

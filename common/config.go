@@ -28,8 +28,10 @@ type Config struct {
 	ServiceCatalog ServiceCatalogConf `json:"serviceCatalog"`
 	// Auth config
 	Auth validator.Conf `json:"auth"`
-	//PKI config
-	PKI PKI `json:pki`
+	// PKI config
+	PKI PKIConf `json:pki`
+	// Sync has Synchronization configuration
+	Sync SyncConf `json:"sync"`
 }
 
 // GRPC config
@@ -88,7 +90,7 @@ type ServiceCatalogConf struct {
 }
 
 // Certificate authority and Certificate and
-type PKI struct {
+type PKIConf struct {
 	CaCert     string `json:"caCert"`
 	ServerCert string `json:"serverCert"`
 	ServerKey  string `json:"serverKey"`
@@ -104,6 +106,12 @@ type CertData struct {
 	//DNSNames are Subject Alternative Names (SAN)
 	DNSNames    string `json:"dnsNames"`
 	IPAddresses string `json:"ipAddresses"`
+}
+
+type SyncConf struct {
+	Enabled      bool   `json:"enabled"`
+	Destination  string `json:"destination"`
+	SyncInterval string `json:"syncInterval"`
 }
 
 func (c Config) String() string {

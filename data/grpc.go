@@ -43,7 +43,7 @@ func (a GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
 
 		submitErr := a.c.Submit(stream.Context(), senmlPack, nil)
 		if submitErr != nil {
-			return status.Errorf(submitErr.GrpcStatus(), "Error submitting:"+err.Error())
+			return status.Errorf(submitErr.GrpcStatus(), "Error submitting:"+submitErr.Error())
 		}
 	}
 	return nil

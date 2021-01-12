@@ -50,7 +50,6 @@ type Storage interface {
 
 	// Delete the data within a given time range
 	Delete(ctx context.Context, series []*registry.TimeSeries, from time.Time, to time.Time) (err error)
-
 	// EventListener includes methods for event handling
 	registry.EventListener
 }
