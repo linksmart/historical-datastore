@@ -625,10 +625,10 @@ components:
         status:
           type: integer
           format: int32
-          description: A short, human-readable summary of the problem type.
+          description: The HTTP status code (RFC7231, Section 6)
         title:
           type: string
-          description: The HTTP status code (RFC7231, Section 6)
+          description: A short, human-readable summary of the problem type.
         detail:
           type: string
           description: A human-readable explanation specific to this occurrence of the problem
