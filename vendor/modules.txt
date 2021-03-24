@@ -29,6 +29,7 @@ github.com/farshidtz/senml/v2/codec
 github.com/fxamacker/cbor/v2
 # github.com/golang/protobuf v1.4.1
 ## explicit
+github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
@@ -44,12 +45,22 @@ github.com/gorilla/context
 # github.com/gorilla/mux v1.7.4
 ## explicit
 github.com/gorilla/mux
+# github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
+## explicit
+github.com/grpc-ecosystem/go-grpc-middleware
+github.com/grpc-ecosystem/go-grpc-middleware/logging
+github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus
+github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus
+github.com/grpc-ecosystem/go-grpc-middleware/recovery
+github.com/grpc-ecosystem/go-grpc-middleware/tags
 # github.com/justinas/alice v1.2.0
 ## explicit
 github.com/justinas/alice
 # github.com/kelseyhightower/envconfig v1.3.0
 ## explicit
 github.com/kelseyhightower/envconfig
+# github.com/konsorten/go-windows-terminal-sequences v1.0.1
+github.com/konsorten/go-windows-terminal-sequences
 # github.com/linksmart/go-sec v1.4.2
 ## explicit
 github.com/linksmart/go-sec/auth/keycloak/obtainer
@@ -80,6 +91,8 @@ github.com/rs/cors
 # github.com/satori/go.uuid v1.2.0
 ## explicit
 github.com/satori/go.uuid
+# github.com/sirupsen/logrus v1.4.2
+github.com/sirupsen/logrus
 # github.com/syndtr/goleveldb v1.0.0
 ## explicit
 github.com/syndtr/goleveldb/leveldb

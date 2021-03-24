@@ -68,6 +68,7 @@ func NewController(dataController *data.Controller, regController *registry.Cont
 	if err != nil {
 		return nil, fmt.Errorf("error dialing to the source: %w", err)
 	}
+
 	controller.srcDataClient = data.NewGrpcClientFromConnection(conn)
 	controller.srcRegistryClient = registry.NewGrpcClientFromConnection(conn)
 
@@ -100,7 +101,11 @@ func getClientTransportCredentials(syncConf common.SyncConf, pki common.PKIConf)
 	}
 
 	// Create a certificate pool from the certificate authority
-	certPool := x509.NewCertPool()
+	// Get the SystemCertPool, continue with an empty pool on error
+	certPool, _ := x509.SystemCertPool()
+	if certPool == nil {
+		certPool = x509.NewCertPool()
+	}
 	ca, err := ioutil.ReadFile(caFile)
 	if err != nil {
 		return nil, fmt.Errorf("could not read ca certificate: %s", err)

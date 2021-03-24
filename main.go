@@ -28,6 +28,9 @@ import (
 	"strconv"
 	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	_ "github.com/linksmart/go-sec/auth/keycloak/validator"
 	"github.com/linksmart/go-sec/auth/validator"
 	"github.com/linksmart/historical-datastore/common"
@@ -287,7 +290,10 @@ func getTransportCredentials(pki common.PKIConf) (*credentials.TransportCredenti
 	}
 
 	// Create a certificate pool from the certificate authority
-	certPool := x509.NewCertPool()
+	certPool, _ := x509.SystemCertPool()
+	if certPool == nil {
+		certPool = x509.NewCertPool()
+	}
 	ca, err := ioutil.ReadFile(caFile)
 	if err != nil {
 		return nil, fmt.Errorf("could not read ca certificate: %s", err)
@@ -316,7 +322,15 @@ func startGRPCServer(grpcConf common.GRPCConf, creds *credentials.TransportCrede
 	if err != nil {
 		log.Panicf("could not listen to %s: %v", serverAddr, err)
 	}
-	srv := grpc.NewServer(grpc.Creds(*creds))
+	srv := grpc.NewServer(grpc.Creds(*creds),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+			grpc_recovery.StreamServerInterceptor(),
+			grpc_logrus.StreamServerInterceptor(),
+		)),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			grpc_recovery.UnaryServerInterceptor(),
+			grpc_logrus.UnaryServerInterceptor,
+		)))
 
 	data.RegisterGRPCAPI(srv, *dataController)
 	registry.RegisterGRPCAPI(srv, *regController)

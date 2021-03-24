@@ -14,6 +14,7 @@ require (
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/gorilla/context v1.1.1
 	github.com/gorilla/mux v1.7.4
+	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/justinas/alice v1.2.0
 	github.com/kelseyhightower/envconfig v1.3.0
 	github.com/linksmart/go-sec v1.4.2

@@ -102,35 +102,35 @@ func (s *Synchronization) subscribeAndPublish() {
 	var err error
 	s.src.lastTS, err = getLastTime(s.ctx, s.src.client, s.series, time.Time{}, time.Now())
 	if err != nil {
-		log.Printf("error getting latest measurement from source:%v", err)
+		log.Printf("%s: error getting latest measurement from source:%v", s.series, err)
 		return
 	}
 
 	//subscribe to source HDS
 	responseCh, err := s.src.client.Subscribe(s.ctx, s.series)
-	log.Printf("Success subscribing to source")
+	log.Printf("Success subscribing to source %s", s.series)
 	if err != nil {
-		log.Printf("error subscribing:%v", err)
+		log.Printf("%s: error subscribing to source: %v", s.series, err)
 		return
 	}
 
 	for response := range responseCh {
 		if response.Err != nil {
-			log.Printf("error while recieving stream: %v", response.Err)
+			log.Printf("%s: error while recieving stream: %v", s.series, response.Err)
 			return
 		}
 		pack := response.Pack
 		latestInPack := getLatestInPack(pack)
 		if s.dst.lastTS.After(s.src.lastTS) == true {
-			log.Printf("src and destination time (%v vs %v) do not match. starting backfill until %v", s.src.lastTS, s.dst.lastTS, latestInPack)
+			log.Printf("%s: src and destination time (%v vs %v) do not match. starting backfill until %v", s.series, s.src.lastTS, s.dst.lastTS, latestInPack)
 			go s.backfill(s.dst.lastTS, latestInPack)
 			continue
 		}
-		log.Printf("copying %d entries to destination", len(pack))
 		err = s.dst.client.Submit(s.ctx, pack)
 		if err != nil {
-			log.Printf("Error copying entries : %v", err)
+			log.Printf("%s: error copying entries : %v", s.series, err)
 		} else {
+			log.Printf("%s: copied SenML pack of len %d to destination", s.series, len(pack))
 			s.dst.lastTS = latestInPack
 		}
 
@@ -144,13 +144,13 @@ func (s *Synchronization) periodicSynchronization() {
 	var err error
 	s.src.lastTS, err = getLastTime(s.ctx, s.src.client, s.series, time.Time{}, time.Now())
 	if err != nil {
-		log.Printf("unable to get latest source measurement%v", err)
+		log.Printf("%s: unable to get latest source measurement%v", s.series, err)
 		return
 	}
 
 	s.dst.lastTS, err = getLastTime(s.ctx, s.dst.client, s.series, time.Time{}, time.Now())
 	if err != nil {
-		log.Printf("error getting latest destination measurement :%v", err)
+		log.Printf("%s: error getting latest destination measurement :%v", s.series, err)
 		return
 	}
 
@@ -189,17 +189,17 @@ func (s *Synchronization) backfill(from time.Time, to time.Time) {
 
 	destLatest, err := getLastTime(s.ctx, s.dst.client, s.series, from, to)
 	if err != nil {
-		log.Printf("Error getting the last timestamp from dest: %s", err)
+		log.Printf("%s: error getting the last timestamp from dest: %s", s.series, err)
 		return
 	}
 	log.Printf("%s: destLatest : %s", s.series, destLatest)
 
 	if to.Equal(destLatest) {
-		log.Printf("Skipping backfill as the destination is already updated for stream %s", s.series)
+		log.Printf("%s: skipping backfill as the destination is already updated", s.series)
 	} else if to.Before(destLatest) {
-		log.Printf("%s:destination is ahead of source. Should not have happened!!", s.series)
+		log.Printf("%s: destination is ahead of source. Should not have happened!!", s.series)
 	} else {
-		log.Printf("Starting backfill for destination, series: %s, dest latest: %v, to:%v", s.series, destLatest, to)
+		log.Printf("%s: starting backfill for destination, dest latest: %v, to:%v", s.series, destLatest, to)
 	}
 	ctx := s.ctx
 	destStream, err := s.dst.client.CreateSubmitStream(ctx)
@@ -217,25 +217,25 @@ func (s *Synchronization) backfill(from time.Time, to time.Time) {
 	}
 	sourceChannel, err := s.src.client.QueryStream(ctx, []string{s.series}, q)
 	if err != nil {
-		log.Printf("Error querying the source: %v", err)
+		log.Printf("%s: error querying the source: %v", s.series, err)
 		return
 	}
 	totalSynced := 0
 	for response := range sourceChannel {
 		if response.Err != nil {
-			log.Printf("Breaking backfill as there was error while recieving stream: %v", response.Err)
+			log.Printf("%s: breaking backfill as there was error while recieving stream : %v", s.series, response.Err)
 			break
 		}
 		err = s.dst.client.SubmitToStream(destStream, response.Pack)
 		if err != nil {
-			log.Printf("Breaking backfill as there was error while submitting stream: %v", err)
+			log.Printf("%s: breaking backfill as there was error while submitting stream %s: %v", s.series, err)
 			break
 		}
 		s.dst.lastTS = getLatestInPack(response.Pack)
 		totalSynced += len(response.Pack)
 
 	}
-	log.Printf("%s,migrated %d entries destination latest: %v", s.series, totalSynced, s.dst.lastTS)
+	log.Printf("%s: migrated %d entries destination latest: %v", s.series, totalSynced, s.dst.lastTS)
 
 }
 

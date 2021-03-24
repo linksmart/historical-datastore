@@ -29,7 +29,7 @@ type Config struct {
 	// Auth config
 	Auth validator.Conf `json:"auth"`
 	// PKI config
-	PKI PKIConf `json:pki`
+	PKI PKIConf `json:"pki"`
 	// Sync has Synchronization configuration
 	Sync SyncConf `json:"sync"`
 }
@@ -94,18 +94,6 @@ type PKIConf struct {
 	CaCert     string `json:"caCert"`
 	ServerCert string `json:"serverCert"`
 	ServerKey  string `json:"serverKey"`
-}
-
-type CertData struct {
-	Country            string `json:"country"`
-	Province           string `json:"province"`
-	Locality           string `json:"locality"`
-	Organization       string `json:"organization"`
-	OrganizationalUnit string `json:"organizationalUnit"`
-	CommonName         string `json:"commonName"`
-	//DNSNames are Subject Alternative Names (SAN)
-	DNSNames    string `json:"dnsNames"`
-	IPAddresses string `json:"ipAddresses"`
 }
 
 type SyncConf struct {
