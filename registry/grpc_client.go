@@ -12,8 +12,8 @@ type GrpcClient struct {
 	Client _go.RegistryClient
 }
 
-func NewGrpcClient(serverEndpoint string) (*GrpcClient, error) {
-	conn, err := grpc.Dial(serverEndpoint, grpc.WithInsecure())
+func NewGrpcClient(serverEndpoint string, opts ...grpc.DialOption) (*GrpcClient, error) {
+	conn, err := grpc.Dial(serverEndpoint, opts...)
 	if err != nil {
 		return nil, err
 	}
