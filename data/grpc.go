@@ -10,7 +10,7 @@ import (
 	"github.com/farshidtz/senml/v2"
 	"github.com/farshidtz/senml/v2/codec"
 	"github.com/linksmart/historical-datastore/common"
-	_go "github.com/linksmart/historical-datastore/protobuf/go"
+	pbgo "github.com/linksmart/historical-datastore/protobuf/go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -24,14 +24,14 @@ type GrpcAPI struct {
 // Register the Data API to the server
 func RegisterGRPCAPI(srv *grpc.Server, c Controller) {
 	grpcAPI := &GrpcAPI{c: c}
-	_go.RegisterDataServer(srv, grpcAPI)
+	pbgo.RegisterDataServer(srv, grpcAPI)
 }
 
-func (a GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
+func (a GrpcAPI) Submit(stream pbgo.Data_SubmitServer) error {
 	for {
 		message, err := stream.Recv()
 		if err == io.EOF {
-			return stream.SendAndClose(&_go.Void{})
+			return stream.SendAndClose(&pbgo.Void{})
 		}
 		if err != nil {
 			return err
@@ -43,13 +43,13 @@ func (a GrpcAPI) Submit(stream _go.Data_SubmitServer) error {
 
 		submitErr := a.c.Submit(stream.Context(), senmlPack, nil)
 		if submitErr != nil {
-			return status.Errorf(submitErr.GrpcStatus(), "Error submitting:"+err.Error())
+			return status.Errorf(submitErr.GrpcStatus(), "Error submitting:"+submitErr.Error())
 		}
 	}
 	return nil
 }
 
-func (a GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) (err error) {
+func (a GrpcAPI) Query(request *pbgo.QueryRequest, stream pbgo.Data_QueryServer) (err error) {
 	var q Query
 	q.From, err = parseFromValue(request.From)
 	if err != nil {
@@ -98,7 +98,7 @@ func (a GrpcAPI) Query(request *_go.QueryRequest, stream _go.Data_QueryServer) (
 	return nil
 }
 
-func (a GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.CountResponse, error) {
+func (a GrpcAPI) Count(ctx context.Context, request *pbgo.QueryRequest) (*pbgo.CountResponse, error) {
 	var q Query
 	var err error
 	q.From, err = parseFromValue(request.From)
@@ -128,11 +128,11 @@ func (a GrpcAPI) Count(ctx context.Context, request *_go.QueryRequest) (*_go.Cou
 	if queryErr != nil {
 		return nil, status.Errorf(queryErr.GrpcStatus(), "Error querying: "+queryErr.Error())
 	}
-	response := _go.CountResponse{Total: int32(total)}
+	response := pbgo.CountResponse{Total: int32(total)}
 	return &response, nil
 }
 
-func (a GrpcAPI) Delete(ctx context.Context, request *_go.DeleteRequest) (*_go.Void, error) {
+func (a GrpcAPI) Delete(ctx context.Context, request *pbgo.DeleteRequest) (*pbgo.Void, error) {
 	from, err := parseFromValue(request.From)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Error parsing from value: "+err.Error())
@@ -147,10 +147,10 @@ func (a GrpcAPI) Delete(ctx context.Context, request *_go.DeleteRequest) (*_go.V
 	if deleteErr != nil {
 		return nil, status.Errorf(deleteErr.GrpcStatus(), "Error deleting: "+deleteErr.Error())
 	}
-	return &_go.Void{}, nil
+	return &pbgo.Void{}, nil
 }
 
-func (a GrpcAPI) Subscribe(request *_go.SubscribeRequest, stream _go.Data_SubscribeServer) error {
+func (a GrpcAPI) Subscribe(request *pbgo.SubscribeRequest, stream pbgo.Data_SubscribeServer) error {
 	names := request.Series
 	ch, err := a.c.Subscribe(names...)
 	if err != nil {

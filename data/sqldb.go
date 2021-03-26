@@ -209,9 +209,30 @@ func (s *SqlStorage) UpdateHandler(oldDS registry.TimeSeries, newDS registry.Tim
 
 // DeleteHandler handles deletion of a TimeSeries
 func (s *SqlStorage) DeleteHandler(ts registry.TimeSeries) error {
+	tableExists, err := s.TableExists(ts)
+	if err != nil {
+		return err
+	}
+	if tableExists == false {
+		return nil
+	}
 	stmt := fmt.Sprintf("DROP TABLE [%s]", ts.Name)
-	_, err := s.pool.Exec(stmt)
+	_, err = s.pool.Exec(stmt)
 	return err
+}
+
+func (s *SqlStorage) TableExists(ts registry.TimeSeries) (bool, error) {
+	var total int
+	stmt := fmt.Sprintf("SELECT  COUNT(*) FROM sqlite_master WHERE type='table' AND name='%s'", ts.Name)
+
+	row := s.pool.QueryRow(stmt)
+
+	err := row.Scan(&total)
+	if err != nil {
+		return false, fmt.Errorf("error while checking if table exists or not: %w", err)
+	}
+	return total != 0, nil
+
 }
 
 //This function converts a int64 floating point number (which is supported by senml)
