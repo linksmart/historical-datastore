@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"time"
 
 	"github.com/farshidtz/senml/v2"
@@ -20,6 +19,11 @@ type GrpcClient struct {
 type ResponsePack struct {
 	Pack senml.Pack
 	Err  error
+}
+
+func NewGrpcClientFromConnection(conn grpc.ClientConnInterface) *GrpcClient {
+	client := _go.NewDataClient(conn)
+	return &GrpcClient{Client: client}
 }
 
 func NewGrpcClient(serverEndpoint string, opts ...grpc.DialOption) (*GrpcClient, error) {
@@ -51,7 +55,6 @@ func (c *GrpcClient) Submit(ctx context.Context, pack senml.Pack) error {
 	return nil
 }
 
-// TODO facilitate aborting of the query (using channels)
 func (c *GrpcClient) Query(ctx context.Context, seriesNames []string, q Query) (senml.Pack, error) {
 	request := _go.QueryRequest{
 		Series:          seriesNames,
@@ -74,7 +77,8 @@ func (c *GrpcClient) Query(ctx context.Context, seriesNames []string, q Query) (
 			break
 		}
 		if err != nil {
-			log.Fatalf("can not receive %v", err)
+			err = fmt.Errorf("can not receive %v", err)
+			break
 		}
 		pack := codec.ImportProtobufMessage(*message)
 		records = append(records, pack...)
