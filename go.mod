@@ -14,6 +14,7 @@ require (
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/gorilla/context v1.1.1
 	github.com/gorilla/mux v1.7.4
+	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/justinas/alice v1.2.0
 	github.com/kelseyhightower/envconfig v1.3.0
 	github.com/linksmart/go-sec v1.4.2
@@ -28,9 +29,7 @@ require (
 	golang.org/x/net v0.0.0-20200506145744-7e3656a0809f // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20200922070232-aee5d888a860 // indirect
-	golang.org/x/text v0.3.2 // indirect
 	google.golang.org/genproto v0.0.0-20200507105951-43844f6eee31 // indirect
 	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.22.0
-	gopkg.in/yaml.v2 v2.2.2 // indirect
 )

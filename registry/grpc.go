@@ -133,7 +133,7 @@ func (a GrpcAPI) GetAll(ctx context.Context, req *pbgo.PageParams) (*pbgo.Regist
 
 	ts, total, getErr := a.c.GetMany(page, perPage)
 	if getErr != nil {
-		return nil, status.Errorf(getErr.GrpcStatus(), err.Error())
+		return nil, status.Errorf(getErr.GrpcStatus(), getErr.Error())
 	}
 	reg := &pbgo.Registrations{
 		PerPage: int32(perPage),

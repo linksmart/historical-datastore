@@ -64,7 +64,7 @@ func loggingHandler(next http.Handler) http.Handler {
 			log.Printf("\"%s %s\" %d\n", r.Method, r.URL.String(), r.ContentLength)
 		}
 		next.ServeHTTP(nw, r)
-		log.Printf("\"%s %s %s\" %d %d %v\n", r.Method, r.URL.String(), r.Proto, nw.Status(), nw.Size(), time.Now().Sub(t1))
+		log.Printf("\"%s %s %s\" %d %d %v\n", r.Method, r.URL.String(), r.Proto, nw.Status(), nw.Size(), time.Since(t1))
 	}
 	return http.HandlerFunc(fn)
 }

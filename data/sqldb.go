@@ -37,7 +37,6 @@ func btoi(b bool) int {
 }
 
 func (s *SqlStorage) Submit(ctx context.Context, data map[string]senml.Pack, series map[string]*registry.TimeSeries) (err error) {
-
 	tx, txErr := s.pool.Begin()
 	if txErr != nil {
 		return txErr
@@ -47,7 +46,11 @@ func (s *SqlStorage) Submit(ctx context.Context, data map[string]senml.Pack, ser
 
 	if err != nil {
 		rollbackErr := tx.Rollback()
-		return fmt.Errorf("error inserting: %v \nerror during rollback: %v", err, rollbackErr)
+		errStr := fmt.Sprintf("error inserting: %s", err)
+		if rollbackErr != nil {
+			errStr += fmt.Sprintf(", error during rollback: %s", rollbackErr)
+		}
+		return fmt.Errorf(errStr)
 
 	}
 

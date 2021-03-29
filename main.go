@@ -28,6 +28,8 @@ import (
 	"strconv"
 	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	_ "github.com/linksmart/go-sec/auth/keycloak/validator"
 	"github.com/linksmart/go-sec/auth/validator"
 	"github.com/linksmart/historical-datastore/common"
@@ -287,7 +289,15 @@ func startGRPCServer(conf *common.Config, dataController *data.Controller, regCo
 		ClientCAs:    certPool,
 	})
 
-	srv := grpc.NewServer(grpc.Creds(creds))
+	srv := grpc.NewServer(grpc.Creds(creds),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+			grpc_recovery.StreamServerInterceptor(),
+			StreamLogInterceptor(),
+		)),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			grpc_recovery.UnaryServerInterceptor(),
+			UnaryLogInterceptor(),
+		)))
 
 	data.RegisterGRPCAPI(srv, *dataController)
 	registry.RegisterGRPCAPI(srv, *regController)
