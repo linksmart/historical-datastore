@@ -158,12 +158,26 @@ func (a GrpcAPI) Subscribe(request *pbgo.SubscribeRequest, stream pbgo.Data_Subs
 	}
 	defer a.c.Unsubscribe(ch, names...)
 
+	const PubSubBufferSize = 100
+	tempCh := make(chan interface{}, PubSubBufferSize)
+
 	ctx := stream.Context()
+	go func() {
+		defer close(tempCh)
+		for pack := range ch {
+			if len(tempCh) == PubSubBufferSize-1 {
+				a.c.Unsubscribe(ch, names...)
+				break
+			}
+			tempCh <- pack
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case res := <-ch:
+		case res := <-tempCh:
 			if p, ok := res.(senml.Pack); ok {
 				message := codec.ExportProtobufMessage(p)
 				if err := stream.Send(&message); err != nil {
