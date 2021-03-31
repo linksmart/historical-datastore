@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/farshidtz/senml/v2"
@@ -17,7 +18,8 @@ var sqlQueryTimeout = 30 * time.Second
 
 // SqlStorage implements a SqlDB storage client for HDS Data API
 type SqlStorage struct {
-	pool *sql.DB
+	pool        *sql.DB
+	updateMutex sync.Mutex
 }
 
 func NewSqlStorage(conf common.DataConf) (storage *SqlStorage, disconnect_func func() error, err error) {
@@ -36,8 +38,13 @@ func btoi(b bool) int {
 	return 0
 }
 
+func (s *SqlStorage) submissionThread() {
+
+}
 func (s *SqlStorage) Submit(ctx context.Context, data map[string]senml.Pack, series map[string]*registry.TimeSeries) (err error) {
-	tx, txErr := s.pool.Begin()
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+	tx, txErr := s.pool.BeginTx(ctx, nil)
 	if txErr != nil {
 		return txErr
 	}
@@ -148,6 +155,8 @@ func (s *SqlStorage) Count(ctx context.Context, q Query, series ...*registry.Tim
 }
 
 func (s *SqlStorage) Delete(ctx context.Context, series []*registry.TimeSeries, from time.Time, to time.Time) (err error) {
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
 	var stmt strings.Builder
 	seperator := ""
 
@@ -199,6 +208,8 @@ func (s *SqlStorage) CreateHandler(ts registry.TimeSeries) error {
 	}
 
 	stmt := fmt.Sprintf("CREATE TABLE [%s] (time DOUBLE NOT NULL, value %s,  PRIMARY KEY (time))", ts.Name, typeVal[ts.Type])
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
 	_, err := s.pool.Exec(stmt)
 	return err
 }
@@ -219,6 +230,8 @@ func (s *SqlStorage) DeleteHandler(ts registry.TimeSeries) error {
 	if tableExists == false {
 		return nil
 	}
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
 	stmt := fmt.Sprintf("DROP TABLE [%s]", ts.Name)
 	_, err = s.pool.Exec(stmt)
 	return err
