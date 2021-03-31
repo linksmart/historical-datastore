@@ -32,14 +32,10 @@ func StreamLogInterceptor() grpc.StreamServerInterceptor {
 
 		err := handler(srv, stream)
 
-		if err != nil || common.Debug {
-			var streamText string
-			if info.IsClientStream {
-				streamText = "cli"
-			} else {
-				streamText = "srv"
-			}
-			log.Printf("%s gRPC %s stream %s err:%v", info.FullMethod, streamText, time.Since(start), err)
+		if err != nil {
+			log.Printf("%s gRPC stream %s err: %s", info.FullMethod, time.Since(start), err)
+		} else if common.Debug {
+			log.Printf("%s gRPC stream %s", info.FullMethod, time.Since(start))
 		}
 
 		return err
