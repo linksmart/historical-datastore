@@ -21,7 +21,7 @@ import (
 // type: mandatory, fixed
 // format: mandatory
 
-func validateCreation(ts TimeSeries, conf common.RegConf) error {
+func validateCreation(ts TimeSeries) error {
 	var e validationError
 
 	//validate name

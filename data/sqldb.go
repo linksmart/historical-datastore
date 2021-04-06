@@ -208,7 +208,10 @@ func (s *SqlStorage) CreateHandler(ts registry.TimeSeries) error {
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
 	_, err := s.pool.Exec(stmt)
-	return err
+	if err != nil {
+		return fmt.Errorf("error creating table: %s", err)
+	}
+	return nil
 }
 
 // UpdateHandler handles updates of a TimeSeries
@@ -230,15 +233,19 @@ func (s *SqlStorage) DeleteHandler(ts registry.TimeSeries) error {
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
 	stmt := fmt.Sprintf("DROP TABLE [%s]", ts.Name)
-	_, err = s.pool.Exec(stmt)
-	return err
+	_, err = s.pool.Exec(stmt, ts.Name)
+
+	if err != nil {
+		return fmt.Errorf("error dropping table: %s", err)
+	}
+	return nil
 }
 
 func (s *SqlStorage) TableExists(ts registry.TimeSeries) (bool, error) {
 	var total int
-	stmt := fmt.Sprintf("SELECT  COUNT(*) FROM sqlite_master WHERE type='table' AND name='%s'", ts.Name)
+	stmt := "SELECT  COUNT(*) FROM sqlite_master WHERE type='table' AND name= ?"
 
-	row := s.pool.QueryRow(stmt)
+	row := s.pool.QueryRow(stmt, ts.Name)
 
 	err := row.Scan(&total)
 	if err != nil {

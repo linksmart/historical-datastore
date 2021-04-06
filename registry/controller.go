@@ -29,6 +29,10 @@ func (c Controller) getLastModifiedTime() (time.Time, common.Error) {
 }
 
 func (c Controller) Add(ts TimeSeries) (*TimeSeries, common.Error) {
+	err := validateCreation(ts)
+	if err != nil {
+		return nil, &common.BadRequestError{S: err.Error()}
+	}
 	addedTs, err := c.s.add(ts)
 	if err != nil {
 		if errors.Is(err, ErrConflict) {

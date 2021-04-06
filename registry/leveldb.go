@@ -76,11 +76,6 @@ func (s *LevelDBStorage) close() error {
 func (s *LevelDBStorage) add(ts TimeSeries) (*TimeSeries, error) {
 	s.wg.Add(1)
 	defer s.wg.Done()
-	err := validateCreation(ts, s.conf)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrBadRequest, err)
-	}
-
 	// Convert to json bytes
 	tsBytes, err := ts.MarshalSensitiveJSON()
 	if err != nil {
