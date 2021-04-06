@@ -38,9 +38,6 @@ func btoi(b bool) int {
 	return 0
 }
 
-func (s *SqlStorage) submissionThread() {
-
-}
 func (s *SqlStorage) Submit(ctx context.Context, data map[string]senml.Pack, series map[string]*registry.TimeSeries) (err error) {
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
