@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +29,7 @@ func NewSqlStorage(conf common.DataConf) (storage *SqlStorage, disconnect_func f
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return storage, storage.Disconnect, err
 }
 
@@ -196,7 +198,10 @@ func (s *SqlStorage) Disconnect() error {
 
 // CreateHandler handles the creation of a new TimeSeries
 func (s *SqlStorage) CreateHandler(ts registry.TimeSeries) error {
-
+	tableName := ts.Name
+	if !validTableName(tableName) {
+		return fmt.Errorf("invalid senml name for the table %s", ts.Name)
+	}
 	typeVal := map[registry.ValueType]string{
 		registry.Float:  "DOUBLE",
 		registry.String: "TEXT",
@@ -204,7 +209,7 @@ func (s *SqlStorage) CreateHandler(ts registry.TimeSeries) error {
 		registry.Data:   "TEXT",
 	}
 
-	stmt := fmt.Sprintf("CREATE TABLE [%s] (time DOUBLE NOT NULL, value %s,  PRIMARY KEY (time))", ts.Name, typeVal[ts.Type])
+	stmt := fmt.Sprintf("CREATE TABLE [%s] (time DOUBLE NOT NULL, value %s,  PRIMARY KEY (time))", tableName, typeVal[ts.Type])
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
 	_, err := s.pool.Exec(stmt)
@@ -775,4 +780,17 @@ func aggrToSqlFunc(aggrName string) (sqlFunc string) {
 	default:
 		panic("Invalid aggregation:" + aggrName)
 	}
+}
+
+// validTableName checks if the table name is a valid SenML name or not.
+func validTableName(tableName string) bool {
+	validSenmlName, err := regexp.Compile(`^[a-zA-Z0-9]+[a-zA-Z0-9-:./_]*$`)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	if !validSenmlName.MatchString(tableName) {
+		return false
+	}
+	return true
 }
