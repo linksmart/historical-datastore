@@ -29,7 +29,7 @@ ENV DISABLE_LOG_TIME=1
 COPY --from=builder /home/historical-datastore .
 COPY sample_conf/historical-datastore.json /home/conf/
 
-ENV HDS_DATA_BACKEND_DSN="/data/data.db?cache=shared"
+ENV HDS_DATA_BACKEND_DSN="/data/data.db?cache=shared&_journal=WAL"
 ENV HDS_REGISTRY_BACKEND_DSN=/data/registry
 
 VOLUME /data

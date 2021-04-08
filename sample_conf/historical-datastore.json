@@ -21,7 +21,7 @@
   "data": {
     "backend": {
       "type": "sqlite",
-      "dsn": "./hds/data.db?cache=shared"
+      "dsn": "./hds/data.db?cache=shared&_journal=WAL"
     },
     "autoRegistration": false
   },
