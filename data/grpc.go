@@ -158,19 +158,36 @@ func (a GrpcAPI) Subscribe(request *pbgo.SubscribeRequest, stream pbgo.Data_Subs
 	}
 	defer a.c.Unsubscribe(ch, names...)
 
+	// Use a temporary buffer to store the subscribed measurements so that the publisher is not
+	// stuck because of a slow clients.
+	const PubSubBufferSize = 100
+	tempCh := make(chan interface{}, PubSubBufferSize)
+
 	ctx := stream.Context()
+	go func() {
+		defer close(tempCh)
+		for pack := range ch {
+			if len(tempCh) == PubSubBufferSize {
+				log.Printf("pubsub buffer overflow. unsubscribing for the data events: %v", names)
+				a.c.Unsubscribe(ch, names...)
+				break
+			}
+			tempCh <- pack
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case res := <-ch:
+		case res := <-tempCh:
 			if p, ok := res.(senml.Pack); ok {
 				message := codec.ExportProtobufMessage(p)
 				if err := stream.Send(&message); err != nil {
 					return err
 				}
 			} else {
-				log.Print("channel closed")
+				log.Printf("channel closed: streams: %v", names)
 				return nil
 			}
 		}

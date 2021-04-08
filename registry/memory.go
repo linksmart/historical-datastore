@@ -36,10 +36,6 @@ func NewMemoryStorage(conf common.RegConf, listeners ...EventListener) Storage {
 }
 
 func (ms *MemoryStorage) add(ts TimeSeries) (*TimeSeries, error) {
-	err := validateCreation(ts, ms.conf)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrBadRequest, err)
-	}
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
@@ -53,7 +49,7 @@ func (ms *MemoryStorage) add(ts TimeSeries) (*TimeSeries, error) {
 	ms.resources[ts.Name] = ts.Name
 
 	// Send a create event
-	err = ms.event.created(&ts)
+	err := ms.event.created(&ts)
 	if err != nil {
 		return nil, err
 	}

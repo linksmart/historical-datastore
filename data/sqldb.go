@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/farshidtz/senml/v2"
@@ -17,7 +19,8 @@ var sqlQueryTimeout = 30 * time.Second
 
 // SqlStorage implements a SqlDB storage client for HDS Data API
 type SqlStorage struct {
-	pool *sql.DB
+	pool        *sql.DB
+	updateMutex sync.Mutex
 }
 
 func NewSqlStorage(conf common.DataConf) (storage *SqlStorage, disconnect_func func() error, err error) {
@@ -26,6 +29,7 @@ func NewSqlStorage(conf common.DataConf) (storage *SqlStorage, disconnect_func f
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return storage, storage.Disconnect, err
 }
 
@@ -37,7 +41,9 @@ func btoi(b bool) int {
 }
 
 func (s *SqlStorage) Submit(ctx context.Context, data map[string]senml.Pack, series map[string]*registry.TimeSeries) (err error) {
-	tx, txErr := s.pool.Begin()
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+	tx, txErr := s.pool.BeginTx(ctx, nil)
 	if txErr != nil {
 		return txErr
 	}
@@ -148,6 +154,8 @@ func (s *SqlStorage) Count(ctx context.Context, q Query, series ...*registry.Tim
 }
 
 func (s *SqlStorage) Delete(ctx context.Context, series []*registry.TimeSeries, from time.Time, to time.Time) (err error) {
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
 	var stmt strings.Builder
 	seperator := ""
 
@@ -190,7 +198,10 @@ func (s *SqlStorage) Disconnect() error {
 
 // CreateHandler handles the creation of a new TimeSeries
 func (s *SqlStorage) CreateHandler(ts registry.TimeSeries) error {
-
+	tableName := ts.Name
+	if !validTableName(tableName) {
+		return fmt.Errorf("invalid senml name for the table %s", ts.Name)
+	}
 	typeVal := map[registry.ValueType]string{
 		registry.Float:  "DOUBLE",
 		registry.String: "TEXT",
@@ -198,9 +209,14 @@ func (s *SqlStorage) CreateHandler(ts registry.TimeSeries) error {
 		registry.Data:   "TEXT",
 	}
 
-	stmt := fmt.Sprintf("CREATE TABLE [%s] (time DOUBLE NOT NULL, value %s,  PRIMARY KEY (time))", ts.Name, typeVal[ts.Type])
+	stmt := fmt.Sprintf("CREATE TABLE [%s] (time DOUBLE NOT NULL, value %s,  PRIMARY KEY (time))", tableName, typeVal[ts.Type])
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
 	_, err := s.pool.Exec(stmt)
-	return err
+	if err != nil {
+		return fmt.Errorf("error creating table: %s", err)
+	}
+	return nil
 }
 
 // UpdateHandler handles updates of a TimeSeries
@@ -219,16 +235,22 @@ func (s *SqlStorage) DeleteHandler(ts registry.TimeSeries) error {
 	if tableExists == false {
 		return nil
 	}
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
 	stmt := fmt.Sprintf("DROP TABLE [%s]", ts.Name)
-	_, err = s.pool.Exec(stmt)
-	return err
+	_, err = s.pool.Exec(stmt, ts.Name)
+
+	if err != nil {
+		return fmt.Errorf("error dropping table: %s", err)
+	}
+	return nil
 }
 
 func (s *SqlStorage) TableExists(ts registry.TimeSeries) (bool, error) {
 	var total int
-	stmt := fmt.Sprintf("SELECT  COUNT(*) FROM sqlite_master WHERE type='table' AND name='%s'", ts.Name)
+	stmt := "SELECT  COUNT(*) FROM sqlite_master WHERE type='table' AND name= ?"
 
-	row := s.pool.QueryRow(stmt)
+	row := s.pool.QueryRow(stmt, ts.Name)
 
 	err := row.Scan(&total)
 	if err != nil {
@@ -758,4 +780,17 @@ func aggrToSqlFunc(aggrName string) (sqlFunc string) {
 	default:
 		panic("Invalid aggregation:" + aggrName)
 	}
+}
+
+// validTableName checks if the table name is a valid SenML name or not.
+func validTableName(tableName string) bool {
+	validSenmlName, err := regexp.Compile(`^[a-zA-Z0-9]+[a-zA-Z0-9-:./_]*$`)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	if !validSenmlName.MatchString(tableName) {
+		return false
+	}
+	return true
 }
