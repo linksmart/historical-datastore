@@ -21,7 +21,7 @@ func setupGrpcAPI(t *testing.T, regController Controller) (grpcClient *GrpcClien
 	lis := bufconn.Listen(bufSize)
 	//start the server
 	srv := grpc.NewServer()
-	RegisterGRPCAPI(srv, regController)
+	RegisterGRPCAPI(srv, regController, false)
 
 	go func() {
 		if err := srv.Serve(lis); err != nil {

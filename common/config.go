@@ -37,6 +37,8 @@ type GRPCConf struct {
 	Enabled  bool   `json:"enabled"`
 	BindAddr string `json:"bindAddr"`
 	BindPort uint16 `json:"bindPort"`
+	// RestrictedAccess, if set to true, both data and registry deletion/update methods are blocked during gRPC calls
+	RestrictedAccess bool `json:"restrictedAccess"`
 }
 
 // HTTP config

@@ -18,12 +18,16 @@ import (
 
 // API describes the RESTful HTTP data API
 type GrpcAPI struct {
-	c Controller
+	c                Controller
+	restrictedAccess bool
 }
 
 // Register the Data API to the server
-func RegisterGRPCAPI(srv *grpc.Server, c Controller) {
-	grpcAPI := &GrpcAPI{c: c}
+func RegisterGRPCAPI(srv *grpc.Server, c Controller, restricted bool) {
+	grpcAPI := &GrpcAPI{
+		c:                c,
+		restrictedAccess: restricted,
+	}
 	pbgo.RegisterDataServer(srv, grpcAPI)
 }
 
@@ -133,6 +137,9 @@ func (a GrpcAPI) Count(ctx context.Context, request *pbgo.QueryRequest) (*pbgo.C
 }
 
 func (a GrpcAPI) Delete(ctx context.Context, request *pbgo.DeleteRequest) (*pbgo.Void, error) {
+	if a.restrictedAccess {
+		return &pbgo.Void{}, status.Errorf(codes.PermissionDenied, "data: deleting is not allowed using gRPC")
+	}
 	from, err := parseFromValue(request.From)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Error parsing from value: "+err.Error())

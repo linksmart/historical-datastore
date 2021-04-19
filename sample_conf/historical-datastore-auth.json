@@ -10,7 +10,8 @@
   "grpc": {
     "enabled": false,
     "bindAddr": "0.0.0.0",
-    "bindPort": 8088
+    "bindPort": 8088,
+    "restrictedAccess": false
   },
   "registry": {
     "backend": {

@@ -299,8 +299,8 @@ func startGRPCServer(conf *common.Config, dataController *data.Controller, regCo
 			UnaryLogInterceptor(),
 		)))
 
-	data.RegisterGRPCAPI(srv, *dataController)
-	registry.RegisterGRPCAPI(srv, *regController)
+	data.RegisterGRPCAPI(srv, *dataController, conf.GRPC.RestrictedAccess)
+	registry.RegisterGRPCAPI(srv, *regController, conf.GRPC.RestrictedAccess)
 
 	err = srv.Serve(l)
 

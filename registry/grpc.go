@@ -15,12 +15,16 @@ import (
 
 // API describes the RESTful gRPC data API
 type GrpcAPI struct {
-	c Controller
+	c          Controller
+	restricted bool
 }
 
 // Register the Registry API to the server
-func RegisterGRPCAPI(srv *grpc.Server, c Controller) {
-	grpcAPI := &GrpcAPI{c: c}
+func RegisterGRPCAPI(srv *grpc.Server, c Controller, restricted bool) {
+	grpcAPI := &GrpcAPI{
+		c:          c,
+		restricted: restricted,
+	}
 	pbgo.RegisterRegistryServer(srv, grpcAPI)
 }
 
@@ -201,6 +205,9 @@ func (a GrpcAPI) Filter(ctx context.Context, req *pbgo.FilterManyRequest) (*pbgo
 }
 
 func (a GrpcAPI) Update(ctx context.Context, series *pbgo.Series) (*pbgo.Void, error) {
+	if a.restricted {
+		return &pbgo.Void{}, status.Errorf(codes.PermissionDenied, "registry: update is not allowed using gRPC")
+	}
 	ts, err := UnmarshalSeries(*series)
 	if err != nil {
 		return &pbgo.Void{}, status.Errorf(codes.InvalidArgument, err.Error())
@@ -213,6 +220,9 @@ func (a GrpcAPI) Update(ctx context.Context, series *pbgo.Series) (*pbgo.Void, e
 }
 
 func (a GrpcAPI) Delete(ctx context.Context, name *pbgo.SeriesName) (*pbgo.Void, error) {
+	if a.restricted {
+		return &pbgo.Void{}, status.Errorf(codes.PermissionDenied, "registry: deleting is not allowed using gRPC")
+	}
 	deleteErr := a.c.Delete(name.Series)
 	if deleteErr != nil {
 		return &pbgo.Void{}, status.Errorf(deleteErr.GrpcStatus(), deleteErr.Error())

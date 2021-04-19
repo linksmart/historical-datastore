@@ -48,7 +48,7 @@ func setupGrpcAPI(t *testing.T, dataStorage Storage, regController registry.Cont
 	//start the server
 	srv := grpc.NewServer()
 	controller := NewController(regController, dataStorage, false)
-	RegisterGRPCAPI(srv, *controller)
+	RegisterGRPCAPI(srv, *controller, false)
 
 	go func() {
 		if err := srv.Serve(lis); err != nil {
