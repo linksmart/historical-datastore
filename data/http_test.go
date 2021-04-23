@@ -4,10 +4,12 @@ package data
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/farshidtz/senml/v2"
 	"github.com/linksmart/historical-datastore/common"
+	"github.com/linksmart/service-catalog/v2/utils"
 
 	"github.com/gorilla/mux"
 	"github.com/linksmart/historical-datastore/registry"
@@ -141,6 +144,32 @@ func TestHttpSubmit(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if res.StatusCode != http.StatusNoContent {
+		t.Errorf("Server response is not %v but %v", http.StatusNoContent, res.StatusCode)
+		return
+	}
+
+	// try a gzip content
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	_, err = zw.Write(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		log.Fatal(err)
+	}
+
+	res, err = utils.HTTPRequest("POST",
+		ts.URL+"/data/"+all,
+		map[string][]string{"Content-Type": []string{"application/senml+json"},
+			"Content-Encoding": []string{"gzip"}},
+		bytes.NewReader(buf.Bytes()),
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if res.StatusCode != http.StatusNoContent {
 		t.Errorf("Server response is not %v but %v", http.StatusNoContent, res.StatusCode)
 		return
