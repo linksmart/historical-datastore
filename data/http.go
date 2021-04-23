@@ -3,8 +3,10 @@
 package data
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"mime"
 	"net/http"
@@ -101,14 +103,37 @@ func (api *API) Query(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", common.DefaultMIMEType)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(csvStr))
+	w.Write(csvStr)
+}
+
+func getRequestBodyReader(r *http.Request) (io.Reader, common.Error) {
+	var reader io.ReadCloser
+	contentEncoding := r.Header.Get("Content-Encoding")
+	switch contentEncoding {
+	case "gzip":
+		var err error
+		reader, err = gzip.NewReader(r.Body)
+		if err != nil {
+			return nil, &common.BadRequestError{S: fmt.Sprintf("error parsing the http body %s", err)}
+		}
+	case "":
+		reader = r.Body
+	default:
+		return nil, &common.BadRequestError{S: fmt.Sprintf("unknown content encoding %s", contentEncoding)}
+	}
+	return reader, nil
 }
 
 // Submit is a handler for submitting a new data point
 // Expected parameters: id(s)
 func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	// Read body
-	body, err := ioutil.ReadAll(r.Body)
+	var err error
+	reqBodyReader, err := getRequestBodyReader(r)
+	if err != nil {
+		common.HttpErrorResponse(err.(common.Error), w)
+	}
+	body, err := ioutil.ReadAll(reqBodyReader)
 	defer r.Body.Close()
 	if err != nil {
 		common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
@@ -153,7 +178,12 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 	// Read body
-	body, err := ioutil.ReadAll(r.Body)
+	var err error
+	reqBodyReader, err := getRequestBodyReader(r)
+	if err != nil {
+		common.HttpErrorResponse(err.(common.Error), w)
+	}
+	body, err := ioutil.ReadAll(reqBodyReader)
 	defer r.Body.Close()
 	if err != nil {
 		common.HttpErrorResponse(&common.BadRequestError{S: err.Error()}, w)
