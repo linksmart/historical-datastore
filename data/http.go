@@ -114,12 +114,12 @@ func getRequestBodyReader(r *http.Request) (io.Reader, common.Error) {
 		var err error
 		reader, err = gzip.NewReader(r.Body)
 		if err != nil {
-			return nil, &common.BadRequestError{S: fmt.Sprintf("error parsing the http body %s", err)}
+			return nil, &common.BadRequestError{S: fmt.Sprintf("error parsing the http body: %s", err)}
 		}
 	case "":
 		reader = r.Body
 	default:
-		return nil, &common.BadRequestError{S: fmt.Sprintf("unknown content encoding %s", contentEncoding)}
+		return nil, &common.BadRequestError{S: fmt.Sprintf("unsupported Content-Encoding %s", contentEncoding)}
 	}
 	return reader, nil
 }
