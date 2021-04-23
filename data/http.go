@@ -128,10 +128,10 @@ func getRequestBodyReader(r *http.Request) (io.Reader, common.Error) {
 // Expected parameters: id(s)
 func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 	// Read body
-	var err error
-	reqBodyReader, err := getRequestBodyReader(r)
-	if err != nil {
-		common.HttpErrorResponse(err.(common.Error), w)
+	reqBodyReader, encErr := getRequestBodyReader(r)
+	if encErr != nil {
+		common.HttpErrorResponse(encErr, w)
+		return
 	}
 	body, err := ioutil.ReadAll(reqBodyReader)
 	defer r.Body.Close()
@@ -178,10 +178,10 @@ func (api *API) Submit(w http.ResponseWriter, r *http.Request) {
 func (api *API) SubmitWithoutID(w http.ResponseWriter, r *http.Request) {
 
 	// Read body
-	var err error
-	reqBodyReader, err := getRequestBodyReader(r)
-	if err != nil {
-		common.HttpErrorResponse(err.(common.Error), w)
+	reqBodyReader, encErr := getRequestBodyReader(r)
+	if encErr != nil {
+		common.HttpErrorResponse(encErr, w)
+		return
 	}
 	body, err := ioutil.ReadAll(reqBodyReader)
 	defer r.Body.Close()
