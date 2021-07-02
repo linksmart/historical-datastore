@@ -114,7 +114,7 @@ func getRequestBodyReader(r *http.Request) (io.Reader, common.Error) {
 		var err error
 		reader, err = gzip.NewReader(r.Body)
 		if err != nil {
-			return nil, &common.BadRequestError{S: fmt.Sprintf("error parsing the http body: %s", err)}
+			return nil, &common.BadRequestError{S: fmt.Sprintf("error parsing gzip: %s", err)}
 		}
 	case "":
 		reader = r.Body
